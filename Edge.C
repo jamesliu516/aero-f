@@ -1714,7 +1714,7 @@ void EdgeSet::computeDerivativeOfFiniteVolumeTerm(FluxFcn** fluxFcn, RecFcn* rec
 						  GeoState& geoState, SVec<double,3>& X, LevelSetStructure &LSS,
 						  bool linRecAtInterface, Vec<int> &fluidId, 
 						  ExactRiemannSolver<dim>& riemann, int Nriemann,
-						  SVec<double,3> *Nsbar, NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
+						  NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
 						  double dMach, SVec<double,dim>& V, SVec<double,dim>& dFluxes)
 {
 
@@ -1796,13 +1796,6 @@ void EdgeSet::computeDerivativeOfFiniteVolumeTerm(FluxFcn** fluxFcn, RecFcn* rec
 	case 1: //fluid normal
 	  normalDir = -1.0/(edgeNorm[l].norm())*edgeNorm[l];
        	       dndS = 0.0;
-	  break;
-	case 2: //cell-averaged structure normal
-	  //if(fluidId[i]==farfieldFluid)
-	  //normalDir =      Vec3D((*Nsbar)[i][0], (*Nsbar)[i][1], (*Nsbar)[i][2]);
-	  //else 
-	  //  normalDir = -1.0*Vec3D((*Nsbar)[i][0], (*Nsbar)[i][1], (*Nsbar)[i][2]);
-	  exit(-1);
 	  break;
 	default:
 	  fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
@@ -1904,13 +1897,6 @@ void EdgeSet::computeDerivativeOfFiniteVolumeTerm(FluxFcn** fluxFcn, RecFcn* rec
 	case 1: //fluid normal
 	  normalDir = 1.0/(edgeNorm[l].norm())*edgeNorm[l];
                dndS = 0.0;
-	  break;
-	case 2: //cell-averaged structure normal
-	  // if(fluidId[j]==farfieldFluid)       
-	  //   normalDir =      Vec3D((*Nsbar)[j][0], (*Nsbar)[j][1], (*Nsbar)[j][2]);
-	  // else
-	  //   normalDir = -1.0*Vec3D((*Nsbar)[j][0], (*Nsbar)[j][1], (*Nsbar)[j][2]);
-	  exit(-1);
 	  break;
 	default:
 	  fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
@@ -2487,7 +2473,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                                      ElemSet& elems, GeoState& geoState, SVec<double,3>& X,
                                      SVec<double,dim>& V, SVec<double,dim> &Wstarij, SVec<double,dim> &Wstarji,
                                      LevelSetStructure& LSS, bool linRecAtInterface, Vec<int> &fluidId,
-                                     int Nriemann, SVec<double,3>* Nsbar, FluidSelector &fluidSelector,
+                                     int Nriemann, FluidSelector &fluidSelector,
                                      NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
 				     SVec<double,dimLS>& phi,
                                      NodalGrad<dimLS>& ngradLS, EdgeGrad<dimLS>* egradLS,
@@ -2671,10 +2657,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
           case 1: //fluid normal
             normalDir = -1.0/(normal[l].norm())*normal[l];
             break;
-          case 2: //cell-averaged structure normal
-            if(LSS.fluidModel(0.0,i)==farfieldFluid) normalDir =      Vec3D((*Nsbar)[i][0], (*Nsbar)[i][1], (*Nsbar)[i][2]);
-            else                                     normalDir = -1.0*Vec3D((*Nsbar)[i][0], (*Nsbar)[i][1], (*Nsbar)[i][2]);
-            break;
           default:
             fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
             exit(-1);
@@ -2751,10 +2733,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
             break;
           case 1: //fluid normal
             normalDir = 1.0/(normal[l].norm())*normal[l];
-            break;
-          case 2: //cell-averaged structure normal
-            if(LSS.fluidModel(0.0,j)==farfieldFluid)  normalDir =      Vec3D((*Nsbar)[j][0], (*Nsbar)[j][1], (*Nsbar)[j][2]);
-            else                                      normalDir = -1.0*Vec3D((*Nsbar)[j][0], (*Nsbar)[j][1], (*Nsbar)[j][2]);
             break;
           default:
             fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
@@ -3172,7 +3150,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                                      ElemSet& elems, GeoState& geoState, SVec<double,3>& X,
                                      SVec<double,dim>& V, SVec<double,dim>& Wstarij,
                                      SVec<double,dim>& Wstarji, LevelSetStructure &LSS, bool linRecAtInterface,
-                                     Vec<int> &fluidId, int Nriemann, SVec<double,3> *Nsbar,
+                                     Vec<int> &fluidId, int Nriemann,
                                      NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
                                      SVec<double,dim>& fluxes, int it,
                                      SVec<int,2>& tag, int failsafe, int rshift)
@@ -3328,10 +3306,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
           case 1: //fluid normal
             normalDir = -1.0/(normal[l].norm())*normal[l];
             break;
-          case 2: //cell-averaged structure normal
-            if(fluidId[i]==farfieldFluid)       normalDir =      Vec3D((*Nsbar)[i][0], (*Nsbar)[i][1], (*Nsbar)[i][2]);
-            else                                normalDir = -1.0*Vec3D((*Nsbar)[i][0], (*Nsbar)[i][1], (*Nsbar)[i][2]);
-            break;
           default:
             fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
             exit(-1);
@@ -3441,10 +3415,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
           case 1: //fluid normal
             normalDir = 1.0/(normal[l].norm())*normal[l];
             break;
-          case 2: //cell-averaged structure normal
-            if(fluidId[j]==farfieldFluid)       normalDir =      Vec3D((*Nsbar)[j][0], (*Nsbar)[j][1], (*Nsbar)[j][2]);
-            else                                normalDir = -1.0*Vec3D((*Nsbar)[j][0], (*Nsbar)[j][1], (*Nsbar)[j][2]);
-            break;
           default:
             fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
             exit(-1);
@@ -3552,7 +3522,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 				     SVec<double,dim>& Wstarij, SVec<double,dim>& Wstarji, 
 				     Vec<int>& countWstarij, Vec<int>& countWstarji, 
 				     LevelSetStructure &LSS, bool linRecAtInterface, 
-				     Vec<int> &fluidId, int Nriemann, SVec<double,3> *Nsbar, 
+				     Vec<int> &fluidId, int Nriemann,
 				     double dt, double alpha, NodalGrad<dim>& ngrad, 
 				     EdgeGrad<dim>* egrad, SVec<double,dim>& fluxes, int it,
                                      SVec<int,2>& tag, int failsafe, int rshift, 
@@ -3692,10 +3662,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
           case 1: //fluid normal
             normalDir = -1.0/(normal[l].norm())*normal[l];
             break;
-          case 2: //cell-averaged structure normal
-            if(fluidId[i]==farfieldFluid)       normalDir =      Vec3D((*Nsbar)[i][0], (*Nsbar)[i][1], (*Nsbar)[i][2]);
-            else                                normalDir = -1.0*Vec3D((*Nsbar)[i][0], (*Nsbar)[i][1], (*Nsbar)[i][2]);
-            break;
           default:
             fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
             exit(-1);
@@ -3776,10 +3742,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
             break;
           case 1: //fluid normal
             normalDir = 1.0/(normal[l].norm())*normal[l];
-            break;
-          case 2: //cell-averaged structure normal
-            if(fluidId[j]==farfieldFluid)       normalDir =      Vec3D((*Nsbar)[j][0], (*Nsbar)[j][1], (*Nsbar)[j][2]);
-            else                                normalDir = -1.0*Vec3D((*Nsbar)[j][0], (*Nsbar)[j][1], (*Nsbar)[j][2]);
             break;
           default:
             fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
@@ -4764,7 +4726,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                              GeoState& geoState, SVec<double,3>& X,
                                              SVec<double,dim>& V, Vec<double>& ctrlVol,
                                              LevelSetStructure &LSS,
-                                             Vec<int> &fluidId, int Nriemann, SVec<double,3> *Nsbar,
+                                             Vec<int> &fluidId, int Nriemann,
                                              GenMat<Scalar,neq>& A,Vec<double>& irey) {
 
 
@@ -4890,10 +4852,6 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
           case 1: //fluid normal
             normalDir = -1.0/(normal[l].norm())*normal[l];
             break;
-          case 2: //cell-averaged structure normal
-            if(fluidId[i]==farfieldFluid)       normalDir =      Vec3D((*Nsbar)[i][0], (*Nsbar)[i][1], (*Nsbar)[i][2]);
-            else                                normalDir = -1.0*Vec3D((*Nsbar)[i][0], (*Nsbar)[i][1], (*Nsbar)[i][2]);
-            break;
           default:
             fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
             exit(-1);
@@ -4972,10 +4930,6 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
           case 1: //fluid normal
             normalDir = 1.0/(normal[l].norm())*normal[l];
             break;
-          case 2: //cell-averaged structure normal
-            if(fluidId[j]==farfieldFluid)       normalDir =      Vec3D((*Nsbar)[j][0], (*Nsbar)[j][1], (*Nsbar)[j][2]);
-            else                                normalDir = -1.0*Vec3D((*Nsbar)[j][0], (*Nsbar)[j][1], (*Nsbar)[j][2]);
-            break;
           default:
             fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
             exit(-1);
@@ -5049,7 +5003,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,i
                                      GeoState& geoState, SVec<double,3>& X,
                                      SVec<double,dim>& V, 
                                      LevelSetStructure& LSS, Vec<int> &fluidId,
-                                     int Nriemann, SVec<double,3>* Nsbar, FluidSelector &fluidSelector,
+                                     int Nriemann, FluidSelector &fluidSelector,
                                      NodalGrad<dimLS>& ngradLS,Vec<double>& ctrlVol,
                                      GenMat<Scalar,neq>& A) {
 
@@ -5134,10 +5088,6 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,i
           case 1: //fluid normal
             normalDir = -1.0/(normal[l].norm())*normal[l];
             break;
-          case 2: //cell-averaged structure normal
-            if(LSS.fluidModel(0.0,i)==farfieldFluid)  normalDir =      Vec3D((*Nsbar)[i][0], (*Nsbar)[i][1], (*Nsbar)[i][2]);
-            else                                     normalDir = -1.0*Vec3D((*Nsbar)[i][0], (*Nsbar)[i][1], (*Nsbar)[i][2]);
-            break;
           default:
             fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
             exit(-1);
@@ -5167,10 +5117,6 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,i
             break;
           case 1: //fluid normal
             normalDir = 1.0/(normal[l].norm())*normal[l];
-            break;
-          case 2: //cell-averaged structure normal
-            if(LSS.fluidModel(0.0,j)==farfieldFluid)  normalDir =      Vec3D((*Nsbar)[j][0], (*Nsbar)[j][1], (*Nsbar)[j][2]);
-            else                                     normalDir = -1.0*Vec3D((*Nsbar)[j][0], (*Nsbar)[j][1], (*Nsbar)[j][2]);
             break;
           default:
             fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");

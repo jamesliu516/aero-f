@@ -178,7 +178,7 @@ public:
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&, int*,
                               FluxFcn**, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&,
                               SVec<double,dim>&, SVec<double,dim>&, SVec<double,dim>&,
-                              LevelSetStructure&, bool, Vec<int> &, int, SVec<double,3>*, FluidSelector &,
+                              LevelSetStructure&, bool, Vec<int> &, int, FluidSelector &,
                               NodalGrad<dim>&, EdgeGrad<dim>*,
 			      SVec<double,dimLS>& phi,
                               NodalGrad<dimLS>&, EdgeGrad<dimLS>*,
@@ -190,7 +190,7 @@ public:
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&, int*,
                               FluxFcn**, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&,
                               SVec<double,dim>&, SVec<double,dim>&, SVec<double,dim>&, LevelSetStructure &,
-                              bool, Vec<int>&, int, SVec<double,3>*, NodalGrad<dim>&, EdgeGrad<dim>*,
+                              bool, Vec<int>&, int, NodalGrad<dim>&, EdgeGrad<dim>*,
                               SVec<double,dim>&, int,
                               SVec<int,2>&, int, int);
 
@@ -198,9 +198,9 @@ public:
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&, int*,
                               FluxFcn**, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&,
                               SVec<double,dim>&, SVec<double,dim>&, SVec<double,dim>&,
-							  Vec<int>&, Vec<int>&, LevelSetStructure &, bool, Vec<int>&, 
-							  int, SVec<double,3>*, double, double, NodalGrad<dim>&, 
-							  EdgeGrad<dim>*, SVec<double,dim>&, int,
+                              Vec<int>&, Vec<int>&, LevelSetStructure &, bool, Vec<int>&, 
+                              int, double, double, NodalGrad<dim>&, 
+                              EdgeGrad<dim>*, SVec<double,dim>&, int,
                               SVec<int,2>&, int, int, V6NodeData (*v6Data)[2]=NULL); 
 
   template<int dim, int dimLS>
@@ -219,7 +219,7 @@ public:
   void computeJacobianFiniteVolumeTerm(FluxFcn **, GeoState &,
                                Vec<double> &, SVec<double,3> &, Vec<double> &,
                                SVec<double,dim> &, GenMat<Scalar,neq> &,
-                               int * );
+                               int *);
 
   template<int dim, class Scalar, int neq, int dimLS>
   void computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>&, FluxFcn **, GeoState &,
@@ -238,7 +238,7 @@ public:
   void computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>&,
                               FluxFcn**, GeoState&, SVec<double,3>&,
                               SVec<double,dim>&, Vec<double>&, LevelSetStructure &,
-                              Vec<int>&, int, SVec<double,3>*,
+                              Vec<int>&, int,
                               GenMat<Scalar,neq>&,Vec<double>& irey);
 
   template<class Scalar,int dim, int dimLS,int neq>
@@ -247,7 +247,7 @@ public:
                                      GeoState& geoState, SVec<double,3>& X,
                                      SVec<double,dim>& V, 
                                      LevelSetStructure& LSS, Vec<int> &fluidId,
-                                     int Nriemann, SVec<double,3>* Nsbar, FluidSelector &fluidSelector,
+                                     int Nriemann, FluidSelector &fluidSelector,
                                      NodalGrad<dimLS>& ngradLS,Vec<double>&,GenMat<Scalar,neq>& A);
 
   template<class Scalar, int dim, int dimLS>
@@ -328,7 +328,7 @@ public:
 					   GeoState& geoState, SVec<double,3>& X, LevelSetStructure &LSS,
 					   bool linRecAtInterface, Vec<int> &fluidId, 
 					   ExactRiemannSolver<dim>& riemann, int Nriemann,
-					   SVec<double,3> *Nsbar, NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
+					   NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
 					   double dMach, SVec<double,dim>& V, SVec<double,dim>& dFluxes);
    
   template<int dim>
@@ -352,8 +352,6 @@ public:
   void computeCharacteristicEdgeLength(SVec<double,3> &, double&, double&, double&, int&,
                                        const double, const double, const double,
                                        const double, const double, const double);
-
-  void computeCellAveragedStructNormal(SVec<double,3> &, Vec<double> &, LevelSetStructure &);
 
   void attachProgrammedBurn(ProgrammedBurn*);
   void attachHigherOrderMultiFluid(HigherOrderMultiFluid*);

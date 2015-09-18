@@ -2091,31 +2091,6 @@ void Domain::updateNodeTag(DistSVec<double,3> &X, DistLevelSetStructure *LSS, Di
 
 //-------------------------------------------------------------------------------
 
-void Domain::computeCellAveragedStructNormal(DistSVec<double,3> &Nsbar, DistVec<double> &weights,
-                                             DistLevelSetStructure *distLSS)
-{
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->computeCellAveragedStructNormal(Nsbar(iSub), weights(iSub), (*distLSS)(iSub));
-
-  assemble(vec3DPat, Nsbar);
-  assemble(volPat, weights);
-
-  //Normalize Nsbar
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    for (int iNode=0; iNode<Nsbar(iSub).size(); iNode++) 
-      if(weights(iSub)[iNode]>=0.1) {
-        double norm = sqrt(Nsbar(iSub)[iNode][0]*Nsbar(iSub)[iNode][0] +
-                           Nsbar(iSub)[iNode][1]*Nsbar(iSub)[iNode][1] +
-                           Nsbar(iSub)[iNode][2]*Nsbar(iSub)[iNode][2]);
-        for(int k=0; k<3; k++)
-          Nsbar(iSub)[iNode][k] /= norm;
-      }
-}
-
-//-------------------------------------------------------------------------------
-
 void Domain::computeCharacteristicEdgeLength(DistSVec<double,3> &X, double& minLength, double& aveLength, double& maxLength, int& numInsideEdges, const double xmin, const double xmax, const double ymin, const double ymax, const double zmin, const double zmax)
 {
   double subDminLength[numLocSub], subDaveLength[numLocSub], subDmaxLength[numLocSub];

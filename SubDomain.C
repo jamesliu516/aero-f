@@ -1708,7 +1708,7 @@ void SubDomain::computeDerivativeOfFiniteVolumeTerm(FluxFcn** fluxFcn, RecFcn* r
 						    bool linRecAtInterface, bool viscSecOrder,
 						    Vec<int> &fluidId,
 						    ExactRiemannSolver<dim>& riemann,
-						    int Nriemann, SVec<double,3>* Nsbar,
+						    int Nriemann,
 						    NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
 						    double dMach,
 						    SVec<double,dim>& V,
@@ -1719,7 +1719,7 @@ void SubDomain::computeDerivativeOfFiniteVolumeTerm(FluxFcn** fluxFcn, RecFcn* r
 
   edges.computeDerivativeOfFiniteVolumeTerm(fluxFcn, recFcn, geoState, X, LSS, 
 					    linRecAtInterface, fluidId, riemann,
-					    Nriemann, Nsbar, ngrad, egrad, dMach, V, dFluxes);
+					    Nriemann, ngrad, egrad, dMach, V, dFluxes);
 
   faces.computeDerivativeOfFiniteVolumeTerm(fluxFcn, bcData, geoState, V, dFluxes);
 
@@ -1761,7 +1761,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        SVec<double,3>& X, SVec<double,dim>& V,
                                        SVec<double,dim>& Wstarij, SVec<double,dim>& Wstarji, 
                                        LevelSetStructure& LSS, bool linRecAtInterface, 
-                                       Vec<int> &fluidId, int Nriemann, SVec<double,3>* Nsbar, 
+                                       Vec<int> &fluidId, int Nriemann,
                                        FluidSelector &fluidSelector,
                                        NodalGrad<dim>& ngrad, 
 				       EdgeGrad<dim>* egrad,
@@ -1774,7 +1774,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 
   int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn,
                                            recFcn, elems, geoState, X, V, Wstarij, Wstarji, LSS, linRecAtInterface,
-                                           fluidId, Nriemann, Nsbar, fluidSelector,
+                                           fluidId, Nriemann, fluidSelector,
                                            ngrad, egrad, phi, ngradLS, egradLS, fluxes, it,
                                            tag, failsafe, rshift);
 
@@ -1793,7 +1793,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        SVec<double,3>& X, SVec<double,dim>& V,
                                        SVec<double,dim>& Wstarij, SVec<double,dim>& Wstarji,
                                        LevelSetStructure &LSS, bool linRecAtInterface, Vec<int> &fluidId,
-                                       int Nriemann, SVec<double,3>* Nsbar, NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
+                                       int Nriemann, NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
                                        SVec<double,dim>& fluxes, int it,
                                        SVec<int,2>& tag, int failsafe, int rshift)
 {
@@ -1806,7 +1806,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 				     Wstarij, Wstarji, 
 				     dummy,dummy, 
 				     LSS, linRecAtInterface, 
-				     fluidId, Nriemann, Nsbar, 
+				     fluidId, Nriemann,
 				     0.0, 0.1, ngrad, 
 				     egrad, fluxes, it,
                                      tag, failsafe, rshift, 
@@ -1815,7 +1815,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 
   int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn,
                                            recFcn, elems, geoState, X, V, Wstarij, Wstarji, LSS, 
-                                           linRecAtInterface, fluidId, Nriemann, Nsbar, ngrad, egrad, fluxes, it,
+                                           linRecAtInterface, fluidId, Nriemann, ngrad, egrad, fluxes, it,
                                           tag, failsafe, rshift);
 
   faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluidId, fluxes, &LSS);
@@ -1834,7 +1834,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        SVec<double,dim>& Wstarij, SVec<double,dim>& Wstarji,
 									   Vec<int>& countWstarij, Vec<int>& countWstarji,
                                        LevelSetStructure &LSS, bool linRecAtInterface, 
-									   Vec<int> &fluidId, int Nriemann, SVec<double,3>* Nsbar, 
+									   Vec<int> &fluidId, int Nriemann,
 									   double dt, double alpha, 
 									   NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
                                        SVec<double,dim>& fluxes, int it,
@@ -1847,7 +1847,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
   int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn,
                                            recFcn, elems, geoState, X, V, Wstarij, Wstarji, 
 										   countWstarij, countWstarji, LSS, linRecAtInterface, 
-										   fluidId, Nriemann, Nsbar, dt, alpha, ngrad,
+										   fluidId, Nriemann, dt, alpha, ngrad,
   									       egrad, fluxes, it, tag, failsafe, rshift, v6data); 
   faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluidId, fluxes, &LSS);
 
@@ -2067,13 +2067,13 @@ void SubDomain::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann
                                        BcData<dim>& bcData, GeoState& geoState,
                                        SVec<double,3>& X, SVec<double,dim>& V,Vec<double>& ctrlVol,
                                        LevelSetStructure &LSS, Vec<int> &fluidId,
-                                       int Nriemann, SVec<double,3>* Nsbar,
+                                       int Nriemann,
                                        GenMat<Scalar,neq>& A,Vec<double>& irey)
 {
 
   edges.computeJacobianFiniteVolumeTerm(riemann,fluxFcn,
                                         geoState, X, V, ctrlVol, LSS, 
-                                        fluidId, Nriemann, Nsbar, A,irey);
+                                        fluidId, Nriemann, A, irey);
 
   faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A, fluidId, &LSS); 
 
@@ -2095,13 +2095,13 @@ void SubDomain::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann
                                        SVec<double,3>& X, SVec<double,dim>& V,Vec<double>& ctrlVol,
                                        NodalGrad<dimLS> &ngradLS,
                                        LevelSetStructure &LSS,Vec<int> &fluidId,
-                                       int Nriemann, SVec<double,3>* Nsbar,
+                                       int Nriemann,
                                        FluidSelector &fluidSelector,
                                        GenMat<Scalar,neq>& A) {
 
   edges.computeJacobianFiniteVolumeTerm(riemann,locToGlobNodeMap,
-                                        fluxFcn, geoState, X, V, LSS,fluidId,Nriemann, Nsbar,
-                                        fluidSelector, ngradLS,ctrlVol, A);
+                                        fluxFcn, geoState, X, V, LSS, fluidId, Nriemann,
+                                        fluidSelector, ngradLS, ctrlVol, A);
 
   faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A, fluidId, &LSS);
 
@@ -3645,7 +3645,7 @@ void SubDomain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn, BcData<dim> &bcData
 			  NodalGrad<dim> &ngrad, 
 			  ExactRiemannSolver<dim>& riemann,
 			  LevelSetStructure &LSS, 
-			  Vec<int> &fluidId, int Nriemann, SVec<double,3>* Nsbar,
+			  Vec<int> &fluidId, int Nriemann,
 			  GenMat<Scalar,neq> &A,
 			  SVec<double,dim> &aij, SVec<double,dim> &aji,
 			  SVec<double,dim> &bij, SVec<double,dim> &bji,
@@ -3746,12 +3746,6 @@ void SubDomain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn, BcData<dim> &bcData
 	 case 1: //fluid normal
 	   normalDir = -1.0/(edgeNorm[l].norm())*edgeNorm[l];
 	   break;
-	 case 2: //cell-averaged structure normal
-	   if(fluidId[i]==farfieldFluid)
-	     normalDir =      Vec3D((*Nsbar)[i][0], (*Nsbar)[i][1], (*Nsbar)[i][2]);
-	   else 
-	     normalDir = -1.0*Vec3D((*Nsbar)[i][0], (*Nsbar)[i][1], (*Nsbar)[i][2]);
-	   break;
 	 default:
 	   fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
 	   exit(-1);
@@ -3826,12 +3820,6 @@ void SubDomain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn, BcData<dim> &bcData
 	   break;
 	 case 1: //fluid normal
 	   normalDir = 1.0/(edgeNorm[l].norm())*edgeNorm[l];
-	   break;
-	 case 2: //cell-averaged structure normal
-	   if(fluidId[j]==farfieldFluid)       
-	     normalDir =      Vec3D((*Nsbar)[j][0], (*Nsbar)[j][1], (*Nsbar)[j][2]);
-	   else
-	     normalDir = -1.0*Vec3D((*Nsbar)[j][0], (*Nsbar)[j][1], (*Nsbar)[j][2]);
 	   break;
 	 default:
 	   fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
@@ -4479,7 +4467,7 @@ void SubDomain::addDiagonalInMatVecProdH2transpose(Vec<double> &ctrlVol, GenMat<
 				     SVec<double,3> &X, Vec<double> &ctrlVol, 
 				     ExactRiemannSolver<dim>& riemann,
 				     LevelSetStructure &LSS,
-				     Vec<int> &fluidId, int Nriemann, SVec<double,3>* Nsbar,			    
+				     Vec<int> &fluidId, int Nriemann,
 				     GenMat<Scalar1,dim> &A,
 				     SVec<double,dim> &aij, SVec<double,dim> &aji,
 				     SVec<double,dim> &bij, SVec<double,dim> &bji,
@@ -4586,12 +4574,6 @@ void SubDomain::addDiagonalInMatVecProdH2transpose(Vec<double> &ctrlVol, GenMat<
 	 case 1: //fluid normal
 	   normalDir = -1.0/(edgeNorm[l].norm())*edgeNorm[l];
 	   break;
-	 case 2: //cell-averaged structure normal
-	   if(fluidId[i]==farfieldFluid)
-	     normalDir =      Vec3D((*Nsbar)[i][0], (*Nsbar)[i][1], (*Nsbar)[i][2]);
-	   else 
-	     normalDir = -1.0*Vec3D((*Nsbar)[i][0], (*Nsbar)[i][1], (*Nsbar)[i][2]);
-	   break;
 	 default:
 	   fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
 	   exit(-1);
@@ -4646,12 +4628,6 @@ void SubDomain::addDiagonalInMatVecProdH2transpose(Vec<double> &ctrlVol, GenMat<
 	   break;
 	 case 1: //fluid normal
 	   normalDir = 1.0/(edgeNorm[l].norm())*edgeNorm[l];
-	   break;
-	 case 2: //cell-averaged structure normal
-	   if(fluidId[j]==farfieldFluid)       
-	     normalDir =      Vec3D((*Nsbar)[j][0], (*Nsbar)[j][1], (*Nsbar)[j][2]);
-	   else
-	     normalDir = -1.0*Vec3D((*Nsbar)[j][0], (*Nsbar)[j][1], (*Nsbar)[j][2]);
 	   break;
 	 default:
 	   fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");

@@ -156,8 +156,6 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::recomputeIntersections()
   else
     this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts, true, TsDesc<dim>::failSafeFlag); 
 
-  if(this->riemannNormal==2)
-    this->multiPhaseSpaceOp->computeCellAveragedStructNormal(*(this->Nsbar), this->distLSS);
   this->timer->addIntersectionTime(tw);
   this->com->barrier();
   this->timer->removeIntersAndPhaseChange(tw);
@@ -382,7 +380,7 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::computeRKUpdate(DistSVec<double,dim>
   this->multiPhaseSpaceOp->applyBCsToSolutionVector(Ulocal);
   this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji,
                                            this->distLSS, this->linRecAtInterface, this->viscSecOrder, this->riemann, 
-                                           this->riemannNormal, this->Nsbar,*locphi, this->fluidSelector,
+                                           this->riemannNormal, *locphi, this->fluidSelector,
                                            dU, it, this->ghostPoints);
                                            //Q: why send PhiV?
                                            //A: Riemann solver needs gradPhi.

@@ -1189,39 +1189,35 @@ struct SparseGridData {
 
 struct MultiFluidData {
   enum Method {NONE = 0, GHOSTFLUID_FOR_POOR = 1, GHOSTFLUID_WITH_RIEMANN} method;
-  enum FictitiousTime {GLOBAL = 0, LOCAL = 1} localtime;
-  enum InterfaceTracking {LINEAR = 0, GRADIENT = 1, HERMITE = 2} typeTracking;
+  enum InterfaceTracking {LINEAR = 0, GRADIENT = 1, HERMITE = 2}; 
   enum RiemannComputation {FE = 0, RK2 = 1, TABULATION2 = 2, TABULATION5 = 3} riemannComputation;
   int bandlevel;
-  int subIt;
-  double cfl;
   int frequency;
   double eps;
   int outputdiff;
   double jwlRelaxationFactor;
-  enum Problem {BUBBLE = 0, SHOCKTUBE = 1} problem;
   enum TypePhaseChange {ASIS = 0, RIEMANN_SOLUTION = 1, EXTRAPOLATION = 2} typePhaseChange;
-  enum CopyCloseNodes {FALSE = 0, TRUE = 1} copy;
-  enum LSInit {VOLUMES = 1, OLD = 0, GEOMETRIC = 2} lsInit;
+  enum CopyCloseNodes {FALSE = 0, TRUE = 1} copyCloseNodes;
   enum InterfaceType {FSF = 0, FF = 1, FSFandFF = 2} interfaceType;
   
   enum InterfaceTreatment {FIRSTORDER=0, SECONDORDER=1} interfaceTreatment;
   enum InterfaceExtrapolation {EXTRAPOLATIONFIRSTORDER=0, EXTRAPOLATIONSECONDORDER=1, AUTO=2} interfaceExtrapolation;
   enum InterfaceLimiter {LIMITERNONE = 0, LIMITERALEX1 = 1} interfaceLimiter;
+
+  // TRIANGULATED refers to some tests Alex was doing where the multifluid interface is represented by a triangulated surface
+  //    (akin to a massless embedded structure).  It is mostly implemented, but he left out a few parts he didn't need for his tests.
   enum LevelSetMethod { CONSERVATIVE = 0, HJWENO = 1, SCALAR=2, PRIMITIVE = 3,
                         TRIANGULATED = 4} levelSetMethod;
 
   enum RiemannNormal {REAL = 0, MESH = 1, LEGACYMESH = 2 } riemannNormal;
 
-  enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
+  enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1, SAME_AS_PROBLEM = 2} prec;
 
   MultiInitialConditionsData multiInitialConditions;
 
   SparseGridData sparseGrid;
 
   int testCase;
-
-  int interfaceOmitCells;
 
   MultiFluidData();
   ~MultiFluidData() {}
@@ -2763,8 +2759,7 @@ struct EmbeddedFramework {
   enum StructureNormal {ELEMENT_BASED = 0, NODE_BASED = 1} structNormal;
   enum EOSChange {NODAL_STATE = 0, RIEMANN_SOLUTION = 1} eosChange;
   enum ForceAlgorithm {RECONSTRUCTED_SURFACE = 0, CONTROL_VOLUME_BOUNDARY = 1, EMBEDDED_SURFACE = 2} forceAlg;
-  enum RiemannNormal {STRUCTURE = 0, FLUID = 1, AVERAGED_STRUCTURE = 2} riemannNormal;
-  enum TypePhaseChange {EXTRAPOLATION = 0} typePhaseChange;
+  enum RiemannNormal {STRUCTURE = 0, FLUID = 1} riemannNormal;
   enum PhaseChangeAlgorithm {AVERAGE = 0, LEAST_SQUARES = 1, AUTO = 2} phaseChangeAlg;
   enum InterfaceAlgorithm {MID_EDGE = 0, INTERSECTION = 1} interfaceAlg;
 
@@ -2772,7 +2767,7 @@ struct EmbeddedFramework {
   // Low mach preconditioning of the exact Riemann problem.
   // Added by Alex Main (December 2013)
   //
-  enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
+  enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1, SAME_AS_PROBLEM = 3 } prec;
 
   double alpha;   // In the case of solve Riemann problem at intersection, this parameter
                   // controls whether to switch to a first order method to avoid divided-by-zero
@@ -2789,10 +2784,7 @@ struct EmbeddedFramework {
 
   int qOrder; // order of quadrature rule used for EMBEDDED_SURFACE forceAlg
   
-  //Debug variables
   enum CrackingWithLevelSet {OFF = 0, ON = 1} crackingWithLevelset;
-  enum Coupling {TWOWAY = 0, ONEWAY = 1} coupling;
-  enum Dim2Treatment {NO = 0, YES = 1} dim2Treatment;
   enum Reconstruction {CONSTANT = 0, LINEAR = 1} reconstruct;
   enum ViscousInterfaceOrder {FIRST = 0, SECOND = 1} viscousinterfaceorder;
 

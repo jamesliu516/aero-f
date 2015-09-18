@@ -270,10 +270,6 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
 
   surfaceID = NULL;
 
-  // ---- for debug ----
-  dim2Treatment = (iod.embed.dim2Treatment == EmbeddedFramework::YES) ? true : false; //by default it's false
-  oneWayCoupling = (iod.embed.coupling == EmbeddedFramework::ONEWAY) ? true : false; //by default it's false
-
   // ---- for forced-motion only ------
   if(!coupled) {
     if(iod.forced.type==ForcedData::HEAVING)
@@ -664,17 +660,6 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
     di = new DistInfo(1, 1, 1, locToGlob, &com);
     di->setLen(0,totalNodes);
     di->finalize(false);
-  }
-
-  //for 2-D simulation only: pairing nodes in cross-section direction
-  if(dim2Treatment) {
-    double pairTol = 1.0e-6;
-    for (int i=0; i<nNodes; i++) 
-      for(int j=i; j<nNodes; j++)
-        if(std::abs(X[i][0]+X[j][0])<pairTol &&
-           std::abs(X[i][1]-X[j][1])<pairTol &&
-           std::abs(X[i][2]-X[j][2])<pairTol)
-          pairing[i] = j;
   }
 
   timeStepOffset = iod.forced.tsoffset;
@@ -1211,40 +1196,10 @@ EmbeddedStructure::processReceivedForce()
 { 
   if(coupled) {
 
-    if(dim2Treatment) { // averaging the force on paired nodes
-      std::map<int,int>::iterator it;
-      for(it=pairing.begin(); it!=pairing.end(); it++) {
-        double Fave;
-        for(int iDim=0; iDim<3; iDim++) {
-          Fave = 0.5*(F[it->first][iDim] + F[it->second][iDim]);
-          F[it->first][iDim] = F[it->second][iDim] = Fave;
-        }
-      }
-    } 
-
     DistSVec<double,3> f(*di, F);
   
-    if(oneWayCoupling) // send a 0 force to structure
-      f = 0.0;
-
     structExc->sendForce(f);
   }
-
-
-/*
-  if(com.cpuNum()>0) return;
-  double fx=0, fy=0, fz=0; //write the total froce.
-  for(int i = 0; i < nNodes; ++i) {
-    fx += F[i][0];  
-    fy += F[i][1]; 
-    fz += F[i][2];
-  }
-  for(int i=0; i<nNodes; ++i) 
-    fprintf(stderr,"%d %e %e %e\n", i+1, F[i][0], F[i][1], F[i][2]);
-  sleep(2);
-
-  std::cout << "Total force (from AERO-F): " << fx << " " << fy << " " << fz << std::endl;
-*/
 }
 
 //------------------------------------------------------------------------------

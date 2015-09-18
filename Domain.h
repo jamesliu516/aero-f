@@ -570,7 +570,7 @@ public:
                                FluxFcn**, RecFcn*, DistBcData<dim>&, DistGeoState&,
                                DistSVec<double,3>&, DistSVec<double,dim>&, DistSVec<double,dim>&,
                                DistSVec<double,dim>&, DistLevelSetStructure*, bool, FluidSelector&,
-                               int, DistSVec<double,3>*, 
+                               int,
 			       DistNodalGrad<dim>&,   DistEdgeGrad<dim>*, DistSVec<double,dimLS>&,
                                DistNodalGrad<dimLS>&, DistEdgeGrad<dimLS>*,
 			       DistSVec<double,dim>&, int, int, int);
@@ -581,7 +581,7 @@ public:
                                DistSVec<double,3>&, DistSVec<double,dim>&,
                                DistSVec<double,dim>&, DistSVec<double,dim>&,
                                DistLevelSetStructure *, bool, DistVec<int> &, int,
-                               DistSVec<double,3>*, DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
+                               DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
                                DistSVec<double,dim>&, int, int, int);
 
   template<int dim>
@@ -589,9 +589,9 @@ public:
                                FluxFcn**, RecFcn*, DistBcData<dim>&, DistGeoState&,
                                DistSVec<double,3>&, DistSVec<double,dim>&,
                                DistSVec<double,dim>&, DistSVec<double,dim>&, 
-							   DistVec<int> &, DistVec<int> &, DistLevelSetStructure *, 
-							   bool, DistVec<int> &, int, DistSVec<double,3>*, 
-							   double, double, DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
+                               DistVec<int> &, DistVec<int> &, DistLevelSetStructure *, 
+                               bool, DistVec<int> &, int,
+                               double, double, DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
                                DistSVec<double,dim>&, int, int, int); 
 
   template<int dim, int dimLS>
@@ -638,7 +638,7 @@ public:
                                        DistBcData<dim>& bcData, DistGeoState& geoState,
                                        DistSVec<double,3>& X, DistSVec<double,dim>& V,
                                        DistLevelSetStructure *LSS, DistVec<int> &fluidId, 
-                                       int Nriemann, DistSVec<double,3> *Nsbar, 
+                                       int Nriemann,
                                        DistMat<Scalar,neq>& A,DistVec<double>& irey);
   
   template<int dim, class Scalar, int neq, int dimLS>
@@ -648,7 +648,7 @@ public:
                                        DistSVec<double,3>& X, DistSVec<double,dim>& V,DistVec<double>& ctrlVol,
                                        DistNodalGrad<dimLS> &ngradLS,
                                        DistLevelSetStructure *LSS,
-                                       int Nriemann, DistSVec<double,3>* Nsbar,
+                                       int Nriemann,
                                        FluidSelector &fluidSelector,
                                        DistMat<Scalar,neq>& A);
 
@@ -842,7 +842,7 @@ public:
 		 DistExactRiemannSolver<dim> &riemann,
 		 DistLevelSetStructure *distLSS,
 		 DistVec<int> &fluidId, 
-		 int Nriemann, DistSVec<double,3> *Nsbar,
+		 int Nriemann,
 		 DistMat<Scalar,neq> &H2,
 		 DistSVec<double,dim> &aij, DistSVec<double,dim> &aji,
 		 DistSVec<double,dim> &bij, DistSVec<double,dim> &bji,
@@ -869,7 +869,7 @@ public:
 			   DistExactRiemannSolver<dim> &riemann,
 			   DistLevelSetStructure *distLSS,
 			   DistVec<int> &fluidId,
-			   int Nriemann, DistSVec<double,3> *Nsbar,
+			   int Nriemann,
 			   DistMat<Scalar1,dim> &H2,
 			   DistSVec<double,dim> &aij, DistSVec<double,dim> &aji,
 			   DistSVec<double,dim> &bij, DistSVec<double,dim> &bji,
@@ -1129,7 +1129,7 @@ public:
 					     bool linRecAtInterface, bool viscSecOrder, 
 					     DistVec<int> &fluidId, 
 					     DistExactRiemannSolver<dim> &riemann, 
-					     int Nriemann, DistSVec<double,3> *Nsbar,
+					     int Nriemann,
 					     DistNodalGrad<dim>& ngrad, 
 					     DistEdgeGrad<dim>* egrad,
 					     double dMach,
@@ -1213,8 +1213,6 @@ public:
                                      DistSVec<double,dim> &dddz);
 
   void updateNodeTag(DistSVec<double,3> &, DistLevelSetStructure *, DistVec<int> &, DistVec<int> &);
-
-  void computeCellAveragedStructNormal(DistSVec<double,3> &, DistVec<double> &, DistLevelSetStructure *);
 
   void computeMaterialVolumes(double*, int, DistVec<double> &, DistVec<int> *);
 
