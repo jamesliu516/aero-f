@@ -2219,7 +2219,7 @@ MultiFluidData::MultiFluidData()
   interfaceLimiter = LIMITERNONE;
   levelSetMethod = CONSERVATIVE;
 
-  prec = SAME_AS_PROBLEM;
+  prec = NON_PRECONDITIONED;
 
   riemannNormal = REAL;
 }
@@ -5007,7 +5007,7 @@ EmbeddedFramework::EmbeddedFramework() {
   phaseChangeAlg = AUTO;
   interfaceAlg = MID_EDGE;
 
-  prec = SAME_AS_PROBLEM;
+  prec = NON_PRECONDITIONED;
   alpha = 0.1;
 
   nLevelset = 0;
