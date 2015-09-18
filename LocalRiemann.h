@@ -789,8 +789,11 @@ public:
 			      double *Wi, double *Wj,
 			      double dx[3],int it,
 			      double* dWidWi,double*  dWidWj,
-			      double* dWjdWi,double*  dWjdWj) {} 
-
+			      double* dWjdWi,double*  dWjdWj)
+  {
+    fprintf(stderr,"Error: LocalRiemannLowMach::computeRiemannJacobian is not implemented\n");
+    exit(-1);
+  } 
 
   void updatePhaseChangingNodeValues( double * const dx, 
 				      double * const Wi, double * const Wj,
