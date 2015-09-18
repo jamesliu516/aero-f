@@ -5515,13 +5515,6 @@ void SubDomain::updateNodeTag(SVec<double,3> &X, LevelSetStructure &LSS, Vec<int
 
 //--------------------------------------------------------------------------------
 
-void SubDomain::computeCellAveragedStructNormal(SVec<double,3> &Nsbar, Vec<double> &weights, LevelSetStructure &LSS)
-{
-  edges.computeCellAveragedStructNormal(Nsbar, weights, LSS);
-}
-
-//--------------------------------------------------------------------------------
-
 void SubDomain::computeCharacteristicEdgeLength(SVec<double,3>&X, double& minLength, double& aveLength, double& maxLength, int& numInsideEdges, const double xmin, const double xmax, const double ymin, const double ymax, const double zmin, const double zmax)
 #define EDGE_LENGTH
 #ifdef EDGE_LENGTH

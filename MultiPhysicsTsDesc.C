@@ -279,13 +279,6 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupEmbeddedFSISolver(IoData &ioData)
     Wstarji_nm1 = 0;
   }
 
-  //cell-averaged structure normals
-  if(riemannNormal==2) {
-    Nsbar = new DistSVec<double,3>(this->domain->getNodeDistInfo());
-    *Nsbar = 0.0;
-  } else
-    Nsbar = 0;
-
 //------ load structure mesh information ----------------------
   Fs = 0;
   numStructNodes = distLSS->getNumStructNodes();
@@ -374,9 +367,6 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
   } else
     distLSS->initialize(this->domain,*this->X, this->geoState->getXn(), ioData, &point_based_id);
 
-  if(riemannNormal==2){
-    this->multiPhaseSpaceOp->computeCellAveragedStructNormal(*Nsbar, distLSS);
-  }
   // Initialize fluid state vector
   this->timeState->setup(this->input->solutions, *this->X, this->bcData->getInletBoundaryVector(),
                          *U, ioData, &point_based_id); //populate U by i.c. or restart data.
@@ -729,7 +719,7 @@ double MultiPhysicsTsDesc<dim,dimLS>::computeResidualNorm(DistSVec<double,dim>& 
     LS->conservativeToPrimitive(Phi,PhiV,U);
   else
     PhiV = Phi;
-  this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, linRecAtInterface, viscSecOrder, this->riemann, riemannNormal, Nsbar, PhiV, fluidSelector, *this->R, 0, 0);
+  this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, linRecAtInterface, viscSecOrder, this->riemann, riemannNormal, PhiV, fluidSelector, *this->R, 0, 0);
 
   this->multiPhaseSpaceOp->applyBCsToResidual(U, *this->R);
 

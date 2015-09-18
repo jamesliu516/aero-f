@@ -1214,7 +1214,7 @@ void SpaceOperator<dim>::computeDerivativeOfResidual(DistSVec<double,3> &X,
 						     bool linRecAtInterface, bool viscSecOrder, 
 						     DistVec<int> &fluidId, 
 						     DistExactRiemannSolver<dim> *riemann,
-						     int Nriemann, DistSVec<double,3> *Nsbar,
+						     int Nriemann,
 						     DistVec<GhostPoint<dim>*> *ghostPoints,
 						     double dMach,
 						     DistSVec<double,dim> &R, DistSVec<double,dim> &dR,
@@ -1250,7 +1250,7 @@ void SpaceOperator<dim>::computeDerivativeOfResidual(DistSVec<double,3> &X,
   domain->computeDerivativeOfFiniteVolumeTerm(fluxFcn, recFcn, *bcData, *geoState, 
 					      X, distLSS, 
 					      linRecAtInterface, viscSecOrder, 
-					      fluidId, *riemann, Nriemann, Nsbar, 
+					      fluidId, *riemann, Nriemann,
 					      *ngrad, egrad, dMach, 
 					      *V, dR);
   
@@ -1484,7 +1484,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
                                          bool linRecAtInterface, bool viscSecOrder, DistVec<int> &fluidId, 
                                          DistSVec<double,dim> &R, 
 					 DistExactRiemannSolver<dim> *riemann, int Nriemann, 
-					 DistSVec<double,3> *Nsbar, int it,
+					 int it,
                                          DistVec<GhostPoint<dim>*> *ghostPoints, bool compatF3D)
 {
   R = 0.0;
@@ -1537,7 +1537,6 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
                                   *geoState, X, 
 				  *V, Wstarij, Wstarji, 
 				  distLSS, linRecAtInterface, fluidId, Nriemann,
-                                  Nsbar, 
 				  *ngrad, egrad, 
 				  R, 
 				  it, failsafe,rshift);
@@ -1582,7 +1581,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
 					 DistLevelSetStructure *distLSS, bool linRecAtInterface, bool viscSecOrder, 
 					 DistVec<int> &fluidId, DistSVec<double,dim> &R, 
 					 DistExactRiemannSolver<dim> *riemann, int Nriemann, 
-					 DistSVec<double,3> *Nsbar, double dt, double alpha, 
+					 double dt, double alpha, 
 					 int it, DistVec<GhostPoint<dim>*> *ghostPoints)
 {
 
@@ -1634,7 +1633,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
 
   domain->computeFiniteVolumeTerm(ctrlVol, *riemann, fluxFcn, recFcn, *bcData,
                                   *geoState, X, *V, Wstarij, Wstarji, countWstarij, countWstarji,
-								  distLSS, linRecAtInterface, fluidId, Nriemann, Nsbar, dt, alpha,
+								  distLSS, linRecAtInterface, fluidId, Nriemann, dt, alpha,
 								  *ngrad, egrad, R, it, failsafe,rshift);
   if (descriptorCase != DESCRIPTOR)  {
     int numLocSub = R.numLocSub();
@@ -1843,17 +1842,6 @@ domain->populateGhostPoints(ghostPoints,X,U,ngrad,varFcn,distLSS,linFSI,tag);
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SpaceOperator<dim>::computeCellAveragedStructNormal(DistSVec<double, 3> &Nsbar, DistLevelSetStructure *distLSS)
-{
-  DistVec<double> weights(domain->getNodeDistInfo()); //currently it's an integer, but might become "double" in future
-  Nsbar   = 0.0;
-  weights = 0.0;
-  domain->computeCellAveragedStructNormal(Nsbar, weights, distLSS);
-}
-
-//-----------------------------------------------------------------------------
-
-template<int dim>
 template<class Scalar, int neq>
 void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
 					 DistSVec<double,dim> &U, DistMat<Scalar,neq> &A,
@@ -1995,7 +1983,7 @@ void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> 
                                          DistLevelSetStructure *distLSS,
                                          DistVec<int> &fluidId, 
                                          DistExactRiemannSolver<dim> *riemann, 
-                                         int Nriemann, DistSVec<double,3> *Nsbar,
+                                         int Nriemann,
                                          DistVec<GhostPoint<dim>*> *ghostPoints,
                                          DistMat<Scalar,neq>& A,
                                          DistTimeState<dim>* timeState)
@@ -2021,7 +2009,7 @@ void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> 
   //  domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, ctrlVol, *V, A);
   
   domain->computeJacobianFiniteVolumeTerm(ctrlVol, *riemann, fluxFcn, *bcData, *geoState,
-                                          X, *V, distLSS, fluidId, Nriemann, Nsbar, A,*irey);
+                                          X, *V, distLSS, fluidId, Nriemann, A, *irey);
 
   if (volForce)
     domain->computeJacobianVolumicForceTerm(volForce, ctrlVol, *V, A);
@@ -2319,7 +2307,7 @@ void SpaceOperator<dim>::computeH2(DistSVec<double,3> &X, DistVec<double> &ctrlV
 				   DistLevelSetStructure *distLSS,
 				   DistVec<int> &fluidId, 
 				   DistExactRiemannSolver<dim> *riemann, 
-				   int Nriemann, DistSVec<double,3> *Nsbar,
+				   int Nriemann,
 				   DistVec<GhostPoint<dim>*> *ghostPoints,				   
 				   DistMat<Scalar,neq> &H2,
 				   DistSVec<double,dim> &aij, DistSVec<double,dim> &aji,
@@ -2332,7 +2320,7 @@ void SpaceOperator<dim>::computeH2(DistSVec<double,3> &X, DistVec<double> &ctrlV
   H2 = 0.0; 
   domain->computeH2(fluxFcn, recFcn, *bcData, *geoState, 
 		    X, *V, *ngrad,  *riemann, distLSS, fluidId, 
-		    Nriemann, Nsbar,
+		    Nriemann,
 		    H2, aij, aji, bij, bji, betaij, betaji);
 
 }
@@ -2470,7 +2458,7 @@ void SpaceOperator<dim>::applyH2(DistSVec<double,3> &X, DistVec<double> &ctrlVol
 				 DistVec<int> &fluidId,
 				 bool linRecAtInterface, bool viscSecOrder,
 				 DistExactRiemannSolver<dim> *riemann, 
-				 int Nriemann, DistSVec<double,3> *Nsbar,
+				 int Nriemann,
 				 DistVec<GhostPoint<dim>*> *ghostPoints,
 				 DistMat<Scalar1,dim> &H2,
 				 DistSVec<double,dim> &aij, DistSVec<double,dim> &aji,
@@ -2528,7 +2516,7 @@ void SpaceOperator<dim>::applyH2(DistSVec<double,3> &X, DistVec<double> &ctrlVol
       unitCtrlVol = 1.0;
       domain->computeMatVecProdH2(fluxFcn, recFcn, *geoState, X, unitCtrlVol, 
 				  *riemann, distLSS, fluidId, 
-				  Nriemann, Nsbar, H2, 
+				  Nriemann, H2, 
 				  aij, aji, bij, bji, betaij, betaji,
 				  V2, *distNodalGrad, prod);
       break; }
@@ -2537,14 +2525,14 @@ void SpaceOperator<dim>::applyH2(DistSVec<double,3> &X, DistVec<double> &ctrlVol
       sqrtCtrlVol.pow(ctrlVol,0.5);
       domain->computeMatVecProdH2(fluxFcn, recFcn, *geoState, X, sqrtCtrlVol,
 				  *riemann, distLSS, fluidId, 
-				  Nriemann, Nsbar, H2, 
+				  Nriemann, H2, 
 				  aij, aji, bij, bji, betaij, betaji,
 				  V2, *distNodalGrad, prod);
       break; }
     case NONDESCRIPTOR: {
       domain->computeMatVecProdH2(fluxFcn, recFcn, *geoState, X, ctrlVol, 
 				  *riemann,  distLSS, fluidId,  
-				  Nriemann, Nsbar, H2, 
+				  Nriemann, H2, 
 				  aij, aji, bij, bji, betaij, betaji,
 				  V2, *distNodalGrad, prod);
       break; }
@@ -3180,7 +3168,7 @@ template<int dim, int dimLS>
 void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol, DistSVec<double,dim> &U, 
 							 DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
 							 DistLevelSetStructure *distLSS, bool linRecAtInterface, bool viscSecOrder, 
-                                                         DistExactRiemannSolver<dim> *riemann, int Nriemann, DistSVec<double,3> *Nsbar,
+                                                         DistExactRiemannSolver<dim> *riemann, int Nriemann,
 							 DistSVec<double,dimLS> &PhiV, FluidSelector &fluidSelector, DistSVec<double,dim> &R, 
 							 int it, DistVec<GhostPoint<dim>*> *ghostPoints)
 {
@@ -3276,7 +3264,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
   //Now compute the FV fluxes!
   this->domain->computeFiniteVolumeTerm(ctrlVol, *riemann, this->fluxFcn, this->recFcn, *(this->bcData),
 					*(this->geoState), X, *(this->V), Wstarij, Wstarji, distLSS, linRecAtInterface, fluidSelector, 
-					Nriemann, Nsbar, *(this->ngrad), this->egrad, PhiV,
+					Nriemann, *(this->ngrad), this->egrad, PhiV,
 					*ngradLS, egradLS, R, it, this->failsafe,this->rshift);
 
   if (this->descriptorCase != this->DESCRIPTOR)  {
@@ -3356,7 +3344,7 @@ template<class Scalar, int neq>
 void MultiPhaseSpaceOperator<dim,dimLS>::computeJacobian(DistExactRiemannSolver<dim>* riemann,
                                                          DistSVec<double,3>& X, DistSVec<double,dim>& U,DistVec<double>& ctrlVol,
                                                          DistLevelSetStructure *distLSS,
-                                                         int Nriemann, DistSVec<double,3>* Nsbar,
+                                                         int Nriemann,
                                                          FluidSelector &fluidSelector,
                                                          DistMat<Scalar,neq>& A,DistTimeState<dim>* timeState) {
 
@@ -3384,7 +3372,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeJacobian(DistExactRiemannSolver<
     if (this->fet)
       this->domain->computeJacobianGalerkinTerm(this->fet, *(this->bcData), *(this->geoState), X, ctrlVol, *(this->V), A);
     this->domain->computeJacobianFiniteVolumeTerm(*riemann, this->fluxFcn, *(this->bcData), *(this->geoState),X,*(this->V), ctrlVol,
-                                                  *ngradLS, distLSS, Nriemann, Nsbar, fluidSelector,A);
+                                                  *ngradLS, distLSS, Nriemann, fluidSelector,A);
     if (this->volForce)
       this->domain->computeJacobianVolumicForceTerm(this->volForce, ctrlVol, *(this->V), A);
   }

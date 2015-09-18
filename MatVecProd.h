@@ -80,7 +80,6 @@ public:
     DistVec<int>* fluidId;
     DistExactRiemannSolver<dim>* riemann;
     bool linRecAtInterface, viscSecOrder;
-    DistSVec<double,3>* Nsbar;
     DistSVec<double,dim>* Wtemp;
     int Nriemann;
     DistVec<GhostPoint<dim>*>* ghostPoints;
@@ -521,7 +520,6 @@ public:
     DistVec<int>* fluidId;
     DistExactRiemannSolver<dim>* riemann;
     bool linRecAtInterface, viscSecOrder;
-    DistSVec<double,3>* Nsbar;
     DistSVec<double,dim>* Wtemp;
     int Nriemann;
     DistVec<GhostPoint<dim>*>* ghostPoints;

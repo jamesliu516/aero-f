@@ -486,7 +486,7 @@ public:
                               FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
                               SVec<double,3>&, SVec<double,dim>&,
                               SVec<double,dim>&, SVec<double,dim>&, LevelSetStructure&, bool,
-                              Vec<int> &, int, SVec<double,3>*, FluidSelector &,
+                              Vec<int> &, int, FluidSelector &,
                               NodalGrad<dim>&, EdgeGrad<dim>*,
 			      SVec<double,dimLS>& phi,
                               NodalGrad<dimLS>&,
@@ -498,7 +498,7 @@ public:
                               FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
                               SVec<double,3>&, SVec<double,dim>&,
                               SVec<double,dim>&, SVec<double,dim>&, LevelSetStructure &, bool, Vec<int> &, int,
-                              SVec<double,3>*, NodalGrad<dim>&, EdgeGrad<dim>*,
+                              NodalGrad<dim>&, EdgeGrad<dim>*,
                               SVec<double,dim>&, int, SVec<int,2>&, int, int);
 
   template<int dim>
@@ -506,9 +506,9 @@ public:
                               FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
                               SVec<double,3>&, SVec<double,dim>&,
                               SVec<double,dim>&, SVec<double,dim>&, 
-							  Vec<int>&, Vec<int>&, LevelSetStructure &, bool, 
-							  Vec<int> &, int, SVec<double,3>*, double, double, 
-							  NodalGrad<dim>&, EdgeGrad<dim>*,
+                              Vec<int>&, Vec<int>&, LevelSetStructure &, bool, 
+                              Vec<int> &, int, double, double, 
+                              NodalGrad<dim>&, EdgeGrad<dim>*,
                               SVec<double,dim>&, int, SVec<int,2>&, int, int); 
 
   template<int dim, int dimLS>
@@ -554,7 +554,7 @@ public:
                                        BcData<dim>& bcData, GeoState& geoState,
                                        SVec<double,3>& X, SVec<double,dim>& V,Vec<double>& ctrlVol,
                                        LevelSetStructure &LSS,Vec<int> &fluidId,
-                                       int Nriemann, SVec<double,3>* Nsbar,
+                                       int Nriemann,
                                        GenMat<Scalar,neq>& A,Vec<double>& irey);
 
   template<int dim, class Scalar, int neq, int dimLS>
@@ -564,7 +564,7 @@ public:
                                        SVec<double,3>& X, SVec<double,dim>& V,Vec<double>& ctrlVol,
                                        NodalGrad<dimLS> &ngradLS,
                                        LevelSetStructure &LSS,Vec<int> &fluidId,
-                                       int Nriemann, SVec<double,3>* Nsbar,
+                                       int Nriemann,
                                        FluidSelector &fluidSelector,
                                        GenMat<Scalar,neq>& A) ;
 
@@ -764,7 +764,7 @@ public:
 		 NodalGrad<dim> &ngrad, 
 		 ExactRiemannSolver<dim>& riemann,
 		 LevelSetStructure &LSS, 
-		 Vec<int> &fluidId, int Nriemann, SVec<double,3>* Nsbar,
+		 Vec<int> &fluidId, int Nriemann,
 		 GenMat<Scalar,neq> &A,
 		 SVec<double,dim> &aij, SVec<double,dim> &aji,
 		 SVec<double,dim> &bij, SVec<double,dim> &bji, 
@@ -836,7 +836,7 @@ public:
 			   SVec<double,3> &X, Vec<double> &ctrlVol, 
 			   ExactRiemannSolver<dim>& riemann,
 			   LevelSetStructure &LSS,
-			   Vec<int> &fluidId, int Nriemann, SVec<double,3>* Nsbar,				    
+			   Vec<int> &fluidId, int Nriemann,
 			   GenMat<Scalar1,dim> &A,
 			   SVec<double,dim> &aij, SVec<double,dim> &aji,
 			   SVec<double,dim> &bij, SVec<double,dim> &bji,
@@ -1476,7 +1476,7 @@ public:
 					   bool linRecAtInterface, bool viscSecOrder,
 					   Vec<int> &fluidId,
 					   ExactRiemannSolver<dim>& riemann,
-					   int Nriemann, SVec<double,3>* Nsbar,
+					   int Nriemann,
 					   NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
 					   double dMach,
 					   SVec<double,dim>& V,
@@ -1612,8 +1612,6 @@ public:
   int* getNeiElemOfNode(int, int, int&);
   void getNodeCoords(int, SVec<double,3> &, double&, double&, double&);
   void updateNodeTag(SVec<double,3>&, LevelSetStructure &, Vec<int>&, Vec<int>&);
-
-  void computeCellAveragedStructNormal(SVec<double,3> &, Vec<double> &, LevelSetStructure &);
 
   template<int dim>
   void computeCVBasedForceLoad(int, int, GeoState &,SVec<double,3>&, double (*)[3], int, LevelSetStructure&, double pInfty, 

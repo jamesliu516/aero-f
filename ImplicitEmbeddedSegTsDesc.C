@@ -62,7 +62,6 @@ ImplicitEmbeddedSegTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     this->riemann,
     this->linRecAtInterface,
     this->viscSecOrder,
-    this->Nsbar,
     &this->Wtemp,
     this->riemannNormal,
     this->ghostPoints,
@@ -75,7 +74,6 @@ ImplicitEmbeddedSegTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     this->riemann,
     this->linRecAtInterface,
     this->viscSecOrder,
-    this->Nsbar,
     &this->Wtemp,
     this->riemannNormal,
     this->ghostPoints,
@@ -273,13 +271,13 @@ void ImplicitEmbeddedSegTsDesc<dim,neq1,neq2>::setOperator(MatVecProd<dim,neq> *
     if (mvpfd)  {
       if (neq > 2)  {
         spaceOp1->computeJacobian(*this->X, *this->A, Q,this->distLSS, this->nodeTag, this->riemann,
-                                   this->riemannNormal, this->Nsbar,this->ghostPoints, *_pc,this->timeState);
+                                   this->riemannNormal, this->ghostPoints, *_pc,this->timeState);
         this->timeState->addToJacobian(*this->A, *_pc, Q);
         spaceOp1->applyBCsToJacobian(Q, *_pc, this->distLSS);
       }
       else  {
         spaceOp2->computeJacobian(*this->X, *this->A, Q,this->distLSS, this->nodeTag, this->riemann,
-                                   this->riemannNormal, this->Nsbar,this->ghostPoints, *_pc,this->timeState);
+                                   this->riemannNormal, this->ghostPoints, *_pc,this->timeState);
         this->timeState->addToJacobian(*this->A, *_pc, Q);
         spaceOp2->applyBCsToJacobian(Q, *_pc, this->distLSS);
       }

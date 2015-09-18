@@ -95,7 +95,6 @@ ImplicitMultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     this->riemann,
     this->linRecAtInterface,
     this->viscSecOrder,
-    this->Nsbar,
     &this->Wtemp,
     this->riemannNormal,
     this->ghostPoints,
@@ -221,8 +220,6 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::commonPart(DistSVec<double,dim> &U)
     else
       this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts, true, TsDesc<dim>::failSafeFlag); 
 
-    if(this->riemannNormal==2)
-      this->multiPhaseSpaceOp->computeCellAveragedStructNormal(*(this->Nsbar), this->distLSS);
     this->timer->addIntersectionTime(tw);
     this->com->barrier();
     this->timer->removeIntersAndPhaseChange(tw);
@@ -392,12 +389,12 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::computeFunction(int it, DistSVec<dou
     this->LS->conservativeToPrimitive(this->Phi,this->PhiV,Q);
     this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, Q, *this->Wstarij, *this->Wstarji, this->distLSS,
                                    this->linRecAtInterface, this->viscSecOrder, this->riemann,  
-                                   this->riemannNormal, this->Nsbar, this->PhiV, this->fluidSelector,F, 1, this->ghostPoints);
+                                   this->riemannNormal, this->PhiV, this->fluidSelector,F, 1, this->ghostPoints);
   } else {
 
     this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, Q, *this->Wstarij, *this->Wstarji, this->distLSS,
                                    this->linRecAtInterface, this->viscSecOrder, this->riemann,  
-                                   this->riemannNormal, this->Nsbar, this->Phi, this->fluidSelector,F, 1, this->ghostPoints);
+                                   this->riemannNormal, this->Phi, this->fluidSelector,F, 1, this->ghostPoints);
   }
   this->timeState->add_dAW_dt(it, *this->geoState, *this->A, Q, F);
   this->multiPhaseSpaceOp->applyBCsToResidual(Q, F);
@@ -481,7 +478,7 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::setOperators(DistSVec<double,dim> &Q
     if (mvpfd) {
 
       this->multiPhaseSpaceOp->computeJacobian(this->riemann, *this->X, Q,*this->A,this->distLSS,
-                                   this->riemannNormal, this->Nsbar,(this->fluidSelector),*_pc,this->timeState);
+                                   this->riemannNormal, (this->fluidSelector),*_pc,this->timeState);
       this->timeState->addToJacobian(*this->A, *_pc, Q);
       this->multiPhaseSpaceOp->applyBCsToJacobian(Q, *_pc);
     }

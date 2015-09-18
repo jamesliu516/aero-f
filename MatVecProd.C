@@ -272,7 +272,7 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
   else
     spaceOp->computeResidual(*X,*ctrlVol, Qeps, *(this->fsi.Wtemp),*(this->fsi.Wtemp),
                              this->fsi.LSS, this->fsi.linRecAtInterface, this->fsi.viscSecOrder, *(this->fsi.fluidId),
-                             Feps, this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar, 0, this->fsi.ghostPoints);
+                             Feps, this->fsi.riemann, this->fsi.Nriemann, 0, this->fsi.ghostPoints);
 
   if (timeState) {
     timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
@@ -310,7 +310,7 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
     else
       spaceOp->computeResidual(*X,*ctrlVol, Qeps, *(this->fsi.Wtemp),*(this->fsi.Wtemp),
                                this->fsi.LSS, this->fsi.linRecAtInterface, this->fsi.viscSecOrder, *(this->fsi.fluidId),
-                               Feps, this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar, 0, this->fsi.ghostPoints);
+                               Feps, this->fsi.riemann, this->fsi.Nriemann, 0, this->fsi.ghostPoints);
  
     if (timeState) {
       timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
@@ -454,7 +454,7 @@ void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedV
   else
     spaceOp->computeResidual(*X,*ctrlVol, Qeps, *(this->fsi.Wtemp),*(this->fsi.Wtemp),
                              this->fsi.LSS, this->fsi.linRecAtInterface, this->fsi.viscSecOrder, *(this->fsi.fluidId),
-                             Feps, this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar, 0, this->fsi.ghostPoints);
+                             Feps, this->fsi.riemann, this->fsi.Nriemann, 0, this->fsi.ghostPoints);
 
   if (p.hasHHBoundaryTerm()) {
     *hhEps = 0.0;
@@ -504,7 +504,7 @@ void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedV
     else
       spaceOp->computeResidual(*X,*ctrlVol, Qeps, *(this->fsi.Wtemp),*(this->fsi.Wtemp),
                                this->fsi.LSS, this->fsi.linRecAtInterface, this->fsi.viscSecOrder, *(this->fsi.fluidId),
-                               Feps, this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar, 0, this->fsi.ghostPoints);
+                               Feps, this->fsi.riemann, this->fsi.Nriemann, 0, this->fsi.ghostPoints);
  
     if (timeState) {
       timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
@@ -874,7 +874,7 @@ void MatVecProdH1<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &X, DistV
     spaceOp->computeJacobian(X, ctrlVol, Q, *this, timeState);
   else
     spaceOp->computeJacobian(X,ctrlVol, Q, this->fsi.LSS, *(this->fsi.fluidId), 
-                             this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar,
+                             this->fsi.riemann, this->fsi.Nriemann,
                              this->fsi.ghostPoints, *this,timeState);
 
   if (timeState)
@@ -1277,7 +1277,7 @@ void MatVecProdH2<dim,Scalar,neq>::evaluateInviscid(int it, DistSVec<double,3> &
     spaceOp->computeH2(*X, *ctrlVol, *Q, *this, aij, aji, bij, bji);
   }else{
     spaceOp->computeH2(*X, *ctrlVol, *Q, this->fsi.LSS, *(this->fsi.fluidId), 
-		       this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar,
+		       this->fsi.riemann, this->fsi.Nriemann,
 		       this->fsi.ghostPoints, *this, aij, aji, bij, bji, betaij, betaji);
   }
 
@@ -1458,7 +1458,7 @@ void MatVecProdH2<dim,Scalar,neq>::apply(DistEmbeddedVec<double,dim> &p, DistEmb
   spaceOp->applyH2(*X, *ctrlVol, *Q, 
 		   this->fsi.LSS, *(this->fsi.fluidId), 
 		   this->fsi.linRecAtInterface, this->fsi.viscSecOrder,
-		   this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar,
+		   this->fsi.riemann, this->fsi.Nriemann,
 		   this->fsi.ghostPoints, 
 		   *this, aij, aji, bij, bji, betaij, betaji,
 		   p.real(), prod.real());
@@ -1932,7 +1932,7 @@ void MatVecProdFDMultiPhase<dim, dimLS>::apply(DistSVec<double,dim> &p,
   else
     this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *this->fsi.Wtemp, *this->fsi.Wtemp,
                                    this->fsi.LSS, this->fsi.linRecAtInterface, this->fsi.viscSecOrder,
-                                   this->riemann, this->fsi.Nriemann, this->fsi.Nsbar, *Phi, 
+                                   this->riemann, this->fsi.Nriemann, *Phi, 
                                    *this->fluidSelector, Feps, 0, this->fsi.ghostPoints);    
 
   if (this->timeState)
@@ -1956,7 +1956,7 @@ void MatVecProdFDMultiPhase<dim, dimLS>::apply(DistSVec<double,dim> &p,
     else
       this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *this->fsi.Wtemp, *this->fsi.Wtemp,
                                    this->fsi.LSS, this->fsi.linRecAtInterface, this->fsi.viscSecOrder,
-                                   this->riemann,this->fsi.Nriemann, this->fsi.Nsbar, *Phi, 
+                                   this->riemann,this->fsi.Nriemann, *Phi, 
                                    *this->fluidSelector, F, 0, this->fsi.ghostPoints);    
 
     if (this->timeState)
@@ -1993,7 +1993,7 @@ void MatVecProdFDMultiPhase<dim, dimLS>::apply(DistEmbeddedVec<double,dim> &p,
   else
     this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *this->fsi.Wtemp, *this->fsi.Wtemp,
                                    this->fsi.LSS, this->fsi.linRecAtInterface, this->fsi.viscSecOrder,
-                                   this->riemann, this->fsi.Nriemann, this->fsi.Nsbar, *Phi, 
+                                   this->riemann, this->fsi.Nriemann, *Phi, 
                                    *this->fluidSelector, Feps, 0, this->fsi.ghostPoints);    
 
   //std::cout << iod->ts.dualtimestepping << std::endl;
@@ -2034,7 +2034,7 @@ void MatVecProdFDMultiPhase<dim, dimLS>::apply(DistEmbeddedVec<double,dim> &p,
     else
       this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *this->fsi.Wtemp, *this->fsi.Wtemp,
                                    this->fsi.LSS, this->fsi.linRecAtInterface, this->fsi.viscSecOrder,
-                                   this->riemann,this->fsi.Nriemann, this->fsi.Nsbar, *Phi, 
+                                   this->riemann,this->fsi.Nriemann, *Phi, 
                                    *this->fluidSelector, F, 0, this->fsi.ghostPoints);    
 
     if (this->timeState)
@@ -2251,7 +2251,7 @@ void MatVecProdH1MultiPhase<dim,dimLS>::evaluate(int it, DistSVec<double,3> &X, 
     this->spaceOp->computeJacobian(X, ctrlVol, Q, *this, *this->fluidSelector, this->riemann,this->timeState);
   else
     this->spaceOp->computeJacobian(this->riemann, X, Q,ctrlVol,this->fsi.LSS,
-                                   this->fsi.Nriemann, this->fsi.Nsbar,*this->fluidSelector,*this,this->timeState);
+                                   this->fsi.Nriemann, *this->fluidSelector,*this,this->timeState);
 
   if (this->timeState)
     this->timeState->addToJacobian(ctrlVol, *this, Q);
@@ -2741,7 +2741,7 @@ void MatVecProd_dRdX<dim,Scalar,neq>::evaluateInviscid(int it, DistSVec<double,3
     spaceOp->computeH2(*X, *ctrlVol, *Q, *this, aij, aji, bij, bji);
   }else{
     spaceOp->computeH2(*X, *ctrlVol, *Q, this->fsi.LSS, *(this->fsi.fluidId), 
-		       this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar,
+		       this->fsi.riemann, this->fsi.Nriemann,
 		       this->fsi.ghostPoints, *this, aij, aji, bij, bji, betaij, betaji);
   }
 
@@ -2883,7 +2883,7 @@ void MatVecProd_dRdX<dim,Scalar,neq>::apply(DistEmbeddedVec<double,dim> &p, Dist
   spaceOp->applyH2(*X, *ctrlVol, *Q, 
 		   this->fsi.LSS, *(this->fsi.fluidId), 
 		   this->fsi.linRecAtInterface, this->fsi.viscSecOrder,
-		   this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar,
+		   this->fsi.riemann, this->fsi.Nriemann,
 		   this->fsi.ghostPoints, 
 		   *this, aij, aji, bij, bji, betaij, betaji,
 		   p.real(), prod.real());

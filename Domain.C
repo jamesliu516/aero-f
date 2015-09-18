@@ -1131,7 +1131,7 @@ void Domain::computeDerivativeOfFiniteVolumeTerm(FluxFcn** fluxFcn, RecFcn* recF
 						 bool linRecAtInterface, bool viscSecOrder, 
 						 DistVec<int> &fluidId, 
 						 DistExactRiemannSolver<dim> &riemann, 
-						 int Nriemann, DistSVec<double,3> *Nsbar,
+						 int Nriemann,
 						 DistNodalGrad<dim>& ngrad, 
 						 DistEdgeGrad<dim>* egrad,
 						 double dMach,
@@ -1149,13 +1149,12 @@ void Domain::computeDerivativeOfFiniteVolumeTerm(FluxFcn** fluxFcn, RecFcn* recF
 
     EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
 
-    SVec<double,3>* nsbar = (Nsbar) ? &((*Nsbar)(iSub)) : 0;
     Vec<int> &FluidId = fluidId(iSub);
 
     subDomain[iSub]->computeDerivativeOfFiniteVolumeTerm(fluxFcn, recFcn, bcData(iSub), geoState(iSub),
 							 X(iSub), (*distLSS)(iSub), 
 							 linRecAtInterface,  viscSecOrder, 
-							 FluidId, riemann(iSub), Nriemann, nsbar,
+							 FluidId, riemann(iSub), Nriemann,
 							 ngrad(iSub), legrad, dMach,
 							 V(iSub), dF(iSub));
 
@@ -1315,7 +1314,6 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
 				     DistSVec<double,dim>& Wstarij, DistSVec<double,dim>& Wstarji,
                                      DistLevelSetStructure *distLSS, bool linRecAtInterface, 
 				     FluidSelector &fluidSelector, int Nriemann,
-                                     DistSVec<double,3> *Nsbar, 
 				     DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
 				     DistSVec<double,dimLS>& phi,
                                      DistNodalGrad<dimLS>& ngradLS, DistEdgeGrad<dimLS>* egradLS, 
@@ -1341,12 +1339,11 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
     EdgeGrad<dim>*   legrad   = (egrad)   ? &((*egrad)(iSub))   : 0;
     EdgeGrad<dimLS>* legradLS = (egradLS) ? &((*egradLS)(iSub)) : 0;
 
-    SVec<double,3>* nsbar = (Nsbar) ? &((*Nsbar)(iSub)) : 0;
     Vec<int> &fluidId = FluidId(iSub);
     ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub),
 						    fluxFcn, recFcn, bcData(iSub), geoState(iSub),
 						    X(iSub), V(iSub), Wstarij(iSub), Wstarji(iSub), (*distLSS)(iSub), 
-						    linRecAtInterface, fluidId, Nriemann, nsbar,
+						    linRecAtInterface, fluidId, Nriemann,
 						    fluidSelector, 
 						    ngrad(iSub),   legrad, phi(iSub), 
 						    ngradLS(iSub), legradLS, 
@@ -1393,13 +1390,12 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
         EdgeGrad<dim>*   legrad   = (egrad)   ? &((*egrad)(iSub))   : 0;
         EdgeGrad<dimLS>* legradLS = (egradLS) ? &((*egradLS)(iSub)) : 0;
 
-        SVec<double,3>* nsbar = (Nsbar) ? &((*Nsbar)(iSub)) : 0;
         Vec<int> &fluidId = FluidId(iSub);
 
         ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub),
 							fluxFcn, recFcn, bcData(iSub), geoState(iSub), 
 							X(iSub), V(iSub), Wstarij(iSub), Wstarji(iSub),(*distLSS)(iSub), 
-							linRecAtInterface, fluidId, Nriemann, nsbar,
+							linRecAtInterface, fluidId, Nriemann,
 							fluidSelector, 
 							ngrad(iSub),   legrad,  phi(iSub), 
 							ngradLS(iSub), legradLS,
@@ -1452,7 +1448,6 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                      DistSVec<double,dim>& Wstarij, DistSVec<double,dim>& Wstarji,
                                      DistLevelSetStructure *LSS, bool linRecAtInterface, DistVec<int> &fluidId, 
                                      int Nriemann, 
-				     DistSVec<double,3> *Nsbar, 
 				     DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
                                      DistSVec<double,dim>& R, 
 				     int it, int failsafe, int rshift)
@@ -1480,7 +1475,6 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
 						    Wstarij(iSub), Wstarji(iSub), 
 						    (*LSS)(iSub),
 						    linRecAtInterface, fluidId(iSub), Nriemann, 
-						    (Nsbar) ? &((*Nsbar)(iSub)) : 0,  
 						    ngrad(iSub), legrad, 
 						    (*RR)(iSub), 
 						    it, (*tag)(iSub), failsafe, rshift);
@@ -1527,7 +1521,6 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
 							Wstarij(iSub), Wstarji(iSub), 
 							(*LSS)(iSub), 
 							linRecAtInterface, fluidId(iSub), Nriemann, 
-							(Nsbar) ? &((*Nsbar)(iSub)) : 0, 
 							ngrad(iSub), legrad, (*RR)(iSub), 
 							it, (*tag)(iSub), 0, rshift);
       }
@@ -1567,7 +1560,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
 				     DistVec<int>& countWstarji,
                                      DistLevelSetStructure *LSS, bool linRecAtInterface, 
 				     DistVec<int> &fluidId, int Nriemann, 
-				     DistSVec<double,3> *Nsbar, double dt, double alpha, 
+				     double dt, double alpha, 
 				     DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad, 
 				     DistSVec<double,dim>& R, int it, int failsafe, int rshift)
 {
@@ -1592,7 +1585,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
 						    X(iSub), V(iSub), Wstarij(iSub), Wstarji(iSub), 
 						    countWstarij(iSub), countWstarji(iSub), 
 						    (*LSS)(iSub), linRecAtInterface, fluidId(iSub), 
-						    Nriemann, (Nsbar) ? &((*Nsbar)(iSub)) : 0,  
+						    Nriemann,
 						    dt, alpha, ngrad(iSub), legrad, (*RR)(iSub), it,
 						    (*tag)(iSub), failsafe, rshift);
   }
@@ -1636,7 +1629,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
 							Wstarij(iSub), Wstarji(iSub), 
 							countWstarij(iSub), countWstarji(iSub), 
 							(*LSS)(iSub), linRecAtInterface, fluidId(iSub), Nriemann, 
-							(Nsbar) ? &((*Nsbar)(iSub)) : 0, dt, alpha, 
+							dt, alpha, 
 							ngrad(iSub), legrad, (*RR)(iSub), it, 
 							(*tag)(iSub), 0, rshift); 
       }
@@ -1986,7 +1979,7 @@ void Domain::computeJacobianFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                              DistBcData<dim>& bcData, DistGeoState& geoState,
                                              DistSVec<double,3>& X, DistSVec<double,dim>& V,
                                              DistLevelSetStructure *LSS, DistVec<int> &fluidId, 
-                                             int Nriemann, DistSVec<double,3> *Nsbar,
+                                             int Nriemann,
                                              DistMat<Scalar,neq>& A,DistVec<double>& irey) 
 {
 
@@ -1996,13 +1989,12 @@ void Domain::computeJacobianFiniteVolumeTerm(DistVec<double> &ctrlVol,
  
 #pragma omp parallel for
     for (iSub = 0; iSub < numLocSub; ++iSub) {
-      SVec<double,3>* nsbar = (Nsbar) ? &((*Nsbar)(iSub)) : 0;
       subDomain[iSub]->computeJacobianFiniteVolumeTerm(riemann(iSub), fluxFcn,
                                                      bcData(iSub), geoState(iSub),
                                                      X(iSub), V(iSub),ctrlVol(iSub),
                                                      (*LSS)(iSub),
                                                      fluidId(iSub),Nriemann,
-                                                     nsbar,A(iSub),irey(iSub));
+                                                     A(iSub),irey(iSub));
       subDomain[iSub]->sndDiagBlocks(*matPat, A(iSub));
     }
     double t = timer->addFiniteVolumeJacTime(t0);
@@ -2021,7 +2013,7 @@ void Domain::computeJacobianFiniteVolumeTerm(DistExactRiemannSolver<dim>& rieman
                                              DistSVec<double,3>& X, DistSVec<double,dim>& V,DistVec<double>& ctrlVol,
                                              DistNodalGrad<dimLS> &ngradLS,
                                              DistLevelSetStructure *LSS,
-                                             int Nriemann, DistSVec<double,3>* Nsbar,
+                                             int Nriemann,
                                              FluidSelector &fluidSelector,
                                              DistMat<Scalar,neq>& A) {
 
@@ -2031,12 +2023,11 @@ void Domain::computeJacobianFiniteVolumeTerm(DistExactRiemannSolver<dim>& rieman
  
 #pragma omp parallel for
     for (iSub = 0; iSub < numLocSub; ++iSub) {
-      SVec<double,3>* nsbar = (Nsbar) ? &((*Nsbar)(iSub)) : 0;
       subDomain[iSub]->computeJacobianFiniteVolumeTerm(riemann(iSub), fluxFcn,
                                                      bcData(iSub), geoState(iSub),
                                                      X(iSub), V(iSub),ctrlVol(iSub),
                                                      ngradLS(iSub),(*LSS)(iSub),(*(fluidSelector.fluidId))(iSub),
-                                                     Nriemann,nsbar, fluidSelector,
+                                                     Nriemann, fluidSelector,
                                                      A(iSub));
       subDomain[iSub]->sndDiagBlocks(*matPat, A(iSub));
     }
@@ -3475,7 +3466,7 @@ void Domain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn,
 		       DistExactRiemannSolver<dim> &riemann,
 		       DistLevelSetStructure *distLSS,
 		       DistVec<int> &fluidId, 		      
-		       int Nriemann, DistSVec<double,3> *Nsbar,
+		       int Nriemann,
 		       DistMat<Scalar,neq> &H2,
 		       DistSVec<double,dim> &aij, DistSVec<double,dim> &aji,
 		       DistSVec<double,dim> &bij, DistSVec<double,dim> &bji,
@@ -3489,12 +3480,11 @@ void Domain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn,
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
 
-    SVec<double,3>* nsbar = (Nsbar) ? &((*Nsbar)(iSub)) : 0;
-        Vec<int> &FluidId = fluidId(iSub);
+    Vec<int> &FluidId = fluidId(iSub);
 
     subDomain[iSub]->computeH2(fluxFcn, recFcn, bcData(iSub), geoState(iSub),
 			       X(iSub), V(iSub), ngrad(iSub), riemann(iSub),
-			       (*distLSS)(iSub), FluidId, Nriemann, nsbar, 
+			       (*distLSS)(iSub), FluidId, Nriemann,
 			       H2(iSub), aij(iSub), aji(iSub), bij(iSub), bji(iSub), 
 			       betaij(iSub), betaji(iSub));
 
@@ -3547,7 +3537,7 @@ void Domain::computeMatVecProdH2(FluxFcn **fluxFcn, RecFcn *recFcn, DistGeoState
 				 DistExactRiemannSolver<dim> &riemann,
 				 DistLevelSetStructure *distLSS,
 				 DistVec<int> &fluidId,
-				 int Nriemann, DistSVec<double,3> *Nsbar,
+				 int Nriemann,
 				 DistMat<Scalar1,dim> &H2,
 				 DistSVec<double,dim> &aij, DistSVec<double,dim> &aji,
 				 DistSVec<double,dim> &bij, DistSVec<double,dim> &bji,
@@ -3565,12 +3555,11 @@ void Domain::computeMatVecProdH2(FluxFcn **fluxFcn, RecFcn *recFcn, DistGeoState
   for (iSub = 0; iSub < numLocSub; ++iSub) {
 
         Vec<int> &FluidId = fluidId(iSub);
-	SVec<double,3>* nsbar = (Nsbar) ? &((*Nsbar)(iSub)) : 0;
 
         subDomain[iSub]->computeMatVecProdH2(fluxFcn, recFcn, geoState(iSub), 
 					     X(iSub), ctrlVol(iSub),
 					     riemann(iSub), (*distLSS)(iSub), FluidId,
-					     Nriemann, nsbar,  H2(iSub),
+					     Nriemann, H2(iSub),
 					     aij(iSub), aji(iSub), bij(iSub), bji(iSub),
 					     betaij(iSub), betaji(iSub),
 					     p(iSub), dpdxj(iSub), prod(iSub));

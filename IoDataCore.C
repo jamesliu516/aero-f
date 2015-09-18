@@ -2201,22 +2201,16 @@ MultiFluidData::MultiFluidData()
 {
 
   method = GHOSTFLUID_FOR_POOR;
-  problem = BUBBLE; //hidden
   typePhaseChange = EXTRAPOLATION;
   riemannComputation = RK2;
-  localtime  = GLOBAL; //hidden
-  typeTracking = LINEAR; //hidden
   bandlevel = 5;
-  subIt = 10; //hidden
-  cfl = 0.7; //hidden
   frequency = 0;
   eps = 1.e-6; //hidden
   outputdiff = 0; //hidden
-  copy = TRUE; //hidden
+  copyCloseNodes = TRUE; //hidden
 
   testCase = 0; // hidden
 
-  lsInit = VOLUMES; //hidden
   interfaceType = FSF; //hidden
   jwlRelaxationFactor = 1.0;
 
@@ -2224,9 +2218,8 @@ MultiFluidData::MultiFluidData()
   interfaceExtrapolation = AUTO;
   interfaceLimiter = LIMITERNONE;
   levelSetMethod = CONSERVATIVE;
-  interfaceOmitCells = 0;
 
-  prec = NON_PRECONDITIONED;
+  prec = SAME_AS_PROBLEM;
 
   riemannNormal = REAL;
 }
@@ -2240,9 +2233,6 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
   new ClassToken<MultiFluidData>(ca, "Method", this,
              reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::method), 3,
              "None", 0, "GhostFluidForThePoor", 1, "FiniteVolumeWithExactTwoPhaseRiemann", 2);
-  new ClassToken<MultiFluidData>(ca, "Problem", this,
-                                 reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::problem), 2,
-                                "Bubble", 0, "ShockTube", 1);
   new ClassToken<MultiFluidData>(ca, "PhaseChange", this,
                                  reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::typePhaseChange), 2,
                                  "RiemannSolution", 1, "Extrapolation", 2);
@@ -2250,18 +2240,8 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
                                  reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::riemannComputation), 4,
                                  "FirstOrder", 0, "SecondOrder", 1, "TabulationRiemannInvariant", 2,
                                  "TabulationRiemannProblem", 3);
-  new ClassToken<MultiFluidData>(ca, "FictitiousTimeStepping", this,
-                                 reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::localtime),2,
-                                 "Global", 0, "Local", 1);
-  new ClassToken<MultiFluidData>(ca, "InterfaceTracking", this,
-             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::typeTracking),3,
-             "Linear", 0, "Gradient", 1, "Hermite", 2);
   new ClassInt<MultiFluidData>(ca, "BandLevel", this,
              &MultiFluidData::bandlevel);
-  new ClassInt<MultiFluidData>(ca, "SubIt", this,
-             &MultiFluidData::subIt);
-  new ClassDouble<MultiFluidData>(ca, "Cfl", this,
-             &MultiFluidData::cfl);
   new ClassInt<MultiFluidData>(ca, "LevelSetReinitializationFrequency", this,
              &MultiFluidData::frequency);
   new ClassDouble<MultiFluidData>(ca, "Epsilon", this,
@@ -2269,14 +2249,8 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
   new ClassInt<MultiFluidData>(ca, "OutputDiff", this,
              &MultiFluidData::outputdiff);
   new ClassToken<MultiFluidData>(ca, "CopyCloseNodes", this,
-             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::copy),2,
+             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::copyCloseNodes),2,
              "False", 0, "True", 1);
-  new ClassToken<MultiFluidData>(ca, "LSInit", this,
-             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::lsInit),3,
-             "Old", 0, "Volumes", 1, "Geometric", 2);
-  new ClassToken<MultiFluidData>(ca, "InterfaceType", this,
-             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::interfaceType),3,
-             "FluidStructureFluid", 0, "FluidFluid", 1, "BOTH", 2);
 
   new ClassToken<MultiFluidData>(ca, "InterfaceAlgorithm", this,
                                  reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::interfaceTreatment),2,
@@ -2300,9 +2274,6 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
   new ClassInt<MultiFluidData>(ca, "TestCase", this,
                                &MultiFluidData::testCase);
   
-  new ClassInt<MultiFluidData>(ca, "OmitCells", this,
-                               &MultiFluidData::interfaceOmitCells);
-
   new ClassToken<MultiFluidData>(ca, "RiemannNormal", this,
                                  reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::riemannNormal),3,
                                  "LevelSet",0,"Fluid",1,"LegacyFluid",2);
@@ -5033,19 +5004,15 @@ EmbeddedFramework::EmbeddedFramework() {
   eosChange = NODAL_STATE;
   forceAlg = EMBEDDED_SURFACE;
   riemannNormal = STRUCTURE;
-  typePhaseChange = EXTRAPOLATION;
   phaseChangeAlg = AUTO;
   interfaceAlg = MID_EDGE;
 
-  prec = NON_PRECONDITIONED;
+  prec = SAME_AS_PROBLEM;
   alpha = 0.1;
 
   nLevelset = 0;
 
-  //debug variables
   crackingWithLevelset = OFF;
-  coupling = TWOWAY;
-  dim2Treatment = NO;    
   reconstruct = CONSTANT;
   viscousinterfaceorder = FIRST;
 
@@ -5069,14 +5036,12 @@ void EmbeddedFramework::setup(const char *name) {
                                       "PhysBAM", 0, "FRG", 1);
   new ClassToken<EmbeddedFramework> (ca, "StructureNormal", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::structNormal), 2,
                                       "ElementBased", 0, "NodeBased", 1);
-  new ClassToken<EmbeddedFramework> (ca, "EOSChange", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::eosChange), 2,
-                                      "NodalState", 0, "RiemannSolution", 1);
+  new ClassToken<EmbeddedFramework> (ca, "PhaseChange", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::eosChange), 2,
+                                      "Extrapolation", 0, "RiemannSolution", 1);
   new ClassToken<EmbeddedFramework> (ca, "SurrogateSurface", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::forceAlg), 3,
                                       "ReconstructedSurface", 0, "ControlVolumeFace", 1, "EmbeddedSurface", 2);
-  new ClassToken<EmbeddedFramework> (ca, "RiemannNormal", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::riemannNormal), 3,
-                                      "Structure", 0, "Fluid", 1, "AveragedStructure", 2);
-  new ClassToken<EmbeddedFramework> (ca, "PhaseChange", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::typePhaseChange), 1,
-                                     "Extrapolation", 0);
+  new ClassToken<EmbeddedFramework> (ca, "RiemannNormal", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::riemannNormal), 2,
+                                      "Structure", 0, "Fluid", 1);
   new ClassToken<EmbeddedFramework> (ca, "ExtrapolationOrder", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::phaseChangeAlg), 2,
                                      "FirstOrder", 0, "SecondOrder", 1);
   new ClassToken<EmbeddedFramework> (ca, "InterfaceAlgorithm", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::interfaceAlg), 2,
@@ -5090,17 +5055,15 @@ void EmbeddedFramework::setup(const char *name) {
 
   new ClassInt<EmbeddedFramework>(ca, "QuadratureOrder", this, &EmbeddedFramework::qOrder);
 
-  //debug variables
   new ClassToken<EmbeddedFramework> (ca, "CrackingWithLevelSet", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::crackingWithLevelset), 2,
                                       "Off", 0, "On", 1);
-  new ClassToken<EmbeddedFramework> (ca, "Coupling", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::coupling), 2,
-                                      "TwoWay", 0, "OneWay", 1);
-  new ClassToken<EmbeddedFramework> (ca, "TwoDimension", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::dim2Treatment), 2,
-                                      "No", 0, "Yes", 1);
+
+/*This is now set automatically
   new ClassToken<EmbeddedFramework> (ca, "Reconstruction", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::reconstruct), 2,
                                       "Constant", 0, "Linear", 1);
+*/
   new ClassToken<EmbeddedFramework> (ca, "ViscousInterfaceOrder", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::viscousinterfaceorder), 2,
-                                      "First", 0, "Second", 1);
+                                      "FirstOrder", 0, "SecondOrder", 1);
 
   new ClassInt<EmbeddedFramework>(ca, "TestCase", this,
                                   &EmbeddedFramework::testCase);
@@ -5954,7 +5917,7 @@ void IoData::resetInputValues()
     linearizedData.gamFreq[19] = linearizedData.gamFreq20;
   }
 
-  if(embed.typePhaseChange == EmbeddedFramework::EXTRAPOLATION && embed.phaseChangeAlg == EmbeddedFramework::AUTO) {
+  if(embed.eosChange == EmbeddedFramework::NODAL_STATE && embed.phaseChangeAlg == EmbeddedFramework::AUTO) {
     embed.phaseChangeAlg = (embed.interfaceAlg == EmbeddedFramework::INTERSECTION) ?
                            EmbeddedFramework::LEAST_SQUARES : EmbeddedFramework::AVERAGE;
   }
@@ -5962,6 +5925,30 @@ void IoData::resetInputValues()
   if(mf.typePhaseChange == MultiFluidData::EXTRAPOLATION && mf.interfaceExtrapolation == MultiFluidData::AUTO) {
     mf.interfaceExtrapolation = (mf.interfaceTreatment == MultiFluidData::SECONDORDER) ?
                                 MultiFluidData::EXTRAPOLATIONSECONDORDER : MultiFluidData::EXTRAPOLATIONFIRSTORDER;
+  }
+
+  if(embed.crackingWithLevelset == EmbeddedFramework::ON) {
+    mf.copyCloseNodes = MultiFluidData::FALSE;
+  }
+
+  if(embed.prec == EmbeddedFramework::SAME_AS_PROBLEM && problem.prec == ProblemData::PRECONDITIONED) {
+    embed.prec = EmbeddedFramework::PRECONDITIONED;
+  }
+  else if(embed.prec == EmbeddedFramework::PRECONDITIONED && problem.prec == ProblemData::NON_PRECONDITIONED) {
+    com->fprintf(stderr, "*** Warning: EmbeddedFramework.Prec = LowMach can only be used in conjunction with the Problem.Prec = LowMach\n");
+    embed.prec = EmbeddedFramework::NON_PRECONDITIONED;
+  }
+
+  if(mf.prec == MultiFluidData::SAME_AS_PROBLEM && problem.prec == ProblemData::PRECONDITIONED) {
+    mf.prec = MultiFluidData::PRECONDITIONED;
+  }
+  else if(mf.prec == MultiFluidData::PRECONDITIONED && problem.prec == ProblemData::NON_PRECONDITIONED) {
+    com->fprintf(stderr, "*** Warning: MultiPhase.Prec = LowMach can only be used in conjunction with the Problem.Prec = LowMach\n");
+    mf.prec = MultiFluidData::NON_PRECONDITIONED;
+  }
+
+  if(embed.interfaceAlg == EmbeddedFramework::INTERSECTION && schemes.ns.reconstruction == SchemeData::LINEAR) {
+    embed.reconstruct = EmbeddedFramework::LINEAR;
   }
 
 }
@@ -6877,7 +6864,7 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
       }
 
     if (eqs.fluidModel.fluid == FluidModelData::LIQUID){
-      if (mf.problem == MultiFluidData::BUBBLE)
+      //if (mf.problem == MultiFluidData::BUBBLE)
         bc.inlet.density = pow( (bc.inlet.pressure - Pref)/awater, 1.0/bwater);
     }
 

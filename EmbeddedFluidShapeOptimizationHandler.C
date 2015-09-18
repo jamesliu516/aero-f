@@ -88,7 +88,6 @@ difference(dom->getNodeDistInfo())
     this->riemann,
     this->linRecAtInterface,
     this->viscSecOrder,
-    this->Nsbar,
    &this->Wtemp,
     this->riemannNormal,
     this->ghostPoints,
@@ -196,7 +195,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSetUpLinearSolver
                                  this->linRecAtInterface, this->viscSecOrder, 
 				 this->nodeTag, 
 				 FluxFD, 
-				 this->riemann, this->riemannNormal, this->Nsbar, 1, this->ghostPoints);
+				 this->riemann, this->riemannNormal, 1, this->ghostPoints);
 
   if (ioData.sa.homotopy == SensitivityAnalysis::ON_HOMOTOPY)
     this->timeState->add_dAW_dt(1, *this->geoState, A, U, FluxFD, this->distLSS); 
@@ -216,7 +215,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSetUpLinearSolver
 
       this->spaceOp->computeJacobian(X, A, U, 
 				     this->distLSS, this->nodeTag, 
-				     this->riemann, this->riemannNormal, this->Nsbar, 
+				     this->riemann, this->riemannNormal,
 				     this->ghostPoints, *_pc, this->timeState);
 
       if (ioData.sa.homotopy == SensitivityAnalysis::ON_HOMOTOPY){
@@ -235,7 +234,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSetUpLinearSolver
                                  this->linRecAtInterface, this->viscSecOrder, 
 				 this->nodeTag, 
 				 Flux, 
-				 this->riemann, this->riemannNormal, this->Nsbar, 1, this->ghostPoints, false);
+				 this->riemann, this->riemannNormal, 1, this->ghostPoints, false);
 }
 
 //------------------------------------------------------------------------------
@@ -677,7 +676,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoAnalytical
   // Computing the partial derivative of the flux with respect to the variables
   this->spaceOp->computeDerivativeOfResidual(X, A, U, this->distLSS, 
 					     this->linRecAtInterface, this->viscSecOrder, 
-					     this->nodeTag, this->riemann, this->riemannNormal, this->Nsbar, 
+					     this->nodeTag, this->riemann, this->riemannNormal,
 					     this->ghostPoints, DFSPAR[0], 
 					     Flux, dFdS, this->timeState);
 
@@ -764,7 +763,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSemiAnalytical
                                  this->linRecAtInterface, this->viscSecOrder, 
 				 this->nodeTag, 
 				 *Fp, 
-				 this->riemann, this->riemannNormal, this->Nsbar, 1, this->ghostPoints);
+				 this->riemann, this->riemannNormal, 1, this->ghostPoints);
   
   this->spaceOp->applyBCsToResidual(U, *Fp, this->distLSS);
   //---------------------------------------------------------------------
@@ -795,7 +794,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSemiAnalytical
                                  this->linRecAtInterface, this->viscSecOrder, 
 				 this->nodeTag, 
 				 *Fm, 
-				 this->riemann, this->riemannNormal, this->Nsbar, 1, this->ghostPoints);
+				 this->riemann, this->riemannNormal, 1, this->ghostPoints);
   
   this->spaceOp->applyBCsToResidual(U, *Fm, this->distLSS);
   //---------------------------------------------------------------------
@@ -1209,7 +1208,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsFinite
                                  this->linRecAtInterface, this->viscSecOrder, 
 				 this->nodeTag, 
 				 *Fp, //dummy 
-				 this->riemann, this->riemannNormal, this->Nsbar, 1, this->ghostPoints);
+				 this->riemann, this->riemannNormal, 1, this->ghostPoints);
 
   this->postOp->computeForceAndMoment(x0, *X_, *Up, &this->nodeTag, Fip, Mip, Fvp, Mvp);
 
@@ -1246,7 +1245,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsFinite
                                  this->linRecAtInterface, this->viscSecOrder, 
 				 this->nodeTag, 
 				 *Fm, //dummy 
-				 this->riemann, this->riemannNormal, this->Nsbar, 1, this->ghostPoints);
+				 this->riemann, this->riemannNormal, 1, this->ghostPoints);
 
   this->postOp->computeForceAndMoment(x0, *X_, *Um, &this->nodeTag, Fim, Mim, Fvm, Mvm);
 

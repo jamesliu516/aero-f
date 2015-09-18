@@ -158,7 +158,7 @@ public:
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
 		       DistSVec<double,dim> &, DistSVec<double,dim> &,
                        DistTimeState<dim> *, bool=true);
-	void computeResidualRestrict(DistSVec<double,3> &, DistVec<double> &,
+  void computeResidualRestrict(DistSVec<double,3> &, DistVec<double> &,
 			DistSVec<double,dim> &, DistSVec<double,dim> &, DistTimeState<dim> *,
 			RestrictionMapping<dim> &, bool=true);
 // Included (MB)
@@ -174,16 +174,16 @@ public:
                        bool, bool, DistVec<int> &, 
 		       DistSVec<double,dim> &,
                        DistExactRiemannSolver<dim> *, int, 
-		       DistSVec<double,3> *, int it = 0,
+		       int it = 0,
                        DistVec<GhostPoint<dim>*> *ghostPoints = 0, 
 		       bool=true);
 
   void computeResidual(DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, 
-		  			   DistSVec<double,dim> &, DistSVec<double,dim> &, 
-					   DistVec<int> &, DistVec<int> &, DistLevelSetStructure *,
+                       DistSVec<double,dim> &, DistSVec<double,dim> &, 
+                       DistVec<int> &, DistVec<int> &, DistLevelSetStructure *,
                        bool, bool, DistVec<int> &, DistSVec<double,dim> &,
-                       DistExactRiemannSolver<dim> *, int, DistSVec<double,3> *, 
-					   double, double, int it = 0, DistVec<GhostPoint<dim>*> *ghostPoints = 0);
+                       DistExactRiemannSolver<dim> *, int,
+                       double, double, int it = 0, DistVec<GhostPoint<dim>*> *ghostPoints = 0);
 
   void updateSweptNodes(DistSVec<double,3> &X,DistVec<double> &ctrlVol,
 			int phaseChangeChoice, int phaseChangeAlg,
@@ -206,8 +206,6 @@ public:
                            DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
                            DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
                            DistLevelSetStructure *distLSS, DistVec<int> *fluidId =  0);
-
-  void computeCellAveragedStructNormal(DistSVec<double,3> &, DistLevelSetStructure *);
 
 
   double recomputeResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
@@ -240,7 +238,7 @@ public:
                        DistLevelSetStructure *distLSS,
                        DistVec<int> &fluidId, 
                        DistExactRiemannSolver<dim> *riemann, 
-                       int Nriemann, DistSVec<double,3> *Nsbar,
+                       int Nriemann,
                        DistVec<GhostPoint<dim>*> *ghostPoints,
                        DistMat<Scalar,neq>& A,
                        DistTimeState<dim>*);
@@ -285,7 +283,7 @@ public:
 		 DistLevelSetStructure *distLSS,
 		 DistVec<int> &fluidId, 
 		 DistExactRiemannSolver<dim> *riemann, 
-		 int Nriemann, DistSVec<double,3> *Nsbar,
+		 int Nriemann,
 		 DistVec<GhostPoint<dim>*> *ghostPoints,
 		 DistMat<Scalar,neq> &H2,
 		 DistSVec<double,dim> &aij, DistSVec<double,dim> &aji,
@@ -313,7 +311,7 @@ public:
 	       DistVec<int> &fluidId,
 	       bool linRecAtInterface, bool viscSecOrder,
 	       DistExactRiemannSolver<dim> *riemann, 
-	       int Nriemann, DistSVec<double,3> *Nsbar,
+	       int Nriemann,
 	       DistVec<GhostPoint<dim>*> *ghostPoints,
 	       DistMat<Scalar1,dim> &H2,
 	       DistSVec<double,dim> &aij, DistSVec<double,dim> &aji,
@@ -360,7 +358,7 @@ public:
 				   bool linRecAtInterface, bool viscSecOrder, 
 				   DistVec<int> &fluidId, 
 				   DistExactRiemannSolver<dim> *riemann, 
-				   int Nriemann, DistSVec<double,3> *Nsbar,
+				   int Nriemann,
 				   DistVec<GhostPoint<dim>*> *ghostPoints,
 				   double dMach,
 				   DistSVec<double,dim> &R, DistSVec<double,dim> &dR,
@@ -521,7 +519,7 @@ public:
                        DistExactRiemannSolver<dim> *,DistTimeState<dim>*, int it);
   void computeResidual(DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &, 
                        DistSVec<double,dim> &, DistLevelSetStructure *, bool, bool, DistExactRiemannSolver<dim> *, 
-                       int, DistSVec<double,3> *, DistSVec<double,dimLS> &, FluidSelector &, 
+                       int, DistSVec<double,dimLS> &, FluidSelector &, 
                        DistSVec<double,dim> &, int, DistVec<GhostPoint<dim>*> *);
 
   void computeResidualLS(DistSVec<double,3> &, DistVec<double> &,
@@ -538,7 +536,7 @@ public:
   void computeJacobian(DistExactRiemannSolver<dim>* riemann,
                        DistSVec<double,3>& X, DistSVec<double,dim>& U,DistVec<double>& ctrlVol,
                        DistLevelSetStructure *distLSS,
-                       int Nriemann, DistSVec<double,3>* Nsbar,
+                       int Nriemann,
                        FluidSelector &fluidSelector,
                        DistMat<Scalar,neq>& A,DistTimeState<dim>* timeState);
 
