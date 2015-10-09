@@ -1871,8 +1871,8 @@ void OneDimensional::computeSlopes(SVec<double,neq>& VV, SVec<double,neq>& slope
     //double A[4] = { X[i+1][0]*X[i+1][0]+X[i-1][0]*X[i-1][0]+X[i][0]*X[i][0], X[i+1][0]+X[i-1][0]+X[i][0],
     //		   X[i+1][0]+X[i-1][0]+X[i][0], 3};
   //double det = A[0]*A[3]-A[1]*A[2];
-    double Xi = X[i][0],Xim1 = X[i-1][0],Xip1 = X[i+1][0];
-    double* Vi = VV[i],*Vip1 = VV[i+1], *Vim1 = VV[i-1];
+    double Xi = X[i][0], Xim1 = ((i > 0) ? X[i-1][0] : 0), Xip1 = ((i < numPoints-1) ? X[i+1][0] : 0);
+    double* Vi = VV[i], *Vip1 = ((i < numPoints-1) ? VV[i+1] : 0), *Vim1 = ((i > 0) ? VV[i-1] : 0);
     double dx1 = Xip1-Xi, dx2 = Xim1-Xi;
     double dxsq = dx1*dx1+dx2*dx2;
     double* pSlopes = slopes[i];
