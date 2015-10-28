@@ -260,6 +260,7 @@ public:
   double getR1r(int tag=0) const{ check(tag); return varFcn[tag]->getR1r(); }
   double getR2r(int tag=0) const{ check(tag); return varFcn[tag]->getR2r(); }
   double getPmin(int tag=0) const { check(tag); return varFcn[tag]->pmin; }
+  double getRhomin(int tag=0) const { check(tag); return varFcn[tag]->rhomin; }
 
   bool isBurnable(int tag = 0) const { check(tag); return varFcn[tag]->isBurnable(); }
 
