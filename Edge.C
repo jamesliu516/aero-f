@@ -119,7 +119,7 @@ void EdgeSet::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &ge
     double a = varFcn->computeSoundSpeed(Vmid);
 
     double un = u * n - ndot;
-    double locMach = varFcn->computeMachNumber(Vmid);
+    double locMach = tprec.timePreconditioner() ? varFcn->computeMachNumber(Vmid) : 0;
     locbeta = tprec.getBeta(locMach,true);
 
     double beta2 = locbeta * locbeta;
@@ -176,7 +176,7 @@ void EdgeSet::computeTimeStep2(FemEquationTerm *fet, VarFcn *varFcn, GeoState &g
     double a = varFcn->computeSoundSpeed(Vmid);
 
     double un = u * n - ndot;
-    double locMach = varFcn->computeMachNumber(Vmid);
+    double locMach = tprec.timePreconditioner() ? varFcn->computeMachNumber(Vmid) : 0;
     locbeta = tprec.getBeta(locMach,true);
 
     double beta2 = locbeta * locbeta;
@@ -313,7 +313,7 @@ void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
 
       a = varFcn->computeSoundSpeed(Vmid, fluidId[i]);
       un = u * n - ndot;
-      mach = varFcn->computeMachNumber(Vmid, fluidId[i]);
+      mach = tprec.timePreconditioner() ? varFcn->computeMachNumber(Vmid, fluidId[i]) : 0;
 
       locbeta = tprec.getBeta(mach,true);
       beta2 = locbeta*locbeta;
@@ -331,7 +331,7 @@ void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
       u = varFcn->getVelocity(V[i]);
       a = varFcn->computeSoundSpeed(V[i], fluidId[i]);
       un = u * n - ndot;
-      mach = varFcn->computeMachNumber(V[i],fluidId[i]);
+      mach = tprec.timePreconditioner() ? varFcn->computeMachNumber(V[i],fluidId[i]) : 0;
 
       locbeta = tprec.getBeta(mach,true);
       beta2 = locbeta * locbeta;
@@ -346,7 +346,7 @@ void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
       u = varFcn->getVelocity(V[j]);
       a = varFcn->computeSoundSpeed(V[j], fluidId[j]);
       un = u * n - ndot;
-      mach = varFcn->computeMachNumber(V[j],fluidId[j]);
+      mach = tprec.timePreconditioner() ? varFcn->computeMachNumber(V[j],fluidId[j]): 0;
 
       locbeta = tprec.getBeta(mach,true);
       beta2 = locbeta * locbeta;
@@ -3375,10 +3375,11 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	      for (int k=0; k<dim; k++) {
 		Wstar[k] = V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k]);
 	      }
+              varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Wstar);
 	    }else {
 	      higherOrderFSI->extrapolateV6(l, 0, i, V, Vi, Wstar, X, resij.alpha, length, fluidId, betai);
+              varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Vi);
 	    }
-	    varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Wstar);
 
 	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi, fluidId[i], false);
 
@@ -3483,10 +3484,11 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	      for (int k=0; k<dim; k++) {
 		Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
 	      }
+              varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Wstar);
 	    } else {	     
 	      higherOrderFSI->extrapolateV6(l, 1, j, V, Vj, Wstar, X, 1.0-resji.alpha, length, fluidId,betaj);
+              varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Vj);
 	    }	    
-	    varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Wstar);
 
 	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj, fluidId[j], false);
 	  
