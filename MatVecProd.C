@@ -1630,7 +1630,7 @@ void MatVecProdH2<dim,Scalar,neq>::Multiplier<dd,dd,Scalar1,Scalar2>::Apply
 {
 
   spaceOp->applyH2(X, ctrlVol, U, H2, aij, aji, bij, bji, p, prod);
-/*
+
   if (R)
   {
     *vProd = (Scalar2) 0;
@@ -1643,7 +1643,7 @@ void MatVecProdH2<dim,Scalar,neq>::Multiplier<dd,dd,Scalar1,Scalar2>::Apply
     RFD->applyViscous(p, *vProd);
     prod += *vProd;
   }
-*/
+
 }
 
 //------------------------------------------------------------------------------
@@ -1667,7 +1667,7 @@ void MatVecProdH2<dim,Scalar,neq>::Multiplier<dd,dd,Scalar1,Scalar2>::ApplyTrans
 {
 
   spaceOp->applyH2transposeNew(X, ctrlVol, U, H2, aij, aji, bij, bji, p, prod);
-/*
+
   if (R)
   {
     std::cout << "\n !!! R is being added !!\n";
@@ -1681,7 +1681,7 @@ void MatVecProdH2<dim,Scalar,neq>::Multiplier<dd,dd,Scalar1,Scalar2>::ApplyTrans
     RFD->applyViscous(p, *vProd);
     prod += *vProd;
   }
-*/
+
 }
 
 //------------------------------------------------------------------------------
