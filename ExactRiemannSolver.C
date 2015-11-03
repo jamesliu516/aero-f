@@ -30,15 +30,20 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
   if(iod.problem.framework==ProblemData::EMBEDDED ||
      iod.problem.framework==ProblemData::EMBEDDEDALE ||
      iod.bc.wall.reconstruction==BcsWallData::EXACT_RIEMANN ||
-     iod.oneDimensionalInfo.problemMode == OneDimensionalInfo::FSI) { 
+     iod.oneDimensionalInfo.problemMode == OneDimensionalInfo::FSI) {
     fsiRiemann = new LocalRiemannFluidStructure<dim>();
     dynamic_cast<LocalRiemannFluidStructure<dim> *>(fsiRiemann)->setStabilAlpha(iod.embed.stabil_alpha);
-   
+
     if (iod.embed.prec == EmbeddedFramework::PRECONDITIONED)
       dynamic_cast<LocalRiemannFluidStructure<dim> *>(fsiRiemann)->setPreconditioner(iod.prec.mach);
-    
-    if (iod.eqs.type == EquationsData::NAVIER_STOKES)
-      dynamic_cast<LocalRiemannFluidStructure<dim> *>(fsiRiemann)->setViscousSwitch(1.0);
+	 
+	 if (iod.eqs.type == EquationsData::NAVIER_STOKES) {
+		 if(iod.embed.viscousboundarycondition == EmbeddedFramework::STRONG){
+			 dynamic_cast<LocalRiemannFluidStructure<dim> *>(fsiRiemann)->setViscousSwitch(1.0);
+		 } else {
+			 dynamic_cast<LocalRiemannFluidStructure<dim> *>(fsiRiemann)->setViscousSwitch(0.0);
+		 }  
+	 }
   }
 
   for (int i = 0; i < 10; ++i) {

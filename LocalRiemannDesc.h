@@ -3228,6 +3228,8 @@ int LocalRiemannFluidStructure<dim>::computeRiemannSolution(double *Vi, double *
   if (err)
     return err;
 
+std::cout << "aaaa " << viscous_switch << endl;
+
   Wstar[0]  = R_i;
   Wstar[1]  = U_i*nphi[0] + viscous_switch*U_ti[0] + (1.0-viscous_switch)*(1.0-stabil_alpha)*vti[0];
   Wstar[2]  = U_i*nphi[1] + viscous_switch*U_ti[1] + (1.0-viscous_switch)*(1.0-stabil_alpha)*vti[1];
@@ -3272,6 +3274,8 @@ int LocalRiemannFluidStructure<dim>::computeRiemannSolution(double *Vi, double *
     eriemannfs_tait(R_1,U_1,P_1,R_i,U_i,P_i,vf,Id,err,pc,rc); //caution: U_i will not be modified!
     break;
   }
+
+std::cout << "bbbb " << viscous_switch << endl;
 
   Wstar[dim]    = R_i;
   Wstar[dim+1]  = U_i*nphi[0] + viscous_switch*U_ti[0] + (1.0-viscous_switch)*(1.0-stabil_alpha)*vti[0];
@@ -3383,6 +3387,8 @@ void LocalRiemannFluidStructure<dim>::computeRiemannJacobian(double *Vi, double 
     dWstardU[(i+1)] = nphi[i]*dWdW[1];
     dWstardU[(i+1)+4*dim] = nphi[i]*dWdW[7];
   }
+
+std::cout << "ccc " << viscous_switch << endl;
 
   for (int i = 0; i < 3; ++i) {
  

@@ -5016,6 +5016,8 @@ EmbeddedFramework::EmbeddedFramework() {
   reconstruct = CONSTANT;
   viscousinterfaceorder = FIRST;
 
+  viscousboundarycondition = WEAK;
+
   stabil_alpha = 0.0;
 
   interfaceThickness = 1e-8;
@@ -5064,6 +5066,10 @@ void EmbeddedFramework::setup(const char *name) {
 */
   new ClassToken<EmbeddedFramework> (ca, "ViscousInterfaceOrder", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::viscousinterfaceorder), 2,
                                       "FirstOrder", 0, "SecondOrder", 1);
+
+  new ClassToken<EmbeddedFramework> (ca, "ViscousBoundaryCondition", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::viscousboundarycondition), 2,
+												 "Weak", 0, "Strong", 1);
+
 
   new ClassInt<EmbeddedFramework>(ca, "TestCase", this,
                                   &EmbeddedFramework::testCase);
