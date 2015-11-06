@@ -97,6 +97,16 @@ public:
   virtual void computeDerivativeOfForceTransmitted(double [4][3], double [4][3], double *[3], double *[3], Vec3D &, Vec3D &,
                                         double [3], double *, double *, double *[3], double *[3],
                                         double *[4], double *[4], double [3], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], double[3][3], int = 0) = 0;
+  virtual void computeDerivativeOfForceTransmitted2(double *[3], double *[3], Vec3D &, Vec3D &,
+                                        double [3], double *, double *, double *[3], double *[3],
+                                        double *[4], double *[4], double [3], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], double[3][3], int = 0) = 0;
+  virtual void computeDerivativeOperatorsOfForceTransmitted(double *Xface[3], Vec3D &n, double *Vface[3], double *pin, double dPdx[3][3], int hydro,
+                                                            double dFi0dn[3], double dFi0dS[3][3], double dFi0dVface[3][3][5],
+                                                            double dFi0ddPdx[3][3][3], double dFi0dXface[3][3][3],
+                                                            double dFi1dn[3], double dFi1dS[3][3], double dFi1dVface[3][3][5],
+                                                            double dFi1ddPdx[3][3][3], double dFi1dXface[3][3][3],
+                                                            double dFi2dn[3], double dFi2dS[3][3], double dFi2dVface[3][3][5],
+                                                            double dFi2ddPdx[3][3][3], double dFi2dXface[3][3][3]) = 0;
   virtual void rstVar(IoData &, Communicator*) = 0;
   virtual double computeDerivativeOfHeatPower(double [4][3], double [4][3], Vec3D&, Vec3D&, double [3], double*, double*, double* [3], double* [3], double* [4], double* [4], double [3]) = 0;
 
@@ -165,6 +175,16 @@ public:
   virtual void computeDerivativeOfForceTransmitted(double [4][3], double [4][3], double *[3], double *[3], Vec3D &, Vec3D &,
                                         double [3], double *, double *, double *[3], double *[3],
                                         double *[4], double *[4], double [3], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], double[3][3], int = 0);
+  virtual void computeDerivativeOfForceTransmitted2(double *[3], double *[3], Vec3D &, Vec3D &,
+                                        double [3], double *, double *, double *[3], double *[3],
+                                        double *[4], double *[4], double [3], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], double[3][3], int = 0);
+  virtual void computeDerivativeOperatorsOfForceTransmitted(double *Xface[3], Vec3D &n, double *Vface[3], double *pin, double dPdx[3][3], int hydro,
+                                                            double dFi0dn[3], double dFi0dS[3][3], double dFi0dVface[3][3][5],
+                                                            double dFi0ddPdx[3][3][3], double dFi0dXface[3][3][3],
+                                                            double dFi1dn[3], double dFi1dS[3][3], double dFi1dVface[3][3][5],
+                                                            double dFi1ddPdx[3][3][3], double dFi1dXface[3][3][3],
+                                                            double dFi2dn[3], double dFi2dS[3][3], double dFi2dVface[3][3][5],
+                                                            double dFi2ddPdx[3][3][3], double dFi2dXface[3][3][3]);
   void rstVar(IoData &, Communicator*);
   virtual double computeDerivativeOfHeatPower(double [4][3], double [4][3], Vec3D&, Vec3D&, double [3], double*, double*, double* [3], double* [3], double* [4], double* [4], double [3]);
 

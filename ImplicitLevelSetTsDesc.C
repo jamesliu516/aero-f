@@ -62,7 +62,7 @@ ImplicitLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   else if (implicitData.mvp == ImplicitData::H1)
     mvp = new MatVecProdH1MultiPhase<dim,dimLS>(this->timeState, this->multiPhaseSpaceOp, this->riemann, &this->fluidSelector, this->domain);
   else{
-    this->com->fprintf(stdout, "*** Error: MatVecProdH2MultiPhase is not available\n");
+    this->com->fprintf(stdout, "*** Error: MatVecProd H2 for MultiPhase is not available\n");
     exit(1);
   }
   

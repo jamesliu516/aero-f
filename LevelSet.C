@@ -25,16 +25,9 @@ LevelSet<dimLS>::LevelSet(IoData &iod, Domain *dom):
   data = new TimeData(iod);
 
   bandlevel = iod.mf.bandlevel;
-  localtime = iod.mf.localtime;
-  subIt = iod.mf.subIt;
-  cfl_psi = iod.mf.cfl;
-  typeTracking = iod.mf.typeTracking;
-  copy = iod.mf.copy;
+  copy = iod.mf.copyCloseNodes;
   conv_eps = iod.mf.eps;
   diff = bool(iod.mf.outputdiff);
-  if(typeTracking == MultiFluidData::GRADIENT){
-    com->fprintf(stdout, "***Warning: if reinitialization in band --> problem!\n ***         You need to reinitialize in the whole domain with this method\n");
-  }
 
   lsgrad  = new DistNodalGrad<dimLS,double>(iod,dom,2);
 
@@ -60,11 +53,6 @@ void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<do
     fprintf(stderr, "*** Error: no FluidModel[1] was specified\n");
     exit(1);
   }
-  if((iod.eqs.fluidModel.fluid  == FluidModelData::PERFECT_GAS ||
-      iod.eqs.fluidModel.fluid  == FluidModelData::STIFFENED_GAS) &&
-     it->second->fluid == FluidModelData::LIQUID)
-    invertGasLiquid = -1.0;
-  else invertGasLiquid = 1.0;
 
   // CONVENTION: phi >= 0 --- fluid1 --- 'normal' volID
   //             phi <  0 --- fluid2 --- 'special' volID

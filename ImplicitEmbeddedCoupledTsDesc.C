@@ -53,7 +53,6 @@ ImplicitEmbeddedCoupledTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom)
     this->riemann,
     this->linRecAtInterface,
     this->viscSecOrder,
-    this->Nsbar,
    &this->Wtemp,
     this->riemannNormal,
     this->ghostPoints,
@@ -162,7 +161,7 @@ void ImplicitEmbeddedCoupledTsDesc<dim>::setOperators(DistSVec<double,dim> &Q)
 
       this->spaceOp->computeJacobian(*this->X, *this->A, Q, 
 				     this->distLSS, this->nodeTag, this->riemann,
-                                     this->riemannNormal, this->Nsbar,this->ghostPoints, 
+                                     this->riemannNormal, this->ghostPoints, 
 				     *_pc, this->timeState);
 
       this->timeState->addToJacobian(*this->A, *_pc, Q);

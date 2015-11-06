@@ -150,20 +150,29 @@ void computeModalDisp(double sdt, Vec<double> &delWRom, double *delU, double *de
     void modifiedGramSchmidt(VecSet<DistSVec<double,dim> > &, double *, int);
     void computeDampingRatios();
 #ifdef USE_EIGEN3
+    void computeREigenvector(double, double, int, Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> &);
+    void computeOIBEI(double, double, int);
     void computeEigenvectorsAndResidual(double, double, int,
                                         Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> &rEigenVector,
                                         Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> &lEigenVector,
-                                        Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> &residual, bool);
+                                        Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> &residual);
     double computeResidualDenominator(double sReal, double sImag, 
                                       Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> rEigenVector, 
                                       Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> lEigenVector); 
     void computeNonlinearEigenResidual(double sReal, double sImag, 
                                        Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> rEigenVector, 
-                                       Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> &residual);
+                                       Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> &residual,
+                                       const char*);
+    void computeNonlinearEigenResidualNormalized(double sReal, double sImag, 
+                                       Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> rEigenVector, 
+                                       double normalizationTerm,
+                                       Eigen::Matrix<complex<double>,Eigen::Dynamic,Eigen::Dynamic> &residual,
+                                       const char*);
 #endif
+    void printErrorIndicatorOutput(double errorIndicator, const char*);
     void evalMatForEvProblem(double, double, VecSet<Vec<bcomp> > &, VecSet<Vec<double> > &, VecSet<Vec<double> > &);
     void computeGAM(double, double, VecSet<Vec<bcomp> > &);
-    void multiplyQ(double, double, complex<double> *, Vec<bcomp> &);
+    void multiplyGAM(double, double, complex<double> *, Vec<bcomp> &);
     void multiply_dQdLambda(double, double, complex<double> *, Vec<bcomp> &);
     void computeGenAeroForceMat();
 

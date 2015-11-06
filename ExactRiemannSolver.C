@@ -30,15 +30,20 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
   if(iod.problem.framework==ProblemData::EMBEDDED ||
      iod.problem.framework==ProblemData::EMBEDDEDALE ||
      iod.bc.wall.reconstruction==BcsWallData::EXACT_RIEMANN ||
-     iod.oneDimensionalInfo.problemMode == OneDimensionalInfo::FSI) { 
+     iod.oneDimensionalInfo.problemMode == OneDimensionalInfo::FSI) {
     fsiRiemann = new LocalRiemannFluidStructure<dim>();
     dynamic_cast<LocalRiemannFluidStructure<dim> *>(fsiRiemann)->setStabilAlpha(iod.embed.stabil_alpha);
-   
+
     if (iod.embed.prec == EmbeddedFramework::PRECONDITIONED)
       dynamic_cast<LocalRiemannFluidStructure<dim> *>(fsiRiemann)->setPreconditioner(iod.prec.mach);
-    
-    if (iod.eqs.type == EquationsData::NAVIER_STOKES)
-      dynamic_cast<LocalRiemannFluidStructure<dim> *>(fsiRiemann)->setViscousSwitch(1.0);
+	 
+	 if (iod.eqs.type == EquationsData::NAVIER_STOKES) {
+		 if(iod.embed.viscousboundarycondition == EmbeddedFramework::STRONG){
+			 dynamic_cast<LocalRiemannFluidStructure<dim> *>(fsiRiemann)->setViscousSwitch(1.0);
+		 } else {
+			 dynamic_cast<LocalRiemannFluidStructure<dim> *>(fsiRiemann)->setViscousSwitch(0.0);
+		 }  
+	 }
   }
 
   for (int i = 0; i < 10; ++i) {
@@ -191,6 +196,28 @@ int ExactRiemannSolver<dim>::updatePhaseChange(SVec<double,dim> &V, Vec<int> &fl
   }
 
   return -1;
+}
+//------------------------------------------------------------------------------
+template<int dim>
+int ExactRiemannSolver<dim>::fluid1(int IDi, int IDj)
+{
+  int riemannId = levelSetMap[IDi][IDj];
+  if(riemannId<0) {
+    fprintf(stderr,"ERROR: There is no Riemann solver for IDi = %d and IDj = %d!\n", IDi, IDj);
+    exit(-1);
+  }
+  return (levelSetSign[IDi][IDj] > 0) ? lriemann[riemannId]->fluid1 : lriemann[riemannId]->fluid2;
+}
+//------------------------------------------------------------------------------
+template<int dim>
+int ExactRiemannSolver<dim>::fluid2(int IDi, int IDj)
+{
+  int riemannId = levelSetMap[IDi][IDj];
+  if(riemannId<0) {
+    fprintf(stderr,"ERROR: There is no Riemann solver for IDi = %d and IDj = %d!\n", IDi, IDj);
+    exit(-1);
+  }
+  return (levelSetSign[IDi][IDj] > 0) ? lriemann[riemannId]->fluid2 : lriemann[riemannId]->fluid1;
 }
 //------------------------------------------------------------------------------
 template<int dim>

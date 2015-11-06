@@ -518,6 +518,8 @@ f77src/eriemann_gg.f
 f77src/eriemann_gw.f
 f77src/eriemann_ww.f
 f77src/g_boundflux5.f
+f77src/g_boundflux5temp.f
+f77src/computedboundfluxoperator.f
 f77src/genbcfluxgas.f
 f77src/genbcfluxgas_HH.f
 f77src/genbcfluxtait.f
@@ -525,6 +527,8 @@ f77src/genbcfluxtait_HH.f
 f77src/genbcfluxjwl.f
 f77src/g_roeflux5.f
 f77src/g_roeflux6.f
+f77src/g_roeflux6temp.f
+f77src/computedfluxoperators.f
 f77src/roeflux5jwl.f
 f77src/hllcflux.f
 f77src/hllcflux1.f

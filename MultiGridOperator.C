@@ -155,7 +155,7 @@ computeJacobianEmbedded(DistExactRiemannSolver<dim>& riemann,
 							       mgLevel->getCtrlVol()(iSub),
 							       (*mgLSS)(iSub),
 							       (*mgLSS).getStatus()(iSub) ,
-							       1, NULL,
+							       1,
 							       matrices(iSub),
 							       irey(iSub));
     //mgLevel->getFaces()[iSub]->computeJacobianFiniteVolumeTerm(fluxFcn,(*myBcData)(iSub), (mgLevel->getGeoState())(iSub),
@@ -398,7 +398,7 @@ computeResidualEmbedded(DistExactRiemannSolver<dim>& riemann,
 					    (mgLevel->getGeoState().getXn())(iSub), V(iSub), 
 					    (*Wstarij)(iSub), (*Wstarji)(iSub),
 					    (*mgLSS)(iSub), false,
-					    (*mgLSS).getStatus()(iSub) ,1, NULL,
+					    (*mgLSS).getStatus()(iSub), 1,
 					    ngrad, NULL, res(iSub),0,
 					    (mgLevel->getFVCompTag())(iSub), 0,0); 
     

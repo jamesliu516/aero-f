@@ -420,6 +420,7 @@ TransientData::TransientData()
   robProductFile = "";
   rMatrixFile = "";  
   gendispFile = "";
+  romInitialConditionFile = "";
   philevel = "";
   philevel2 = "";
   controlvolume = "";
@@ -548,6 +549,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "ROBInnerProducts", this, &TransientData::robProductFile);
   new ClassStr<TransientData>(ca, "RMatrices", this, &TransientData::rMatrixFile);
   new ClassStr<TransientData>(ca, "GeneralizedDisplacement", this, &TransientData::gendispFile);
+  new ClassStr<TransientData>(ca, "ROMInitialCondition", this, &TransientData::romInitialConditionFile);
   new ClassStr<TransientData>(ca, "Philevel", this, &TransientData::philevel);
   new ClassStr<TransientData>(ca, "Philevel2", this, &TransientData::philevel2);
   new ClassStr<TransientData>(ca, "ConservationErrors", this, &TransientData::conservation);
@@ -805,13 +807,13 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
      "RigidRoll", 12, "RbmExtractor", 13, "UnsteadyLinearizedAeroelastic", 14,
      "UnsteadyLinearized", 15, "NonlinearROMOffline", 16, "ROMAeroelastic", 17,
      "ROM", 18, "ForcedLinearized", 19, "PODInterpolation", 20,
-     "NonlinearEigenResidual", 21, "SparseGridGeneration", 22,
+     "NonlinearEigenErrorIndicator", 21, "SparseGridGeneration", 22,
      "1D", 23, "UnsteadyNonlinearROM", 24, "NonlinearROMPreprocessing", 25,
      "NonlinearROMSurfaceMeshConstruction",26, "SampledMeshShapeChange", 27,
      "UnsteadyNonlinearROMPostprocessing", 28, "PODConstruction", 29, "ROBInnerProduct", 30,
      "Aeroacoustic", 31, "SteadySensitivityAnalysis", 32, "SteadyAeroelasticSensitivityAnalysis", 33, "EigenAeroelastic", 34, 
-     "GAMConstruction", 35, "NonlinearEigenResidual2", 36, "AcceleratedUnsteadyNonlinearROM", 37,
-     "SteadyNonlinearROM", 38, "ForcedNonlinearROM", 39, "RomShapeOptimization", 40, "SteadyNonlinearROMPostprocessing", 41);
+     "GAMConstruction", 35, "AcceleratedUnsteadyNonlinearROM", 36,
+     "SteadyNonlinearROM", 37, "ForcedNonlinearROM", 38, "RomShapeOptimization", 39, "SteadyNonlinearROMPostprocessing", 40);
 
   new ClassToken<ProblemData>
     (ca, "Mode", this,
@@ -2250,30 +2252,23 @@ MultiFluidData::MultiFluidData()
 {
 
   method = GHOSTFLUID_FOR_POOR;
-  problem = BUBBLE; //hidden
-  typePhaseChange = RIEMANN_SOLUTION; //hidden
+  typePhaseChange = EXTRAPOLATION;
   riemannComputation = RK2;
-  localtime  = GLOBAL; //hidden
-  typeTracking = LINEAR; //hidden
   bandlevel = 5;
-  subIt = 10; //hidden
-  cfl = 0.7; //hidden
   frequency = 0;
   eps = 1.e-6; //hidden
   outputdiff = 0; //hidden
-  copy = TRUE; //hidden
+  copyCloseNodes = TRUE; //hidden
 
   testCase = 0; // hidden
 
-  lsInit = VOLUMES; //hidden
   interfaceType = FSF; //hidden
   jwlRelaxationFactor = 1.0;
 
   interfaceTreatment = FIRSTORDER;
-  interfaceExtrapolation = EXTRAPOLATIONFIRSTORDER;
+  interfaceExtrapolation = AUTO;
   interfaceLimiter = LIMITERNONE;
   levelSetMethod = CONSERVATIVE;
-  interfaceOmitCells = 0;
 
   prec = NON_PRECONDITIONED;
 
@@ -2289,28 +2284,15 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
   new ClassToken<MultiFluidData>(ca, "Method", this,
              reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::method), 3,
              "None", 0, "GhostFluidForThePoor", 1, "FiniteVolumeWithExactTwoPhaseRiemann", 2);
-  new ClassToken<MultiFluidData>(ca, "Problem", this,
-                                 reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::problem), 2,
-                                "Bubble", 0, "ShockTube", 1);
   new ClassToken<MultiFluidData>(ca, "PhaseChange", this,
-                                 reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::typePhaseChange), 3,
-                                 "None", 0, "RiemannSolution", 1, "Extrapolation", 2);
+                                 reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::typePhaseChange), 2,
+                                 "RiemannSolution", 1, "Extrapolation", 2);
   new ClassToken<MultiFluidData>(ca, "RiemannComputation", this,
                                  reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::riemannComputation), 4,
                                  "FirstOrder", 0, "SecondOrder", 1, "TabulationRiemannInvariant", 2,
                                  "TabulationRiemannProblem", 3);
-  new ClassToken<MultiFluidData>(ca, "FictitiousTimeStepping", this,
-                                 reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::localtime),2,
-                                 "Global", 0, "Local", 1);
-  new ClassToken<MultiFluidData>(ca, "InterfaceTracking", this,
-             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::typeTracking),3,
-             "Linear", 0, "Gradient", 1, "Hermite", 2);
   new ClassInt<MultiFluidData>(ca, "BandLevel", this,
              &MultiFluidData::bandlevel);
-  new ClassInt<MultiFluidData>(ca, "SubIt", this,
-             &MultiFluidData::subIt);
-  new ClassDouble<MultiFluidData>(ca, "Cfl", this,
-             &MultiFluidData::cfl);
   new ClassInt<MultiFluidData>(ca, "LevelSetReinitializationFrequency", this,
              &MultiFluidData::frequency);
   new ClassDouble<MultiFluidData>(ca, "Epsilon", this,
@@ -2318,25 +2300,19 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
   new ClassInt<MultiFluidData>(ca, "OutputDiff", this,
              &MultiFluidData::outputdiff);
   new ClassToken<MultiFluidData>(ca, "CopyCloseNodes", this,
-             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::copy),2,
+             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::copyCloseNodes),2,
              "False", 0, "True", 1);
-  new ClassToken<MultiFluidData>(ca, "LSInit", this,
-             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::lsInit),3,
-             "Old", 0, "Volumes", 1, "Geometric", 2);
-  new ClassToken<MultiFluidData>(ca, "InterfaceType", this,
-             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::interfaceType),3,
-             "FluidStructureFluid", 0, "FluidFluid", 1, "BOTH", 2);
 
-  new ClassToken<MultiFluidData>(ca, "InterfaceTreatment", this,
+  new ClassToken<MultiFluidData>(ca, "InterfaceAlgorithm", this,
                                  reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::interfaceTreatment),2,
-                                 "FirstOrder", 0, "SecondOrder", 1);
-  new ClassToken<MultiFluidData>(ca, "InterfaceExtrapolation", this,
+                                 "MidEdge", 0, "Intersection", 1);
+  new ClassToken<MultiFluidData>(ca, "ExtrapolationOrder", this,
                                  reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::interfaceExtrapolation),2,
                                  "FirstOrder", 0, "SecondOrder", 1);
   
   new ClassToken<MultiFluidData>(ca, "InterfaceLimiter", this,
                                  reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::interfaceLimiter),2,
-                                 "None", 0, "Alex1", 1);
+                                 "Off", 0, "On", 1);
 
   new ClassToken<MultiFluidData>(ca, "LevelSetMethod", this,
                                  reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::levelSetMethod),5,
@@ -2349,12 +2325,9 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
   new ClassInt<MultiFluidData>(ca, "TestCase", this,
                                &MultiFluidData::testCase);
   
-  new ClassInt<MultiFluidData>(ca, "OmitCells", this,
-                               &MultiFluidData::interfaceOmitCells);
-
   new ClassToken<MultiFluidData>(ca, "RiemannNormal", this,
-                                 reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::riemannNormal),2,
-                                 "LevelSet",0,"Fluid",1);
+                                 reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::riemannNormal),3,
+                                 "LevelSet",0,"Fluid",1,"LegacyFluid",2);
 
   // Low mach preconditioning of the exact Riemann problem.
   // Added by Alex Main (December 2013)
@@ -3271,7 +3244,7 @@ SensitivityAnalysis::SensitivityAnalysis()
 void SensitivityAnalysis::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 21, father);
+  ClassAssigner *ca = new ClassAssigner(name, 22, father);
   new ClassToken<SensitivityAnalysis>(ca, "Method", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::method), 2, "Direct", 0, "Adjoint", 1);
   new ClassToken<SensitivityAnalysis>(ca, "MatrixVectorProduct", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::mvp), 4, "FiniteDifference", 0, "Approximate", 1, "Exact", 2, "ApproximateFiniteDifference", 3);
   new ClassToken<SensitivityAnalysis>(ca, "LeastSquaresSolver", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::lsSolver), 2, "QR", 0, "NormalEquations", 1);
@@ -4778,6 +4751,7 @@ LinearizedData::LinearizedData()
   numStrModes = 0;
   refLength = 1;
   freqStep = 0;
+  errorIndicator  = OIBEI;
 
   gamFreq[0] = -1.0;
   gamFreq[1] = -1.0;
@@ -4832,6 +4806,8 @@ void LinearizedData::setup(const char *name, ClassAssigner *father)
   new ClassToken<LinearizedData> (ca, "Domain", this, reinterpret_cast<int LinearizedData::*>(&LinearizedData::domain), 2, "Time", 0, "Frequency", 1);
   new ClassToken<LinearizedData> (ca, "InitialCondition", this, reinterpret_cast<int LinearizedData::*>(&LinearizedData::initCond), 2, "Displacement", 0, "Velocity", 1);
   new ClassToken<LinearizedData> (ca, "GramSchmidt", this, reinterpret_cast<int LinearizedData::*>(&LinearizedData::doGramSchmidt), 2, "False", 0, "True", 1);
+  new ClassToken<LinearizedData> (ca, "ErrorIndicator", this, reinterpret_cast<int LinearizedData::*>(&LinearizedData::errorIndicator), 5, 
+                                      "OIBEI", 0, "RBEI1", 1, "RBEI2", 2, "RBEI3", 3, "RBEI4", 4);
   new ClassDouble<LinearizedData>(ca, "Amplification", this, &LinearizedData::amplification);
   new ClassDouble<LinearizedData>(ca, "Frequency", this, &LinearizedData::frequency);
   new ClassDouble<LinearizedData>(ca, "FreqStep", this, &LinearizedData::freqStep);
@@ -5192,12 +5168,12 @@ void InitialConditions::setup(const char *name, ClassAssigner *father) {
 
 EmbeddedFramework::EmbeddedFramework() {
 
-  intersectorName = PHYSBAM;
+  intersectorName = FRG;
   structNormal = ELEMENT_BASED;
   eosChange = NODAL_STATE;
-  forceAlg = RECONSTRUCTED_SURFACE;
+  forceAlg = EMBEDDED_SURFACE;
   riemannNormal = STRUCTURE;
-  phaseChangeAlg = AVERAGE;
+  phaseChangeAlg = AUTO;
   interfaceAlg = MID_EDGE;
 
   prec = NON_PRECONDITIONED;
@@ -5205,12 +5181,11 @@ EmbeddedFramework::EmbeddedFramework() {
 
   nLevelset = 0;
 
-  //debug variables
   crackingWithLevelset = OFF;
-  coupling = TWOWAY;
-  dim2Treatment = NO;    
   reconstruct = CONSTANT;
   viscousinterfaceorder = FIRST;
+
+  viscousboundarycondition = WEAK;
 
   stabil_alpha = 0.0;
 
@@ -5232,14 +5207,16 @@ void EmbeddedFramework::setup(const char *name) {
                                       "PhysBAM", 0, "FRG", 1);
   new ClassToken<EmbeddedFramework> (ca, "StructureNormal", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::structNormal), 2,
                                       "ElementBased", 0, "NodeBased", 1);
-  new ClassToken<EmbeddedFramework> (ca, "EOSChange", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::eosChange), 2,
-                                      "NodalState", 0, "RiemannSolution", 1);
+  new ClassToken<EmbeddedFramework> (ca, "PhaseChange", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::eosChange), 2,
+                                      "Extrapolation", 0, "RiemannSolution", 1);
   new ClassToken<EmbeddedFramework> (ca, "SurrogateSurface", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::forceAlg), 3,
                                       "ReconstructedSurface", 0, "ControlVolumeFace", 1, "EmbeddedSurface", 2);
-  new ClassToken<EmbeddedFramework> (ca, "RiemannNormal", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::riemannNormal), 3,
-                                      "Structure", 0, "Fluid", 1, "AveragedStructure", 2);
-  new ClassToken<EmbeddedFramework> (ca, "PhaseChangeAlgorithm", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::phaseChangeAlg), 2, "Average", 0, "LeastSquares", 1);
-  new ClassToken<EmbeddedFramework> (ca, "InterfaceAlgorithm", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::interfaceAlg), 2, "MidEdge", 0, "Intersection", 1);
+  new ClassToken<EmbeddedFramework> (ca, "RiemannNormal", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::riemannNormal), 2,
+                                      "Structure", 0, "Fluid", 1);
+  new ClassToken<EmbeddedFramework> (ca, "ExtrapolationOrder", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::phaseChangeAlg), 2,
+                                     "FirstOrder", 0, "SecondOrder", 1);
+  new ClassToken<EmbeddedFramework> (ca, "InterfaceAlgorithm", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::interfaceAlg), 2,
+                                     "MidEdge", 0, "Intersection", 1);
   embedIC.setup("InitialConditions", ca); 
 
   new ClassDouble<EmbeddedFramework>(ca, "Alpha", this, &EmbeddedFramework::alpha);
@@ -5249,24 +5226,26 @@ void EmbeddedFramework::setup(const char *name) {
 
   new ClassInt<EmbeddedFramework>(ca, "QuadratureOrder", this, &EmbeddedFramework::qOrder);
 
-  //debug variables
   new ClassToken<EmbeddedFramework> (ca, "CrackingWithLevelSet", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::crackingWithLevelset), 2,
                                       "Off", 0, "On", 1);
-  new ClassToken<EmbeddedFramework> (ca, "Coupling", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::coupling), 2,
-                                      "TwoWay", 0, "OneWay", 1);
-  new ClassToken<EmbeddedFramework> (ca, "TwoDimension", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::dim2Treatment), 2,
-                                      "No", 0, "Yes", 1);
+
+/*This is now set automatically
   new ClassToken<EmbeddedFramework> (ca, "Reconstruction", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::reconstruct), 2,
                                       "Constant", 0, "Linear", 1);
+*/
   new ClassToken<EmbeddedFramework> (ca, "ViscousInterfaceOrder", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::viscousinterfaceorder), 2,
-                                      "First", 0, "Second", 1);
+                                      "FirstOrder", 0, "SecondOrder", 1);
+
+  new ClassToken<EmbeddedFramework> (ca, "ViscousBoundaryCondition", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::viscousboundarycondition), 2,
+												 "Weak", 0, "Strong", 1);
+
 
   new ClassInt<EmbeddedFramework>(ca, "TestCase", this,
                                   &EmbeddedFramework::testCase);
 
   new ClassToken<EmbeddedFramework>(ca, "InterfaceLimiter", this,
                                     reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::interfaceLimiter),2,
-                                    "None", 0, "Alex1", 1);
+                                    "Off", 0, "On", 1);
 
 
   // Low mach preconditioning of the exact Riemann problem.
@@ -5473,7 +5452,6 @@ void IoData::setupCmdFileVariables()
   implosion.setup("ImplosionSetup");
   mg.setup("MultiGrid");
   surfKI.setup(com, "AcousticPressure");
-
   // for nonlinear ROM (KMW)
   romDatabase.setup("NonlinearRomFileSystem");
 	romOffline.setup("NonlinearRomOffline");
@@ -5675,8 +5653,7 @@ void IoData::resetInputValues()
       problem.alltype == ProblemData::_ROB_INNER_PRODUCT_ ||
       problem.alltype == ProblemData::_AEROELASTIC_ANALYSIS_ ||
       problem.alltype == ProblemData::_GAM_CONSTRUCTION_ ||
-      problem.alltype == ProblemData::_NONLINEAR_EIGENRESIDUAL_ || 
-      problem.alltype == ProblemData::_NONLINEAR_EIGENRESIDUAL2_) 
+      problem.alltype == ProblemData::_NONLINEAR_EIGEN_ERROR_INDICATOR_ ) 
     problem.type[ProblemData::LINEARIZED] = true;
 
   if (problem.alltype == ProblemData::_NONLINEAR_ROM_OFFLINE_ ||
@@ -5703,12 +5680,6 @@ void IoData::resetInputValues()
     //
     // Check that the code is running within the "correct" limits
     //
-
-    if (sa.method == SensitivityAnalysis::ADJOINT)
-    {
-      com->fprintf(stderr, " ----- SA >> SensitivityAnalysis.Method has to be set to Direct -----\n");
-      exit(1);
-    }
 
     if (dmesh.type != DefoMeshMotionData::BASIC) 
     {
@@ -5777,7 +5748,6 @@ void IoData::resetInputValues()
       ts.implicit.mvp = ImplicitData::FD;
     }
 
-
     if (ts.implicit.ffjacobian != ImplicitData::EXACT) {
       // The overwriting is silent because the feature is not documented.
       //com->fprintf(stderr, " ----- SA >> Time.Implicit.FluxJacobian set to Exact -----\n");
@@ -5831,34 +5801,108 @@ void IoData::resetInputValues()
     }
   } // END of if (problem.prec == ProblemData::PRECONDITIONED && ...
 
-  if (schemes.ns.flux != SchemeData::ROE)
-  {
-    if (ts.implicit.mvp == ImplicitData::H2)
-    {
+  if (schemes.ns.flux != SchemeData::ROE)  {
+
+    if (ts.implicit.mvp == ImplicitData::H2) {
       com->fprintf(stderr, "*** Warning: Exact Matrix-Vector Product only supported with Roe flux.\n");
-      com->fprintf(stderr, "             Second Order Finite Difference will be used.\n");
+      com->fprintf(stderr, "             First Order Finite Difference will be used.\n");
       ts.implicit.mvp = ImplicitData::FD;
-      ts.implicit.fdOrder = ImplicitData::SECOND_ORDER;
+      ts.implicit.fdOrder = ImplicitData::FIRST_ORDER;
     }
+
     if (eqs.fluidModel.fluid != FluidModelData::PERFECT_GAS && 
-        eqs.fluidModel.fluid != FluidModelData::STIFFENED_GAS)
-    {
+        eqs.fluidModel.fluid != FluidModelData::STIFFENED_GAS) {
       com->fprintf(stderr, "*** Warning: Roe flux has to be used for Tait or JWL simulations.\n");
       schemes.ns.flux = SchemeData::ROE;
     }
-    if(!eqs.fluidModelMap.dataMap.empty())
-    {
+
+    if(!eqs.fluidModelMap.dataMap.empty()) {
       map<int, FluidModelData *>::iterator it;
       for (it=eqs.fluidModelMap.dataMap.begin(); it!=eqs.fluidModelMap.dataMap.end(); it++){
         if (it->second->fluid != FluidModelData::PERFECT_GAS &&
-            it->second->fluid != FluidModelData::STIFFENED_GAS)
-        {
+            it->second->fluid != FluidModelData::STIFFENED_GAS) {
           com->fprintf(stderr, "*** Warning: Roe flux has to be used for Tait or JWL simulations.\n");
           schemes.ns.flux = SchemeData::ROE;
         }    
       }
     }
   } // END of if (schemes.ns.flux != SchemeData::ROE)
+
+
+  if (ts.implicit.mvp == ImplicitData::H2){
+
+    if (eqs.fluidModel.fluid != FluidModelData::PERFECT_GAS && 
+        eqs.fluidModel.fluid != FluidModelData::STIFFENED_GAS){
+
+      ts.implicit.mvp     = ImplicitData::FD;
+      ts.implicit.fdOrder = ImplicitData::FIRST_ORDER;
+
+      com->fprintf(stderr, "*** Warning: Exact Jacobian implemented only for Perfect or Stiffened Gas. \n");
+      com->fprintf(stderr, "             First Order Finite Difference will be used.\n");
+
+    }
+
+    if(!eqs.fluidModelMap.dataMap.empty()){
+      map<int, FluidModelData *>::iterator it;
+
+      for (it=eqs.fluidModelMap.dataMap.begin(); it!=eqs.fluidModelMap.dataMap.end(); it++){
+	if (it->second->fluid != FluidModelData::PERFECT_GAS &&
+            it->second->fluid != FluidModelData::STIFFENED_GAS) {
+
+	  ts.implicit.mvp     = ImplicitData::FD;
+	  ts.implicit.fdOrder = ImplicitData::FIRST_ORDER;
+
+	  com->fprintf(stderr, "*** Warning: Exact Jacobian implemented only for Perfect or Stiffened Gas \n");
+	  com->fprintf(stderr, "             First Order Finite Difference will be used.\n");
+
+	}
+      }
+    }
+  }
+
+
+
+  if(ts.implicit.mvp == ImplicitData::H2) {
+    if( mf.prec == 1) {
+      ts.implicit.mvp     = ImplicitData::FD;
+      ts.implicit.fdOrder = ImplicitData::FIRST_ORDER;
+
+      com->fprintf(stderr, "*** Warning: Exact Jacobian not implemented for multi-fluid LowMach preconditioner \n");
+      com->fprintf(stderr, "             First Order Finite Difference will be used.\n");
+    }    
+  }
+
+  if (ts.implicit.mvp == ImplicitData::H2) {
+
+    if( schemes.ns.limiter == SchemeData::BARTH    ||
+        schemes.ns.limiter == SchemeData::VENKAT   ||
+	schemes.ns.limiter == SchemeData::P_SENSOR ) {
+
+      ts.implicit.mvp     = ImplicitData::FD;
+      ts.implicit.fdOrder = ImplicitData::FIRST_ORDER;
+
+      com->fprintf(stderr, "*** Warning: Exact Jacobian not implemented for Barth, Venkat or Pressure sensor limiters \n");
+      com->fprintf(stderr, "             First Order Finite Difference will be used.\n");
+       
+    }
+
+  }
+
+  if (ts.implicit.mvp == ImplicitData::H2) {
+    
+    if(schemes.ns.gradient    == SchemeData::NON_NODAL ||
+       schemes.ns.dissipation == SchemeData::SIXTH_ORDER ) {
+
+      ts.implicit.mvp     = ImplicitData::FD;
+      ts.implicit.fdOrder = ImplicitData::FIRST_ORDER;
+
+      com->fprintf(stderr, "*** Warning: Exact Jacobian not implemented for NonNodal Gradient or sixth order dissipation \n");
+      com->fprintf(stderr, "             First Order Finite Difference will be used.\n");       
+    }
+
+  }
+
+
 
   if (ts.implicit.mvp == ImplicitData::H2)
   {
@@ -5868,9 +5912,14 @@ void IoData::resetInputValues()
     // The overwriting is silent because ffjacobian is a "slave" flag.
       ts.implicit.ffjacobian = ImplicitData::EXACT;
 #ifndef USE_EIGEN3
-    }
-    else {
-      com->fprintf(stderr, "*** Warning: Exact Jacobian not implemented when using low Mach preconditioner. Using approximate Jacobian for inviscid flux term and exact Jacobian for other terms, if present.\n");
+    } else {
+      
+      ts.implicit.mvp     = ImplicitData::FD;
+      ts.implicit.fdOrder = ImplicitData::FIRST_ORDER;
+
+      com->fprintf(stderr, "*** Warning: Exact Jacobian not implemented when using low Mach preconditioner \n");
+      com->fprintf(stderr, "             First Order Finite Difference will be used.\n");
+
     }
 #endif
   }
@@ -6040,6 +6089,40 @@ void IoData::resetInputValues()
     linearizedData.gamFreq[17] = linearizedData.gamFreq18;
     linearizedData.gamFreq[18] = linearizedData.gamFreq19;
     linearizedData.gamFreq[19] = linearizedData.gamFreq20;
+  }
+
+  if(embed.eosChange == EmbeddedFramework::NODAL_STATE && embed.phaseChangeAlg == EmbeddedFramework::AUTO) {
+    embed.phaseChangeAlg = (embed.interfaceAlg == EmbeddedFramework::INTERSECTION) ?
+                           EmbeddedFramework::LEAST_SQUARES : EmbeddedFramework::AVERAGE;
+  }
+
+  if(mf.typePhaseChange == MultiFluidData::EXTRAPOLATION && mf.interfaceExtrapolation == MultiFluidData::AUTO) {
+    mf.interfaceExtrapolation = (mf.interfaceTreatment == MultiFluidData::SECONDORDER) ?
+                                MultiFluidData::EXTRAPOLATIONSECONDORDER : MultiFluidData::EXTRAPOLATIONFIRSTORDER;
+  }
+
+  if(embed.crackingWithLevelset == EmbeddedFramework::ON) {
+    mf.copyCloseNodes = MultiFluidData::FALSE;
+  }
+
+  if(embed.prec == EmbeddedFramework::SAME_AS_PROBLEM && problem.prec == ProblemData::PRECONDITIONED) {
+    embed.prec = EmbeddedFramework::PRECONDITIONED;
+  }
+  else if(embed.prec == EmbeddedFramework::PRECONDITIONED && problem.prec == ProblemData::NON_PRECONDITIONED) {
+    com->fprintf(stderr, "*** Warning: EmbeddedFramework.Prec = LowMach can only be used in conjunction with the Problem.Prec = LowMach\n");
+    embed.prec = EmbeddedFramework::NON_PRECONDITIONED;
+  }
+
+  if(mf.prec == MultiFluidData::SAME_AS_PROBLEM && problem.prec == ProblemData::PRECONDITIONED) {
+    mf.prec = MultiFluidData::PRECONDITIONED;
+  }
+  else if(mf.prec == MultiFluidData::PRECONDITIONED && problem.prec == ProblemData::NON_PRECONDITIONED) {
+    com->fprintf(stderr, "*** Warning: MultiPhase.Prec = LowMach can only be used in conjunction with the Problem.Prec = LowMach\n");
+    mf.prec = MultiFluidData::NON_PRECONDITIONED;
+  }
+
+  if(embed.interfaceAlg == EmbeddedFramework::INTERSECTION && schemes.ns.reconstruction == SchemeData::LINEAR) {
+    embed.reconstruct = EmbeddedFramework::LINEAR;
   }
 
 }
@@ -6306,6 +6389,18 @@ int IoData::checkInputValuesAllEquationsOfState(){
     mf.interfaceType = MultiFluidData::FF;
   else
     mf.interfaceType = MultiFluidData::FSF;
+  
+
+  if( ts.implicit.mvp == ImplicitData::H2) {
+
+    if( eqs.numPhase >1 ) {
+      ts.implicit.mvp     = ImplicitData::FD;
+      ts.implicit.fdOrder = ImplicitData::FIRST_ORDER;
+      com->fprintf(stderr, "*** Warning: Exact Jacobian not implemented for the multi-fluids case \n");
+      com->fprintf(stderr, "             First Order Finite Difference will be used.\n");
+    } 
+ 
+  }
 
   return error;
 
@@ -6942,7 +7037,7 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
       }
 
     if (eqs.fluidModel.fluid == FluidModelData::LIQUID){
-      if (mf.problem == MultiFluidData::BUBBLE)
+      //if (mf.problem == MultiFluidData::BUBBLE)
         bc.inlet.density = pow( (bc.inlet.pressure - Pref)/awater, 1.0/bwater);
     }
 

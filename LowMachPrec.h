@@ -170,8 +170,7 @@ public:
 //    {return fmin(fmax(slope*locMach, minMach),maxMach);}
 
   double getBeta(double locMach, bool checktac = false) const
-    { double outbeta  = fmin(fmax(slope*locMach, minMach),maxMach);
-      if (checktac && timeac) outbeta = 1.0;
+    { double outbeta = (checktac && timeac) ? 1.0 : fmin(fmax(slope*locMach, minMach),maxMach);
       return outbeta; }
 
   double getBeta(double locMach, double irey) const

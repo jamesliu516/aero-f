@@ -22,6 +22,8 @@ template<int dim> class DistTimeState;
 template<int dim> class SpaceOperator;
 template<int dim, int dimLS> class MultiPhaseSpaceOperator;
 template<int dim> class DistExactRiemannSolver;
+template<class Scalar, int dim> class DistEmbeddedVec;
+template<int dim> class PostOperator;
 template<int dim> class TsOutput;
 template<int dim> class TsDesc;
 
@@ -35,6 +37,9 @@ public:
   MatVecProd() : isFSI(false) {}
   virtual ~MatVecProd() {}
 
+  virtual void constructOperators(DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &,
+                                  double, DistSVec<double,dim> &, DistVec<double> &, DistTimeState<dim> *, PostOperator<dim> *) = 0;
+  virtual dRdXoperators<dim> *getdRdXop() = 0;
   virtual void exportMemory(MemoryPool *mp) {}
 
   virtual void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
@@ -48,17 +53,19 @@ public:
 
   virtual void apply(DistSVec<double,neq> &, DistSVec<double,neq> &) = 0;
   virtual void apply(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &) = 0;
-  virtual void apply(DistVec<double> &, DistVec<double> &) { };
+  virtual void apply(DistVec<double> &, DistVec<double> &) { }
 
   virtual void apply(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &) {}
   
   virtual void applyT(DistSVec<double,neq> &, DistSVec<double,neq> &) = 0;
   virtual void applyT(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &) = 0;
 
+  virtual void applyTranspose(DistSVec<double,neq> &, DistSVec<double,neq> &) = 0;
+
   virtual void evaluateRestrict(int, DistSVec<double,3> &, DistVec<double> &,
                 DistSVec<double,dim> &, DistSVec<double,dim> &, RestrictionMapping<dim> &,
                 TsDesc<dim>* probDesc=NULL,
-		int (TsDesc<dim>::*checkSolution)(DistSVec<double,dim> &)=NULL) {
+                int (TsDesc<dim>::*checkSolution)(DistSVec<double,dim> &)=NULL) {
     std::cout<<"*** Error: function evaluateRestrict not implemented"<<std::endl;
     sleep(1);
     exit(-1);
@@ -123,7 +130,6 @@ public:
     DistVec<int>* fluidId;
     DistExactRiemannSolver<dim>* riemann;
     bool linRecAtInterface, viscSecOrder;
-    DistSVec<double,3>* Nsbar;
     DistSVec<double,dim>* Wtemp;
     int Nriemann;
     DistVec<GhostPoint<dim>*>* ghostPoints;
@@ -192,6 +198,9 @@ public:
 
   void attachHH(DistEmbeddedVec<double,dim>& v);
 
+  void constructOperators(DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &,
+                          double, DistSVec<double,dim> &, DistVec<double> &, DistTimeState<dim> *, PostOperator<dim> *) {}
+  dRdXoperators<dim> *getdRdXop() { return 0;}
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
 		DistSVec<double,dim> &, DistSVec<double,dim> &);
   void evaluateWeighted(int, DistSVec<double,3> &, DistVec<double> &, 
@@ -212,6 +221,7 @@ public:
                 int (TsDesc<dim>::*checkSolution)(DistSVec<double,dim> &)=NULL);
 
   void apply(DistSVec<double,neq> &, DistSVec<double,neq> &);
+  void applyTranspose(DistSVec<double,neq> &, DistSVec<double,neq> &) {}
   void applyWeighted(DistSVec<double,neq> &, DistSVec<double,neq> &, VarFcn *);
   void applyRestrict(DistSVec<double,neq> &, DistSVec<double,neq> &, RestrictionMapping<neq> &,
                 TsDesc<dim>* probDesc=NULL,
@@ -282,6 +292,11 @@ public:
 
   DistMat<Scalar,neq> &operator= (const Scalar);
 
+  void constructOperators(DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &,
+                          double, DistSVec<double,dim> &, DistVec<double> &, DistTimeState<dim> *, PostOperator<dim> *) {}
+
+  dRdXoperators<dim> *getdRdXop() { return 0; }
+
   GenMat<Scalar,neq> &operator() (int i) { return *A[i]; }
 
   void attachHH(DistEmbeddedVec<double,dim>& v);
@@ -297,6 +312,7 @@ public:
   void evaluateViscous(int, DistSVec<double,3> &, DistVec<double> &);
 
   void apply(DistSVec<double,neq> &, DistSVec<double,neq> &);
+  void applyTranspose(DistSVec<double,neq> &, DistSVec<double,neq> &);
   void apply(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &)  {
     std::cout << "... ERROR: ::apply function not implemented for class MatVecProdH1 with complex arguments" << endl; }
 
@@ -393,6 +409,20 @@ class MatVecProdH2 : public MatVecProd<dim,neq>, public DistMat<Scalar,dim> {
       , MatVecProdFD<dd, nn> *RFD
       , DistSVec<Scalar2, nn> *vProd
     );
+    void ApplyTranspose
+    (
+      SpaceOperator<dd> *spaceOp
+      , DistSVec<double,3> &X
+      , DistVec<double> &ctrlVol
+      , DistSVec<double,dd> &U
+      , DistMat<Scalar1,dd> &H2
+      , DistSVec<double,dd> &aij, DistSVec<double,dd> &aji
+      , DistSVec<double,dd> &bij, DistSVec<double,dd> &bji
+      , DistSVec<Scalar2,nn> &p, DistSVec<Scalar2,nn> &prod
+      , MatVecProdH1<dd, Scalar1, nn> *R
+      , MatVecProdFD<dd, nn> *RFD
+      , DistSVec<Scalar2, nn> *vProd
+    );
     void ApplyT
     (
       SpaceOperator<dd> *spaceOp
@@ -423,7 +453,20 @@ class MatVecProdH2 : public MatVecProd<dim,neq>, public DistMat<Scalar,dim> {
       , MatVecProdFD<dd, dd> *RFD
       , DistSVec<Scalar2, dd> *vProd
     );
-
+    void ApplyTranspose
+    (
+      SpaceOperator<dd> *spaceOp
+      , DistSVec<double,3> &X
+      , DistVec<double> &ctrlVol
+      , DistSVec<double,dd> &U
+      , DistMat<Scalar1,dd> &H2
+      , DistSVec<double,dd> &aij, DistSVec<double,dd> &aji
+      , DistSVec<double,dd> &bij, DistSVec<double,dd> &bji
+      , DistSVec<Scalar2,dd> &p, DistSVec<Scalar2,dd> &prod
+      , MatVecProdH1<dd, Scalar1, dd> *R
+      , MatVecProdFD<dd, dd> *RFD
+      , DistSVec<Scalar2, dd> *vProd
+    );
     void ApplyT
     (
       SpaceOperator<dd> *spaceOp
@@ -451,6 +494,9 @@ public:
 
   GenMat<Scalar,dim> &operator() (int i) { return *A[i]; }
 
+  void constructOperators(DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &,
+                          double, DistSVec<double,dim> &, DistVec<double> &, DistTimeState<dim> *, PostOperator<dim> *) {}
+  dRdXoperators<dim> *getdRdXop() { return 0; }
 /*
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
 		DistSVec<double,dim> &, DistSVec<double,dim> &);
@@ -499,6 +545,7 @@ public:
 
   void applyT(DistSVec<double,neq> &, DistSVec<double,neq> &);
   void applyT(DistSVec<bcomp,neq> &x, DistSVec<bcomp,neq> &y);
+  void applyTranspose(DistSVec<double,neq> &, DistSVec<double,neq> &);
 
 // Included (MB)
   void evaluateInviscid(int, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
@@ -541,6 +588,10 @@ public:
   virtual void apply(DistSVec<double,dim> &, DistSVec<double,dim> &) = 0;
 
   virtual void apply(DistEmbeddedVec<double,dim> &, DistEmbeddedVec<double,dim> &) { }
+
+  virtual void applyT(DistSVec<double,dim> &, DistSVec<double,dim> &) = 0;
+  virtual void applyT(DistSVec<bcomp,dim> &x, DistSVec<bcomp,dim> &y) = 0;
+  virtual void applyTranspose(DistSVec<double,dim> &, DistSVec<double,dim> &) = 0;
   
   virtual void evaluateHH(DistVec<double> &hhterm,
 			  DistVec<double> &bcVal ) { }
@@ -554,7 +605,6 @@ public:
     DistVec<int>* fluidId;
     DistExactRiemannSolver<dim>* riemann;
     bool linRecAtInterface, viscSecOrder;
-    DistSVec<double,3>* Nsbar;
     DistSVec<double,dim>* Wtemp;
     int Nriemann;
     DistVec<GhostPoint<dim>*>* ghostPoints;
@@ -614,6 +664,10 @@ public:
   void apply(DistSVec<double,dim> &, DistSVec<double,dim> &);
 
   void apply(DistEmbeddedVec<double,dim> &, DistEmbeddedVec<double,dim> &);
+
+  void applyT(DistSVec<double,dim> &, DistSVec<double,dim> &) {}
+  void applyT(DistSVec<bcomp,dim> &x, DistSVec<bcomp,dim> &y) {}
+  void applyTranspose(DistSVec<double,dim> &, DistSVec<double,dim> &) {}
   
   void evaluateHH(DistVec<double> &hhterm,
 		  DistVec<double> &bcVal );
@@ -654,6 +708,9 @@ public:
   void apply(DistSVec<double,dim> &, DistSVec<double,dim> &);
 
   void apply(DistEmbeddedVec<double,dim> &, DistEmbeddedVec<double,dim> &);
+  void applyT(DistSVec<double,dim> &, DistSVec<double,dim> &) {}
+  void applyT(DistSVec<bcomp,dim> &x, DistSVec<bcomp,dim> &y) {}
+  void applyTranspose(DistSVec<double,dim> &, DistSVec<double,dim> &) {}
 };
 
 //----------------------------------------------------------------------------//
@@ -699,9 +756,508 @@ public:
 
   void apply(DistSVec<double,dimLS> &, DistSVec<double,dimLS> &);
 
+  void applyT(DistSVec<double,dimLS> &, DistSVec<double,dimLS> &) {}
+  void applyT(DistSVec<bcomp,dimLS> &x, DistSVec<bcomp,dimLS> &y) {}
+  void applyTranspose(DistSVec<double,dimLS> &, DistSVec<double,dimLS> &) {}
 
 };
                                                                                                                       
+//------------------------------------------------------------------------------
+
+template<int dim>
+struct dRdXoperators
+{
+  int numLocSub;
+  RectangularSparseMat<double,3,1> **dCtrlVoldX;
+  RectangularSparseMat<double,3,3> **dEdgeNormdX;
+  RectangularSparseMat<double,3,3> **dFaceNormdX;
+  RectangularSparseMat<double,3,6> **dRdX;
+  RectangularSparseMat<double,6,6> **dRdR;
+  RectangularSparseMat<double,3,dim> **dddxdX;
+  RectangularSparseMat<double,3,dim> **dddydX;
+  RectangularSparseMat<double,3,dim> **dddzdX;
+  RectangularSparseMat<double,dim,dim> **dddxdV;
+  RectangularSparseMat<double,dim,dim> **dddydV;
+  RectangularSparseMat<double,dim,dim> **dddzdV;
+  RectangularSparseMat<double,6,dim> **dddxdR;
+  RectangularSparseMat<double,6,dim> **dddydR;
+  RectangularSparseMat<double,6,dim> **dddzdR;
+  RectangularSparseMat<double,dim,dim> **dFluxdddx;
+  RectangularSparseMat<double,dim,dim> **dFluxdddy;
+  RectangularSparseMat<double,dim,dim> **dFluxdddz;
+  RectangularSparseMat<double,3,dim> **dFluxdEdgeNorm;
+  RectangularSparseMat<double,3,dim> **dFluxdFaceNormal;
+  RectangularSparseMat<double,1,dim> **dFluxdFaceNormalVel;
+  RectangularSparseMat<double,dim,dim> **dFluxdUb;
+  RectangularSparseMat<double,3,dim> **dFluxdX;
+  RectangularSparseMat<double,dim,3> **dGradPdddx;
+  RectangularSparseMat<double,dim,3> **dGradPdddy;
+  RectangularSparseMat<double,dim,3> **dGradPdddz;
+  RectangularSparseMat<double,dim,3> **dForcedV;
+  RectangularSparseMat<double,3,3> **dForcedX;
+  RectangularSparseMat<double,3,3> **dForcedGradP;
+  RectangularSparseMat<double,3,3> **dForcedS;
+  RectangularSparseMat<double,1,dim> **dVdPstiff;
+  RectangularSparseMat<double,dim,dim> **dVdU;
+
+  // Constructor
+  dRdXoperators() { dRdX = 0; dRdR = 0; dddxdX = 0; dddydX = 0; dddzdX = 0; dddxdR = 0; 
+                    dddydR = 0; dddzdR = 0; dEdgeNormdX = 0; dFaceNormdX = 0; dCtrlVoldX = 0; 
+                    dFluxdddx = 0;  dFluxdddy = 0;  dFluxdddz = 0;  dFluxdEdgeNorm = 0;  dFluxdX = 0; 
+                    dFluxdFaceNormal = 0;  dFluxdFaceNormalVel = 0;  dFluxdUb = 0;
+                    dGradPdddx = 0;  dGradPdddy = 0;  dGradPdddz = 0; 
+                    dForcedV = 0;    dForcedX = 0;   dForcedGradP = 0;   dForcedS = 0; 
+                    dVdPstiff = 0;   dVdU = 0;    
+                    dddxdV = 0;  dddydV = 0;   dddzdV = 0;  }
+  ~dRdXoperators() {
+
+    if (dVdPstiff) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dVdPstiff[iSub]) delete dVdPstiff[iSub];
+
+      delete [] dVdPstiff;
+    }
+
+    if (dVdU) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dVdU[iSub]) delete dVdU[iSub];
+
+      delete [] dVdU;
+    }
+
+    if (dForcedS) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dForcedS[iSub]) delete dForcedS[iSub];
+
+      delete [] dForcedS;
+    }
+
+    if (dForcedGradP) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dForcedGradP[iSub]) delete dForcedGradP[iSub];
+
+      delete [] dForcedGradP;
+    }
+
+    if (dForcedX) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dForcedX[iSub]) delete dForcedX[iSub];
+
+      delete [] dForcedX;
+    }
+
+    if (dForcedV) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dForcedV[iSub]) delete dForcedV[iSub];
+
+      delete [] dForcedV;
+    }
+
+    if (dGradPdddx) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dGradPdddx[iSub]) delete dGradPdddx[iSub];
+
+      delete [] dGradPdddx;
+    }
+
+    if (dGradPdddy) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dGradPdddy[iSub]) delete dGradPdddy[iSub];
+
+      delete [] dGradPdddy;
+    }
+
+    if (dGradPdddz) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dGradPdddz[iSub]) delete dGradPdddz[iSub];
+
+      delete [] dGradPdddz;
+    }
+
+    if (dRdX) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dRdX[iSub]) delete dRdX[iSub];
+
+      delete [] dRdX;
+    }
+
+    if (dRdR) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dRdR[iSub]) delete dRdR[iSub];
+
+      delete [] dRdR;
+    }
+
+    if (dddxdV) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dddxdV[iSub]) delete dddxdV[iSub];
+
+      delete [] dddxdV;
+    }
+
+    if (dddydV) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dddydV[iSub]) delete dddydV[iSub];
+
+      delete [] dddydV;
+    }
+
+    if (dddzdV) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dddzdV[iSub]) delete dddzdV[iSub];
+
+      delete [] dddzdV;
+    }
+
+    if (dddxdX) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dddxdX[iSub]) delete dddxdX[iSub];
+
+      delete [] dddxdX;
+    }
+
+    if (dddydX) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dddydX[iSub]) delete dddydX[iSub];
+
+      delete [] dddydX;
+    }
+
+    if (dddzdX) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dddzdX[iSub]) delete dddzdX[iSub];
+
+      delete [] dddzdX;
+    }
+
+    if (dddxdR) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dddxdR[iSub]) delete dddxdR[iSub];
+
+      delete [] dddxdR;
+    }
+
+    if (dddydR) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dddydR[iSub]) delete dddydR[iSub];
+
+      delete [] dddydR;
+    }
+
+    if (dddzdR) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dddzdR[iSub]) delete dddzdR[iSub];
+
+      delete [] dddzdR;
+    }
+
+    if (dFaceNormdX) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dFaceNormdX[iSub]) delete dFaceNormdX[iSub];
+
+      delete [] dFaceNormdX;
+    }
+
+    if (dEdgeNormdX) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dEdgeNormdX[iSub]) delete dEdgeNormdX[iSub];
+
+      delete [] dEdgeNormdX;
+    }
+
+    if (dCtrlVoldX) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dCtrlVoldX[iSub]) delete dCtrlVoldX[iSub];
+
+      delete [] dCtrlVoldX;
+    }
+
+    if (dFluxdddx) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dFluxdddx[iSub]) delete dFluxdddx[iSub];
+
+      delete [] dFluxdddx;
+    }
+
+    if (dFluxdddy) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dFluxdddy[iSub]) delete dFluxdddy[iSub];
+
+      delete [] dFluxdddy;
+    }
+
+    if (dFluxdddz) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dFluxdddz[iSub]) delete dFluxdddz[iSub];
+
+      delete [] dFluxdddz;
+    }
+
+    if (dFluxdX) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dFluxdX[iSub]) delete dFluxdX[iSub];
+
+      delete [] dFluxdX;
+    }
+
+    if (dFluxdEdgeNorm) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dFluxdEdgeNorm[iSub]) delete dFluxdEdgeNorm[iSub];
+
+      delete [] dFluxdEdgeNorm;
+    }
+
+    if (dFluxdFaceNormal) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dFluxdFaceNormal[iSub]) delete dFluxdFaceNormal[iSub];
+
+      delete [] dFluxdFaceNormal;
+    }
+
+    if (dFluxdFaceNormalVel) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dFluxdFaceNormalVel[iSub]) delete dFluxdFaceNormalVel[iSub];
+
+      delete [] dFluxdFaceNormalVel;
+    }
+
+    if (dFluxdUb) {
+#pragma omp parallel for
+      for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+        if (dFluxdUb[iSub]) delete dFluxdUb[iSub];
+
+      delete [] dFluxdUb;
+    }
+
+  }
+
+
+  
+
+  void setNumLocSub(int nLocSub) { numLocSub = nLocSub; }
+
+  void initialize() {
+
+    if(numLocSub == 0) {   fprintf(stderr," ... Error: need to set numLocSub first in dRdXoperators\n");   exit(-1);   }
+    dFaceNormdX = new RectangularSparseMat<double,3,3>*[numLocSub];
+    dEdgeNormdX = new RectangularSparseMat<double,3,3>*[numLocSub];
+    dCtrlVoldX = new RectangularSparseMat<double,3,1>*[numLocSub];
+    dRdX = new RectangularSparseMat<double,3,6>*[numLocSub];
+    dRdR = new RectangularSparseMat<double,6,6>*[numLocSub];
+    dddxdX = new RectangularSparseMat<double,3,dim>*[numLocSub];
+    dddydX = new RectangularSparseMat<double,3,dim>*[numLocSub];
+    dddzdX = new RectangularSparseMat<double,3,dim>*[numLocSub];
+    dddxdV = new RectangularSparseMat<double,dim,dim>*[numLocSub];
+    dddydV = new RectangularSparseMat<double,dim,dim>*[numLocSub];
+    dddzdV = new RectangularSparseMat<double,dim,dim>*[numLocSub];
+    dddxdR = new RectangularSparseMat<double,6,dim>*[numLocSub];
+    dddydR = new RectangularSparseMat<double,6,dim>*[numLocSub];
+    dddzdR = new RectangularSparseMat<double,6,dim>*[numLocSub];
+    dFluxdddx = new RectangularSparseMat<double,dim,dim>*[numLocSub];
+    dFluxdddy = new RectangularSparseMat<double,dim,dim>*[numLocSub];
+    dFluxdddz = new RectangularSparseMat<double,dim,dim>*[numLocSub];
+    dFluxdEdgeNorm = new RectangularSparseMat<double,3,dim>*[numLocSub];
+    dFluxdFaceNormal = new RectangularSparseMat<double,3,dim>*[numLocSub];
+    dFluxdFaceNormalVel = new RectangularSparseMat<double,1,dim>*[numLocSub];
+    dFluxdUb = new RectangularSparseMat<double,dim,dim>*[numLocSub];
+    dFluxdX = new RectangularSparseMat<double,3,dim>*[numLocSub];
+    dGradPdddx = new RectangularSparseMat<double,dim,3>*[numLocSub];
+    dGradPdddy = new RectangularSparseMat<double,dim,3>*[numLocSub];
+    dGradPdddz = new RectangularSparseMat<double,dim,3>*[numLocSub];
+    dForcedGradP = new RectangularSparseMat<double,3,3>*[numLocSub];
+    dForcedX = new RectangularSparseMat<double,3,3>*[numLocSub];
+    dForcedV = new RectangularSparseMat<double,dim,3>*[numLocSub];
+    dForcedS = new RectangularSparseMat<double,3,3>*[numLocSub];
+    dVdU = new RectangularSparseMat<double,dim,dim>*[numLocSub];
+    dVdPstiff = new RectangularSparseMat<double,1,dim>*[numLocSub];
+  }
+
+};
+
+//------------------------------------------------------------------------------
+
+template<int dim, class Scalar, int neq>
+class MatVecProd_dRdX : public MatVecProd<dim,neq> {
+
+  int numLocSub;
+
+  dRdXoperators<dim> *dRdXop;
+
+  DistTimeState<dim> *timeState;
+  SpaceOperator<dim> *spaceOp;
+  FluxFcn **fluxFcn;
+  SubDomain **subDomain;
+  Communicator *com;
+
+  DistSVec<double,3> *X;
+  DistVec<double> *ctrlVol;
+  DistSVec<double,dim> *Q;
+  DistSVec<double,dim> *F;
+
+  //--------------------------------------
+  /// \note (09/10) UH
+  /// This nested class allows to specialize the matrix-vector product.
+  /// In particular, we differentiate the cases where dim and neq are different
+  /// for turbulent problems with weak coupling.
+  template<int dd, int nn, class Scalar1, class Scalar2> struct Multiplier
+  {
+    void Apply
+    (
+      SpaceOperator<dd> *spaceOp
+      , DistSVec<double,3> &X
+      , DistVec<double> &ctrlVol
+      , DistSVec<double,dd> &U
+      , DistMat<Scalar1,dd> &H2
+      , DistSVec<double,dd> &aij, DistSVec<double,dd> &aji
+      , DistSVec<double,dd> &bij, DistSVec<double,dd> &bji
+      , DistSVec<Scalar2,nn> &p, DistSVec<Scalar2,nn> &prod
+      , MatVecProdH1<dd, Scalar1, nn> *R
+      , MatVecProdFD<dd, nn> *RFD
+      , DistSVec<Scalar2, nn> *vProd
+    );
+    void ApplyT
+    (
+      SpaceOperator<dd> *spaceOp
+      , DistSVec<double,3> &X
+      , DistVec<double> &ctrlVol
+      , DistSVec<double,dd> &U
+      , DistMat<Scalar1,dd> &H2
+      , DistSVec<double,dd> &aij, DistSVec<double,dd> &aji
+      , DistSVec<double,dd> &bij, DistSVec<double,dd> &bji
+      , DistSVec<Scalar2,nn> &p, DistSVec<Scalar2,nn> &prod
+    );
+  };
+
+  template<int dd, class Scalar1, class Scalar2>
+  struct Multiplier<dd,dd,Scalar1,Scalar2>
+  {
+    void Apply
+    (
+      SpaceOperator<dd> *spaceOp
+      , DistSVec<double,3> &X
+      , DistVec<double> &ctrlVol
+      , DistSVec<double,dd> &U
+      , DistMat<Scalar1,dd> &H2
+      , DistSVec<double,dd> &aij, DistSVec<double,dd> &aji
+      , DistSVec<double,dd> &bij, DistSVec<double,dd> &bji
+      , DistSVec<Scalar2,dd> &p, DistSVec<Scalar2,dd> &prod
+      , MatVecProdH1<dd, Scalar1, dd> *R
+      , MatVecProdFD<dd, dd> *RFD
+      , DistSVec<Scalar2, dd> *vProd
+    );
+
+    void ApplyT
+    (
+      SpaceOperator<dd> *spaceOp
+      , DistSVec<double,3> &X
+      , DistVec<double> &ctrlVol
+      , DistSVec<double,dd> &U
+      , DistMat<Scalar1,dd> &H2
+      , DistSVec<double,dd> &aij, DistSVec<double,dd> &aji
+      , DistSVec<double,dd> &bij, DistSVec<double,dd> &bji
+      , DistSVec<Scalar2,dd> &p, DistSVec<Scalar2,dd> &prod
+    );
+  };
+  //--------------------------------------
+
+
+public:
+
+// Included (MB)
+  MatVecProd_dRdX(IoData &, VarFcn *, DistTimeState<dim> *, 
+	       SpaceOperator<dim> *, Domain *, DistGeoState * = 0);
+
+  ~MatVecProd_dRdX();
+
+//  GenMat<Scalar,dim> &operator() (int i) { return *A[i]; }
+
+  void initializeOperators(double);
+  dRdXoperators<dim> *getdRdXop() {return dRdXop;}
+  void constructOperators(DistSVec<double,3> &X, DistVec<double> &ctrlVol, DistSVec<double,dim> &U,
+                          double dMach, DistSVec<double,dim> &R, DistVec<double> &, DistTimeState<dim> *timeState, PostOperator<dim> *);
+/*
+  void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
+		DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void evaluate(int , DistSVec<double,3> &, DistVec<double> &,
+                DistSVec<double,dim> &, DistSVec<double,dim> &, Scalar);
+  void evaluate2(int, DistSVec<double,3> &, DistVec<double> &, 
+		 DistSVec<double,dim> &, DistSVec<double,dim> &); 
+*/
+
+  void evaluate(int, DistSVec<double,3> &, DistVec<double> &,
+                DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void evaluate(DistExactRiemannSolver<dim> &, int, DistSVec<double,3> &, DistVec<double> &,
+                DistSVec<double,dim> &, DistSVec<double,dim> &) {}
+  void evaluate(int , DistSVec<double,3> &, DistVec<double> &, 
+                DistSVec<double,dim> &, DistSVec<double,dim> &, Scalar);
+
+  // UH (09/10)
+  // The following function is never called and not implemented.
+  //void evaluate(int , DistSVec<double,3> &, DistVec<double> &, DistVec<int> &,
+  //              DistSVec<double,dim> &, DistSVec<double,dim> &, Scalar);
+
+  void evaluate2(int, DistSVec<double,3> &, DistVec<double> &,
+                 DistSVec<double,dim> &, DistSVec<double,dim> &);
+
+  // UH (09/10)
+  // The following functions are never called and not implemented.
+  //
+  //void evaluatestep1(int, DistSVec<double,3> &, DistVec<double> &,
+  //               DistSVec<double,dim> &, DistSVec<double,dim> &);
+  //void evaluate2step1(int, DistSVec<double,3> &, DistVec<double> &,
+  //               DistSVec<double,dim> &, DistSVec<double,dim> &);
+
+  void evalH(int , DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &);
+
+  void apply(DistSVec<double,neq>        &, DistSVec<double,neq> &);
+  void apply(DistSVec<bcomp,neq>         &, DistSVec<bcomp,neq> &);
+  void apply(DistEmbeddedVec<double,dim> &, DistEmbeddedVec<double,dim> &);
+  void applyTranspose(DistSVec<double,neq> &, DistSVec<double,neq> &) {}
+
+  void applyT(DistSVec<double,neq> &, DistSVec<double,neq> &);
+  void applyT(DistSVec<bcomp,neq> &x, DistSVec<bcomp,neq> &y);
+
+// Included (MB)
+  void evaluateInviscid(int, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void evaluateViscous(int, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
+
+  //void applyInviscid(DistSVec<double,neq> &, DistSVec<double,neq> &);
+  //void applyViscous(DistSVec<double,neq> &, DistSVec<double,neq> &);
+
+  void rstSpaceOp(IoData &, VarFcn *, SpaceOperator<dim> *, bool, SpaceOperator<dim> * = 0);
+
+};
+
 //------------------------------------------------------------------------------
 
 #ifdef TEMPLATE_FIX

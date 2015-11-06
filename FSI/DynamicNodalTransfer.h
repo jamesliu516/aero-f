@@ -38,8 +38,6 @@ class EmbeddedStructure {
  
   bool coupled;
   int algNum;
-  bool dim2Treatment;
-  bool oneWayCoupling;
   
   double tScale;
   double XScale;

@@ -3,7 +3,7 @@
 #include <iostream>
 #include "V6NodeData.h"
 #include <Elem.h>
-
+#include <DenseMatrixOps.h>
 //#include <EdgeGrad.h>
 
 

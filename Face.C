@@ -177,7 +177,7 @@ void Face::computeDerivativeOfNodeBcValue(SVec<double,3> &X, SVec<double,3> &dX,
     for (int j=0; j<numNodes(); ++j) {
       dUnode[ nodeNum(j) ][0] += dS;
       for (int k=1; k<dim2; ++k)
-	dUnode[ nodeNum(j) ][k] += dS * Uface[dim1-dim2+k] + S * dUface[dim1-dim2+k];
+        dUnode[ nodeNum(j) ][k] += dS * Uface[dim1-dim2+k] + S * dUface[dim1-dim2+k];
     }
   }
 
@@ -199,7 +199,7 @@ void Face::computeNodeBCsWallValues(SVec<double,3> &X, SVec<double,1> &dNormSA, 
     for (int j=0; j<numNodes(); ++j) {
       dNormSA[ nodeNum(j) ][0] += S;
       for (int k=0; k<dim; ++k) 
-	dUnodeSA[ nodeNum(j) ][k] += S * dUfaceSA[k];
+        dUnodeSA[ nodeNum(j) ][k] += S * dUfaceSA[k];
     }
   }
 
@@ -472,10 +472,75 @@ void Face::computeDerivativeOfFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &no
     double flux[dim];
     double dFlux[dim];
     for (int l=0; l<numNodes(); ++l) {
+//      double dFluxdNormal[7][3] = {0}, dFluxdNormalVel[7][1] = {0}, dFluxdub[7][7] = {0}, dFLUX[7] = {0}, diff[dim] = {0};
+//      for(int i=0; i<dim; i++) dFLUX[i] = dFlux[i] = 0.0;
       fluxFcn[code]->computeDerivative(0.0, 0.0, getNormal(normals, l), getdNormal(dNormals, l), getNormalVel(normalVel, l), getdNormalVel(dNormalVel, l), V[nodeNum(l)], Ub, dUb, flux, dFlux);
+/*
+      fluxFcn[code]->computeDerivativeOperators(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l), V[nodeNum(l)], Ub, dFluxdNormal, dFluxdNormalVel, dFluxdub);
+      for(int i=0; i<dim; ++i) {
+        dFLUX[i] += 1.0/3.0*dFluxdNormalVel[i][0]*dNormalVel[normNum];
+        for(int j=0; j<dim; ++j)
+          dFLUX[i] += dFluxdub[i][j]*dUb[j];
+        for(int j=0; j<3; ++j)
+          dFLUX[i] += 1.0/3.0*dFluxdNormal[i][j]*dNormals[normNum][j];
+      }
+      double diffnorm(0), dFluxnorm(0), dFLUXnorm(0);
+      for(int i=0; i<dim; ++i) {
+        diff[i] = dFlux[i] - dFLUX[i];
+        diffnorm += diff[i]*diff[i];
+        dFluxnorm += dFlux[i]*dFlux[i];
+        dFLUXnorm += dFLUX[i]*dFLUX[i];
+      }
+      diffnorm = sqrt(diffnorm);
+      dFluxnorm = sqrt(dFluxnorm);
+      dFLUXnorm = sqrt(dFLUXnorm);
+      if(dFluxnorm != 0) fprintf(stderr, " .*.*. rel. diff = %e, dFluxnorm = %e, dFLUXnorm = %e\n", diffnorm/dFluxnorm, dFluxnorm, dFLUXnorm);
+      else fprintf(stderr, " .*.*. abs. diff = %e, dFluxnorm = %e, dFLUXnorm = %e\n", diffnorm, dFluxnorm, dFLUXnorm);
+*/
       for (int k=0; k<dim; ++k){
         dFluxes[ nodeNum(l) ][k] += dFlux[k];
       }
+    }
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+template<int dim>
+inline
+void Face::computeDerivativeOperatorsOfFiniteVolumeTerm(int faceNum, FluxFcn **fluxFcn, Vec<Vec3D> &normals,
+				      Vec<double> normalVel, SVec<double,dim> &V, double *Ub,
+              RectangularSparseMat<double,3,dim> &dFluxdFaceNormal,
+              RectangularSparseMat<double,1,dim> &dFluxdFaceNormalVel,
+              RectangularSparseMat<double,dim,dim> &dFluxdUb)
+{
+
+  // UH (07/2012)
+  // The next test is to handle the cases where code is set
+  // to BC_KIRCHHOFF_SURFACE (== 9)
+  if ((code < BC_MIN_CODE) | (code > BC_MAX_CODE))
+    return;
+    
+  if(fluxFcn[code]){
+    double flux[dim];
+    double dFlux[dim];
+    for (int l=0; l<numNodes(); ++l) {
+      double dFluxdNormal[7][3] = {0}, dFluxdNormalVel[7][1] = {0}, dFluxdub[7][7] = {0};
+      fluxFcn[code]->computeDerivativeOperators(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l), V[nodeNum(l)], Ub, dFluxdNormal, dFluxdNormalVel, dFluxdub);
+      double dFluxdNormal2[dim][3] = {0}, dFluxdNormalVel2[dim][1] = {0}, dFluxdub2[dim][dim] = {0};
+      for(int i=0; i<dim; ++i) {
+        dFluxdNormalVel2[i][0] = dFluxdNormalVel[i][0];
+        for(int j=0; j<dim; ++j)
+          dFluxdub2[i][j] = dFluxdub[i][j];
+        for(int j=0; j<3; ++j)
+          dFluxdNormal2[i][j] = dFluxdNormal[i][j];
+      }
+
+      dFluxdFaceNormal.addContrib(nodeNum(l), faceNum, dFluxdNormal2[0]);
+      dFluxdFaceNormalVel.addContrib(nodeNum(l), faceNum, dFluxdNormalVel2[0]);
+      dFluxdUb.addContrib(nodeNum(l), faceNum, dFluxdub2[0]);
     }
   }
 
@@ -1189,9 +1254,129 @@ void FaceSet::computeDerivativeOfFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim>
   Vec<double> &dndot = geoState.getdFaceNormalVel();
   SVec<double,dim> &Ub = bcData.getFaceStateVector();
   SVec<double,dim> &dUb = bcData.getdFaceStateVector();
+/*
+//  SVec<double,dim> dFlux2(dFluxes), dummy(dFluxes), diff(dFluxes);
+  SVec<double,dim> dummy(dFluxes);
 
+  if(isSparse) {
+    dn *= 1.0/3.0;
+    dndot *= 1.0/3.0;
+    dummy = 0.0;
+    dFluxdFaceNormal->apply(dn, dummy); 
+    dFluxes += dummy;
+    dFluxdFaceNormalVel->apply(dndot, dummy);
+    dFluxes += dummy;
+    dummy = 0.0;
+    dFluxdUb->apply(dUb, dummy);
+    dFluxes += dummy; 
+//    diff = 0.0;
+    dn *= 3.0;
+    dndot *= 3.0;
+    return;
+  }
+*/
   for (int i=0; i<numFaces; ++i)
     faces[i]->computeDerivativeOfFiniteVolumeTerm(fluxFcn, n, dn, ndot, dndot, V, Ub[i], dUb[i], dFluxes);
+/*
+  diff = dFluxes - dFlux2;
+  double diffnorm(0), dFluxesnorm(0), dFlux2norm(0);
+  diffnorm = diff.norm();
+  dFluxesnorm = dFluxes.norm();
+  dFlux2norm = dFlux2.norm();
+  if(dFluxesnorm != 0) fprintf(stderr, " ... rel. diff = %e, dFlux2norm = %e, dFluxesnorm = %e\n", diffnorm/dFluxesnorm, dFlux2norm, dFluxesnorm);
+  else fprintf(stderr, " ... abs. diff = %e, dFlux2norm = %e, dFluxesnorm = %e\n", diffnorm, dFlux2norm, dFluxesnorm); 
+*/
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+template<int dim>
+void FaceSet::computeDerivativeOfFiniteVolumeTerm(
+              RectangularSparseMat<double,3,dim> *dFluxdFaceNormal,
+              RectangularSparseMat<double,1,dim> *dFluxdFaceNormalVel,
+              RectangularSparseMat<double,dim,dim> *dFluxdUb,
+              BcData<dim> &bcData,
+				      GeoState &geoState, 
+              Vec<Vec3D>& dFaceNormal,
+              Vec<double>& dFaceNormalVel,
+				      SVec<double,dim> &dFluxes)
+{
+
+  SVec<double,dim> dummy(dFluxes);
+
+  dFaceNormal *= 1.0/3.0;
+  dFaceNormalVel *= 1.0/3.0;
+  dummy = 0.0;
+  dFluxdFaceNormal->apply(dFaceNormal, dummy); 
+  dFluxes += dummy;
+  dFluxdFaceNormalVel->apply(dFaceNormalVel, dummy);
+  dFluxes += dummy;
+/*  dummy = 0.0;
+  dFluxdUb->apply(dUb, dummy);  //TODO: assumed dUb is zero
+  dFluxes += dummy; 
+*/
+  dFaceNormal *= 3.0;
+  dFaceNormalVel *= 3.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+template<int dim>
+void FaceSet::computeTransposeDerivativeOfFiniteVolumeTerm(RectangularSparseMat<double,3,dim> *dFluxdFaceNormal,
+                                                           RectangularSparseMat<double,1,dim> *dFluxdFaceNormalVel,
+                                                           RectangularSparseMat<double,dim,dim> *dFluxdUb,
+                                                           BcData<dim> &bcData,
+                                                           GeoState &geoState,
+                                                           SVec<double,dim> &dFluxes,
+                                                           Vec<Vec3D>& dFaceNormal2,
+                                                           Vec<double>& dFaceNormalVel2)
+{
+
+//  Vec<Vec3D> &dn = geoState.getdFaceNormal();
+//  Vec<double> &dndot = geoState.getdFaceNormalVel();
+//  SVec<double,dim> &dUb = bcData.getdFaceStateVector();
+
+  Vec<Vec3D> dFaceNormal2dummy(dFaceNormal2);
+  Vec<double> dFaceNormalVel2dummy(dFaceNormalVel2); 
+
+  dFluxes *= 1.0/3.0;
+  dFluxdFaceNormal->applyTranspose(dFluxes, dFaceNormal2dummy); 
+  dFaceNormal2 += dFaceNormal2dummy;
+// TODO: uncomment dFaceNormalVel2 part
+  dFluxdFaceNormalVel->applyTranspose(dFluxes, dFaceNormalVel2dummy);
+  dFaceNormalVel2 += dFaceNormalVel2dummy;
+  dFluxes *= 3.0;
+// TODO: assumed dUb is zero
+//  dFluxdUb->applyTranspose(dFluxes, dUb);
+//  fprintf(stderr, " ... norm of dUb is %e\n", dUb.norm());
+
+//  dFaceNormal2 = dn;
+//  dFaceNormalVel2 = dndot;
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void FaceSet::computeDerivativeOperatorsOfFiniteVolumeTerm(
+              FluxFcn **fluxFcn, BcData<dim> &bcData,
+              GeoState &geoState, SVec<double,dim> &V,
+              RectangularSparseMat<double,3,dim> &dFluxdFaceNormal,
+              RectangularSparseMat<double,1,dim> &dFluxdFaceNormalVel,
+              RectangularSparseMat<double,dim,dim> &dFluxdUb)
+{
+  
+  Vec<Vec3D> &n = geoState.getFaceNormal();
+  Vec<double> &ndot = geoState.getFaceNormalVel();
+  SVec<double,dim> &Ub = bcData.getFaceStateVector();
+
+  for(int i=0; i<numFaces; ++i)
+    faces[i]->computeDerivativeOperatorsOfFiniteVolumeTerm(i, fluxFcn, n, ndot, V, Ub[i], dFluxdFaceNormal, dFluxdFaceNormalVel, dFluxdUb);
+
+
 
 }
 

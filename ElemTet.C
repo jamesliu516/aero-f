@@ -2282,7 +2282,7 @@ int ElemTet::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const V
       int numberOfPolygons = getPolygons(*this, *LSS, polygons);
       for(int i=0; i < numberOfPolygons; ++i){
         PolygonReconstructionData& polygon = polygons[i];
-        if(!LSS->edgeIntersectsStructure(0,polygon.edge[0])) continue;
+        if(polygon.numberOfEdges == 0 || !LSS->edgeIntersectsStructure(0,polygon.edge[0])) continue;
         getPolygonNormal(X, normal, *LSS, polygon);
         alpha = (LSS->getLevelSetDataAtEdgeCenter(0,polygon.edge[0],polygon.edgeWithVertex[0][0]<polygon.edgeWithVertex[0][1])).alpha;
         for (int j=0; j<3; j++) {Xinter[j] = alpha*X[polygon.edgeWithVertex[0][0]][j]+(1.0-alpha)*X[polygon.edgeWithVertex[0][1]][j];}

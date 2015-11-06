@@ -21,6 +21,7 @@ template<int dim>
 TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> *po) : 
   refVal(rv), domain(dom), postOp(po), rmmh(0)
 {
+
   int i;
 
   modeFile = 0;
@@ -541,6 +542,24 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else
     residualVectors = 0;
 
+  // If we want to output the pressure coeff. in the embedded framework d2d
+  if ( (iod.problem.framework==ProblemData::EMBEDDED ||
+	iod.problem.framework==ProblemData::EMBEDDEDALE) &&
+       iod.output.transient.pressurecoefficient[0] != 0) {
+    embeddedsurfaceCp = new char[sp + strlen(iod.output.transient.pressurecoefficient)];
+    sprintf(embeddedsurfaceCp, "%s%s%s", iod.output.transient.prefix, "emb_", iod.output.transient.pressurecoefficient); 
+  }  else
+    embeddedsurfaceCp = 0;
+
+  // If we want to output the skin friction coeff. in the embedded framework d2d
+  if ( (iod.problem.framework==ProblemData::EMBEDDED ||
+	iod.problem.framework==ProblemData::EMBEDDEDALE) &&
+       iod.output.transient.sfric[0] != 0) {
+    embeddedsurfaceCf = new char[sp + strlen(iod.output.transient.sfric)];
+    sprintf(embeddedsurfaceCf, "%s%s%s", iod.output.transient.prefix, "emb_", iod.output.transient.sfric); 
+  }  else
+    embeddedsurfaceCf = 0;
+
   it0 = iod.restart.iteration;
   //std::cout << "it0 = " << it0 << std::endl;
   numFluidPhases = iod.eqs.numPhase;
@@ -566,6 +585,10 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
 
   fpEmbeddedSurface = 0;
   fpCpuTiming = 0;
+
+  //
+  fpEmbeddedSurfaceCp = 0;
+  fpEmbeddedSurfaceCf = 0;
 
   int nSurf = postOp->getNumSurf();
   int nSurfHF = postOp->getNumSurfHF();
@@ -726,8 +749,24 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   }
   else {
     switchOpt = false;
-  }
+    dSolutions = 0;
+    dMatchPressure = 0;
+    fpdMatchPressure = 0;
+    dLiftDrag = 0;
+    fpdLiftDrag = 0;
+    dFluxNorm = 0;
+    fpdFluxNorm = 0;
+    dForces = 0;
+    fpdForces = 0;
 
+    int i;
+    for (i=0; i<PostFcn::DSSIZE; ++i) {
+      dScalars[i] = 0;
+    }
+    for (i=0; i<PostFcn::DVSIZE; ++i) {
+      dVectors[i] = 0;
+    }
+  }
 
   // Initialize nodal output structures
   Probes& myProbes = iod.output.transient.probes;
@@ -925,6 +964,8 @@ TsOutput<dim>::~TsOutput()
   delete[] fluxnorm;
   delete[] material_volumes;
   delete[] embeddedsurface;
+  delete[] embeddedsurfaceCp;
+  delete[] embeddedsurfaceCf;
   delete[] cputiming;
   delete[] conservation;
 
@@ -1093,6 +1134,7 @@ void TsOutput<dim>::openAsciiFiles()
   int nSurf = postOp->getNumSurf();
   int *surfNums = 0;
   int iSurf;
+
   if (nSurf > 0)  {
     surfNums = new int[nSurf];
     map<int, int> surfMap = postOp->getSurfMap();
@@ -1259,7 +1301,7 @@ void TsOutput<dim>::openAsciiFiles()
     }
     fflush(fpHydroDynamicForces[0]);
   }
-                                                                                                                                                                  
+
   if (hydrodynamicforces) {
     for (iSurf = 1; iSurf < nSurf; iSurf++) {
       char filename[256];
@@ -1460,7 +1502,7 @@ void TsOutput<dim>::openAsciiFiles()
      }
    fflush(fpHydroDynamicLift[0]);
   }
-                                                                                                                                                                  
+
   if (hydrodynamiclift) {
     for (iSurf = 1; iSurf < nSurf; iSurf++)  {
       char filename[256];
@@ -1696,6 +1738,40 @@ void TsOutput<dim>::openAsciiFiles()
     fflush(fpConservationErr);
  }
 
+
+  if (embeddedsurfaceCp) {
+    
+    if (it0 != 0)
+      fpEmbeddedSurfaceCp = backupAsciiFile(embeddedsurfaceCp);
+    if (it0 == 0 || fpEmbeddedSurfaceCp == 0) {
+      fpEmbeddedSurfaceCp = fopen(embeddedsurfaceCp, "w");
+      if (!fpEmbeddedSurfaceCp) {
+        fprintf(stderr, "*** Error: could not open \'%s\'\n", embeddedsurfaceCp);
+        exit(1);
+      }
+      fprintf(fpEmbeddedSurfaceCp, "Scalar %s under load for FluidNodes\n", embeddedsurfaceCp);
+    }
+    fflush(fpEmbeddedSurfaceCp);
+    
+  }
+
+  if (embeddedsurfaceCf) {
+    
+    if (it0 != 0)
+      fpEmbeddedSurfaceCf = backupAsciiFile(embeddedsurfaceCf);
+    if (it0 == 0 || fpEmbeddedSurfaceCf == 0) {
+      fpEmbeddedSurfaceCf = fopen(embeddedsurfaceCf, "w");
+      if (!fpEmbeddedSurfaceCf) {
+        fprintf(stderr, "*** Error: could not open \'%s\'\n", embeddedsurfaceCf);
+        exit(1);
+      }
+      fprintf(fpEmbeddedSurfaceCf, "Scalar %s under load for FluidNodes\n", embeddedsurfaceCf);
+    }
+    fflush(fpEmbeddedSurfaceCf);
+    
+  }
+
+
  delete [] surfNums;
  delete [] surfNumsHF;
 }
@@ -1731,6 +1807,9 @@ void TsOutput<dim>::closeAsciiFiles()
   if (fpCpuTiming) fclose(fpCpuTiming);
   if (fpGnForces) fclose(fpGnForces);
   if (fpConservationErr) fclose(fpConservationErr);
+
+  if (fpEmbeddedSurfaceCp) fclose(fpEmbeddedSurfaceCp);
+  if (fpEmbeddedSurfaceCf) fclose(fpEmbeddedSurfaceCf);
 
 }
 
@@ -2469,7 +2548,7 @@ void TsOutput<dim>::writeMatchStateToDisk(IoData &iod,  int it, double t, double
 //------------------------------------------------------------------------------
 
 template<int dim>
-void TsOutput<dim>::writeMatchPressureToDisk(IoData &iod, bool lastIt, int it, int itSc, int itNl, double t, double cpu, 
+void TsOutput<dim>::writeMatchPressureToDisk(IoData &iod, bool lastIt, int it, int itSc, int itNl, double t, double cpu,
                                      double* e, DistSVec<double,3> &X, DistVec<double> &A, DistSVec<double,dim> &U,
                                      DistTimeState<dim> * timeState, DistVec<int> *fluidId)
 {
@@ -2499,13 +2578,14 @@ void TsOutput<dim>::writeMatchPressureToDisk(IoData &iod, bool lastIt, int it, i
   }
 
 }
+
 //------------------------------------------------------------------------------
 
 template<int dim>
 void TsOutput<dim>::writeFluxNormToDisk(int it, int itSc, int itNl, double t, double normFlux)
 {
 
-  double time = refVal->time * t;
+ double time = refVal->time * t;
 
   if (com->cpuNum() != 0) return;
 
@@ -2520,7 +2600,7 @@ void TsOutput<dim>::writeFluxNormToDisk(int it, int itSc, int itNl, double t, do
 template<int dim>
 void TsOutput<dim>::writeMaterialVolumesToDisk(int it, double t, DistVec<double> &A, DistVec<int> *fluidId)
 {
-  if(!material_volumes)
+ if(!material_volumes)
     return;
 
   int myLength = numFluidPhases + 1/*ghost*/;
@@ -2528,18 +2608,18 @@ void TsOutput<dim>::writeMaterialVolumesToDisk(int it, double t, DistVec<double>
   for(int i=0; i<myLength; i++)
     Vol[i] = 0.0;
 
-  domain->computeMaterialVolumes(Vol,myLength,A,fluidId); //computes Vol
+  domain->computeMaterialVolumes(Vol,myLength,A,fluidId); //computes Vol                                                                                                                  
 
   if (com->cpuNum() !=0 ) return;
 
   double length3 = length*length*length;
   for(int i=0; i<myLength; i++)
-    Vol[i] *= length3; //dimensionalize
+    Vol[i] *= length3; //dimensionalize                                                                                                                                                   
 
   fprintf(fpMatVolumes, "%d %e ", it, (refVal->time)*t);
   for(int i=0; i<numFluidPhases+1; i++)
     fprintf(fpMatVolumes, "%e ", Vol[i]);
-  
+
   double totVol = 0.0;
   for(int i=0; i<myLength; i++)
     totVol += Vol[i];
@@ -2547,6 +2627,7 @@ void TsOutput<dim>::writeMaterialVolumesToDisk(int it, double t, DistVec<double>
   fprintf(fpMatVolumes, "%e\n", totVol);
 
   fflush(fpMatVolumes);
+
 }
 
 //------------------------------------------------------------------------------
@@ -2701,6 +2782,7 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
                                              DistTimeState<dim> *timeState,
                                              DistVec<int> &fluidId,DistSVec<double,dimLS>* Phi)
 {
+
   if (toWrite(it,lastIt,t)) {
     int step = getStep(it,lastIt,t);
     double tag;
@@ -2843,7 +2925,7 @@ void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<do
                                       DistSVec<double,dimLS>* Phi, DistLevelSetStructure *distLSS,
                                       DistVec<GhostPoint<dim>*> *ghostPoints)
 {
-  //if (toWrite(it,lastIt,t)) {
+  //if (toWrite(it,lastIt)) {
   if (nodal_output.numNodes == 0)
     return;
     double tag;
@@ -2933,7 +3015,7 @@ void TsOutput<dim>::writeLinePlotsToDisk(bool lastIt, int it, double t, DistSVec
       tag = t * refVal->time;
     
     // if (solutions)
-    // domain->writeVectorToFile(solutions, step, tag, U);
+    //  domain->writeVectorToFile(solutions, step, tag, U);
     
     int i;
     const char* mode = "w";//nodal_output.step ? "a" : "w";
@@ -3040,14 +3122,153 @@ void TsOutput<dim>::writeLinePlotsToDisk(bool lastIt, int it, double t, DistSVec
 }
 
 //----------------------------------------------------------------------------------------
-
+// d2d
 template<int dim>
 void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, DistSVec<double,3> &X,
                                              DistVec<double> &A, DistSVec<double,dim> &U, 
                                              DistTimeState<dim> *timeState,
-                                             DistVec<int> &fluidId)
+                                             DistVec<int> &fluidId, DistLevelSetStructure *distLSS, 
+					     DistVec<GhostPoint<dim>*> *ghostPoints)
 {
-  writeBinaryVectorsToDisk(lastIt,it,t,X,A,U,timeState,fluidId, (DistSVec<double,1>*)0);
+
+  if (toWrite(it,lastIt,t)) {
+
+    int step = getStep(it,lastIt,t);
+    double tag;
+    if (rmmh)
+      tag = rmmh->getTagValue(t);
+    else
+      tag = t * refVal->time;
+
+    if (dSolutions)
+      domain->writeVectorToFile(dSolutions, step, tag, U);
+
+    int i;
+    for (i=0; i<PostFcn::SSIZE; ++i) {
+      if (scalars[i]) {
+
+        if (!Qs) Qs = new DistVec<double>(domain->getNodeDistInfo());
+
+        postOp->computeScalarQuantity(static_cast<PostFcn::ScalarType>(i), X, U, A, *Qs, timeState,fluidId, (DistSVec<double,1>*)0);
+        DistSVec<double,1> Qs1(Qs->info(), reinterpret_cast<double (*)[1]>(Qs->data()));
+
+        domain->writeVectorToFile(scalars[i], step, tag, Qs1, &(sscale[i]));
+
+      }
+      
+    }
+
+    /////////////////////////////////////////////
+    if(embeddedsurfaceCp || embeddedsurfaceCf) {
+
+      int ns = distLSS->getNumStructNodes();
+
+      double** EmbQs;
+      EmbQs = new double* [ns];
+      for(int i=0; i<ns; ++i) {
+	EmbQs[i] = new double[3];
+	EmbQs[i][0] = EmbQs[i][1] = EmbQs[i][2] = 0.0;
+      }
+
+      postOp->computeEMBScalarQuantity(X, U, A, EmbQs, timeState, fluidId, 
+     			   	       (DistSVec<double,1>*)0, distLSS, ghostPoints);
+
+
+      double * cnt = new double[ns];
+      for(int i=0; i<ns; ++i) cnt[i] = EmbQs[i][0] ? 1.0 : 0.0;
+      com->globalSum(ns, cnt);
+      
+      double * Cp_ = new double[ns];
+      double * Cf_ = new double[ns];
+
+      if(embeddedsurfaceCp) {
+	for(int i=0; i<ns; ++i) Cp_[i] = EmbQs[i][1];
+	com->globalSum(ns, Cp_);
+      }
+
+      if(embeddedsurfaceCf) {
+	for(int i=0; i<ns; ++i) Cf_[i] = EmbQs[i][2];
+	com->globalSum(ns, Cf_);
+      }
+
+      if(embeddedsurfaceCp) {
+	if(toWrite(it,lastIt,t)) {
+	  if(com->cpuNum() == 0) {	    	    
+
+	    if(it == 0) fprintf(fpEmbeddedSurfaceCp, "%i \n", ns);
+	    fprintf(fpEmbeddedSurfaceCp, " %f \n", t*tscale);
+
+	    for(int i=0; i<ns; i++) {
+	      double val = cnt[i] ? Cp_[i] /= cnt[i] : 0.0;
+	      fprintf(fpEmbeddedSurfaceCp, "%e \n", val);
+	    }
+
+	    fflush(fpEmbeddedSurfaceCp); 
+	    fprintf(stdout, "Wrote solution %d to \'%s\'\n", getStep(it, lastIt, t), embeddedsurfaceCp);
+	    
+	  }
+	}
+      }
+      
+      // ~~~~ 
+
+      if(embeddedsurfaceCf) {
+	if(toWrite(it,lastIt,t)) {
+	  if(com->cpuNum() == 0) {	    	    
+
+	    if(it == 0) fprintf(fpEmbeddedSurfaceCf, "%i \n", ns);
+	    fprintf(fpEmbeddedSurfaceCf, " %f \n", t*tscale);
+
+	    for(int i=0; i<ns; i++) {
+	      double val = cnt[i] ? Cf_[i] /= cnt[i] : 0.0;
+	      fprintf(fpEmbeddedSurfaceCf, "%e \n", val);
+	    }
+
+	    fflush(fpEmbeddedSurfaceCf); 
+	    fprintf(stdout, "Wrote solution %d to \'%s\'\n", getStep(it, lastIt, t), embeddedsurfaceCf);
+	    
+	  }
+	}
+      }
+
+      for(int i=0; i<ns; ++i) delete [] EmbQs[i];
+      delete [] EmbQs;
+      delete [] cnt;
+      delete [] Cp_;
+      delete [] Cf_;
+    }
+    ///////////////////////////////////////////////
+
+    for (i=0; i<PostFcn::VSIZE; ++i) {
+      if (vectors[i]) {
+        if (!Qv) Qv = new DistSVec<double,3>(domain->getNodeDistInfo());
+
+        if (static_cast<PostFcn::VectorType>(i) == PostFcn::FLIGHTDISPLACEMENT)  {
+
+          if (rmmh) {
+            DistSVec<double,3> &Xr = rmmh->getFlightPositionVector(t, X);
+            postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(i), Xr, U, *Qv);
+          }
+          else
+            com->fprintf(stderr, "WARNING: Flight Displacement Output not available\n");
+        }
+        else if (static_cast<PostFcn::VectorType>(i) == PostFcn::LOCALFLIGHTDISPLACEMENT)  {
+          if (rmmh) {
+            DistSVec<double,3> &Xr = rmmh->getRelativePositionVector(t, X);
+            postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(i), Xr, U, *Qv);
+          }
+          else
+            com->fprintf(stderr, "WARNING: Local Flight Displacement Output not available\n");
+
+        }
+        else
+          postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(i), X, U, *Qv, fluidId);
+        domain->writeVectorToFile(vectors[i], step, tag, *Qv, &(vscale[i]));
+      }
+    }
+  }
+
+
 }
 
 template<int dim>

@@ -8,11 +8,11 @@
 
 // Included (MB)
 GeoState::GeoState(const GeoData &gd, Vec<double> &ctrlvoln, Vec<double> &ctrlvolnm1,
-		   Vec<double> &ctrlvolnm2,
+                   Vec<double> &ctrlvolnm2,
                    Vec<double> &d2w,
-		   Vec<Vec3D> &edgenorm, Vec<Vec3D> &facenorm,
-		   Vec<double> &edgenormvel, Vec<double> &facenormvel,
-		   Vec<Vec3D> &inletnodenorm, Vec<int>& numfaceneighb,
+                   Vec<Vec3D> &edgenorm, Vec<Vec3D> &facenorm,
+                   Vec<double> &edgenormvel, Vec<double> &facenormvel,
+                   Vec<Vec3D> &inletnodenorm, Vec<int>& numfaceneighb,
                    Vec<Vec3D> &dEdgenorm, Vec<Vec3D> &dFacenorm,
                    Vec<double> &dEdgenormvel, Vec<double> &dFacenormvel,
                    SVec<double,3> &x, SVec<double,3> &dx) :

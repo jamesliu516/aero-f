@@ -13,6 +13,7 @@ template<int dim, class Scalar = double> class NodalGrad;
 #endif
 template<class Scalar> class DistVec;
 template<class Scalar, int dim> class DistSVec;
+template<int dim> struct dRdXoperators;
 
 #ifndef _DNDGRAD_TMPL_
 #define _DNDGRAD_TMPL_
@@ -133,13 +134,32 @@ public:
 
 // Included (MB)
   void computeDerivativeOfWeights(DistSVec<double,3> &, DistSVec<double,3> &);
+  void computeDerivativeOfWeights(dRdXoperators<dim> &, DistSVec<double,3> &, DistSVec<double,6> &);
+  void computeTransposeDerivativeOfWeights(dRdXoperators<dim> &, DistSVec<double,6> &, DistSVec<double,3> &);
 
   template<class Scalar2>
   void computeDerivative(int, DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &, DistVec<double> &, DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &);
 
+  void computeDerivative(dRdXoperators<dim> *, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, 
+                         DistSVec<double,6> &, DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
+
+  void computeTransposeDerivative(dRdXoperators<dim> *,  
+                                  DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &, 
+                                  DistSVec<double,6> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,3> &);
+
+// Included (YC)
+  void computeDerivativeOfWeightsOperators(DistSVec<double,3> &, dRdXoperators<dim> &);
+
+  template<class Scalar2>
+  void computeDerivativeOperators(DistSVec<double,3> &, DistVec<double> &, DistSVec<Scalar2,dim> &, dRdXoperators<dim> &);
+
   template<class Scalar2>
   void limitDerivative(RecFcn *, DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &, DistVec<double> &, DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &);
 
+  DistSVec<Scalar,dim> &getXderivative() const { return *dddx; }
+  DistSVec<Scalar,dim> &getYderivative() const { return *dddy; }
+  DistSVec<Scalar,dim> &getZderivative() const { return *dddz; }
+  
 };
 
 //------------------------------------------------------------------------------

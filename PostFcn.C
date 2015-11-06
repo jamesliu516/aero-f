@@ -555,7 +555,7 @@ void PostFcnEuler::computeDerivativeOfForceTransmitted(double dp1dxj[4][3], doub
   else if (hydro == 1){ // hydrostatic pressure
      for(i=0;i<3;i++) {
         pcg[i]  = varFcn->hydrostaticPressure(Vface[i][0],Xface[i]);
-	dPcg[i] = varFcn->DerivativeHydrostaticPressure(dVface[i][0], Vface[i][0], Xface[i], dXface[i]);
+        dPcg[i] = varFcn->DerivativeHydrostaticPressure(dVface[i][0], Vface[i][0], Xface[i], dXface[i]);
      }
   }else if (hydro == 2){ // hydrodynamic pressure
     for (i=0; i<3; i++) 
@@ -695,6 +695,908 @@ void PostFcnEuler::computeDerivativeOfForceTransmitted(double dp1dxj[4][3], doub
  dFi2 = (dPhi_P + dPhi_2/2.0 + dPhi_3/2.0 + dPhi_0/3.0) * (1.0/6.0*n) + (phi_P + phi_2/2.0 + phi_3/2.0 + phi_0/3.0) * (1.0/6.0*dn);
 
  dFv = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+void PostFcnEuler::computeDerivativeOfForceTransmitted2(double *Xface[3], double *dXface[3],
+                                                        Vec3D &n, Vec3D &dn, double d2w[3], double *Vwall, double *dVwall,
+                                                        double *Vface[3],  double *dVface[3], double *Vtet[4], double *dVtet[4], double dS[3],  
+                                                        double *pin,  Vec3D &dFi0, Vec3D &dFi1, Vec3D &dFi2, Vec3D &dFv, 
+                                                        double dPdx[3][3], double ddPdx[3][3], int hydro)
+{
+
+  double pcg[3], p[3];
+  double dPcg[3];
+  double pcgin;
+  double cf[500];
+  int i;
+
+  double dPinfty = dpinfty * dS[0];
+  double dPinftydS[3] = {0};
+  dPinftydS[0] = dpinfty;
+  double dPcgdVface[3][5] = {0};
+
+  if (hydro == 0) {
+    for(i=0;i<3;i++) {
+      pcg[i] = varFcn->getPressure(Vface[i]);
+      varFcn->computedPdV(dPcgdVface[i]);
+      dPcg[i] = 0.0;
+      for(int l=0; l<5; ++l) {
+        dPcg[i] += dPcgdVface[i][l]*dVface[i][l]; 
+      } 
+    }
+  } 
+  else if (hydro == 1){ // hydrostatic pressure
+     for(i=0;i<3;i++) {
+        pcg[i]  = varFcn->hydrostaticPressure(Vface[i][0],Xface[i]);
+        dPcg[i] = varFcn->DerivativeHydrostaticPressure(dVface[i][0], Vface[i][0], Xface[i], dXface[i]);
+     }
+  }else if (hydro == 2){ // hydrodynamic pressure
+    for (i=0; i<3; i++) 
+    {
+      pcg[i]  = varFcn->hydrodynamicPressure(Vface[i], Xface[i]);
+      dPcg[i] = varFcn->getPressure(dVface[i]) 
+              - varFcn->DerivativeHydrostaticPressure(dVface[i][0], Vface[i][0], Xface[i], dXface[i]);
+    }
+  }
+
+  if (pin)
+    pcgin = *pin;
+  else
+    if (hydro == 0)
+      pcgin = pinfty;
+    else
+      pcgin = 0.0;
+
+  double dPcgindS[3] = {0};
+  double dPcgindPinfty(0);
+  if (pin) {
+    if (dimFlag) {
+      dPcgindS[0] = -2.0*(*pin)/mach;
+    } else {
+      dPcgindS[0] = dPin;
+    }
+  }
+  else {
+    if (hydro == 0)
+      dPcgindPinfty = 1.0;
+  }
+  for(int j=0; j<3; ++j) dPcgindS[j] += dPcgindPinfty*dPinftydS[j]; 
+
+  p[0] = (pcg[0] - pcgin) ;
+  p[1] = (pcg[1] - pcgin) ;
+  p[2] = (pcg[2] - pcgin) ;
+
+ Vec3D xC, xS, xP, x1, x2, x3, x0, x;
+ double p_1C, p_1S, p_2S, p_2P, p_3P, p_3C;
+ double p_C, p_S, p_P, p_0C, p_0S, p_0P;
+
+ // C to 0, S to 1 P to 2
+ for(int i = 0; i<3; i++)
+ {
+  xC[i] = Xface[0][i];
+  xS[i] = Xface[1][i];
+  xP[i] = Xface[2][i];
+ }
+
+ x1 = (xC+xS)/2.0;
+ x2 = (xS+xP)/2.0;
+ x3 = (xP+xC)/2.0;
+ x0 = (xC+xS+xP)/3.0;
+
+ p_C = p[0], p_S = p[1], p_P = p[2];
+ // Computing p_1C, p_0C and p_3C, and computing dP_1C, dP_0C and dP_3C
+ p_1C = p_C 
+      + dPdx[0][0]*(x1[0]-xC[0]) 
+      + dPdx[0][1]*(x1[1]-xC[1]) 
+      + dPdx[0][2]*(x1[2]-xC[2]);
+ p_0C =  p_C 
+      + dPdx[0][0]*(x0[0]-xC[0]) 
+      + dPdx[0][1]*(x0[1]-xC[1]) 
+      + dPdx[0][2]*(x0[2]-xC[2]);
+ p_3C =  p_C 
+      + dPdx[0][0]*(x3[0]-xC[0]) 
+      + dPdx[0][1]*(x3[1]-xC[1]) 
+      + dPdx[0][2]*(x3[2]-xC[2]);
+
+ // Computing p_1S, p_0S and p_2S, and computing dP_1S, dP_0S and dP_2S
+ p_1S = p_S 
+      + dPdx[1][0]*(x1[0]-xS[0]) 
+      + dPdx[1][1]*(x1[1]-xS[1]) 
+      + dPdx[1][2]*(x1[2]-xS[2]);
+ p_0S =  p_S 
+      + dPdx[1][0]*(x0[0]-xS[0]) 
+      + dPdx[1][1]*(x0[1]-xS[1]) 
+      + dPdx[1][2]*(x0[2]-xS[2]);
+ p_2S =  p_S 
+      + dPdx[1][0]*(x2[0]-xS[0]) 
+      + dPdx[1][1]*(x2[1]-xS[1]) 
+      + dPdx[1][2]*(x2[2]-xS[2]);
+
+ // Computing p_2P, p_0P and p_3P, and computing dP_2P, dP_0P and dP_3P
+ p_2P = p_P 
+      + dPdx[2][0]*(x2[0]-xP[0]) 
+      + dPdx[2][1]*(x2[1]-xP[1]) 
+      + dPdx[2][2]*(x2[2]-xP[2]);
+ p_0P =  p_P 
+      + dPdx[2][0]*(x0[0]-xP[0]) 
+      + dPdx[2][1]*(x0[1]-xP[1]) 
+      + dPdx[2][2]*(x0[2]-xP[2]);
+ p_3P =  p_P 
+      + dPdx[2][0]*(x3[0]-xP[0]) 
+      + dPdx[2][1]*(x3[1]-xP[1]) 
+      + dPdx[2][2]*(x3[2]-xP[2]);
+
+ // computation of pressure flux
+ double phi_C, phi_S, phi_P, phi_1, phi_2, phi_3, phi_0;
+ phi_C = (2.0*p_C + p_0C + p_3C)/12.0 + (2.0*p_C + p_0C + p_1C)/12.0;
+ cf[0] = 2.0*(x0[0]-xC[0])+x3[0]-xC[0]+x1[0]-xC[0];
+ cf[1] = 2.0*(x0[1]-xC[1])+(x3[1]-xC[1])+(x1[1]-xC[1]);
+ cf[2] = 2.0*(x0[2]-xC[2])+(x3[2]-xC[2])+(x1[2]-xC[2]);
+ cf[3] = 2.0/3.0*dPdx[0][0]+0.5*dPdx[0][0];
+ cf[4] = 2.0/3.0*dPdx[0][1]+0.5*dPdx[0][1];
+ cf[5] = 2.0/3.0*dPdx[0][2]+0.5*dPdx[0][2];
+ cf[6] = 2.0/3.0*dPdx[0][0]+0.5*dPdx[0][0];
+ cf[7] = 2.0/3.0*dPdx[0][1]+0.5*dPdx[0][1];
+ cf[8] = 2.0/3.0*dPdx[0][2]+0.5*dPdx[0][2];
+ cf[9] = -4.0/3.0*dPdx[0][0] - dPdx[0][0];
+ cf[10] = -4.0/3.0*dPdx[0][1] - dPdx[0][1];
+ cf[11] = - 4.0/3.0*dPdx[0][2] - dPdx[0][2];
+ phi_S = (2.0*p_S + p_0S + p_1S)/12.0 + (2.0*p_S + p_0S + p_2S)/12.0;
+ cf[12] = 2.0*(x0[0]-xS[0]) + (x1[0]-xS[0]) + (x2[0]-xS[0]);
+ cf[13] = 2.0*(x0[1]-xS[1]) + (x1[1]-xS[1]) + (x2[1]-xS[1]);
+ cf[14] = 2.0*(x0[2]-xS[2]) + (x1[2]-xS[2]) + (x2[2]-xS[2]);
+ cf[15] = 2.0/3.0*dPdx[1][0] + 0.5*dPdx[1][0];
+ cf[16] = 2.0/3.0*dPdx[1][1] + 0.5*dPdx[1][1];
+ cf[17] = 2.0/3.0*dPdx[1][2] + 0.5*dPdx[1][2];
+ cf[18] = 2.0/3.0*dPdx[1][0] + 0.5*dPdx[1][0];
+ cf[19] = 2.0/3.0*dPdx[1][1] + 0.5*dPdx[1][1];
+ cf[20] = 2.0/3.0*dPdx[1][2] + 0.5*dPdx[1][2];
+ cf[21] = - 4.0/3.0*dPdx[1][0] - dPdx[1][0];
+ cf[22] = - 4.0/3.0*dPdx[1][1] - dPdx[1][1];
+ cf[23] = - 4.0/3.0*dPdx[1][2] - dPdx[1][2];
+ phi_P = (2.0*p_P + p_0P + p_2P)/12.0 + (2.0*p_P + p_0P + p_3P)/12.0;
+ cf[24] = 2.0*(x0[0]-xP[0]) + (x2[0]-xP[0]) + (x3[0]-xP[0]);
+ cf[25] = 2.0*(x0[1]-xP[1]) + (x2[1]-xP[1]) + (x3[1]-xP[1]);
+ cf[26] = (x3[2]-xP[2]) + (x2[2]-xP[2]) + 2.0*(x0[2]-xP[2]);
+ cf[27] = 2.0/3.0*dPdx[2][0] + 0.5*dPdx[2][0];
+ cf[28] = 2.0/3.0*dPdx[2][1] + 0.5*dPdx[2][1];
+ cf[29] = 2.0/3.0*dPdx[2][2] + 0.5*dPdx[2][2];
+ cf[30] = 2.0/3.0*dPdx[2][0] + 0.5*dPdx[2][0];
+ cf[31] = 2.0/3.0*dPdx[2][1] + 0.5*dPdx[2][1];
+ cf[32] = 2.0/3.0*dPdx[2][2] + 0.5*dPdx[2][2];
+ cf[33] = - 4.0/3.0*dPdx[2][0] - dPdx[2][0];
+ cf[34] = - 4.0/3.0*dPdx[2][1] - dPdx[2][1];
+ cf[35] = - 4.0/3.0*dPdx[2][2] - dPdx[2][2]; 
+ phi_1 = (2.0*p_1C + p_0C + p_C)/12.0 + (2.0*p_1S + p_0S + p_S)/12.0;
+ cf[36] = 2.0*(x1[0]-xC[0]) + (x0[0]-xC[0]);
+ cf[37] = (x0[1]-xC[1]) + 2.0*(x1[1]-xC[1]);
+ cf[38] = 2.0*(x1[2]-xC[2]) + (x0[2]-xC[2]);
+ cf[39] = 2.0*(x1[0]-xS[0]) + (x0[0]-xS[0]);
+ cf[40] = (x0[1]-xS[1]) + 2.0*(x1[1]-xS[1]);
+ cf[41] = (x0[2]-xS[2]) + 2.0*(x1[2]-xS[2]);
+ cf[42] = 4.0/3.0*dPdx[0][0] - 5.0/3.0*dPdx[1][0];
+ cf[43] = 4.0/3.0*dPdx[0][1] - 5.0/3.0*dPdx[1][1];
+ cf[44] = 4.0/3.0*dPdx[0][2] - 5.0/3.0*dPdx[1][2];
+ cf[45] = 4.0/3.0*dPdx[1][0] - 5.0/3.0*dPdx[0][0];
+ cf[46] = 4.0/3.0*dPdx[1][1] - 5.0/3.0*dPdx[0][1];
+ cf[47] = 4.0/3.0*dPdx[1][2] - 5.0/3.0*dPdx[0][2];
+ cf[48] = 1.0/3.0*dPdx[0][0] + 1.0/3.0*dPdx[1][0];
+ cf[49] = 1.0/3.0*dPdx[0][1] + 1.0/3.0*dPdx[1][1];
+ cf[50] = 1.0/3.0*dPdx[0][2] + 1.0/3.0*dPdx[1][2]; 
+ phi_2 = (2.0*p_2S + p_0S + p_S)/12.0 + (2.0*p_2P + p_0P + p_P)/12.0;
+ cf[51] = 2.0*(x2[0]-xS[0]) + (x0[0]-xS[0]);
+ cf[52] = 2.0*(x2[1]-xS[1]) + (x0[1]-xS[1]);
+ cf[53] = 2.0*(x2[2]-xS[2]) + (x0[2]-xS[2]);
+ cf[54] = 2.0*(x2[0]-xP[0]) + (x0[0]-xP[0]);
+ cf[55] = 2.0*(x2[1]-xP[1]) + (x0[1]-xP[1]);
+ cf[56] = 2.0*(x2[2]-xP[2]) + (x0[2]-xP[2]);
+ cf[57] = 1.0/3.0*dPdx[1][0] + 1.0/3.0*dPdx[2][0];
+ cf[58] = 1.0/3.0*dPdx[1][1] + 1.0/3.0*dPdx[2][1];
+ cf[59] = 1.0/3.0*dPdx[1][2] + 1.0/3.0*dPdx[2][2];
+ cf[60] = 4.0/3.0*dPdx[2][0] - 5.0/3.0*dPdx[1][0];
+ cf[61] = 4.0/3.0*dPdx[2][1] - 5.0/3.0*dPdx[1][1];
+ cf[62] = 4.0/3.0*dPdx[2][2] - 5.0/3.0*dPdx[1][2]; 
+ cf[63] = 4.0/3.0*dPdx[1][0] - 5.0/3.0*dPdx[2][0];
+ cf[64] = 4.0/3.0*dPdx[1][1] - 5.0/3.0*dPdx[2][1];
+ cf[65] = 4.0/3.0*dPdx[1][2] - 5.0/3.0*dPdx[2][2];
+ phi_3 = (2.0*p_3P + p_0P + p_P)/12.0 + (2.0*p_3C + p_0C + p_C)/12.0;
+ cf[66] = (x0[0]-xC[0]) + 2.0*(x3[0]-xC[0]);
+ cf[67] = 2.0*(x3[1]-xC[1]) + (x0[1]-xC[1]);
+ cf[68] = 2.0*(x3[2]-xC[2]) + (x0[2]-xC[2]);
+ cf[69] = (x0[0]-xP[0]) + 2.0*(x3[0]-xP[0]);
+ cf[70] = (x0[1]-xP[1]) + 2.0*(x3[1]-xP[1]);
+ cf[71] = (x0[2]-xP[2]) + 2.0*(x3[2]-xP[2]);
+ cf[72] = 4.0/3.0*dPdx[2][0] - 5.0/3.0*dPdx[0][0];
+ cf[73] = 4.0/3.0*dPdx[2][1] - 5.0/3.0*dPdx[0][1];
+ cf[74] = 4.0/3.0*dPdx[2][2] - 5.0/3.0*dPdx[0][2];
+ cf[75] = 1.0/3.0*dPdx[2][0] + 1.0/3.0*dPdx[0][0];
+ cf[76] = 1.0/3.0*dPdx[0][1] + 1.0/3.0*dPdx[2][1];
+ cf[77] = 1.0/3.0*dPdx[0][2] + 1.0/3.0*dPdx[2][2];
+ cf[78] = 4.0/3.0*dPdx[0][0] - 5.0/3.0*dPdx[2][0];
+ cf[79] = 4.0/3.0*dPdx[0][1] - 5.0/3.0*dPdx[2][1];
+ cf[80] = 4.0/3.0*dPdx[0][2] - 5.0/3.0*dPdx[2][2]; 
+ phi_0 = (2.0*p_0C + p_1C + p_C)/12.0 + (2.0*p_0C + p_3C + p_C)/12.0 + (2.0*p_0S + p_1S + p_S)/12.0 + (2.0*p_0S + p_2S + p_S)/12.0 + (2.0*p_0P + p_2P + p_P)/12.0 + (2.0*p_0P + p_3P + p_P)/12.0;
+ cf[81] = (x3[0]-xC[0]) + (x1[0]-xC[0]) + 4.0*(x0[0]-xC[0]);
+ cf[82] = 4.0*(x0[1]-xC[1]) + (x1[1]-xC[1]) + (x3[1]-xC[1]);
+ cf[83] = 4.0*(x0[2]-xC[2]) + (x1[2]-xC[2]) + (x3[2]-xC[2]);
+ cf[84] = (x1[0]-xS[0]) + (x2[0]-xS[0]) + 4.0*(x0[0]-xS[0]);
+ cf[85] = 4.0*(x0[1]-xS[1]) + (x2[1]-xS[1]) + (x1[1]-xS[1]);
+ cf[86] = 4.0*(x0[2]-xS[2]) + (x2[2]-xS[2]) + (x1[2]-xS[2]);
+ cf[87] = (x2[0]-xP[0]) + (x3[0]-xP[0]) + 4.0*(x0[0]-xP[0]);
+ cf[88] = 4.0*(x0[1]-xP[1]) + (x3[1]-xP[1]) + (x2[1]-xP[1]);
+ cf[89] = 4.0*(x0[2]-xP[2]) + (x3[2]-xP[2]) + (x2[2]-xP[2]);
+ cf[90] = - 11.0/3.0*dPdx[0][0]+ 11.0/6.0*dPdx[1][0]+ 11.0/6.0*dPdx[2][0];
+ cf[91] = - 11.0/3.0*dPdx[0][1] + 11.0/6.0*dPdx[1][1] + 11.0/6.0*dPdx[2][1];
+ cf[92] = 11.0/6.0*dPdx[2][2] - 11.0/3.0*dPdx[0][2] + 11.0/6.0*dPdx[1][2];
+ cf[93] = - 11.0/3.0*dPdx[1][0] + 11.0/6.0*dPdx[2][0] + 11.0/6.0*dPdx[0][0];
+ cf[94] = 11.0/6.0*dPdx[2][1] + 11.0/6.0*dPdx[0][1] - 11.0/3.0*dPdx[1][1];
+ cf[95] = 11.0/6.0*dPdx[0][2] - 11.0/3.0*dPdx[1][2] + 11.0/6.0*dPdx[2][2];
+ cf[96] = 11.0/6.0*dPdx[0][0] + 11.0/6.0*dPdx[1][0] - 11.0/3.0*dPdx[2][0];
+ cf[97] = 11.0/6.0*dPdx[0][1] + 11.0/6.0*dPdx[1][1] - 11.0/3.0*dPdx[2][1];
+ cf[98] = 11.0/6.0*dPdx[1][2] - 11.0/3.0*dPdx[2][2] + 11.0/6.0*dPdx[0][2]; 
+ cf[99] = (phi_C + phi_1/2.0 + phi_3/2.0 + phi_0/3.0)/6.0;
+ cf[100] = 1.0/12.0*cf[0] + 1.0/24.0*cf[36] + 1.0/24.0*cf[66] + 1.0/36.0*cf[81];
+ cf[101] = 1.0/36.0*cf[82] + 1.0/24.0*cf[67] + 1.0/24.0*cf[37] + 1.0/12.0*cf[1];
+ cf[102] = 1.0/36.0*cf[83] + 1.0/24.0*cf[68] + 1.0/24.0*cf[38] + 1.0/12.0*cf[2];
+ cf[103] = 1.0/24.0*cf[39] + 1.0/36.0*cf[84];
+ cf[104] = 1.0/24.0*cf[40] + 1.0/36.0*cf[85];
+ cf[105] = 1.0/24.0*cf[41] + 1.0/36.0*cf[86];
+ cf[106] = 1.0/36.0*cf[87] + 1.0/24.0*cf[69];
+ cf[107] = 1.0/36.0*cf[88] + 1.0/24.0*cf[70];
+ cf[108] = 1.0/36.0*cf[89] + 1.0/24.0*cf[71];
+ cf[109] = 1.0/12.0*cf[9] + 1.0/24.0*cf[72] + 1.0/24.0*cf[45] + 1.0/36.0*cf[90];
+ cf[110] = 1.0/12.0*cf[10] + 1.0/24.0*cf[46] + 1.0/24.0*cf[73] + 1.0/36.0*cf[91];
+ cf[111] = 1.0/36.0*cf[92] + 1.0/24.0*cf[74] + 1.0/24.0*cf[47] + 1.0/12.0*cf[11];
+ cf[112] = 1.0/12.0*cf[3] + 1.0/24.0*cf[42] + 1.0/24.0*cf[75] + 1.0/36.0*cf[93];
+ cf[113] = 1.0/24.0*cf[76] + 1.0/24.0*cf[43] + 1.0/12.0*cf[4] + 1.0/36.0*cf[94];
+ cf[114] = 1.0/36.0*cf[95] + 1.0/24.0*cf[77] + 1.0/24.0*cf[44] + 1.0/12.0*cf[5];
+ cf[115] = 1.0/12.0*cf[6] + 1.0/24.0*cf[48] + 1.0/24.0*cf[78] + 1.0/36.0*cf[96];
+ cf[116] = 1.0/24.0*cf[79] + 1.0/24.0*cf[49] + 1.0/12.0*cf[7] + 1.0/36.0*cf[97];
+ cf[117] = 1.0/36.0*cf[98] + 1.0/24.0*cf[80] + 1.0/24.0*cf[50] + 1.0/12.0*cf[8];
+ double dFi0dPcg[3][3] = {0};
+ for(int j=0; j<3; ++j) {
+   dFi0dPcg[j][0] = 11.0/54.0*n[j];
+   dFi0dPcg[j][1] = 7.0/108.0*n[j];
+   dFi0dPcg[j][2] = 7.0/108.0*n[j];
+ }
+ double dFi0dVface[3][3][5] = {0};
+ for(int j=0; j<3; ++j) 
+   for(int k=0; k<3; ++k) 
+     for(int l=0; l<5; ++l) 
+       dFi0dVface[j][k][l] += dFi0dPcg[j][k]*dPcgdVface[k][l];
+
+
+ double dFi0dPcgin[3] = {0};
+ for(int j=0; j<3; ++j) {
+   dFi0dPcgin[j] = -1.0/3.0*n[j];
+ }
+ double dFi0ddPdx[3][3][3] = {0};
+ double dFi0dXface[3][3][3] = {0};
+ for(int j=0; j<3; ++j) {
+   dFi0ddPdx[j][0][0] = 1.0/6.0*n[j]*cf[100];
+   dFi0ddPdx[j][0][1] = 1.0/6.0*n[j]*cf[101];
+   dFi0ddPdx[j][0][2] = 1.0/6.0*n[j]*cf[102];
+   dFi0ddPdx[j][1][0] = 1.0/6.0*n[j]*cf[103];
+   dFi0ddPdx[j][1][1] = 1.0/6.0*n[j]*cf[104];
+   dFi0ddPdx[j][1][2] = 1.0/6.0*n[j]*cf[105];
+   dFi0ddPdx[j][2][0] = 1.0/6.0*n[j]*cf[106];
+   dFi0ddPdx[j][2][1] = 1.0/6.0*n[j]*cf[107];
+   dFi0ddPdx[j][2][2] = 1.0/6.0*n[j]*cf[108];
+   dFi0dXface[j][0][0] = 1.0/6.0*n[j]*cf[109];
+   dFi0dXface[j][0][1] = 1.0/6.0*n[j]*cf[110];
+   dFi0dXface[j][0][2] = 1.0/6.0*n[j]*cf[111];
+   dFi0dXface[j][1][0] = 1.0/6.0*n[j]*cf[112];
+   dFi0dXface[j][1][1] = 1.0/6.0*n[j]*cf[113];
+   dFi0dXface[j][1][2] = 1.0/6.0*n[j]*cf[114];
+   dFi0dXface[j][2][0] = 1.0/6.0*n[j]*cf[115];
+   dFi0dXface[j][2][1] = 1.0/6.0*n[j]*cf[116];
+   dFi0dXface[j][2][2] = 1.0/6.0*n[j]*cf[117];
+ }
+ double dFi0dn[3] = {cf[99], cf[99], cf[99]};
+ dFi0 = 0.0;
+ for(int l=0; l<3; ++l) {
+   dFi0[l] += dFi0dn[l]*dn[l];
+   for(int j=0; j<3; ++j) {
+     dFi0[l] += dFi0dPcgin[l]*dPcgindS[j]*dS[j];
+     for(int k=0; k<5; ++k)
+       dFi0[l] += dFi0dVface[l][j][k]*dVface[j][k];   
+     for(int k=0; k<3; ++k) 
+       dFi0[l] += dFi0ddPdx[l][j][k]*ddPdx[j][k] + dFi0dXface[l][j][k]*dXface[j][k];
+   }
+ }
+ cf[118] = (phi_S + phi_1/2.0 + phi_2/2.0 + phi_0/3.0)/6.0;
+ cf[119] = (phi_P + phi_2/2.0 + phi_3/2.0 + phi_0/3.0)/6.0;
+ cf[120] = 1.0/24.0*cf[36] + 1.0/36.0*cf[81];
+ cf[121] = 1.0/24.0*cf[37] + 1.0/36.0*cf[82];
+ cf[122] = 1.0/24.0*cf[38] + 1.0/36.0*cf[83];
+ cf[123] = 1.0/36.0*cf[84] + 1.0/12.0*cf[12] + 1.0/24.0*cf[39] + 1.0/24.0*cf[51];
+ cf[124] = 1.0/24.0*cf[52] + 1.0/36.0*cf[85] + 1.0/24.0*cf[40] + 1.0/12.0*cf[13];
+ cf[125] = 1.0/12.0*cf[14] + 1.0/24.0*cf[53] + 1.0/36.0*cf[86] + 1.0/24.0*cf[41];
+ cf[126] = 1.0/36.0*cf[87] + 1.0/24.0*cf[54];
+ cf[127] = 1.0/36.0*cf[88] + 1.0/24.0*cf[55];
+ cf[128] = 1.0/36.0*cf[89] + 1.0/24.0*cf[56];
+ cf[129] = 1.0/12.0*cf[15] + 1.0/24.0*cf[45] + 1.0/24.0*cf[57] + 1.0/36.0*cf[90];
+ cf[130] = 1.0/36.0*cf[91] + 1.0/24.0*cf[58] + 1.0/24.0*cf[46] + 1.0/12.0*cf[16];
+ cf[131] = 1.0/36.0*cf[92] + 1.0/24.0*cf[59] + 1.0/24.0*cf[47] + 1.0/12.0*cf[17];
+ cf[132] = 1.0/12.0*cf[21] + 1.0/24.0*cf[60] + 1.0/24.0*cf[42] + 1.0/36.0*cf[93];
+ cf[133] = 1.0/36.0*cf[94] + 1.0/24.0*cf[61] + 1.0/24.0*cf[43] + 1.0/12.0*cf[22];
+ cf[134] = 1.0/36.0*cf[95] + 1.0/24.0*cf[62] + 1.0/12.0*cf[23] + 1.0/24.0*cf[44];
+ cf[135] = 1.0/24.0*cf[48] + 1.0/36.0*cf[96] + 1.0/12.0*cf[18] + 1.0/24.0*cf[63];
+ cf[136] = 1.0/12.0*cf[19] + 1.0/24.0*cf[64] + 1.0/36.0*cf[97] + 1.0/24.0*cf[49];
+ cf[137] = 1.0/12.0*cf[20] + 1.0/24.0*cf[50] + 1.0/24.0*cf[65] + 1.0/36.0*cf[98];
+
+ double dFi1dPcg[3][3] = {0};
+ for(int j=0; j<3; ++j) {
+   dFi1dPcg[j][0] = 7.0/108.0*n[j];
+   dFi1dPcg[j][1] = 11.0/54.0*n[j];
+   dFi1dPcg[j][2] = 7.0/108.0*n[j];
+ }
+ double dFi1dVface[3][3][5] = {0};
+ for(int j=0; j<3; ++j) 
+   for(int k=0; k<3; ++k) 
+     for(int l=0; l<5; ++l) 
+       dFi1dVface[j][k][l] += dFi1dPcg[j][k]*dPcgdVface[k][l];
+
+ double dFi1dPcgin[3] = {0};
+ for(int j=0; j<3; ++j) {
+   dFi1dPcgin[j] = -1.0/3.0*n[j];
+ }
+ double dFi1ddPdx[3][3][3] = {0};
+ double dFi1dXface[3][3][3] = {0};
+ for(int j=0; j<3; ++j) {
+   dFi1ddPdx[j][0][0] = 1.0/6.0*n[j]*cf[120];
+   dFi1ddPdx[j][0][1] = 1.0/6.0*n[j]*cf[121];
+   dFi1ddPdx[j][0][2] = 1.0/6.0*n[j]*cf[122];
+   dFi1ddPdx[j][1][0] = 1.0/6.0*n[j]*cf[123];
+   dFi1ddPdx[j][1][1] = 1.0/6.0*n[j]*cf[124];
+   dFi1ddPdx[j][1][2] = 1.0/6.0*n[j]*cf[125];
+   dFi1ddPdx[j][2][0] = 1.0/6.0*n[j]*cf[126];
+   dFi1ddPdx[j][2][1] = 1.0/6.0*n[j]*cf[127];
+   dFi1ddPdx[j][2][2] = 1.0/6.0*n[j]*cf[128];
+   dFi1dXface[j][0][0] = 1.0/6.0*n[j]*cf[129];
+   dFi1dXface[j][0][1] = 1.0/6.0*n[j]*cf[130];
+   dFi1dXface[j][0][2] = 1.0/6.0*n[j]*cf[131];
+   dFi1dXface[j][1][0] = 1.0/6.0*n[j]*cf[132];
+   dFi1dXface[j][1][1] = 1.0/6.0*n[j]*cf[133];
+   dFi1dXface[j][1][2] = 1.0/6.0*n[j]*cf[134];
+   dFi1dXface[j][2][0] = 1.0/6.0*n[j]*cf[135];
+   dFi1dXface[j][2][1] = 1.0/6.0*n[j]*cf[136];
+   dFi1dXface[j][2][2] = 1.0/6.0*n[j]*cf[137];
+ }
+ double dFi1dn[3] = {cf[118], cf[118], cf[118]};
+ dFi1 = 0.0;
+ for(int l=0; l<3; ++l) {
+   dFi1[l] += dFi1dn[l]*dn[l];
+   for(int j=0; j<3; ++j) {
+     dFi1[l] += dFi1dPcgin[l]*dPcgindS[j]*dS[j];
+     for(int k=0; k<5; ++k)
+       dFi1[l] += dFi1dVface[l][j][k]*dVface[j][k];   
+     for(int k=0; k<3; ++k) {
+       dFi1[l] += dFi1ddPdx[l][j][k]*ddPdx[j][k] + dFi1dXface[l][j][k]*dXface[j][k];
+     }
+   }
+ }
+ cf[138] = 1.0/24.0*cf[66] + 1.0/36.0*cf[81] ; 
+ cf[139] = 1.0/36.0*cf[82] + 1.0/24.0*cf[67]; 
+ cf[140] = 1.0/36.0*cf[83] + 1.0/24.0*cf[68]; 
+ cf[141] = 1.0/36.0*cf[84] + 1.0/24.0*cf[51];
+ cf[142] = 1.0/24.0*cf[52] + 1.0/36.0*cf[85];
+ cf[143] = 1.0/24.0*cf[53] + 1.0/36.0*cf[86];
+ cf[144] = 1.0/24.0*cf[54] + 1.0/36.0*cf[87]  + 1.0/12.0*cf[24] + 1.0/24.0*cf[69];
+ cf[145] = 1.0/24.0*cf[55] + 1.0/36.0*cf[88] + 1.0/12.0*cf[25] + 1.0/24.0*cf[70];
+ cf[146] = 1.0/24.0*cf[56] + 1.0/36.0*cf[89] + 1.0/24.0*cf[71] + 1.0/12.0*cf[26];
+ cf[147] = 1.0/12.0*cf[27] + 1.0/24.0*cf[57] + 1.0/36.0*cf[90] + 1.0/24.0*cf[72];
+ cf[148] = 1.0/24.0*cf[73] + 1.0/36.0*cf[91] + 1.0/24.0*cf[58] + 1.0/12.0*cf[28];
+ cf[149] = 1.0/24.0*cf[74] + 1.0/36.0*cf[92] + 1.0/24.0*cf[59] + 1.0/12.0*cf[29];
+ cf[150] = 1.0/12.0*cf[30] + 1.0/24.0*cf[60] + 1.0/24.0*cf[75] + 1.0/36.0*cf[93];
+ cf[151] = 1.0/36.0*cf[94] + 1.0/24.0*cf[76] + 1.0/24.0*cf[61] + 1.0/12.0*cf[31];
+ cf[152] = 1.0/36.0*cf[95] + 1.0/24.0*cf[77] + 1.0/24.0*cf[62] + 1.0/12.0*cf[32];
+ cf[153] = 1.0/12.0*cf[33] + 1.0/24.0*cf[63] + 1.0/24.0*cf[78] + 1.0/36.0*cf[96];
+ cf[154] = 1.0/12.0*cf[34] + 1.0/24.0*cf[64] + 1.0/36.0*cf[97] + 1.0/24.0*cf[79];
+ cf[155] = 1.0/12.0*cf[35] + 1.0/24.0*cf[65] + 1.0/24.0*cf[80] + 1.0/36.0*cf[98]; 
+
+ double dFi2dPcg[3][3] = {0};
+ for(int j=0; j<3; ++j) {
+   dFi2dPcg[j][0] = 7.0/108.0*n[j];
+   dFi2dPcg[j][1] = 7.0/108.0*n[j];
+   dFi2dPcg[j][2] = 11.0/54.0*n[j];
+ }
+ double dFi2dVface[3][3][5] = {0};
+ for(int j=0; j<3; ++j) 
+   for(int k=0; k<3; ++k) 
+     for(int l=0; l<5; ++l) 
+       dFi2dVface[j][k][l] += dFi2dPcg[j][k]*dPcgdVface[k][l];
+
+ double dFi2dPcgin[3] = {0};
+ for(int j=0; j<3; ++j) {
+   dFi2dPcgin[j] = -1.0/3.0*n[j];
+ }
+ double dFi2ddPdx[3][3][3] = {0};
+ double dFi2dXface[3][3][3] = {0};
+ for(int j=0; j<3; ++j) {
+   dFi2ddPdx[j][0][0] = 1.0/6.0*n[j]*cf[138];
+   dFi2ddPdx[j][0][1] = 1.0/6.0*n[j]*cf[139];
+   dFi2ddPdx[j][0][2] = 1.0/6.0*n[j]*cf[140];
+   dFi2ddPdx[j][1][0] = 1.0/6.0*n[j]*cf[141];
+   dFi2ddPdx[j][1][1] = 1.0/6.0*n[j]*cf[142];
+   dFi2ddPdx[j][1][2] = 1.0/6.0*n[j]*cf[143];
+   dFi2ddPdx[j][2][0] = 1.0/6.0*n[j]*cf[144];
+   dFi2ddPdx[j][2][1] = 1.0/6.0*n[j]*cf[145];
+   dFi2ddPdx[j][2][2] = 1.0/6.0*n[j]*cf[146];
+   dFi2dXface[j][0][0] = 1.0/6.0*n[j]*cf[147];
+   dFi2dXface[j][0][1] = 1.0/6.0*n[j]*cf[148];
+   dFi2dXface[j][0][2] = 1.0/6.0*n[j]*cf[149];
+   dFi2dXface[j][1][0] = 1.0/6.0*n[j]*cf[150];
+   dFi2dXface[j][1][1] = 1.0/6.0*n[j]*cf[151];
+   dFi2dXface[j][1][2] = 1.0/6.0*n[j]*cf[152];
+   dFi2dXface[j][2][0] = 1.0/6.0*n[j]*cf[153];
+   dFi2dXface[j][2][1] = 1.0/6.0*n[j]*cf[154];
+   dFi2dXface[j][2][2] = 1.0/6.0*n[j]*cf[155];
+ }
+ double dFi2dn[3] = {cf[119], cf[119], cf[119]};
+ dFi2 = 0.0;
+ for(int l=0; l<3; ++l) {
+   dFi2[l] += dFi2dn[l]*dn[l];
+   for(int j=0; j<3; ++j) {
+     dFi2[l] += dFi2dPcgin[l]*dPcgindS[j]*dS[j];
+     for(int k=0; k<5; ++k)
+       dFi2[l] += dFi2dVface[l][j][k]*dVface[j][k];   
+     for(int k=0; k<3; ++k) {
+       dFi2[l] += dFi2ddPdx[l][j][k]*ddPdx[j][k] + dFi2dXface[l][j][k]*dXface[j][k];
+     }
+   }
+ }
+ dFv = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+void PostFcnEuler::computeDerivativeOperatorsOfForceTransmitted(double *Xface[3], Vec3D &n, 
+                                                                double *Vface[3], double *pin,  
+                                                                double dPdx[3][3], int hydro,
+                                                                double dFi0dn[3], double dFi0dS[3][3], double dFi0dVface[3][3][5],
+                                                                double dFi0ddPdx[3][3][3], double dFi0dXface[3][3][3],
+                                                                double dFi1dn[3], double dFi1dS[3][3], double dFi1dVface[3][3][5],
+                                                                double dFi1ddPdx[3][3][3], double dFi1dXface[3][3][3],
+                                                                double dFi2dn[3], double dFi2dS[3][3], double dFi2dVface[3][3][5],
+                                                                double dFi2ddPdx[3][3][3], double dFi2dXface[3][3][3]
+                                                               )
+{
+
+  double pcg[3], p[3];
+  double dPcg[3];
+  double pcgin;
+  double dPcgin;
+  double cf[500];
+  int i;
+
+  double dPinftydS[3] = {0};
+  dPinftydS[0] = dpinfty;
+  double dPcgdVface[3][5] = {0};
+
+  if (hydro == 0) {
+    for(i=0;i<3;i++) {
+      pcg[i] = varFcn->getPressure(Vface[i]);
+      varFcn->computedPdV(dPcgdVface[i]);
+      dPcg[i] = 0.0;
+//      for(int l=0; l<5; ++l) {
+//        dPcg[i] += dPcgdVface[i][l]*dVface[i][l]; 
+//      } 
+    }
+  } 
+  else if (hydro == 1){ // hydrostatic pressure
+    fprintf(stderr, " *** Error: PostFcnEuler::computeDerivativeOperatorsOfForceTransmitted for hydro = 1 is not implemented\n");
+  } else if (hydro == 2){ // hydrodynamic pressure
+    fprintf(stderr, " *** Error: PostFcnEuler::computeDerivativeOperatorsOfForceTransmitted for hydro = 2 is not implemented\n");
+  }
+
+  if (pin) pcgin = *pin;
+  else {
+    if (hydro == 0) pcgin = pinfty;
+    else pcgin = 0.0;
+  }
+
+  double dPcgindS[3] = {0};
+  double dPcgindPinfty(0);
+  if (pin) {
+    if (dimFlag) dPcgindS[0] = -2.0*(*pin)/mach;
+    else dPcgindS[0] = dPin;
+  } else {
+    if (hydro == 0) dPcgindPinfty = 1.0;
+  }
+  dPcgin = 0.0;
+  for(int j=0; j<3; ++j) dPcgindS[j] += dPcgindPinfty*dPinftydS[j]; 
+//  for(int j=0; j<3; ++j) dPcgin += dPcgindS[j]*dS[j]; 
+
+  p[0] = (pcg[0] - pcgin) ;
+  p[1] = (pcg[1] - pcgin) ;
+  p[2] = (pcg[2] - pcgin) ;
+
+ Vec3D xC, xS, xP, x1, x2, x3, x0, x;
+ double p_1C, p_1S, p_2S, p_2P, p_3P, p_3C;
+ double p_C, p_S, p_P, p_0C, p_0S, p_0P;
+
+ // C to 0, S to 1 P to 2
+ for(int i = 0; i<3; i++)
+ {
+  xC[i] = Xface[0][i];
+  xS[i] = Xface[1][i];
+  xP[i] = Xface[2][i];
+ }
+
+ x1 = (xC+xS)/2.0;
+ x2 = (xS+xP)/2.0;
+ x3 = (xP+xC)/2.0;
+ x0 = (xC+xS+xP)/3.0;
+
+ p_C = p[0], p_S = p[1], p_P = p[2];
+ // Computing p_1C, p_0C and p_3C, and computing dP_1C, dP_0C and dP_3C
+ p_1C = p_C 
+      + dPdx[0][0]*(x1[0]-xC[0]) 
+      + dPdx[0][1]*(x1[1]-xC[1]) 
+      + dPdx[0][2]*(x1[2]-xC[2]);
+ p_0C =  p_C 
+      + dPdx[0][0]*(x0[0]-xC[0]) 
+      + dPdx[0][1]*(x0[1]-xC[1]) 
+      + dPdx[0][2]*(x0[2]-xC[2]);
+ p_3C =  p_C 
+      + dPdx[0][0]*(x3[0]-xC[0]) 
+      + dPdx[0][1]*(x3[1]-xC[1]) 
+      + dPdx[0][2]*(x3[2]-xC[2]);
+
+ // Computing p_1S, p_0S and p_2S, and computing dP_1S, dP_0S and dP_2S
+ p_1S = p_S 
+      + dPdx[1][0]*(x1[0]-xS[0]) 
+      + dPdx[1][1]*(x1[1]-xS[1]) 
+      + dPdx[1][2]*(x1[2]-xS[2]);
+ p_0S =  p_S 
+      + dPdx[1][0]*(x0[0]-xS[0]) 
+      + dPdx[1][1]*(x0[1]-xS[1]) 
+      + dPdx[1][2]*(x0[2]-xS[2]);
+ p_2S =  p_S 
+      + dPdx[1][0]*(x2[0]-xS[0]) 
+      + dPdx[1][1]*(x2[1]-xS[1]) 
+      + dPdx[1][2]*(x2[2]-xS[2]);
+
+ // Computing p_2P, p_0P and p_3P, and computing dP_2P, dP_0P and dP_3P
+ p_2P = p_P 
+      + dPdx[2][0]*(x2[0]-xP[0]) 
+      + dPdx[2][1]*(x2[1]-xP[1]) 
+      + dPdx[2][2]*(x2[2]-xP[2]);
+ p_0P =  p_P 
+      + dPdx[2][0]*(x0[0]-xP[0]) 
+      + dPdx[2][1]*(x0[1]-xP[1]) 
+      + dPdx[2][2]*(x0[2]-xP[2]);
+ p_3P =  p_P 
+      + dPdx[2][0]*(x3[0]-xP[0]) 
+      + dPdx[2][1]*(x3[1]-xP[1]) 
+      + dPdx[2][2]*(x3[2]-xP[2]);
+
+ // computation of pressure flux
+ double phi_C, phi_S, phi_P, phi_1, phi_2, phi_3, phi_0;
+ phi_C = (2.0*p_C + p_0C + p_3C)/12.0 + (2.0*p_C + p_0C + p_1C)/12.0;
+ cf[0] = 2.0*(x0[0]-xC[0])+x3[0]-xC[0]+x1[0]-xC[0];
+ cf[1] = 2.0*(x0[1]-xC[1])+(x3[1]-xC[1])+(x1[1]-xC[1]);
+ cf[2] = 2.0*(x0[2]-xC[2])+(x3[2]-xC[2])+(x1[2]-xC[2]);
+ cf[3] = 2.0/3.0*dPdx[0][0]+0.5*dPdx[0][0];
+ cf[4] = 2.0/3.0*dPdx[0][1]+0.5*dPdx[0][1];
+ cf[5] = 2.0/3.0*dPdx[0][2]+0.5*dPdx[0][2];
+ cf[6] = 2.0/3.0*dPdx[0][0]+0.5*dPdx[0][0];
+ cf[7] = 2.0/3.0*dPdx[0][1]+0.5*dPdx[0][1];
+ cf[8] = 2.0/3.0*dPdx[0][2]+0.5*dPdx[0][2];
+ cf[9] = -4.0/3.0*dPdx[0][0] - dPdx[0][0];
+ cf[10] = -4.0/3.0*dPdx[0][1] - dPdx[0][1];
+ cf[11] = - 4.0/3.0*dPdx[0][2] - dPdx[0][2];
+ phi_S = (2.0*p_S + p_0S + p_1S)/12.0 + (2.0*p_S + p_0S + p_2S)/12.0;
+ cf[12] = 2.0*(x0[0]-xS[0]) + (x1[0]-xS[0]) + (x2[0]-xS[0]);
+ cf[13] = 2.0*(x0[1]-xS[1]) + (x1[1]-xS[1]) + (x2[1]-xS[1]);
+ cf[14] = 2.0*(x0[2]-xS[2]) + (x1[2]-xS[2]) + (x2[2]-xS[2]);
+ cf[15] = 2.0/3.0*dPdx[1][0] + 0.5*dPdx[1][0];
+ cf[16] = 2.0/3.0*dPdx[1][1] + 0.5*dPdx[1][1];
+ cf[17] = 2.0/3.0*dPdx[1][2] + 0.5*dPdx[1][2];
+ cf[18] = 2.0/3.0*dPdx[1][0] + 0.5*dPdx[1][0];
+ cf[19] = 2.0/3.0*dPdx[1][1] + 0.5*dPdx[1][1];
+ cf[20] = 2.0/3.0*dPdx[1][2] + 0.5*dPdx[1][2];
+ cf[21] = - 4.0/3.0*dPdx[1][0] - dPdx[1][0];
+ cf[22] = - 4.0/3.0*dPdx[1][1] - dPdx[1][1];
+ cf[23] = - 4.0/3.0*dPdx[1][2] - dPdx[1][2];
+ phi_P = (2.0*p_P + p_0P + p_2P)/12.0 + (2.0*p_P + p_0P + p_3P)/12.0;
+ cf[24] = 2.0*(x0[0]-xP[0]) + (x2[0]-xP[0]) + (x3[0]-xP[0]);
+ cf[25] = 2.0*(x0[1]-xP[1]) + (x2[1]-xP[1]) + (x3[1]-xP[1]);
+ cf[26] = (x3[2]-xP[2]) + (x2[2]-xP[2]) + 2.0*(x0[2]-xP[2]);
+ cf[27] = 2.0/3.0*dPdx[2][0] + 0.5*dPdx[2][0];
+ cf[28] = 2.0/3.0*dPdx[2][1] + 0.5*dPdx[2][1];
+ cf[29] = 2.0/3.0*dPdx[2][2] + 0.5*dPdx[2][2];
+ cf[30] = 2.0/3.0*dPdx[2][0] + 0.5*dPdx[2][0];
+ cf[31] = 2.0/3.0*dPdx[2][1] + 0.5*dPdx[2][1];
+ cf[32] = 2.0/3.0*dPdx[2][2] + 0.5*dPdx[2][2];
+ cf[33] = - 4.0/3.0*dPdx[2][0] - dPdx[2][0];
+ cf[34] = - 4.0/3.0*dPdx[2][1] - dPdx[2][1];
+ cf[35] = - 4.0/3.0*dPdx[2][2] - dPdx[2][2]; 
+ phi_1 = (2.0*p_1C + p_0C + p_C)/12.0 + (2.0*p_1S + p_0S + p_S)/12.0;
+ cf[36] = 2.0*(x1[0]-xC[0]) + (x0[0]-xC[0]);
+ cf[37] = (x0[1]-xC[1]) + 2.0*(x1[1]-xC[1]);
+ cf[38] = 2.0*(x1[2]-xC[2]) + (x0[2]-xC[2]);
+ cf[39] = 2.0*(x1[0]-xS[0]) + (x0[0]-xS[0]);
+ cf[40] = (x0[1]-xS[1]) + 2.0*(x1[1]-xS[1]);
+ cf[41] = (x0[2]-xS[2]) + 2.0*(x1[2]-xS[2]);
+ cf[42] = 4.0/3.0*dPdx[0][0] - 5.0/3.0*dPdx[1][0];
+ cf[43] = 4.0/3.0*dPdx[0][1] - 5.0/3.0*dPdx[1][1];
+ cf[44] = 4.0/3.0*dPdx[0][2] - 5.0/3.0*dPdx[1][2];
+ cf[45] = 4.0/3.0*dPdx[1][0] - 5.0/3.0*dPdx[0][0];
+ cf[46] = 4.0/3.0*dPdx[1][1] - 5.0/3.0*dPdx[0][1];
+ cf[47] = 4.0/3.0*dPdx[1][2] - 5.0/3.0*dPdx[0][2];
+ cf[48] = 1.0/3.0*dPdx[0][0] + 1.0/3.0*dPdx[1][0];
+ cf[49] = 1.0/3.0*dPdx[0][1] + 1.0/3.0*dPdx[1][1];
+ cf[50] = 1.0/3.0*dPdx[0][2] + 1.0/3.0*dPdx[1][2]; 
+ phi_2 = (2.0*p_2S + p_0S + p_S)/12.0 + (2.0*p_2P + p_0P + p_P)/12.0;
+ cf[51] = 2.0*(x2[0]-xS[0]) + (x0[0]-xS[0]);
+ cf[52] = 2.0*(x2[1]-xS[1]) + (x0[1]-xS[1]);
+ cf[53] = 2.0*(x2[2]-xS[2]) + (x0[2]-xS[2]);
+ cf[54] = 2.0*(x2[0]-xP[0]) + (x0[0]-xP[0]);
+ cf[55] = 2.0*(x2[1]-xP[1]) + (x0[1]-xP[1]);
+ cf[56] = 2.0*(x2[2]-xP[2]) + (x0[2]-xP[2]);
+ cf[57] = 1.0/3.0*dPdx[1][0] + 1.0/3.0*dPdx[2][0];
+ cf[58] = 1.0/3.0*dPdx[1][1] + 1.0/3.0*dPdx[2][1];
+ cf[59] = 1.0/3.0*dPdx[1][2] + 1.0/3.0*dPdx[2][2];
+ cf[60] = 4.0/3.0*dPdx[2][0] - 5.0/3.0*dPdx[1][0];
+ cf[61] = 4.0/3.0*dPdx[2][1] - 5.0/3.0*dPdx[1][1];
+ cf[62] = 4.0/3.0*dPdx[2][2] - 5.0/3.0*dPdx[1][2]; 
+ cf[63] = 4.0/3.0*dPdx[1][0] - 5.0/3.0*dPdx[2][0];
+ cf[64] = 4.0/3.0*dPdx[1][1] - 5.0/3.0*dPdx[2][1];
+ cf[65] = 4.0/3.0*dPdx[1][2] - 5.0/3.0*dPdx[2][2];
+ phi_3 = (2.0*p_3P + p_0P + p_P)/12.0 + (2.0*p_3C + p_0C + p_C)/12.0;
+ cf[66] = (x0[0]-xC[0]) + 2.0*(x3[0]-xC[0]);
+ cf[67] = 2.0*(x3[1]-xC[1]) + (x0[1]-xC[1]);
+ cf[68] = 2.0*(x3[2]-xC[2]) + (x0[2]-xC[2]);
+ cf[69] = (x0[0]-xP[0]) + 2.0*(x3[0]-xP[0]);
+ cf[70] = (x0[1]-xP[1]) + 2.0*(x3[1]-xP[1]);
+ cf[71] = (x0[2]-xP[2]) + 2.0*(x3[2]-xP[2]);
+ cf[72] = 4.0/3.0*dPdx[2][0] - 5.0/3.0*dPdx[0][0];
+ cf[73] = 4.0/3.0*dPdx[2][1] - 5.0/3.0*dPdx[0][1];
+ cf[74] = 4.0/3.0*dPdx[2][2] - 5.0/3.0*dPdx[0][2];
+ cf[75] = 1.0/3.0*dPdx[2][0] + 1.0/3.0*dPdx[0][0];
+ cf[76] = 1.0/3.0*dPdx[0][1] + 1.0/3.0*dPdx[2][1];
+ cf[77] = 1.0/3.0*dPdx[0][2] + 1.0/3.0*dPdx[2][2];
+ cf[78] = 4.0/3.0*dPdx[0][0] - 5.0/3.0*dPdx[2][0];
+ cf[79] = 4.0/3.0*dPdx[0][1] - 5.0/3.0*dPdx[2][1];
+ cf[80] = 4.0/3.0*dPdx[0][2] - 5.0/3.0*dPdx[2][2]; 
+ phi_0 = (2.0*p_0C + p_1C + p_C)/12.0 + (2.0*p_0C + p_3C + p_C)/12.0 + (2.0*p_0S + p_1S + p_S)/12.0 + (2.0*p_0S + p_2S + p_S)/12.0 + (2.0*p_0P + p_2P + p_P)/12.0 + (2.0*p_0P + p_3P + p_P)/12.0;
+ cf[81] = (x3[0]-xC[0]) + (x1[0]-xC[0]) + 4.0*(x0[0]-xC[0]);
+ cf[82] = 4.0*(x0[1]-xC[1]) + (x1[1]-xC[1]) + (x3[1]-xC[1]);
+ cf[83] = 4.0*(x0[2]-xC[2]) + (x1[2]-xC[2]) + (x3[2]-xC[2]);
+ cf[84] = (x1[0]-xS[0]) + (x2[0]-xS[0]) + 4.0*(x0[0]-xS[0]);
+ cf[85] = 4.0*(x0[1]-xS[1]) + (x2[1]-xS[1]) + (x1[1]-xS[1]);
+ cf[86] = 4.0*(x0[2]-xS[2]) + (x2[2]-xS[2]) + (x1[2]-xS[2]);
+ cf[87] = (x2[0]-xP[0]) + (x3[0]-xP[0]) + 4.0*(x0[0]-xP[0]);
+ cf[88] = 4.0*(x0[1]-xP[1]) + (x3[1]-xP[1]) + (x2[1]-xP[1]);
+ cf[89] = 4.0*(x0[2]-xP[2]) + (x3[2]-xP[2]) + (x2[2]-xP[2]);
+ cf[90] = - 11.0/3.0*dPdx[0][0]+ 11.0/6.0*dPdx[1][0]+ 11.0/6.0*dPdx[2][0];
+ cf[91] = - 11.0/3.0*dPdx[0][1] + 11.0/6.0*dPdx[1][1] + 11.0/6.0*dPdx[2][1];
+ cf[92] = 11.0/6.0*dPdx[2][2] - 11.0/3.0*dPdx[0][2] + 11.0/6.0*dPdx[1][2];
+ cf[93] = - 11.0/3.0*dPdx[1][0] + 11.0/6.0*dPdx[2][0] + 11.0/6.0*dPdx[0][0];
+ cf[94] = 11.0/6.0*dPdx[2][1] + 11.0/6.0*dPdx[0][1] - 11.0/3.0*dPdx[1][1];
+ cf[95] = 11.0/6.0*dPdx[0][2] - 11.0/3.0*dPdx[1][2] + 11.0/6.0*dPdx[2][2];
+ cf[96] = 11.0/6.0*dPdx[0][0] + 11.0/6.0*dPdx[1][0] - 11.0/3.0*dPdx[2][0];
+ cf[97] = 11.0/6.0*dPdx[0][1] + 11.0/6.0*dPdx[1][1] - 11.0/3.0*dPdx[2][1];
+ cf[98] = 11.0/6.0*dPdx[1][2] - 11.0/3.0*dPdx[2][2] + 11.0/6.0*dPdx[0][2]; 
+ cf[99] = (phi_C + phi_1/2.0 + phi_3/2.0 + phi_0/3.0)/6.0;
+ cf[100] = 1.0/12.0*cf[0] + 1.0/24.0*cf[36] + 1.0/24.0*cf[66] + 1.0/36.0*cf[81];
+ cf[101] = 1.0/36.0*cf[82] + 1.0/24.0*cf[67] + 1.0/24.0*cf[37] + 1.0/12.0*cf[1];
+ cf[102] = 1.0/36.0*cf[83] + 1.0/24.0*cf[68] + 1.0/24.0*cf[38] + 1.0/12.0*cf[2];
+ cf[103] = 1.0/24.0*cf[39] + 1.0/36.0*cf[84];
+ cf[104] = 1.0/24.0*cf[40] + 1.0/36.0*cf[85];
+ cf[105] = 1.0/24.0*cf[41] + 1.0/36.0*cf[86];
+ cf[106] = 1.0/36.0*cf[87] + 1.0/24.0*cf[69];
+ cf[107] = 1.0/36.0*cf[88] + 1.0/24.0*cf[70];
+ cf[108] = 1.0/36.0*cf[89] + 1.0/24.0*cf[71];
+ cf[109] = 1.0/12.0*cf[9] + 1.0/24.0*cf[72] + 1.0/24.0*cf[45] + 1.0/36.0*cf[90];
+ cf[110] = 1.0/12.0*cf[10] + 1.0/24.0*cf[46] + 1.0/24.0*cf[73] + 1.0/36.0*cf[91];
+ cf[111] = 1.0/36.0*cf[92] + 1.0/24.0*cf[74] + 1.0/24.0*cf[47] + 1.0/12.0*cf[11];
+ cf[112] = 1.0/12.0*cf[3] + 1.0/24.0*cf[42] + 1.0/24.0*cf[75] + 1.0/36.0*cf[93];
+ cf[113] = 1.0/24.0*cf[76] + 1.0/24.0*cf[43] + 1.0/12.0*cf[4] + 1.0/36.0*cf[94];
+ cf[114] = 1.0/36.0*cf[95] + 1.0/24.0*cf[77] + 1.0/24.0*cf[44] + 1.0/12.0*cf[5];
+ cf[115] = 1.0/12.0*cf[6] + 1.0/24.0*cf[48] + 1.0/24.0*cf[78] + 1.0/36.0*cf[96];
+ cf[116] = 1.0/24.0*cf[79] + 1.0/24.0*cf[49] + 1.0/12.0*cf[7] + 1.0/36.0*cf[97];
+ cf[117] = 1.0/36.0*cf[98] + 1.0/24.0*cf[80] + 1.0/24.0*cf[50] + 1.0/12.0*cf[8];
+ double dFi0dPcg[3][3] = {0};
+ for(int j=0; j<3; ++j) {
+   dFi0dPcg[j][0] = 11.0/54.0*n[j];
+   dFi0dPcg[j][1] = 7.0/108.0*n[j];
+   dFi0dPcg[j][2] = 7.0/108.0*n[j];
+ }
+ for(int j=0; j<3; ++j) 
+   for(int k=0; k<3; ++k) 
+     for(int l=0; l<5; ++l) 
+       dFi0dVface[j][k][l] += dFi0dPcg[j][k]*dPcgdVface[k][l];
+
+
+ double dFi0dPcgin[3] = {0};
+ for(int j=0; j<3; ++j) {
+   dFi0dPcgin[j] = -1.0/3.0*n[j];
+ }
+ for(int j=0; j<3; ++j) {
+   dFi0ddPdx[j][0][0] = 1.0/6.0*n[j]*cf[100];
+   dFi0ddPdx[j][0][1] = 1.0/6.0*n[j]*cf[101];
+   dFi0ddPdx[j][0][2] = 1.0/6.0*n[j]*cf[102];
+   dFi0ddPdx[j][1][0] = 1.0/6.0*n[j]*cf[103];
+   dFi0ddPdx[j][1][1] = 1.0/6.0*n[j]*cf[104];
+   dFi0ddPdx[j][1][2] = 1.0/6.0*n[j]*cf[105];
+   dFi0ddPdx[j][2][0] = 1.0/6.0*n[j]*cf[106];
+   dFi0ddPdx[j][2][1] = 1.0/6.0*n[j]*cf[107];
+   dFi0ddPdx[j][2][2] = 1.0/6.0*n[j]*cf[108];
+   dFi0dXface[j][0][0] = 1.0/6.0*n[j]*cf[109];
+   dFi0dXface[j][0][1] = 1.0/6.0*n[j]*cf[110];
+   dFi0dXface[j][0][2] = 1.0/6.0*n[j]*cf[111];
+   dFi0dXface[j][1][0] = 1.0/6.0*n[j]*cf[112];
+   dFi0dXface[j][1][1] = 1.0/6.0*n[j]*cf[113];
+   dFi0dXface[j][1][2] = 1.0/6.0*n[j]*cf[114];
+   dFi0dXface[j][2][0] = 1.0/6.0*n[j]*cf[115];
+   dFi0dXface[j][2][1] = 1.0/6.0*n[j]*cf[116];
+   dFi0dXface[j][2][2] = 1.0/6.0*n[j]*cf[117];
+ }
+ dFi0dn[0] = cf[99];  dFi0dn[1] = cf[99];  dFi0dn[2] = cf[99];
+// dFi0 = 0.0;
+ for(int l=0; l<3; ++l) {
+//   dFi0[l] += dFi0dn[l]*dn[l];
+   for(int j=0; j<3; ++j) {
+     dFi0dS[l][j] = dFi0dPcgin[l]*dPcgindS[j]; 
+//     dFi0[l] += dFi0dS[l][j]*dS[j];
+//     for(int k=0; k<5; ++k)
+//       dFi0[l] += dFi0dVface[l][j][k]*dVface[j][k];   
+//     for(int k=0; k<3; ++k) 
+//       dFi0[l] += dFi0ddPdx[l][j][k]*ddPdx[j][k] + dFi0dXface[l][j][k]*dXface[j][k];
+   }
+ }
+ cf[118] = (phi_S + phi_1/2.0 + phi_2/2.0 + phi_0/3.0)/6.0;
+ cf[119] = (phi_P + phi_2/2.0 + phi_3/2.0 + phi_0/3.0)/6.0;
+ cf[120] = 1.0/24.0*cf[36] + 1.0/36.0*cf[81];
+ cf[121] = 1.0/24.0*cf[37] + 1.0/36.0*cf[82];
+ cf[122] = 1.0/24.0*cf[38] + 1.0/36.0*cf[83];
+ cf[123] = 1.0/36.0*cf[84] + 1.0/12.0*cf[12] + 1.0/24.0*cf[39] + 1.0/24.0*cf[51];
+ cf[124] = 1.0/24.0*cf[52] + 1.0/36.0*cf[85] + 1.0/24.0*cf[40] + 1.0/12.0*cf[13];
+ cf[125] = 1.0/12.0*cf[14] + 1.0/24.0*cf[53] + 1.0/36.0*cf[86] + 1.0/24.0*cf[41];
+ cf[126] = 1.0/36.0*cf[87] + 1.0/24.0*cf[54];
+ cf[127] = 1.0/36.0*cf[88] + 1.0/24.0*cf[55];
+ cf[128] = 1.0/36.0*cf[89] + 1.0/24.0*cf[56];
+ cf[129] = 1.0/12.0*cf[15] + 1.0/24.0*cf[45] + 1.0/24.0*cf[57] + 1.0/36.0*cf[90];
+ cf[130] = 1.0/36.0*cf[91] + 1.0/24.0*cf[58] + 1.0/24.0*cf[46] + 1.0/12.0*cf[16];
+ cf[131] = 1.0/36.0*cf[92] + 1.0/24.0*cf[59] + 1.0/24.0*cf[47] + 1.0/12.0*cf[17];
+ cf[132] = 1.0/12.0*cf[21] + 1.0/24.0*cf[60] + 1.0/24.0*cf[42] + 1.0/36.0*cf[93];
+ cf[133] = 1.0/36.0*cf[94] + 1.0/24.0*cf[61] + 1.0/24.0*cf[43] + 1.0/12.0*cf[22];
+ cf[134] = 1.0/36.0*cf[95] + 1.0/24.0*cf[62] + 1.0/12.0*cf[23] + 1.0/24.0*cf[44];
+ cf[135] = 1.0/24.0*cf[48] + 1.0/36.0*cf[96] + 1.0/12.0*cf[18] + 1.0/24.0*cf[63];
+ cf[136] = 1.0/12.0*cf[19] + 1.0/24.0*cf[64] + 1.0/36.0*cf[97] + 1.0/24.0*cf[49];
+ cf[137] = 1.0/12.0*cf[20] + 1.0/24.0*cf[50] + 1.0/24.0*cf[65] + 1.0/36.0*cf[98];
+
+ double dFi1dPcg[3][3] = {0};
+ for(int j=0; j<3; ++j) {
+   dFi1dPcg[j][0] = 7.0/108.0*n[j];
+   dFi1dPcg[j][1] = 11.0/54.0*n[j];
+   dFi1dPcg[j][2] = 7.0/108.0*n[j];
+ }
+ for(int j=0; j<3; ++j) 
+   for(int k=0; k<3; ++k) 
+     for(int l=0; l<5; ++l) 
+       dFi1dVface[j][k][l] += dFi1dPcg[j][k]*dPcgdVface[k][l];
+
+ double dFi1dPcgin[3] = {0};
+ for(int j=0; j<3; ++j) {
+   dFi1dPcgin[j] = -1.0/3.0*n[j];
+ }
+ for(int j=0; j<3; ++j) {
+   dFi1ddPdx[j][0][0] = 1.0/6.0*n[j]*cf[120];
+   dFi1ddPdx[j][0][1] = 1.0/6.0*n[j]*cf[121];
+   dFi1ddPdx[j][0][2] = 1.0/6.0*n[j]*cf[122];
+   dFi1ddPdx[j][1][0] = 1.0/6.0*n[j]*cf[123];
+   dFi1ddPdx[j][1][1] = 1.0/6.0*n[j]*cf[124];
+   dFi1ddPdx[j][1][2] = 1.0/6.0*n[j]*cf[125];
+   dFi1ddPdx[j][2][0] = 1.0/6.0*n[j]*cf[126];
+   dFi1ddPdx[j][2][1] = 1.0/6.0*n[j]*cf[127];
+   dFi1ddPdx[j][2][2] = 1.0/6.0*n[j]*cf[128];
+   dFi1dXface[j][0][0] = 1.0/6.0*n[j]*cf[129];
+   dFi1dXface[j][0][1] = 1.0/6.0*n[j]*cf[130];
+   dFi1dXface[j][0][2] = 1.0/6.0*n[j]*cf[131];
+   dFi1dXface[j][1][0] = 1.0/6.0*n[j]*cf[132];
+   dFi1dXface[j][1][1] = 1.0/6.0*n[j]*cf[133];
+   dFi1dXface[j][1][2] = 1.0/6.0*n[j]*cf[134];
+   dFi1dXface[j][2][0] = 1.0/6.0*n[j]*cf[135];
+   dFi1dXface[j][2][1] = 1.0/6.0*n[j]*cf[136];
+   dFi1dXface[j][2][2] = 1.0/6.0*n[j]*cf[137];
+ }
+ dFi1dn[0] = cf[118];  dFi1dn[1] = cf[118];  dFi1dn[2] = cf[118];
+// dFi1 = 0.0;
+ for(int l=0; l<3; ++l) {
+//   dFi1[l] += dFi1dn[l]*dn[l];
+   for(int j=0; j<3; ++j) {
+     dFi1dS[l][j] = dFi1dPcgin[l]*dPcgindS[j];
+//     dFi1[l] += dFi1dS[l][j]*dS[j];
+//     for(int k=0; k<5; ++k)
+//       dFi1[l] += dFi1dVface[l][j][k]*dVface[j][k];   
+//     for(int k=0; k<3; ++k) {
+//       dFi1[l] += dFi1ddPdx[l][j][k]*ddPdx[j][k] + dFi1dXface[l][j][k]*dXface[j][k];
+//     }
+   }
+ }
+ cf[138] = 1.0/24.0*cf[66] + 1.0/36.0*cf[81] ; 
+ cf[139] = 1.0/36.0*cf[82] + 1.0/24.0*cf[67]; 
+ cf[140] = 1.0/36.0*cf[83] + 1.0/24.0*cf[68]; 
+ cf[141] = 1.0/36.0*cf[84] + 1.0/24.0*cf[51];
+ cf[142] = 1.0/24.0*cf[52] + 1.0/36.0*cf[85];
+ cf[143] = 1.0/24.0*cf[53] + 1.0/36.0*cf[86];
+ cf[144] = 1.0/24.0*cf[54] + 1.0/36.0*cf[87]  + 1.0/12.0*cf[24] + 1.0/24.0*cf[69];
+ cf[145] = 1.0/24.0*cf[55] + 1.0/36.0*cf[88] + 1.0/12.0*cf[25] + 1.0/24.0*cf[70];
+ cf[146] = 1.0/24.0*cf[56] + 1.0/36.0*cf[89] + 1.0/24.0*cf[71] + 1.0/12.0*cf[26];
+ cf[147] = 1.0/12.0*cf[27] + 1.0/24.0*cf[57] + 1.0/36.0*cf[90] + 1.0/24.0*cf[72];
+ cf[148] = 1.0/24.0*cf[73] + 1.0/36.0*cf[91] + 1.0/24.0*cf[58] + 1.0/12.0*cf[28];
+ cf[149] = 1.0/24.0*cf[74] + 1.0/36.0*cf[92] + 1.0/24.0*cf[59] + 1.0/12.0*cf[29];
+ cf[150] = 1.0/12.0*cf[30] + 1.0/24.0*cf[60] + 1.0/24.0*cf[75] + 1.0/36.0*cf[93];
+ cf[151] = 1.0/36.0*cf[94] + 1.0/24.0*cf[76] + 1.0/24.0*cf[61] + 1.0/12.0*cf[31];
+ cf[152] = 1.0/36.0*cf[95] + 1.0/24.0*cf[77] + 1.0/24.0*cf[62] + 1.0/12.0*cf[32];
+ cf[153] = 1.0/12.0*cf[33] + 1.0/24.0*cf[63] + 1.0/24.0*cf[78] + 1.0/36.0*cf[96];
+ cf[154] = 1.0/12.0*cf[34] + 1.0/24.0*cf[64] + 1.0/36.0*cf[97] + 1.0/24.0*cf[79];
+ cf[155] = 1.0/12.0*cf[35] + 1.0/24.0*cf[65] + 1.0/24.0*cf[80] + 1.0/36.0*cf[98]; 
+
+ double dFi2dPcg[3][3] = {0};
+ for(int j=0; j<3; ++j) {
+   dFi2dPcg[j][0] = 7.0/108.0*n[j];
+   dFi2dPcg[j][1] = 7.0/108.0*n[j];
+   dFi2dPcg[j][2] = 11.0/54.0*n[j];
+ }
+ for(int j=0; j<3; ++j) 
+   for(int k=0; k<3; ++k) 
+     for(int l=0; l<5; ++l) 
+       dFi2dVface[j][k][l] += dFi2dPcg[j][k]*dPcgdVface[k][l];
+
+ double dFi2dPcgin[3] = {0};
+ for(int j=0; j<3; ++j) {
+   dFi2dPcgin[j] = -1.0/3.0*n[j];
+ }
+ for(int j=0; j<3; ++j) {
+   dFi2ddPdx[j][0][0] = 1.0/6.0*n[j]*cf[138];
+   dFi2ddPdx[j][0][1] = 1.0/6.0*n[j]*cf[139];
+   dFi2ddPdx[j][0][2] = 1.0/6.0*n[j]*cf[140];
+   dFi2ddPdx[j][1][0] = 1.0/6.0*n[j]*cf[141];
+   dFi2ddPdx[j][1][1] = 1.0/6.0*n[j]*cf[142];
+   dFi2ddPdx[j][1][2] = 1.0/6.0*n[j]*cf[143];
+   dFi2ddPdx[j][2][0] = 1.0/6.0*n[j]*cf[144];
+   dFi2ddPdx[j][2][1] = 1.0/6.0*n[j]*cf[145];
+   dFi2ddPdx[j][2][2] = 1.0/6.0*n[j]*cf[146];
+   dFi2dXface[j][0][0] = 1.0/6.0*n[j]*cf[147];
+   dFi2dXface[j][0][1] = 1.0/6.0*n[j]*cf[148];
+   dFi2dXface[j][0][2] = 1.0/6.0*n[j]*cf[149];
+   dFi2dXface[j][1][0] = 1.0/6.0*n[j]*cf[150];
+   dFi2dXface[j][1][1] = 1.0/6.0*n[j]*cf[151];
+   dFi2dXface[j][1][2] = 1.0/6.0*n[j]*cf[152];
+   dFi2dXface[j][2][0] = 1.0/6.0*n[j]*cf[153];
+   dFi2dXface[j][2][1] = 1.0/6.0*n[j]*cf[154];
+   dFi2dXface[j][2][2] = 1.0/6.0*n[j]*cf[155];
+ }
+ dFi2dn[0] = cf[119];  dFi2dn[1] = cf[119];  dFi2dn[2] = cf[119];
+// dFi2 = 0.0;
+ for(int l=0; l<3; ++l) {
+//   dFi2[l] += dFi2dn[l]*dn[l];
+   for(int j=0; j<3; ++j) {
+     dFi2dS[l][j] = dFi2dPcgin[l]*dPcgindS[j];
+//     dFi2[l] += dFi2dPcgin[l]*dPcgindS[j]*dS[j];
+//     for(int k=0; k<5; ++k)
+//       dFi2[l] += dFi2dVface[l][j][k]*dVface[j][k];   
+//     for(int k=0; k<3; ++k) {
+//       dFi2[l] += dFi2ddPdx[l][j][k]*ddPdx[j][k] + dFi2dXface[l][j][k]*dXface[j][k];
+//     }
+   }
+ }
+
+
+
+
+// dFv = 0.0;
 
 }
 

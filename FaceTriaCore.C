@@ -112,6 +112,112 @@ void FaceTria::computeDerivativeOfNormal(SVec<double,3> &X, SVec<double,3> &dX, 
 }
 
 //------------------------------------------------------------------------------
+// computation of the OUTWARD face normal
+
+void FaceTria::compute_dndX(SVec<double,3> &X, double dFaceNormdX[3][3][3]) 
+{
+
+  Vec3D x[3] = {X[ nodeNum(0) ], X[ nodeNum(1) ], X[ nodeNum(2) ]};
+
+  double dx100 = 0.5 * (x[1][0] - x[0][0]);
+  double dx101 = 0.5 * (x[1][1] - x[0][1]);
+  double dx102 = 0.5 * (x[1][2] - x[0][2]);
+  double dx200 = 0.5 * (x[2][0] - x[0][0]);
+  double dx201 = 0.5 * (x[2][1] - x[0][1]);
+  double dx202 = 0.5 * (x[2][2] - x[0][2]);
+
+  dFaceNormdX[0][0][1] = dx202-dx102;
+  dFaceNormdX[0][0][2] = dx101-dx201;
+  dFaceNormdX[0][1][0] = dx102-dx202;
+  dFaceNormdX[0][1][2] = dx200-dx100;
+  dFaceNormdX[0][2][0] = dx201-dx101;
+  dFaceNormdX[0][2][1] = dx100-dx200;
+
+  dFaceNormdX[1][0][1] = -dx202;
+  dFaceNormdX[1][0][2] =  dx201;
+  dFaceNormdX[1][1][0] =  dx202;
+  dFaceNormdX[1][1][2] = -dx200;
+  dFaceNormdX[1][2][0] = -dx201;
+  dFaceNormdX[1][2][1] =  dx200;
+
+  dFaceNormdX[2][0][1] =  dx102;
+  dFaceNormdX[2][0][2] = -dx101;
+  dFaceNormdX[2][1][0] = -dx102;
+  dFaceNormdX[2][1][2] =  dx100;
+  dFaceNormdX[2][2][0] =  dx101;
+  dFaceNormdX[2][2][1] = -dx100;
+
+}
+
+// Included (YC)
+void FaceTria::computeDerivativeOperatorsOfNormal(int faceNum, SVec<double,3> &X, RectangularSparseMat<double,3,3> &dFaceNormdX)
+{
+
+  Vec3D x[3] = {X[ nodeNum(0) ], X[ nodeNum(1) ], X[ nodeNum(2) ]};
+/*
+  dFaceNorm = 0.5 * (((dx[2] - dx[0]) ^ (x[1] - x[0])) + ((x[2] - x[0]) ^ (dx[1] - dx[0])));
+
+  dFaceNorm[0] = 0.5 * (  (dx[2][1] - dx[0][1])*(x[1][2] - x[0][2]) - (dx[2][2] - dx[0][2])*(x[1][1] - x[0][1]) 
+                        + (x[2][1] - x[0][1])*(dx[1][2] - dx[0][2]) - (x[2][2] - x[0][2])*(dx[1][1] - dx[0][1]) )
+  dFaceNorm[1] = 0.5 * (  (dx[2][2] - dx[0][2])*(x[1][0] - x[0][0]) - (dx[2][0] - dx[0][0])*(x[1][2] - x[0][2]) 
+                        + (x[2][2] - x[0][2])*(dx[1][0] - dx[0][0]) - (x[2][0] - x[0][0])*(dx[1][2] - dx[0][2]) )
+  dFaceNorm[2] = 0.5 * (  (dx[2][0] - dx[0][0])*(x[1][1] - x[0][1]) - (dx[2][1] - dx[0][1])*(x[1][0] - x[0][0]) 
+                        + (x[2][0] - x[0][0])*(dx[1][1] - dx[0][1]) - (x[2][1] - x[0][1])*(dx[1][0] - dx[0][0]) )
+*/
+  double dx100 = 0.5 * (x[1][0] - x[0][0]);
+  double dx101 = 0.5 * (x[1][1] - x[0][1]);
+  double dx102 = 0.5 * (x[1][2] - x[0][2]);
+  double dx200 = 0.5 * (x[2][0] - x[0][0]);
+  double dx201 = 0.5 * (x[2][1] - x[0][1]);
+  double dx202 = 0.5 * (x[2][2] - x[0][2]);
+/*
+  dFaceNormdX = 0.5 * [  (dx202-dx102)*dx[0][1] + (dx101-dx201)*dx[0][2] - dx202*dx[1][1] + dx201*dx[1][2] + dx102*dx[2][1] - dx101*dx[2][2] ]
+                      [  (dx102-dx202)*dx[0][0] + (dx200-dx100)*dx[0][2] + dx202*dx[1][0] - dx200*dx[1][2] - dx102*dx[2][0] + dx100*dx[2][2] ]
+                      [  (dx201-dx101)*dx[0][0] + (dx100-dx200)*dx[0][1] - dx201*dx[1][0] + dx200*dx[1][1] + dx101*dx[2][0] - dx100*dx[2][1] ]
+
+  dFaceNormdX = 0.5 * [  0               (dx202-dx102)  (dx101-dx201)      0  -dx202   dx201       0     dx102     -dx101 ] [ dx[0][0] ]
+                      [  (dx102-dx202)               0  (dx200-dx100)  dx202       0  -dx200  -dx102         0      dx100 ] [ dx[0][1] ]
+                      [  (dx201-dx101)   (dx100-dx200)              0 -dx201   dx200       0   dx101    -dx100          0 ] [ dx[0][2] ]
+                                                                                                                            [ dx[1][0] ]
+                                                                                                                            [ dx[1][1] ]
+                                                                                                                            [ dx[1][2] ]
+                                                                                                                            [ dx[2][0] ]
+                                                                                                                            [ dx[2][1] ]
+                                                                                                                            [ dx[2][2] ] 
+*/
+  double dFaceNormdX0[3][3] = {0}, dFaceNormdX1[3][3] = {0}, dFaceNormdX2[3][3] = {0};
+  dFaceNormdX0[0][1] = dx202-dx102;
+  dFaceNormdX0[0][2] = dx101-dx201;
+  dFaceNormdX0[1][0] = dx102-dx202;
+  dFaceNormdX0[1][2] = dx200-dx100;
+  dFaceNormdX0[2][0] = dx201-dx101;
+  dFaceNormdX0[2][1] = dx100-dx200;
+
+  dFaceNormdX1[0][1] = -dx202;
+  dFaceNormdX1[0][2] =  dx201;
+  dFaceNormdX1[1][0] =  dx202;
+  dFaceNormdX1[1][2] = -dx200;
+  dFaceNormdX1[2][0] = -dx201;
+  dFaceNormdX1[2][1] =  dx200;
+
+  dFaceNormdX2[0][1] =  dx102;
+  dFaceNormdX2[0][2] = -dx101;
+  dFaceNormdX2[1][0] = -dx102;
+  dFaceNormdX2[1][2] =  dx100;
+  dFaceNormdX2[2][0] =  dx101;
+  dFaceNormdX2[2][1] = -dx100;
+  
+//  fprintf(stderr," ... in dFaceNormdX, faceNum = %d, nodeNum(0) = %d\n", faceNum, nodeNum(0));
+//  fprintf(stderr," ... in dFaceNormdX, faceNum = %d, nodeNum(1) = %d\n", faceNum, nodeNum(1));
+//  fprintf(stderr," ... in dFaceNormdX, faceNum = %d, nodeNum(2) = %d\n", faceNum, nodeNum(2));
+
+  dFaceNormdX.addContrib(faceNum, nodeNum(0), dFaceNormdX0[0]);
+  dFaceNormdX.addContrib(faceNum, nodeNum(1), dFaceNormdX1[0]);
+  dFaceNormdX.addContrib(faceNum, nodeNum(2), dFaceNormdX2[0]);
+
+}
+
+//------------------------------------------------------------------------------
 // Computation of the OUTWARD face normal
 void FaceTria::computeNormalEZGCL1(double oodt, SVec<double,3> &Xn, SVec<double,3> &Xnp1, 
 				   Vec<Vec3D> &faceNorm, Vec<double> &faceNormVel)

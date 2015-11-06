@@ -1,10 +1,12 @@
 #include <InletNode.h>
 
+#include <BcData.h>
 #include <Node.h>
 #include <Elem.h>
 #include <Vector.h>
 #include <Vector3D.h>
 #include <Extrapolation.h>
+#include <GeoState.h>
 
 #include <cstdlib>
 #include <cstdio>

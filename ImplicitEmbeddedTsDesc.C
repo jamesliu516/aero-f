@@ -189,8 +189,6 @@ int ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
     this->timer->addIntersectionTime(tw);
     this->com->barrier();
     this->timer->removeIntersAndPhaseChange(tw);
-    if(this->riemannNormal==2)
-      this->spaceOp->computeCellAveragedStructNormal(*(this->Nsbar), this->distLSS);
 
     //update nodeTags (only for numFluid>1)
  //   if(this->numFluid>1) {
@@ -219,7 +217,7 @@ int ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
         
         this->spaceOp->computeResidual(*this->X, *this->A, Unm1, *this->Wstarij, *this->Wstarji, this->distLSS,
                                  this->linRecAtInterface, this->viscSecOrder, this->nodeTag, this->Vtemp, this->riemann, 
-                                 this->riemannNormal, this->Nsbar, 1, this->ghostPoints);
+                                 this->riemannNormal, 1, this->ghostPoints);
       }
 
       tw = this->timer->getTime();
@@ -338,7 +336,7 @@ void ImplicitEmbeddedTsDesc<dim>::computeFunction(int it, DistSVec<double,dim> &
 
   this->spaceOp->computeResidual(*this->X, *this->A, Q, *this->Wstarij, *this->Wstarji, this->distLSS,
                                  this->linRecAtInterface, this->viscSecOrder, this->nodeTag, F, this->riemann, 
-                                 this->riemannNormal, this->Nsbar, 1, this->ghostPoints);
+                                 this->riemannNormal, 1, this->ghostPoints);
 
 //  this->printNodalDebug(BuggyNode,-100,&F,&(this->nodeTag),&(this->nodeTag0));
 
@@ -372,7 +370,7 @@ void ImplicitEmbeddedTsDesc<dim>::doErrorEstimation(DistSVec<double,dim> &U)
 
   this->spaceOp->computeResidual(*this->X, *this->A, this->timeState->getUn(), *this->Wstarij, *this->Wstarji, this->distLSS,
                                  this->linRecAtInterface, this->viscSecOrder, this->nodeTag, *flux, this->riemann, 
-                                 this->riemannNormal, this->Nsbar, 1, this->ghostPoints);
+                                 this->riemannNormal, 1, this->ghostPoints);
 
   this->timeState->calculateErrorEstiNorm(U, *flux); 
 

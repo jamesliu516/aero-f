@@ -81,7 +81,11 @@ extern "C" {
 // Included (MB)
   void F77NAME(gxroeflux5)(const int&, const double&, const double&, const double&, const double&, double*, double*, const double&, const double&, double*, double*, double*, double*, double*, double*, double*, double*, double*, double*, const double&, const double&, const double&, const double&, const double&, const double&, const int&);
   void F77NAME(gxroeflux6)(const int&, const double&, const double&, const double&, const double&, double*, double*, const double&, const double&, double*, double*, double*, double*, double*, double*, double*, double*, double*, double*);
+  void F77NAME(gxroeflux6temp)(const int&, const double&, const double&, const double&, const double&, double*, double*, const double&, const double&, double*, double*, double*, double*, double*, double*, double*, double*, double*, double*);
+  void F77NAME(computedfluxoperators)(const int&, const double&, const double&, const double&, const double&, double*, const double&, double*, double*, double*, double*, double*, double (*)[3], double*, double (*)[7], double (*)[7]);
   void F77NAME(gxboundflux5)(const int&, const double&, double*, double*, const double&, const double&, double*, double*, double*, double*, double*);
+  void F77NAME(gxboundflux5temp)(const int&, const double&, double*, double*, const double&, const double&, double*, double*, double*, double*, double*);
+  void F77NAME(computedboundfluxoperator)(const int&, const double&, double*, const double&, double*, double*, double (*)[3], double (*)[1], double (*)[7]);
 
 };
 
@@ -281,11 +285,62 @@ void FluxFcnSGExactJacRoeEuler3D::computeDerivative(double irey, double dIrey, d
                                           double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux, bool useLimiter)
 {
 
+//  fprintf(stderr," ... in FluxFcnSGExactJacRoeEuler3D::computeDerivative 001\n");
   F77NAME(gxroeflux6)(0, gamma, vf->getGamma(), vf->getPressureConstant(), vf->getDerivativeOfPressureConstant(), normal, dNormal, normalVel, dNormalVel, VL, dVL, VL, dVL, VR, dVR, VR, dVR, flux, dFlux);
+/*
+  double dFluxdNormal[7][3] = {0}, dFluxdNormalVel[7] = {0}, dFluxdVL[7][7] = {0}, dFluxdVR[7][7] = {0};
+  F77NAME(computedfluxoperators)(0, gamma, vf->getGamma(), vf->getPressureConstant(), vf->getDerivativeOfPressureConstant(), normal, normalVel, VL, VL, VR, VR, flux, dFluxdNormal, dFluxdNormalVel, dFluxdVL, dFluxdVR);
+
+
+  double dFLUX2[7] = {0};
+
+  for(int k=0; k<5; ++k) {
+    for(int p=0; p<3; ++p)
+      dFLUX2[k] += dFluxdNormal[k][p]*dNormal[p];
+    for(int p=0; p<7; ++p)
+      dFLUX2[k] += dFluxdVL[k][p]*dVL[p] + dFluxdVR[k][p]*dVR[p];
+  }
+
+  double dFluxnorm(0), diff2(0), dFLUX2norm(0);
+  for(int k=0; k<5; ++k) {
+    diff2+= (dFlux[k]-dFLUX2[k])*(dFlux[k]-dFLUX2[k]);
+    dFLUX2norm += dFLUX2[k]*dFLUX2[k];
+    dFluxnorm += dFlux[k]*dFlux[k];
+  }
+  diff2 = sqrt(diff2);
+  dFLUX2norm = sqrt(dFLUX2norm);
+  dFluxnorm = sqrt(dFluxnorm);
+  if(dFluxnorm != 0) fprintf(stderr, "... rel. diff2 = %e, dFluxnorm = %e, dFLUX2norm = %e\n", diff2/dFluxnorm, dFluxnorm, dFLUX2norm); 
+  else fprintf(stderr, "... abs. diff2 = %e, dFluxnorm = %e, dFLUX2norm = %e\n", diff2, dFluxnorm, dFLUX2norm);
+*/
+/*
+  double dFLUX[7];
+  F77NAME(gxroeflux6temp)(0, gamma, vf->getGamma(), vf->getPressureConstant(), vf->getDerivativeOfPressureConstant(), normal, dNormal, normalVel, dNormalVel, VL, dVL, VL, dVL, VR, dVR, VR, dVR, flux, dFLUX);
+  double dpstiff = vf->getDerivativeOfPressureConstant();
+ 
+  if(dpstiff != 0) fprintf(stderr," ... dpstiff is %e\n", vf->getDerivativeOfPressureConstant());
+  double diffsq(0), dfluxsqnorm(0);
+  for(int i=0; i<5; ++i) {
+    diffsq += (dFlux[i] - dFLUX[i])*(dFlux[i] - dFLUX[i]);
+    dfluxsqnorm += dFlux[i]*dFlux[i];
+  }
+  double diff = std::sqrt(diffsq);
+  double dfluxnorm = std::sqrt(dfluxsqnorm);
+  if(dfluxsqnorm != 0) fprintf(stderr," rel. diff is %e and dfluxnorm is %e\n", diff/dfluxnorm, dfluxnorm);
+  else fprintf(stderr, " abs. diff is %e\n", diff);
+*/
 
 }
 
 //------------------------------------------------------------------------------
+
+// Included (YC)
+void FluxFcnSGExactJacRoeEuler3D::compute_dFluxdNormal_dFluxdNormalVel_dFluxdVL_dFluxdVR(double *normal, double normalVel, double *VL, double *VR, 
+                                                                                         double dMach, double *flux, double dFluxdNormal[7][3], 
+                                                                                         double *dFluxdNormalVel, double dFluxdVL[7][7], double dFluxdVR[7][7])
+{
+  F77NAME(computedfluxoperators)(0, gamma, vf->getGamma(), vf->getPressureConstant(), vf->getDerivativeOfPressureConstant(), normal, normalVel, VL, VL, VR, VR, flux, dFluxdNormal, dFluxdNormalVel, dFluxdVL, dFluxdVR);
+}
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -743,11 +798,36 @@ void FluxFcnSGWallEuler3D::computeDerivative
 )
 {
 
+//  fprintf(stderr," ... in FluxFcnSGWallEuler3D::computeDerivative 001\n");
   dFlux[0] = 0.0;
   dFlux[1] = V[4] * dNormal[0];
   dFlux[2] = V[4] * dNormal[1];
   dFlux[3] = V[4] * dNormal[2];
   dFlux[4] = V[4] * dNormalVel;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+void FluxFcnSGWallEuler3D::computeDerivativeOperators
+(
+  double *normal, double normalVel, double *V, double *Ub, 
+  double dFluxdNormal[7][3], double dFluxdNormalVel[7][1], double dFluxdUb[7][7]
+)
+{
+
+//  fprintf(stderr," ... in FluxFcnSGWallEuler3D::computeDerivative 001\n");
+//  dFlux[0] = 0.0;
+//  dFlux[1] = V[4] * dNormal[0];
+//  dFlux[2] = V[4] * dNormal[1];
+//  dFlux[3] = V[4] * dNormal[2];
+//  dFlux[4] = V[4] * dNormalVel;
+
+  dFluxdNormal[1][0] = V[4];
+  dFluxdNormal[2][1] = V[4];
+  dFluxdNormal[3][2] = V[4];
+  dFluxdNormalVel[4][0] = V[4];
 
 }
 
@@ -950,6 +1030,7 @@ void FluxFcnSGInflowEuler3D::computeDerivative
 )
 {
 
+  
   F77NAME(gxboundflux5)(0, vf->getGamma(), normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
 
 }
@@ -975,12 +1056,62 @@ void FluxFcnSGOutflowEuler3D::computeDerivative
   double *Ub, double *dUb, double *flux, double *dFlux
 )
 {
-
+//  fprintf(stderr," ... in FluxFcnSGOutflowEuler3D::computeDerivative 001\n");
+/*
+  dNormal[0] = 1;
+  dNormal[1] = 2;
+  dNormal[2] = 0.5;
+  dNormalVel = 3.2;
+  dUb[0] = 0.3;
+  dUb[1] = 1.3;
+  dUb[2] = 2.3;
+  dUb[3] = 3.3;
+  dUb[4] = 4.3;
+  dUb[5] = 0.25;
+*/
   F77NAME(gxboundflux5)(0, vf->getGamma(), normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
+/*
+  double dFLUX[7]={0}, dfluxdnormal[7][3]={0}, dfluxdsig[7][1]={0}, dfluxdub[7][7]={0};
+  F77NAME(computedboundfluxoperator)(0, vf->getGamma(), normal, normalVel, V, Ub, dfluxdnormal, dfluxdsig, dfluxdub);
+//  F77NAME(gxboundflux5temp)(0, vf->getGamma(), normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
+
+  for(int i=0; i<5; ++i) {
+    dFLUX[i] += dfluxdsig[i][0]*dNormalVel;
+    for(int j=0; j<3; ++j) {
+      dFLUX[i] += dfluxdnormal[i][j]*dNormal[j];
+    }
+    for(int j=0; j<5; ++j) {
+      dFLUX[i] += dfluxdub[i][j]*dUb[j];
+    }
+  }
+
+
+  double diff(0), dFluxnorm(0);
+  for(int i=0; i<5; ++i) {
+    diff += (dFlux[i] - dFLUX[i])*(dFlux[i] - dFLUX[i]);
+    dFluxnorm += dFlux[i]*dFlux[i];
+  }
+  diff = sqrt(diff);
+  dFluxnorm = sqrt(dFluxnorm);
+  if(dFluxnorm != 0) fprintf(stderr, " ... rel. diff is %e\n", diff/dFluxnorm);
+  else fprintf(stderr, " ... abs. diff is %e\n", diff);
+*/  
 
 }
 
 //------------------------------------------------------------------------------
+
+// Included (YC)
+inline
+void FluxFcnSGOutflowEuler3D::computeDerivativeOperators
+(
+  double *normal, double normalVel, double *V, double *Ub,
+  double dFluxdNormal[7][3], double dFluxdNormalVel[7][1], double dFluxdUb[7][7]
+)
+{
+  F77NAME(computedboundfluxoperator)(0, vf->getGamma(), normal, normalVel, V, Ub, dFluxdNormal, dFluxdNormalVel, dFluxdUb);
+}
+
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -1799,7 +1930,6 @@ void FluxFcnSGExactJacRoeSA3D::compute(double length, double irey, double *norma
 void FluxFcnSGExactJacRoeSA3D::computeDerivative(double irey, double dIrey, double *normal, double *dNormal, double normalVel, double dNormalVel,
                                           double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux, bool useLimiter)
 {
-
   F77NAME(gxroeflux6)(1, gamma, vf->getGamma(), vf->getPressureConstant(), vf->getDerivativeOfPressureConstant(), normal, dNormal, normalVel, dNormalVel, VL, dVL, VL, dVL, VR, dVR, VR, dVR, flux, dFlux);
 
 }
@@ -2475,7 +2605,6 @@ void FluxFcnSGFDJacRoeKE3D::compute(double length, double irey, double *normal, 
 void FluxFcnSGFDJacRoeKE3D::computeDerivative(double irey, double dIrey, double *normal, double *dNormal, double normalVel, double dNormalVel,
                                           double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux, bool useLimiter)
 {
-
   F77NAME(gxroeflux5)(2, gamma, vf->getGamma(), vf->getPressureConstant(), vf->getDerivativeOfPressureConstant(), normal, dNormal, normalVel, dNormalVel, VL, dVL, VL, dVL, VR, dVR, VR, dVR, flux, dFlux, sprec.getMinMach(), 0.0*dMach, sprec.getSlope(), sprec.getCutOffMach(), irey, dIrey, useLimiter ? sprec.getPrecTag() : 0);
 
 }
@@ -2947,7 +3076,7 @@ void FluxFcnSGMassFlowOutflowKE3D::computeDerivative
   double *Ub, double *dUb, double *flux, double *dFlux
 )
 {
-
+ 
   massflowflux3DDerivative<7>(2, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
 
 }

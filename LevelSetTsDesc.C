@@ -222,9 +222,15 @@ void LevelSetTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, int 
 
   if(frequencyLS > 0 && it%frequencyLS == 0){
 //    this->com->printf(5, "LevelSet norm before reinitialization = %e\n", Phi.norm());
-    LS->conservativeToPrimitive(Phi,PhiV,U);
+    if (this->lsMethod == 0)
+      LS->conservativeToPrimitive(Phi,PhiV,U);
+    else
+      PhiV = Phi;
     LS->reinitializeLevelSet(*this->X, PhiV);
-    LS->primitiveToConservative(PhiV,Phi,U);
+    if (this->lsMethod == 0)
+      LS->primitiveToConservative(PhiV,Phi,U);
+    else
+      Phi = PhiV;
 //    this->com->printf(5, "LevelSet norm after reinitialization = %e\n", Phi.norm());
     LS->update(Phi);
 
