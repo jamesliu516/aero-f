@@ -80,6 +80,7 @@ private:
   char *hydrodynamicforces;
   char *lift;
   char *matchpressure;
+  char *matchstate;
   char *fluxnorm;
   char *tavlift;
   char *hydrostaticlift;
@@ -113,6 +114,7 @@ private:
   FILE **fpHydroDynamicLift;
   FILE *fpResiduals;
   FILE *fpMatchPressure;
+  FILE *fpMatchState;
   FILE *fpFluxNorm;
   FILE *fpMatVolumes;
   FILE *fpConservationErr;
@@ -123,7 +125,6 @@ private:
   FILE *fpCpuTiming;
 
 
-
   DistVec<double>    *Qs;
   DistSVec<double,3> *Qv;
 
@@ -132,6 +133,9 @@ private:
   
   DistVec<double>    *AvQs[PostFcn::AVSSIZE];
   DistSVec<double,3> *AvQv[PostFcn::AVVSIZE];
+
+  DistSVec<double,dim> *Uref;
+  double Uref_norm;
 
 // Included (MB)
   bool switchOpt;
@@ -213,6 +217,8 @@ public:
                                 DistSVec<double,3> &, DistVec<double> &,
                                 DistSVec<double,dim> &, DistTimeState<dim> *,
                                 DistVec<int> * = 0);
+  void writeMatchStateToDisk(IoData &, int, double, double, DistSVec<double,dim> &U, DistVec<double> &A);
+
   void writeFluxNormToDisk(int, int, int, double, double);
   void writeHydroLiftsToDisk(IoData &, bool, int, int, int, double, double, double*,
                          DistSVec<double,3> &, DistSVec<double,dim> &,

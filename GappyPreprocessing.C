@@ -3,13 +3,31 @@
 #include <arpack++/include/ardsmat.h>
 #include <arpack++/include/ardssym.h>
 #endif
+
+extern "C" {
+  // Approximately solve the sparse non-negative least-squares problem
+  //   min support(x) st ||A * x - b|| < reltol * ||b|| and x >= 0
+  // Input: A is (mda x n), b is (m x 1), reltol is scalar
+  // Output: A <- Q A, b <- Q b where Q is (m x m) orthogonal,
+  //         rnorm <- ||b - Ax||_2,
+  //         x is the (n x 1) primal solution,
+  //         w <- A^T(b - Ax) is the (n x 1) dual solution
+  // Work: zz is (m x 1), zz2 is (n x 1), index is (n x 1)
+  // Info: mode: 1 => success, 2 => bad dim, 3 => too many iter
+  void F77NAME(spnnls)(double *a, const long int *mda, const long int *m, const long int *n,
+                        double *b, double *x, const double *reltol, double *rnorm, double *w,
+                        double *zz, double *zz2, long int *index, long int *mode, long int *prtflg,
+                        long int *sclflg, const double *maxsze, const double *maxite, double *dtime);
+}
+
+
 template<int dim>
 GappyPreprocessing<dim>::GappyPreprocessing(Communicator *_com, IoData &_ioData, Domain
     &dom, DistGeoState *_geoState) :
   NonlinearRom<dim>(_com, _ioData, dom), 
   domain(dom), com(_com), ioData(&_ioData), 
   residual(0), jacobian(1), parallelRom(2),
-  debugging(true), outputOnlineMatricesFull(false), outputOnlineMatricesSample(true),
+  debugging(false), outputOnlineMatricesFull(false), outputOnlineMatricesSample(true),
   podRes(0, dom.getNodeDistInfo() ),
   podJac(0, dom.getNodeDistInfo() ),
   podHatRes(0, dom.getSampledNodeDistInfo() ),
@@ -369,6 +387,7 @@ void GappyPreprocessing<dim>::buildReducedModel() {
     outputInitialConditionReduced();
     outputMultiSolutionsReduced();
     outputWallDistanceReduced();  // distributed info (parallel)
+    outputDisplacementReduced();
  
     for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
   
@@ -459,7 +478,7 @@ void GappyPreprocessing<dim>::buildReducedModel() {
         }
       } // end GNAT online matrix preprocessing
 
-      if (gappyIO->doPreproApproxMetricNonlinear || gappyIO->doPreproApproxMetricNonlinearCVX) {
+      if (gappyIO->doPreproApproxMetricNonlinear || gappyIO->doPreproApproxMetricNonlinearCVX || gappyIO->doPreproApproxMetricNonlinearNNLS ) {
         initialize();
         this->freeMemoryForGappyPrepro();
 
@@ -554,7 +573,7 @@ void GappyPreprocessing<dim>::constructApproximatedMetric(const char* type, int 
         }
       }
     } else {
-      this->readClusteredSnapshots(iCluster, true, "residual", 0, ioData->romOffline.gappy.maxClusteredSnapshotsCVX);
+      this->readClusteredSnapshots(iCluster, true, "residual", 0, ioData->romOffline.gappy.maxClusteredSnapshotsNonlinearApproxMetric);
       if (corrMat) delete corrMat;
       corrMat = new std::vector<std::vector<double> >;
       corrMat->resize(this->snap->numVectors());
@@ -703,6 +722,8 @@ void GappyPreprocessing<dim>::computePseudoInverseMaskedSnapshots(const char* ty
     outputApproxSnapsReduced(iCluster);
     this->freeMemoryForGappyPrepro();
     computeApproxMetricNonlinearCVX(iCluster);
+  } else if (strcmp(type,"nonlinear")==0 && gappyIO->doPreproApproxMetricNonlinearNNLS) {
+    computeApproxMetricNonlinearNNLS(iCluster);
   } else if (strcmp(type,"state")==0 || (gappyIO->doPreproApproxMetricNonlinear && strcmp(type,"nonlinear")==0)) {
     computeMaskedSnapshots(type, iCluster);
     computePseudoInverseTranspose();
@@ -717,8 +738,363 @@ void GappyPreprocessing<dim>::computePseudoInverseMaskedSnapshots(const char* ty
 //----------------------------------------------
 
 template<int dim>
-void GappyPreprocessing<dim>::computeApproxMetricNonlinearCVX(int iCluster) {
+void GappyPreprocessing<dim>::computeApproxMetricNonlinearNNLS(int iCluster) {
 
+  /* Adapted by Julien Cortial at Stanford University
+
+    GIVEN AN M BY N MATRIX, A, AND AN M-VECTOR, B,  COMPUTE A
+    SPARSE N-VECTOR, X, THAT VERIFIES
+  
+        ||A * X - B||_2 <= RELTOL * ||B||_2  SUBJECT TO X .GE. 0   
+    ------------------------------------------------------------------
+                    Subroutine Arguments
+           
+    A(),MDA,M,N     MDA IS THE FIRST DIMENSIONING PARAMETER FOR THE   
+                    ARRAY, A().   ON ENTRY A() CONTAINS THE M BY N    
+                    MATRIX, A.           ON EXIT A() CONTAINS 
+                    THE PRODUCT MATRIX, Q*A , WHERE Q IS AN   
+                    M BY M ORTHOGONAL MATRIX GENERATED IMPLICITLY BY  
+                    THIS SUBROUTINE.  
+    B()     ON ENTRY B() CONTAINS THE M-VECTOR, B.   ON EXIT B() CON- 
+            TAINS Q*B. 
+    X()     ON ENTRY X() NEED NOT BE INITIALIZED.  ON EXIT X() WILL   
+            CONTAIN THE SOLUTION VECTOR. 
+    RELTOL  RELATIVE TOLERANCE
+            (STOPPING CRITERION: ||B - A*X||_2 < RELTOL * ||B||_2).
+    RNORM   ON EXIT RNORM CONTAINS THE EUCLIDEAN NORM OF THE  
+            RESIDUAL VECTOR.  
+    W()     AN N-ARRAY OF WORKING SPACE.  ON EXIT W() WILL CONTAIN    
+            THE DUAL SOLUTION VECTOR.   W WILL SATISFY W(I) = 0.  
+            FOR ALL I IN SET P  AND W(I) .LE. 0. FOR ALL I IN SET Z   
+    ZZ()     AN M-ARRAY OF WORKING SPACE.     
+    ZZ2()    AN N-ARRAY OF WORKING SPACE.     
+    INDEX()     AN INTEGER WORKING ARRAY OF LENGTH AT LEAST N.
+                ON EXIT THE CONTENTS OF THIS ARRAY DEFINE THE SETS    
+                P AND Z AS FOLLOWS..  
+  
+                INDEX(1)   THRU INDEX(NSETP) = SET P.     
+                INDEX(IZ1) THRU INDEX(IZ2)   = SET Z.     
+                IZ1 = NSETP + 1 = NPP1
+                IZ2 = N   
+    MODE    THIS IS A SUCCESS-FAILURE FLAG WITH THE FOLLOWING 
+            MEANINGS. 
+            1     THE SOLUTION HAS BEEN COMPUTED SUCCESSFULLY.
+            2     THE DIMENSIONS OF THE PROBLEM ARE BAD.  
+                  EITHER M .LE. 0 OR N .LE. 0.
+            3     ITERATION COUNT EXCEEDED.
+                  MORE THAN MAXITE*N ITERATIONS. 
+    MAXSZE  ALTERNATIVE STOPPING CRITERION BASED ON ACTIVE SET SIZE
+            NSETP <= MIN(M,MAXSZE*N)
+  
+    ------------------------------------------------------------------
+     SUBROUTINE SPNNLS (A,MDA,M,N,B,X,RELTOL,RNORM,W,ZZ,ZZ2,INDEX,MODE,
+    +                   PRTFLG,SCAFLG,MAXSZE,MAXITE,DTIME)  
+
+  void F77NAME(spnnls)(double *a, const long int *mda, const long int *m, const long int *n,
+                       double *b, double *x, const double *reltol, double *rnorm, double *w,
+                       double *zz, double *zz2, long int *index, long int *mode, long int *prtflg,
+                       long int *sclflg, const double *maxsze, const double *maxite, double *dtime);*/
+
+  for (int iSnap=0; iSnap<this->snap->numVectors(); ++iSnap) {
+    double norm = (*this->snap)[iSnap].norm();
+    if (norm>0) (*this->snap)[iSnap] *= 1/norm;
+  }
+
+  long int nSnapsTrain = int(floor(double(this->snap->numVectors())/2.0));
+  long int nSnapsTest = this->snap->numVectors();
+  long int nVars = dim*nSampleNodes;
+  long int nEqns = dim*nSampleNodes + nSnapsTrain;
+
+  double *lhs = new double[nEqns*nVars];
+  double *lhsUpper = new double[nSnapsTrain*nVars]; // for minimal communication
+  double *lhsTest = new double[nSnapsTest*nVars];
+  double *rhs = new double[nEqns];
+  double *rhsTest = new double[nSnapsTest];
+  double *sol = new double[nVars];
+  double *dualSol = new double[nVars];
+  double *work1 = new double[nEqns];
+  double *work2 = new double[nVars];
+  long int *index = new long int[nVars];
+
+  // initialize everything 
+  for (long int iEqn=0; iEqn<nEqns; ++iEqn) {
+    work1[iEqn] = 0.0;
+    rhs[iEqn] = 0.0;
+    if (iEqn < nSnapsTrain) { 
+      for (long int iVar=0; iVar<nVars; ++iVar) {
+        lhsUpper[iEqn + iVar*nSnapsTrain] = 0.0;
+      }
+    }
+    if (iEqn < nSnapsTest) { 
+      for (long int iVar=0; iVar<nVars; ++iVar) {
+        lhsTest[iEqn + iVar*nSnapsTest] = 0.0;
+      }
+    }
+  }
+  for (long int iVar=0; iVar<nVars; ++iVar) {
+    sol[iVar] = 0.0;
+    dualSol[iVar] = 0.0;
+    work2[iVar] = 0.0;
+    index[iVar] = 0;
+  }
+ 
+  // fill the top of lhs (masked snapshots)
+  int nTotalDOF = 0;
+  for (int iSampleNode=0; iSampleNode<nSampleNodes; ++iSampleNode) {
+    int currentSampleNode = globalSampleNodes[iSampleNode];
+    int locSub = globalNodeToLocSubDomainsMap.find(currentSampleNode)->second;
+    int locNode = globalNodeToLocalNodesMap.find(currentSampleNode)->second;
+    int currentCpu = globalNodeToCpuMap.find(currentSampleNode)->second;
+    if (thisCPU == currentCpu) {
+      for (long int iEqn=0; iEqn<nSnapsTrain; ++iEqn) {
+        SubDomainData<dim> locSnap = (*this->snap)[iEqn*2].subData(locSub); 
+        for (int iDim=0; iDim<dim; ++iDim) {
+          long int iVar = dim*iSampleNode + iDim;
+          lhsUpper[iEqn + iVar*nSnapsTrain] = pow(locSnap[locNode][iDim],2);
+          ++nTotalDOF;
+        }
+      }
+    }
+  }
+
+  // communicate
+  com->globalSum(nSnapsTrain*nVars, lhsUpper); 
+  com->globalSum(1,&nTotalDOF);
+  this->com->fprintf(stdout, "expected %d DOF, found %d DOF\n",dim*nSampleNodes*nSnapsTrain,nTotalDOF); 
+ 
+  // also fill test data (superset of masked snapshots)
+  for (int iSampleNode=0; iSampleNode<nSampleNodes; ++iSampleNode) {
+    int currentSampleNode = globalSampleNodes[iSampleNode];
+    int locSub = globalNodeToLocSubDomainsMap.find(currentSampleNode)->second;
+    int locNode = globalNodeToLocalNodesMap.find(currentSampleNode)->second;
+    int currentCpu = globalNodeToCpuMap.find(currentSampleNode)->second;
+    if (thisCPU == currentCpu) {
+      for (long int iEqn=0; iEqn<nSnapsTest; ++iEqn) {
+        SubDomainData<dim> locSnap = (*this->snap)[iEqn].subData(locSub);
+        for (int iDim=0; iDim<dim; ++iDim) {
+          long int iVar = dim*iSampleNode + iDim;
+          lhsTest[iEqn + iVar*nSnapsTest] = pow(locSnap[locNode][iDim],2);
+        }
+      }
+    }
+  }
+
+  for (long int iEqn=0; iEqn<nSnapsTest; ++iEqn) {
+      rhsTest[iEqn] = 1.0;  // snapshots were normalized above
+  }
+ 
+  // communicate test data
+  com->globalSum(nSnapsTest*nVars, lhsTest);  
+
+  double nnlsTime = this->timer->getTime();
+
+  // pick lambda
+  double lambdaMin = -12;
+  double lambdaMax = 4;
+  double lambda = lambdaMin + (lambdaMax-lambdaMin)*double(thisCPU)/double(nTotCpus);
+
+  // fill lhs and rhs
+  for (long int iEqn=0; iEqn<nEqns; ++iEqn) {
+    if (iEqn < nSnapsTrain) {
+      rhs[iEqn] = 0.0; 
+      for (long int iVar=0; iVar<nVars; ++iVar) {
+        lhs[iEqn + iVar*nEqns] = lhsUpper[iEqn + iVar*nSnapsTrain];
+        rhs[iEqn] -= lhsUpper[iEqn + iVar*nSnapsTrain];  // due to change of variables: q = x+1, x>=0
+      }
+    } else {
+      rhs[iEqn] = 0.0;
+      for (long int iVar=0; iVar<nVars; ++iVar) {
+        lhs[iEqn + iVar*nEqns] = 0.0;
+        if ((iEqn - nSnapsTrain) == iVar) lhs[iEqn + iVar*nEqns] = pow(10,lambda);
+      }
+    }
+  }
+  delete [] lhsUpper;
+
+  for (long int iEqn=0; iEqn<nSnapsTrain; ++iEqn) {
+    rhs[iEqn] += 1.0;  // snapshots were normalized above
+  }
+
+  /*
+  for (long int iEqn=0; iEqn<nEqns; ++iEqn) {
+    for (long int iVar=0; iVar<nVars; ++iVar) {
+      this->com->fprintf(stdout, "lhs[%d,%d]=%e ",iEqn,iVar,lhs[iEqn + iVar*nEqns]); 
+    }
+    this->com->fprintf(stdout, "\n");
+  }
+  this->com->fprintf(stdout, "\n");
+
+  for (long int iEqn=0; iEqn<nEqns; ++iEqn) {
+    this->com->fprintf(stdout, "rhs[%d]=%e\n",iEqn,rhs[iEqn]); 
+  }
+  this->com->fprintf(stdout, "\n");
+ 
+  for (long int iEqn=0; iEqn<nSnapsTest; ++iEqn) {
+    for (long int iVar=0; iVar<nVars; ++iVar) {
+      this->com->fprintf(stdout, "lhsTest[%d,%d]=%e ",iEqn,iVar,lhsTest[iEqn + iVar*nSnapsTest]); 
+    }
+    this->com->fprintf(stdout, "\n");
+  }
+  this->com->fprintf(stdout, "\n");*/ 
+
+  // problem set up
+  long int printFlag = 0; // zero for silent
+  long int scaleFlag = 1; //zero for no scaling
+  long int status = -1;   // success/failure flag
+  double errorMag = -1; // norm of least squares error
+  double relTol = 1e-16;
+  double maxSizeRatio = 1.0;
+  double maxItsRatio = 1.0;
+  double dtime = 0.0;
+
+  F77NAME(spnnls)(lhs, &nEqns, &nEqns, &nVars, rhs, sol, &relTol, &errorMag, dualSol,
+                  work1, work2, index, &status, &printFlag, &scaleFlag, &maxSizeRatio, &maxItsRatio, &dtime);
+
+  switch (status) {
+    case (1):
+      com->fprintf(stdout, "... success: NNLS converged\n");
+      break;
+    case (2):
+      fprintf(stderr, "*** Error: Illegal dimensions passed to NNLS! (CPU %d, nEqns=%d, nVars=%d)\n", thisCPU, nEqns, nVars);
+      sleep(1);
+      exit(-1);
+      break;
+    case (3):
+      fprintf(stderr, "*** Warning: NNLS hit max iterations! (CPU %d, errorMag= %e\n", thisCPU, errorMag);
+      break;
+    default:
+      fprintf(stderr, "*** Error: Unexpected status reported by NNLS (CPU %d)\n", thisCPU);
+      sleep(1); 
+      exit(-1);
+  }
+
+  // find min error
+  for (long int iVar=0; iVar<nVars; ++iVar) {
+    sol[iVar] += 1.0;
+    //this->com->fprintf(stdout, "... sol[%d]=%e\n",iVar,sol[iVar]); 
+  }
+
+  // product = lhsTest * sol ...  ( error = product - rhsTest)
+  double *product = new double[nSnapsTest];
+  for (long int iEqn=0; iEqn<nSnapsTest; ++iEqn) {
+    product[iEqn] = 0.0;
+    for (long int iVar=0; iVar<nVars; ++iVar) {
+      product[iEqn] += lhsTest[iEqn + iVar*nSnapsTest] * sol[iVar];
+    }
+  }
+ 
+  // normalize product and rhsTest to eliminate any scaling issues (which won't affect online performance) 
+  double productNorm = 0.0;
+  double rhsNorm = 0.0;
+  for (long int iEqn=0; iEqn<nSnapsTest; ++iEqn) {
+    productNorm += pow(product[iEqn],2);
+    rhsNorm += pow(rhsTest[iEqn],2);
+  }
+  productNorm = pow(productNorm,0.5);
+  rhsNorm = pow(rhsNorm,0.5);
+
+  double* error = new double[nTotCpus];
+  int* nonzeros = new int[nTotCpus];
+  double* nnlsTimes = new double[nTotCpus];
+  double* lambdas = new double[nTotCpus];
+  for (int iCPU = 0; iCPU<nTotCpus; ++iCPU) {
+    error[iCPU] = 0.0;
+    nonzeros[iCPU] = 0.0;
+    nnlsTimes[iCPU] = 0.0;
+    lambdas[iCPU] = 0.0;
+  }
+
+  nnlsTimes[thisCPU] = this->timer->getTime() - nnlsTime;
+  lambdas[thisCPU] = pow(10,lambda);
+
+  for (long int iVar=0; iVar<nVars; ++iVar)
+    nonzeros[thisCPU] += (sol[iVar]==1.0) ? 0 : 1;
+
+  for (long int iEqn=0; iEqn<nSnapsTest; ++iEqn)
+    error[thisCPU] += pow((product[iEqn]/productNorm) - (rhsTest[iEqn]/rhsNorm),2);
+  error[thisCPU] = pow(error[thisCPU],0.5);
+
+  com->globalSum(nTotCpus, error);  
+  com->globalSum(nTotCpus, nonzeros);
+  com->globalSum(nTotCpus, nnlsTimes);
+  com->globalSum(nTotCpus, lambdas);
+  com->barrier();
+
+  for (int iCPU = 0; iCPU<nTotCpus; ++iCPU) {
+    this->com->fprintf(stdout, "... CPU %d | lambda: %e | nonzero: %d/%d | error: %e | time %e\n", 
+                              iCPU, lambdas[iCPU], nonzeros[iCPU], nVars, error[iCPU], nnlsTimes[iCPU]);
+  }
+
+  int minValCPU = 0;
+  for (int iCPU = 1; iCPU < nTotCpus; iCPU++){
+    if(error[iCPU] < error[minValCPU]) minValCPU = iCPU;              
+  }
+  double minError = error[minValCPU];
+  this->com->fprintf(stdout, "... CPU %d has minimum error %e\n", minValCPU, minError);
+
+  // form metric
+  com->broadcast(nVars,sol,minValCPU);
+
+  DistSVec<double,dim> metric(this->domain.getNodeDistInfo());
+  metric = 0.0;
+  for (int iSampleNode=0; iSampleNode<nSampleNodes; ++iSampleNode) {
+    int currentSampleNode = globalSampleNodes[iSampleNode];
+    int locSub = globalNodeToLocSubDomainsMap.find(currentSampleNode)->second;
+    int locNode = globalNodeToLocalNodesMap.find(currentSampleNode)->second;
+    int currentCpu = globalNodeToCpuMap.find(currentSampleNode)->second;
+    if (thisCPU == currentCpu) {
+      SubDomainData<dim> locMetric = metric.subData(locSub);
+      for (int iDim=0; iDim<dim; ++iDim) {
+        locMetric[locNode][iDim] = sol[dim*iSampleNode + iDim];
+      }
+    }
+  }
+
+  // store metric
+  com->fprintf(stdout,"\n ... Writing NNLS approximated metric ...\n");
+
+  char *filePath = NULL;
+  this->determinePath(this->approxMetricNonlinearName, iCluster, filePath);
+
+  std::string header("Vector ApproxMetric under load for FluidNodesRed");
+
+  FILE* myOutFile = NULL;
+  if (thisCPU==0) {
+    myOutFile = fopen(filePath, "wt");
+    fprintf(myOutFile,"%s\n", header.c_str());
+    fprintf(myOutFile,"%d\n", nReducedNodes);
+  }
+
+  outputReducedSVec(metric, myOutFile, 0.0);
+
+  if (thisCPU==0) fclose(myOutFile);
+
+  if (filePath) {
+    delete [] filePath;
+    filePath = NULL;
+  }
+
+  // clean up
+  delete [] lhs;
+  delete [] lhsTest;
+  delete [] rhs;
+  delete [] rhsTest;
+  delete [] sol;
+  delete [] product;
+  delete [] dualSol;
+  delete [] work1;
+  delete [] work2;
+  delete [] index;
+  delete [] error;
+  delete [] nonzeros;
+  delete [] nnlsTimes;
+  delete [] lambdas;
+}
+
+//----------------------------------------------
+
+template<int dim>
+void GappyPreprocessing<dim>::computeApproxMetricNonlinearCVX(int iCluster) {
 
   if (strcmp(this->ioData->input.matlab,"")==0) {
     this->com->fprintf(stderr, "*** Error: no MATLAB executable provided\n");
@@ -734,7 +1110,7 @@ void GappyPreprocessing<dim>::computeApproxMetricNonlinearCVX(int iCluster) {
     char *sampledNodesPath = NULL;
     this->determinePath(this->sampledNodesName, iCluster, sampledNodesPath);
     char *metricPath = NULL;
-    this->determinePath(this->approxMetricNonlinearCVXName, iCluster, metricPath);
+    this->determinePath(this->approxMetricNonlinearName, iCluster, metricPath);
 
     // call matlab
     FILE *shell;
@@ -1055,14 +1431,23 @@ void GappyPreprocessing<dim>::outputApproxMetricLowRankFactorReducedCoords(const
 
   std::string header("Vector ApproxMetric under load for FluidNodesRed");
 
+  FILE* myOutFile = NULL;
+  if (thisCPU==0) {
+    myOutFile = fopen(filePath, "wt");
+    fprintf(myOutFile,"%s\n", header.c_str());
+    fprintf(myOutFile,"%d\n", nReducedNodes);
+  }
+
   int percentComplete = 0;
   for (int iVec = 0; iVec < this->lowRankFactor->numVectors(); ++iVec) {  // # rows in A and B
-    outputReducedSVec((*this->lowRankFactor)[iVec],filePath,double(iVec),iVec,this->lowRankFactor->numVectors(),header.c_str());
+    outputReducedSVec((*this->lowRankFactor)[iVec],myOutFile,double(iVec));
     if ((iVec+1)%((this->lowRankFactor->numVectors()/4)+1)==0) {
         percentComplete += 25;
         com->fprintf(stdout," ... %3d%% complete ...\n", percentComplete);
     }
   }
+
+  if (thisCPU==0) fclose(myOutFile);
 
   if (filePath) {
     delete [] filePath;
@@ -1368,23 +1753,24 @@ void GappyPreprocessing<dim>::setUpGreedy(int iCluster) {
 
   double sampleNodeFactor =  gappyIO->sampledNodesFactor;
 
-  if (sampleNodeFactor == -1.0) {
-    sampleNodeFactor = 2.0;
-  } else if ((sampleNodeFactor<1.0) &&
-             (gappyIO->useUnionOfSampledNodes==GappyConstructionData::UNION_FALSE)) {
-    com->fprintf(stderr,"*** Warning: Sampled Node Factor must be greater than or equal to 1\n");
-    sampleNodeFactor = 1.0;
-  }
-
-  nSampleNodes = static_cast<int>(ceil(double(nPodMax * sampleNodeFactor)/double(dim)));  // this will give interpolation or the smallest possible least squares
-
-  if (gappyIO->maxSampledNodes <= 0) {
-    com->fprintf(stderr,"*** Error: Maximum number of sampled nodes must be specified (and greater than zero)\n");
+  if (sampleNodeFactor==-1.0 && gappyIO->maxSampledNodes<=0) {
+    com->fprintf(stderr,"*** Error: at least one of sampleNodeFactor and maxSampledNodes must be specified\n");
     com->barrier();
     exit(-1);
   }
 
-  nSampleNodes =  min(gappyIO->maxSampledNodes,max(nSampleNodes,gappyIO->minSampledNodes));
+  nSampleNodes = 0;
+  if (sampleNodeFactor != -1.0) {
+    if ((sampleNodeFactor<1.0) &&
+             (gappyIO->useUnionOfSampledNodes==GappyConstructionData::UNION_FALSE) &&
+             (gappyIO->doPreproGNAT == GappyConstructionData::DO_PREPRO_GNAT_TRUE)) {
+      com->fprintf(stderr,"*** Warning: Sampled Node Factor must be greater than or equal to 1\n");
+      sampleNodeFactor = 1.0;
+      nSampleNodes = static_cast<int>(ceil(double(nPodMax * sampleNodeFactor)/double(dim)));  // this will give interpolation or the smallest possible least squares
+    }
+  }
+
+  nSampleNodes = (nSampleNodes <= 0) ? gappyIO->maxSampledNodes : min(gappyIO->maxSampledNodes,max(nSampleNodes,gappyIO->minSampledNodes));
 
   if (nSampleNodes * dim < dimGreedy) {  
     int nSampleNodesOld = nSampleNodes; 
@@ -3389,36 +3775,12 @@ void GappyPreprocessing<dim>::outputOnlineMatricesGeneral(int iCluster, int numN
       }
     
 
-      std::string catCommandString("cat ");
-      std::string rmCommandString("rm ");
-
+      FILE* myOutFile = fopen(outFilePath, "wt");
+      fprintf(myOutFile,"Vector abMatrix under load for FluidNodes\n"); // header
+      fprintf(myOutFile,"%d\n",numNodes);
+ 
       for (int iPod = 0; iPod < nPodJac; ++iPod) {  // # rows in A and B
 
-        double tmpTime = this->timer->getTime();
-
-        // name each temporary file (base file name + _step_ + step number)
-        std::string myOutFilePathString("");
-        myOutFilePathString += outFilePath;
-        myOutFilePathString += "_step_";
-        int requiredZeros = int(floor(log10(double(max(nPodJac-1,1)*10)))) - int(floor(log10(double(max(iPod,1)*10))));
-        for (int iZero=0; iZero<requiredZeros; ++iZero)
-          myOutFilePathString += "0";
-        myOutFilePathString += boost::lexical_cast<std::string>(iPod);
-        const char *myOutFilePath = myOutFilePathString.c_str();
-       
-        // add this file to the system commands (called after all temporary files are written)
-        catCommandString += myOutFilePathString;
-        catCommandString += " ";
-        rmCommandString += myOutFilePathString;
-        rmCommandString += " ";
-
-        // open and write temporary file
-        FILE* myOutFile = fopen(myOutFilePath, "wt");
-  
-        if (iPod == 0) {
-          fprintf(myOutFile,"Vector abMatrix under load for FluidNodes\n"); // header
-          fprintf(myOutFile,"%d\n",numNodes);
-        }
         fprintf(myOutFile,"%d\n", iPod); // tag
   
         for (int iNode = 0; iNode < numNodes; ++iNode) {
@@ -3475,53 +3837,10 @@ void GappyPreprocessing<dim>::outputOnlineMatricesGeneral(int iCluster, int numN
           }
         } // end iNode loop (rows)
   
-        fclose(myOutFile);
-    
-        double writeTime = this->timer->getTime()-tmpTime;
-        //fprintf(stderr,"... write time = %es\n", writeTime);
-  
       } // end iPod loop (columns)
   
-      // call cat on all the step files
-      FILE *shell;
-//      std::string catCommandString("cat ");
-//      catCommandString += outFilePath;
-//      catCommandString += "_step_* > ";
-      catCommandString += " > ";
-      catCommandString += outFilePath;
-      const char *catCommandChar = catCommandString.c_str();
-   
-      //fprintf(stdout, "\n%s\n", catCommandChar);
-      if (!(shell = popen(catCommandChar, "r"))) {
-        com->fprintf(stderr, " *** Error: attempt to use system call (cat) failed!\n");
-        sleep(1);
-        exit(-1);
-      }
-   
-      char buff[512];
-      while (fgets(buff, sizeof(buff), shell)!=NULL){
-        fprintf(stdout, "%s", buff);
-      }
-      pclose(shell);
-    
-      // delete all temporary files (serial)
-//      std::string rmCommandString("rm ");
-//      rmCommandString += outFilePath;
-//      rmCommandString += "_step_* ";
-      const char *rmCommandChar = rmCommandString.c_str();
-    
-      //com->fprintf(stdout, "\n%s\n", rmCommandChar);
-      if (!(shell = popen(rmCommandChar, "r"))) {
-        com->fprintf(stderr, " *** Error: attempt to use system call (rm) failed!\n");
-        sleep(1);
-        exit(-1);
-      }
-    
-      while (fgets(buff, sizeof(buff), shell)!=NULL){
-        fprintf(stdout, "%s", buff);
-      }
-      pclose(shell);
-     
+      fclose(myOutFile);
+
     } // end iPodBasis
   
     
@@ -3559,8 +3878,17 @@ void GappyPreprocessing<dim>::outputLocalReferenceStateReduced(int iCluster) {
   // read in full reference state
   this->readClusteredReferenceState(iCluster,"state");
 
+  FILE* myOutFile = NULL;
+  if (thisCPU==0) {
+    myOutFile = fopen(sampledRefStatePath, "wt");
+    fprintf(myOutFile,"%s\n", header.c_str());
+    fprintf(myOutFile,"%d\n", nReducedNodes);
+  }
+
   // output
-  outputReducedSVec(*(this->Uref),sampledRefStatePath,this->Uref->norm(),0,1,header.c_str());
+  outputReducedSVec(*(this->Uref),myOutFile,this->Uref->norm());
+
+  if (thisCPU==0) fclose(myOutFile);
 
   if (this->Uref) {
     delete this->Uref;
@@ -3614,7 +3942,17 @@ void GappyPreprocessing<dim>::outputInitialConditionReduced() {
 
     // output
     std::string header("Vector InitialCondition under load for FluidNodesRed");
-    outputReducedSVec(*initialCondition,sampledSolutionPath,initialCondition->norm(),0,1,header.c_str());
+    FILE* myOutFile = NULL;
+    if (thisCPU==0) {
+      myOutFile = fopen(sampledSolutionPath, "wt");
+      fprintf(myOutFile,"%s\n", header.c_str());
+      fprintf(myOutFile,"%d\n", nReducedNodes);
+    }
+
+    outputReducedSVec(*initialCondition,myOutFile,initialCondition->norm());
+
+    if (thisCPU==0) fclose(myOutFile);
+
 
     if (initialCondition) {
       delete initialCondition;
@@ -3662,14 +4000,21 @@ void GappyPreprocessing<dim>::outputApproxSnapsReduced(int iCluster) {
   std::string header("Vector SampledApproxMertricSnaps under load for FluidNodesRed");
 
   // output
+  FILE* myOutFile = NULL;
+  if (thisCPU==0) {
+    myOutFile = fopen(sampledApproxSnapsPath, "wt");
+    fprintf(myOutFile,"%s\n", header.c_str());
+    fprintf(myOutFile,"%d\n", nReducedNodes);
+  }
+
   DistSVec<double,dim> maskedVec(domain.getNodeDistInfo());
   for (int iSnap=0; iSnap<this->snap->numVectors(); ++iSnap) {  // # rows in A and B
     maskedVec = (*this->snap)[iSnap];
     maskedVec *= mask;
-    outputReducedSVec(maskedVec,sampledApproxSnapsPath,(*this->snap)[iSnap].norm(),
-                      iSnap,this->snap->numVectors(),header.c_str());
+    outputReducedSVec(maskedVec,myOutFile,(*this->snap)[iSnap].norm());
   }
 
+  if (thisCPU==0) fclose(myOutFile);
   if (sampledApproxSnapsPath) {
     delete [] sampledApproxSnapsPath;
     sampledApproxSnapsPath = NULL;
@@ -3698,14 +4043,20 @@ void GappyPreprocessing<dim>::outputClusterCentersReduced() {
     this->determinePath(this->sampledCentersName, -1, sampledCentersPath);
   }
 
-
   std::string header("Vector ClusterCenters under load for FluidNodesRed");
+  FILE* myOutFile = NULL;
+  if (thisCPU==0) {
+    myOutFile = fopen(sampledCentersPath, "wt");
+    fprintf(myOutFile,"%s\n", header.c_str());
+    fprintf(myOutFile,"%d\n", nReducedNodes);
+  }
 
   // output
   for (int iCluster=0; iCluster < this->nClusters; ++iCluster) {  // # rows in A and B
-    outputReducedSVec((*this->clusterCenters)[iCluster],sampledCentersPath,(*this->clusterCenters)[iCluster].norm(),iCluster,this->nClusters,header.c_str());
+    outputReducedSVec((*this->clusterCenters)[iCluster],myOutFile,(*this->clusterCenters)[iCluster].norm());
   }
 
+  if (thisCPU==0) fclose(myOutFile);
   if (sampledCentersPath) {
     delete [] sampledCentersPath;
     sampledCentersPath = NULL;
@@ -3745,16 +4096,23 @@ void GappyPreprocessing<dim>::outputLocalStateBasisReduced(int iCluster) {
     }
   
     std::string header("Vector PodState under load for FluidNodesRed");
+    FILE* myOutFile = NULL;
+    if (thisCPU==0) {
+      myOutFile = fopen(filePath, "wt");
+      fprintf(myOutFile,"%s\n", header.c_str());
+      fprintf(myOutFile,"%d\n", nReducedNodes);
+    }
 
     int percentComplete = 0;
     for (int iPod = 0; iPod < this->basis->numVectors(); ++iPod) {  // # rows in A and B
-      outputReducedSVec((*(this->basis))[iPod],filePath,double(iPod),iPod,this->basis->numVectors(), header.c_str());
+      outputReducedSVec((*(this->basis))[iPod],myOutFile,double(iPod));
       if ((iPod+1)%((this->basis->numVectors()/4)+1)==0) {
           percentComplete += 25;
           com->fprintf(stdout," ... %3d%% complete ...\n", percentComplete);
       }
     }
   
+    if (thisCPU==0) fclose(myOutFile);
     if (filePath) {
       delete [] filePath;
       filePath = NULL;
@@ -3813,15 +4171,26 @@ void GappyPreprocessing<dim>::outputMultiSolutionsReduced() {
   DistSVec<double,dim> solVec(domain.getNodeDistInfo());
   std::string header("Vector MultiSoutions under load for FluidNodesRed");
 
-  for (int iData=0; iData < nData; ++iData) {  // # rows in A and B
-    // read vector
-    _n = fscanf(inFP, "%s", solnFile);
-    com->fprintf(stderr,"     solnFile = %s\n",solnFile);
-    domain.readVectorFromFile(solnFile, 0, 0, solVec);
-    // output vector
-    outputReducedSVec(solVec,sampledMultiSolutionsPath,iData,iData,nData,header.c_str());
+  FILE* myOutFile = NULL;
+  if (thisCPU==0) {
+    myOutFile = fopen(sampledMultiSolutionsPath, "wt");
+    fprintf(myOutFile,"%s\n", header.c_str());
+    fprintf(myOutFile,"%d\n", nReducedNodes);
   }
 
+  if (this->multiUic) {
+    for (int iIC=0; iIC < this->multiUic->numVectors(); ++iIC) {
+    outputReducedSVec((*this->multiUic)[iIC],myOutFile,double(iIC));
+    }
+  } else {
+    for (int iData=0; iData < nData; ++iData) {
+      _n = fscanf(inFP, "%s", solnFile);
+      domain.readVectorFromFile(solnFile, 0, 0, solVec);
+      outputReducedSVec(solVec,myOutFile,double(iData));
+    }
+  }
+
+  if (thisCPU==0) fclose(myOutFile);
   if (sampledMultiSolutionsPath) {
     delete [] sampledMultiSolutionsPath;
     sampledMultiSolutionsPath = NULL;
@@ -3834,8 +4203,7 @@ void GappyPreprocessing<dim>::outputMultiSolutionsReduced() {
 //----------------------------------------------
 
 template<int dim>
-void GappyPreprocessing<dim>::outputReducedSVec(const DistSVec<double,dim>
-    &distSVec, char* outFilePath, double tag, int step, int nTotSteps, const char* header) {
+void GappyPreprocessing<dim>::outputReducedSVec(const DistSVec<double,dim> &distSVec, FILE* myOutFile, double tag) {
 
   double sampledOutputTime = this->timer->getTime();  
 
@@ -3863,52 +4231,7 @@ void GappyPreprocessing<dim>::outputReducedSVec(const DistSVec<double,dim>
   com->globalSumRoot(sampledDOF, sampledVec); 
   if (thisCPU != 0) delete [] sampledVec;
 
-  // clean up any temporary files that may be hanging around from a crashed simulation
-  //if (cleanTempFiles) {
-    if (step==0 && thisCPU==0) {
-      FILE *shell;
-      std::string rmCommandString("rm ");
-      rmCommandString += outFilePath;
-      rmCommandString += "_step_* ";
-      const char *rmCommandChar = rmCommandString.c_str();
-    
-      //fprintf(stdout, "\n%s\n", rmCommandChar);
-      if (!(shell = popen(rmCommandChar, "r"))) {
-        com->fprintf(stderr, " *** Error: attempt to use system call (rm) failed!\n");
-        com->barrier();
-        exit(-1);
-      }
-    
-      char buff[512];
-      while (fgets(buff, sizeof(buff), shell)!=NULL){}
-      pclose(shell);
-    }
-    com->barrier();
-  //}
-
-  // name and open each temporary file (base file name + _step_ + step number)
-  int requiredZeros = 0;
-  double tmpTime = this->timer->getTime();
-
-  if (thisCPU == 0) {
- 
-    std::string myOutFilePathString("");
-    myOutFilePathString += outFilePath;
-    if (nTotSteps>1) { // if only one step, then just write the final file directly
-      myOutFilePathString += "_step_";
-      requiredZeros = int(floor(log10(double(max(nTotSteps-1,1)*10)))) - int(floor(log10(double(max(step,1)*10))));
-      for (int iZero=0; iZero<requiredZeros; ++iZero)
-        myOutFilePathString += "0";
-      myOutFilePathString += boost::lexical_cast<std::string>(step);
-    }
-    const char *myOutFilePath = myOutFilePathString.c_str();
-
-    // write temporary file 
-    FILE* myOutFile = fopen(myOutFilePath, "wt");
-    if (step==0) {
-      fprintf(myOutFile,"%s\n", header);
-      fprintf(myOutFile,"%d\n", nReducedNodes);
-    }
+  if (thisCPU == 0) { 
     fprintf(myOutFile,"%e\n", tag);
     for (int iNode = 0; iNode < nReducedNodes; ++iNode) {
       if (dim==5) {
@@ -3942,59 +4265,7 @@ void GappyPreprocessing<dim>::outputReducedSVec(const DistSVec<double,dim>
         fprintf(myOutFile,"\n");
       }
     }
-    fclose(myOutFile);
     delete [] sampledVec;
-  }
-
-  double writeTime = this->timer->getTime()-tmpTime;
-  //com->fprintf(stderr,"... write time = %es\n", writeTime);
-
-  // create the final file after the final step
-  if ((step==(nTotSteps-1)) && nTotSteps>1) {
-    // call cat on step files
-    if (thisCPU == 0) {
-      FILE *shell;
-      std::string catCommandString("cat ");
-      catCommandString += outFilePath;
-      catCommandString += "_step_* > ";
-      catCommandString += outFilePath;
-      const char *catCommandChar = catCommandString.c_str();
-
-      //fprintf(stdout, "\n%s\n", catCommandChar);
-      if (!(shell = popen(catCommandChar, "r"))) {
-        com->fprintf(stderr, " *** Error: attempt to use system call (cat) failed!\n");
-        sleep(1);
-        exit(-1);
-      }
-
-      char buff[512];
-      while (fgets(buff, sizeof(buff), shell)!=NULL){
-        com->fprintf(stdout, "%s", buff);
-      }
-      pclose(shell);
-    }
-
-    // delete all temporary files (serial)
-    if (thisCPU == 0) {
-      FILE *shell;
-      std::string rmCommandString("rm ");
-      rmCommandString += outFilePath;
-      rmCommandString += "_step_* ";
-      const char *rmCommandChar = rmCommandString.c_str();
-    
-      //fprintf(stdout, "\n%s\n", rmCommandChar);
-      if (!(shell = popen(rmCommandChar, "r"))) {
-        com->fprintf(stderr, " *** Error: attempt to use system call (rm) failed!\n");
-        sleep(1);
-        exit(-1);
-      }
-    
-      char buff[512];
-      while (fgets(buff, sizeof(buff), shell)!=NULL){
-        fprintf(stdout, "%s", buff);
-      }
-      pclose(shell);
-    }
   }
 
   com->barrier();
@@ -4006,6 +4277,56 @@ void GappyPreprocessing<dim>::outputReducedSVec(const DistSVec<double,dim>
  
 }
 
+//----------------------------------------------
+
+template<int dim>
+void GappyPreprocessing<dim>::outputReduced3DSVec(const DistSVec<double,3> &distSVec, FILE* myOutFile, double tag) {
+
+  double sampledOutputTime = this->timer->getTime();
+
+  // communicate full vector to CPU0
+  double* sampledVec;
+  int sampledDOF = nReducedNodes*3;
+  sampledVec = new double[sampledDOF];
+  for (int iDOF = 0; iDOF < sampledDOF; ++iDOF) {
+    sampledVec[iDOF] =  0.0;
+  }
+
+  for (int iNode = 0; iNode < nReducedNodes; ++iNode) {
+    int currentGlobalNode = globalNodes[0][iNode];
+    int iCpu = globalNodeToCpuMap.find(currentGlobalNode)->second;
+    if (thisCPU == iCpu){
+      int iSubDomain = globalNodeToLocSubDomainsMap.find(currentGlobalNode)->second;
+      int iLocalNode = globalNodeToLocalNodesMap.find(currentGlobalNode)->second;
+      SubDomainData<3> locValue = distSVec.subData(iSubDomain);
+      for (int iDim = 0; iDim < 3; ++iDim) {
+        sampledVec[iNode*3 + iDim] = locValue[iLocalNode][iDim];
+      }
+    }
+  }
+
+  com->globalSumRoot(sampledDOF, sampledVec); 
+  if (thisCPU != 0) delete [] sampledVec;
+
+  if (thisCPU == 0) { 
+    fprintf(myOutFile,"%e\n", tag);
+    for (int iNode = 0; iNode < nReducedNodes; ++iNode) {
+        fprintf(myOutFile,"%8.15e %8.15e %8.15e\n",
+            sampledVec[iNode*3],
+            sampledVec[iNode*3 + 1],
+            sampledVec[iNode*3 + 2]);
+    }
+    delete [] sampledVec;
+  }
+
+  com->barrier();
+  if (surfaceMeshConstruction) {
+    this->timer->addSurfaceOutputTime(sampledOutputTime); 
+  } else {     
+    this->timer->addSampledOutputTime(sampledOutputTime);
+  }
+ 
+}
 //----------------------------------------------
 
 template<int dim>
@@ -4049,9 +4370,74 @@ void GappyPreprocessing<dim>::outputWallDistanceReduced() {
 //----------------------------------------------
 
 template<int dim>
+void GappyPreprocessing<dim>::outputDisplacementReduced() {
+  //INPUTS
+  // ioData, nReducedNodes, domain
+  // needed by outputReducedSVec: globalNodes, globalNodeToCpuMap,
+  // globalNodeToLocSubDomainsMap, globalNodeToLocalNodesMap 
+
+  if (strcmp(ioData->input.displacements,"")!=0) {
+
+    com->fprintf(stdout," ... Writing volume deformation vector in sample mesh coordinates ...\n");
+  
+    char *sampledDisplacementPath = NULL;
+    if (surfaceMeshConstruction) {
+      this->determinePath(this->surfaceDisplacementName, -1, sampledDisplacementPath);
+    } else {
+      this->determinePath(this->sampledDisplacementName, -1, sampledDisplacementPath);
+    }
+  
+    // read in initial condition
+
+    char *dispFile = new char[strlen(ioData->input.prefix) + strlen(ioData->input.displacements) + 1];
+    sprintf(dispFile, "%s%s", ioData->input.prefix, ioData->input.displacements);
+    
+    DistSVec<double,3> *displacement = new DistSVec<double,3>(domain.getNodeDistInfo());
+
+    double tmp;
+    bool status = domain.readVectorFromFile(dispFile, 0, &tmp, *displacement);
+
+    if (!status) {
+      com->fprintf(stderr, "*** Error: unable to read vector from file %s\n", dispFile);
+      com->barrier();
+      exit(-1);
+    }
+
+    delete [] dispFile;
+
+    // output
+    std::string header("Vector InitialDisplacement under load for FluidNodesRed");
+    FILE* myOutFile = NULL;
+    if (thisCPU==0) {
+      myOutFile = fopen(sampledDisplacementPath, "wt");
+      fprintf(myOutFile,"%s\n", header.c_str());
+      fprintf(myOutFile,"%d\n", nReducedNodes);
+    }
+
+    outputReduced3DSVec(*displacement,myOutFile,displacement->norm());
+
+    if (thisCPU==0) fclose(myOutFile);
+
+    if (displacement) {
+      delete displacement;
+      displacement = NULL;
+    }
+
+    if (sampledDisplacementPath) {
+      delete [] sampledDisplacementPath;
+      sampledDisplacementPath = NULL;
+    }
+
+  }
+
+}
+
+
+//----------------------------------------------
+
+template<int dim>
 void GappyPreprocessing<dim>::outputReducedVec(const DistVec<double> &distVec, FILE* outFile , int iVector) {
 
-// TODO
   com->fprintf(outFile,"%d\n", iVector);
 
   if (gappyIO->useOldReducedSVecFunction) {

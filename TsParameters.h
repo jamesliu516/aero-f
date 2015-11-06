@@ -32,6 +32,7 @@ class TsParameters {
   ErrorHandler* errorHandler;
 
   FILE *cfl_output;
+  bool nonlinearRomPostpro;
 
 public:
 

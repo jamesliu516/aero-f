@@ -27,6 +27,16 @@ ImplicitGnatTsDesc<dim>::~ImplicitGnatTsDesc() {}
 template<int dim>
 void ImplicitGnatTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &breakloop, DistSVec<double, dim> &U, const int& totalTimeSteps)  {
 
+  // homotopy on reduced-coordinates for spatial-only problems
+  double invSqrtHomotopyStep = 0.0;
+  Vec<double> dUrom(this->dUromTimeIt);
+  if (this->spatialOnlyWithHomotopy) {
+    double homotopyStep = min(this->homotopyStepInitial*pow(this->homotopyStepGrowthRate,totalTimeSteps),this->homotopyStepMax);
+    this->com->fprintf(stdout, " ... homotopy step %e\n", homotopyStep);
+    invSqrtHomotopyStep = pow(homotopyStep,-0.5);
+    dUrom *= invSqrtHomotopyStep;
+  }
+
   // Form A * of and distribute
 
   double t0 = this->timer->getTime();
@@ -37,7 +47,12 @@ void ImplicitGnatTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool
     const int colOffset = globalColIdx * leastSquaresSolver.equationCount();
     for (int iRow = 0; iRow < leastSquaresSolver.localRows(); ++iRow) {
       const int globalRowIdx = leastSquaresSolver.globalRowIdx(iRow);
-      leastSquaresSolver.matrixEntry(iRow, iCol) = this->jactmp[globalRowIdx + colOffset];
+      int homotopyRowIdx = globalRowIdx - nPodJac;
+      if (this->spatialOnlyWithHomotopy && (homotopyRowIdx >= 0)) {
+        leastSquaresSolver.matrixEntry(iRow, iCol) = (globalColIdx==homotopyRowIdx) ? invSqrtHomotopyStep : 0.0;
+      } else {
+        leastSquaresSolver.matrixEntry(iRow, iCol) = this->jactmp[globalRowIdx + colOffset];
+      }
     }
   }
 
@@ -48,8 +63,29 @@ void ImplicitGnatTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool
 
   for (int iRow = 0; iRow < leastSquaresSolver.localRows(); ++iRow) {
     const int globalRowIdx = leastSquaresSolver.globalRowIdx(iRow);
-    leastSquaresSolver.rhsEntry(iRow) = -this->column[globalRowIdx];
+    if (this->spatialOnlyWithHomotopy && (globalRowIdx >= nPodJac)) {
+      leastSquaresSolver.rhsEntry(iRow) = -dUrom[globalRowIdx-nPodJac];
+    } else {
+      leastSquaresSolver.rhsEntry(iRow) = -this->column[globalRowIdx];
+    }
   }
+
+  //this->com->fprintf(stdout, " ... debugging: Matrix = \n", res);
+  //for (int iRow = 0; iRow < leastSquaresSolver.localRows(); ++iRow) {
+  //  this->com->fprintf(stdout, "%d: ",iRow);
+  //  for (int iCol = 0; iCol < leastSquaresSolver.localCols(); ++iCol) {
+  //      this->com->fprintf(stdout, "%e ", leastSquaresSolver.matrixEntry(iRow, iCol));
+  //  }
+  //  this->com->fprintf(stdout, "\n");
+  //}
+
+  //this->com->fprintf(stdout, "\n\n ... debugging: RHS = \n", res);
+  //for (int iRow = 0; iRow < leastSquaresSolver.localRows(); ++iRow) {
+  //  this->com->fprintf(stdout, "%d: ",iRow);
+  //  this->com->fprintf(stdout, "%e ", leastSquaresSolver.rhsEntry(iRow));
+  //  this->com->fprintf(stdout, "\n");
+  //}
+
   this->timer->addLinearSystemFormTime(t0);
 
   // Solve least squares problem
@@ -69,6 +105,9 @@ void ImplicitGnatTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool
   this->com->globalSum(this->nPod, this->dUromNewtonIt.data());
   res = this->dUromNewtonIt.norm();
 
+  this->com->fprintf(stdout, " ... debugging: newton step size %e\n", res);
+
+
   // Convergence criterion
   if (it == 0) {
     this->res0 = res;
@@ -87,7 +126,11 @@ void ImplicitGnatTsDesc<dim>::setProblemSize(DistSVec<double, dim> &U) {
  
   nPodJac = this->rom->getJacMat()->numVectors();
 
-  leastSquaresSolver.problemSizeIs(nPodJac, this->nPod);
+  if (this->spatialOnlyWithHomotopy) {
+    leastSquaresSolver.problemSizeIs(nPodJac + this->nPod, this->nPod);
+  } else {
+    leastSquaresSolver.problemSizeIs(nPodJac, this->nPod);
+  }
 
   if (this->jactmp) delete [] this->jactmp;
   if (this->column) delete [] this->column;

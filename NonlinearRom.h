@@ -51,6 +51,7 @@ class NonlinearRom {
   char* basisBasisProductsName;     // for exact updates (exactUpdateInfoPrefix.exactUpdates_F)
   char* basisUrefProductsName;      // for exact updates (exactUpdateInfoPrefix.exactUpdates_e)
   char* basisUicProductsName;       // for exact updates (exactUpdateInfoPrefix.exactUpdates_d)
+  char* basisMultiUicProductsName;
   char* urefUicProductsName;        // for exact updates (exactUpdateInfoPrefix.exactUpdates_c)
   char* urefMultiUicProductsName;
   char* urefUrefProductsName;       // for exact updates (exactUpdateInfoPrefix.exactUpdates_g)   
@@ -64,7 +65,7 @@ class NonlinearRom {
   char* stateDistanceComparisonInfoExactUpdatesMultiICName;
   char* projErrorName;
   char* refStateName;
-  char* basisMultiUicProductsName;
+  char* multiUicMultiUicProductsName;
 
   // Krylov snaps
   char* krylovSnapsName;
@@ -114,6 +115,7 @@ class NonlinearRom {
   char* sampledMultiSolutionsName;
   char* sampledRefStateName;
   char* sampledWallDistName;
+  char* sampledDisplacementName;
   char* gappyJacActionName;
   char* gappyResidualName;
   char* approxMetricStateLowRankName;
@@ -121,7 +123,7 @@ class NonlinearRom {
   char* approxMetricStateLowRankFullCoordsName;
   char* approxMetricNonlinearLowRankFullCoordsName;
   char* approxMetricStateLowRankSurfaceCoordsName;
-  char* approxMetricNonlinearCVXName;
+  char* approxMetricNonlinearName;
   char* correlationMatrixName;
   char* sampledApproxMetricNonlinearSnapsName;
 
@@ -132,6 +134,7 @@ class NonlinearRom {
   char* surfaceSolutionName;
   char* surfaceMultiSolutionsName;
   char* surfaceWallDistName;
+  char* surfaceDisplacementName;
   char* surfaceMeshName;
 
   // ROM database data
@@ -161,8 +164,11 @@ class NonlinearRom {
   std::vector<std::vector<std::vector<std::vector<double> > > > basisBasisProducts;  // [iCluster][pCluster][:][:]
   std::vector<std::vector<std::vector<double> > > basisUrefProducts;  // [Cluster_Basis][Cluster_Uref][:]
   std::vector<std::vector<double> > basisUicProducts;  // [iCluster][1:nPod] only precomputed if Uic specified
+  std::vector<std::vector<std::vector<double> > > basisMultiUicProducts; // [iCluster][Uj][1:nPod]
   std::vector<double> urefUicProducts; // [iCluster] only precomputed if Uic specified
+  std::vector<std::vector<double> > urefMultiUicProducts; // [iCluster][Uj]
   std::vector<std::vector<double> > urefUrefProducts; //[iCluster][jCluster] symmetric (lower triangular)
+  std::vector<std::vector<double> > multiUicMultiUicProducts; //[Ui][Uj] symmetric (lower triangular)
   std::vector<std::vector<double> > urefComponentwiseSums; //[iCluster][1:dim]
   std::vector<std::vector<std::vector<double> > > basisComponentwiseSums;  // [iCluster][iVec][1:dim]
   std::vector<double> exactUpdatesAlpha;  // [jVec]
@@ -179,6 +185,8 @@ class NonlinearRom {
   // 1: common to all GNAT update methods (no updates, exact updates, approx updates)
   bool specifiedIC;
   bool interpolatedMultiIC;
+  VecSet<DistSVec<double, dim> >* multiUic;
+
   SVec<double, dim>* uniformIC;  // value of uniform initial condition at node 0 (should be representative)
   std::vector<std::vector<double> > centerNorms; // note: actually norm squared
   std::vector<std::vector<std::vector<std::vector<double> > > > stateBasisCentersDifProduct;  //[iCluster][mCenter][pCenter][:]
@@ -189,6 +197,7 @@ class NonlinearRom {
   void checkInitialConditionScenario();
   // 2: unique to exact updates
   std::vector<std::vector<double> > initialConditionCentersDifProduct; 
+  std::vector<std::vector<std::vector<double> > > multiUicCentersDifProduct;
   std::vector<std::vector<std::vector<double> > > refStateCentersDifProduct;
   // 3: unique to approximate updates
   double ***hForFastDistComp;
@@ -287,11 +296,15 @@ class NonlinearRom {
   VecSet< DistSVec<double, dim> >* basis;
   VecSet< DistSVec<double, dim> >* metric;
 
+  std::vector<double> interpWeightsForMultiIC;
+
   // When duplicateSnaps is set to true the clustered snapshots are written to the file system, which effectively
   // doubles the required storage.  When false, only a small text file is written.
   bool duplicateSnaps;
   bool euclideanDistances;
   bool incrementalStateSnaps;
+
+  bool jacActionSnapsFileNameSpecified;
 
   // online selection of closest cluster center (calls either closestCenterFull or closestCenterFast)
   void closestCenter(DistSVec<double, dim> &, int* index1=NULL);
@@ -353,7 +366,7 @@ class NonlinearRom {
   VecSet<DistSVec<double,dim> >* getJacMat() {if (numResJacMat==2) { return jacMat; } else { return resMat;} }
   const DistInfo& getRestrictedDistInfo () const {return restrictionMapping->restrictedDistInfo();}
   RestrictionMapping<dim>* restrictMapping() { return restrictionMapping; } 
-  void formInterpolatedInitialConditionQuantities(DistSVec<double,dim> *U, std::vector<double> &weights);
+  void formInterpolatedInitialCondition(DistSVec<double,dim> *U, IoData &iod);
 
   virtual void appendVectorToBasis(DistSVec<double, dim>&, int numVec = 0) {};
 

@@ -46,6 +46,19 @@ void ImplicitCollocationTsDesc<dim>::solveNewtonSystem(const int &it, double &re
     }
   }
 
+  // homotopy on reduced-coordinates for spatial-only problems
+  if (this->spatialOnlyWithHomotopy) {
+    double homotopyStep = min(this->homotopyStepInitial*pow(this->homotopyStepGrowthRate,totalTimeSteps), this->homotopyStepMax);
+    this->com->fprintf(stdout, " ... homotopy step %e\n", homotopyStep);
+    double invHomotopyStep = 1/homotopyStep;
+    Vec<double> dUrom(this->dUromTimeIt);
+    dUrom *= invHomotopyStep;
+    rhs -= dUrom;
+    for (int iDiag = 0; iDiag < this->nPod; ++iDiag) {
+      this->jac[iDiag][iDiag] += invHomotopyStep;
+    }
+  }
+
   this->timer->addLinearSystemFormTime(t0);
 
   // Solve the normal equations

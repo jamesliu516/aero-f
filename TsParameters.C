@@ -87,6 +87,9 @@ TsParameters::TsParameters(IoData &ioData)
     }
   }
 
+  nonlinearRomPostpro = (ioData.problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_POST_
+                         || ioData.problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_POST_);
+
 }
 
 //------------------------------------------------------------------------------
@@ -106,6 +109,7 @@ TsParameters::~TsParameters()
 void TsParameters::resolveErrors()
 {
   if(cfllaw == CFLData::OLD && dt_imposed < 0) return; // for backwards compatilibity
+  if(nonlinearRomPostpro) return;
 
   if (checklinsolve && errorHandler->globalErrors[ErrorHandler::SATURATED_LS]) {
     errorHandler->com->printf(1,"Detected saturated linear solver. Reducing time-step.\n");

@@ -57,8 +57,9 @@ protected:
   DistSVec<double, dim> F;	// residual
   VecSet<DistSVec<double, dim> > AJ; // Action of Jacobian (AJ) on reduced-order basis
 
-  DistSVec<double, dim>* weightVec;     // weighting vector for least squares system
+  DistSVec<double, dim>* componentwiseScalingVec; // Intended to fix the scaling of the residual.  Gives energy interpretation to all equations.
 
+  DistSVec<double, dim>* weightVec;       // weighting vector for least squares system
   DistVec<double>* farFieldMask;          // one for far field nodes, zero otherwise
   DistVec<double>* farFieldNeighborsMask; // one for neighbors of ff nodes, zero otherwise
   DistVec<double>* wallMask;              // one for wall nodes, zero otherwise
@@ -86,8 +87,6 @@ protected:
   double rho;
   double c1;
   int maxItsLS; 
-
-  std::vector<double> interpWeightsForMultiIC;
 
   Vec<double> dUromNewtonIt;    // set to zero before each newton iteration
   Vec<double> dUromTimeIt;      // set to zero before each time iteration
@@ -132,12 +131,19 @@ protected:
   bool clusterSwitch;
   bool updatePerformed;
 
+  bool checkSolutionInNewton;
+
   DistSVec<double, dim>* Uinit;  // initial condition of the steady state simulation, 
                                  // stored to recalculate reference residual after 
                                  // cluster switch (new sampled mesh for GNAT) or after
                                  // changing the residual weighting 
 
   DistSVec<double, dim>* Uprev;  // solution at the beginning of the previous time step (needed for model II incremental bases) 
+
+  double homotopyStepInitial;  // Reduced coordinate pseudo-time-stepping for spatial-only simulations. Only implemented for normal equations.
+  double homotopyStepMax;  
+  double homotopyStepGrowthRate;
+  bool spatialOnlyWithHomotopy;
 
   void tryAllClusters(DistSVec<double, dim>&, const int totalTimeSteps, int*);
 
@@ -156,7 +162,7 @@ public:
   int solveNonLinearSystem(DistSVec<double, dim> &, const int _it);
   void rstVarImplicitRomTsDesc(IoData &);
   void checkLocalRomStatus(DistSVec<double, dim> &, const int);
-  void setInterpWeightsForMultiIC(std::vector<double> vec) {interpWeightsForMultiIC = vec;}
+  //void setInterpWeightsForMultiIC(std::vector<double> vec) {rom->interpWeightsForMultiIC = vec;}
 };
 
 //------------------------------------------------------------------------------

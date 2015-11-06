@@ -346,6 +346,20 @@ double Timer::addStructUpdTime(double t0)
 }
 
 //------------------------------------------------------------------------------
+                                                                                                                             
+double Timer::addICInterpTime(double t0)
+{
+
+  double t = getTime() - t0;
+
+  counter[icInterp]++;
+  data[icInterp] += t;
+
+  return t;
+
+}
+
+//------------------------------------------------------------------------------
 
 double Timer::addFluidSolutionTime(double t0)
 {
@@ -1178,9 +1192,13 @@ void Timer::print(Timer *str, FILE *fp)
 	       counter[meshMetrics]);
   if (ioData->problem.alltype == ProblemData::_UNSTEADY_LINEARIZED_AEROELASTIC_)  {
     com->fprintf(fp, "  Structural Update           : %10.2f %10.2f %10.2f %9d\n",
-               tmin[structUpd], tmax[structUpd], tavg[structUpd],
-               counter[structUpd]);
+               tmin[structUpd], tmax[structUpd], tavg[structUpd], counter[structUpd]);
   }
+  if (ioData->input.multiSolutionsParams[0] != 0)  {
+    com->fprintf(fp, "  Interpolated IC             : %10.2f %10.2f %10.2f %9d\n",
+               tmin[icInterp], tmax[icInterp], tavg[icInterp], counter[icInterp]);
+  }
+
   if(ioData->problem.framework == ProblemData::EMBEDDED || ioData->problem.framework == ProblemData::EMBEDDEDALE) {
     if (ioData->eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY) {
       if (ioData->eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||

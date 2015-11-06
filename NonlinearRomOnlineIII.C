@@ -17,9 +17,12 @@ extern "C"      {
 }
 
 template<int dim> 
-NonlinearRomOnlineIII<dim>::NonlinearRomOnlineIII(Communicator* _com, IoData& _ioData, Domain& _domain)  : 
+NonlinearRomOnlineIII<dim>::NonlinearRomOnlineIII(Communicator* _com, IoData& _ioData, Domain& _domain, std::vector<double>* _weights)  : 
   NonlinearRom<dim>(_com, _ioData, _domain)
 { 
+
+  if (_weights)
+    this->interpWeightsForMultiIC = *_weights;
 
   // this->ioData->example, this->com->example, this->domain.example
 
@@ -47,6 +50,9 @@ NonlinearRomOnlineIII<dim>::~NonlinearRomOnlineIII()
 
 template<int dim>
 void NonlinearRomOnlineIII<dim>::readClosestCenterInfoModelIII() {
+
+
+  if (this->nClusters == 1) return;
 
   if (this->ioData->romOnline.distanceComparisons) {
     switch (this->ioData->romOnline.basisUpdates) {
@@ -88,6 +94,19 @@ void NonlinearRomOnlineIII<dim>::readClosestCenterInfoModelIII() {
 template<int dim>
 void NonlinearRomOnlineIII<dim>::readClusteredOnlineQuantities(int iCluster) {
 
+    // read in sampled state ROB
+    this->readClusteredBasis(iCluster, "sampledState");
+
+    // read in sampled krylov ROB
+
+    // read in sampled sensitivity ROB
+
+    if ((this->ioData->problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_POST_
+           || this->ioData->problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_POST_)
+           && strcmp(this->surfaceRefStateName,"")!=0) {
+      return;
+    }
+
     // read in sample nodes
     this->readClusteredSampleNodes(iCluster, "sampled");
 
@@ -100,13 +119,6 @@ void NonlinearRomOnlineIII<dim>::readClusteredOnlineQuantities(int iCluster) {
       this->readClusteredNonlinearMetric(iCluster);
     }
  
-    // read in sampled state ROB
-    this->readClusteredBasis(iCluster, "sampledState");
-
-    // read in sampled krylov ROB
-
-    // read in sampled sensitivity ROB
-
 }
 
 
@@ -761,7 +773,7 @@ void NonlinearRomOnlineIII<dim>::projectSwitchStateOntoAffineSubspace(int curren
     }
   }
 
-  this->readClusteredUpdateInfo(currentCluster, "sampledstate");
+  this->readClusteredUpdateInfo(currentCluster, "sampledState");
   U = *(this->Uref);
   for (int iVec = 0; iVec < nPodVecs; iVec++)
     U += UromCurrentROB[iVec] * (*(this->basis))[iVec];

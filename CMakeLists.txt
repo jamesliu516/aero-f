@@ -548,7 +548,11 @@ f77src/roejacwaterdissprim.f
 f77src/roeflux7.f
 f77src/torsionspring.f
 f77src/dgecp.f
-f77src/dgers.f)
+f77src/dgers.f
+f77src/diff.f
+f77src/g1.f
+f77src/h12.f
+f77src/spnnls.f)
 
 SET_TARGET_PROPERTIES(FortranLib
                       PROPERTIES

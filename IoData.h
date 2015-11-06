@@ -76,6 +76,7 @@ struct InputData {
   const char *d2wall;
   const char *perturbed;
   const char *solutions;
+  const char *referenceSolution;
   const char *multiSolutions;
   const char *multiSolutionsParams; // ROMs: path to a file listing file paths to solutions (not used) and their corresponding operating point (solutions are assumed to be in the same order as in the multiSolutions file)
   const char *parameters;  // ROMs: operating point for the current simulation (interpolates multiSolutionsParams to find an IC);
@@ -98,6 +99,7 @@ struct InputData {
 
   const char *podFile;
   const char *optimalPressureFile;
+  const char *matchStateFile;
   const char *optimalPressureDim;
   const char *stateSnapFile;
   const char *stateSnapRefSolution;
@@ -254,6 +256,7 @@ struct TransientData {
   const char *generalizedforces;
   const char *lift;
   const char *matchpressure;
+  const char *matchstate;
   const char *fluxnorm;
   const char *tavlift;
   const char *hydrostaticlift;
@@ -455,10 +458,10 @@ struct ProblemData {
                 _ROM_AEROELASTIC_ = 17, _ROM_ = 18, _FORCED_LINEARIZED_ = 19,
                 _INTERPOLATION_ = 20, _NONLINEAR_EIGENRESIDUAL_ = 21,
                 _SPARSEGRIDGEN_ = 22, _ONE_DIMENSIONAL_ = 23, _UNSTEADY_NONLINEAR_ROM_ = 24, _NONLINEAR_ROM_PREPROCESSING_ = 25,
-                _SURFACE_MESH_CONSTRUCTION_ = 26, _SAMPLE_MESH_SHAPE_CHANGE_ = 27, _NONLINEAR_ROM_POST_ = 28, _POD_CONSTRUCTION_ = 29, 
+                _SURFACE_MESH_CONSTRUCTION_ = 26, _SAMPLE_MESH_SHAPE_CHANGE_ = 27, _UNSTEADY_NONLINEAR_ROM_POST_ = 28, _POD_CONSTRUCTION_ = 29, 
                 _ROB_INNER_PRODUCT_ = 30, _AERO_ACOUSTIC_ = 31, _SHAPE_OPTIMIZATION_ = 32, _AEROELASTIC_SHAPE_OPTIMIZATION_ = 33,
                 _AEROELASTIC_ANALYSIS_ = 34, _GAM_CONSTRUCTION_ = 35, _NONLINEAR_EIGENRESIDUAL2_ = 36, _ACC_UNSTEADY_NONLINEAR_ROM_ = 37,
-                _STEADY_NONLINEAR_ROM_ = 38, _FORCED_NONLINEAR_ROM_ = 39, _ROM_SHAPE_OPTIMIZATION_ = 40} alltype;
+                _STEADY_NONLINEAR_ROM_ = 38, _FORCED_NONLINEAR_ROM_ = 39, _ROM_SHAPE_OPTIMIZATION_ = 40, _STEADY_NONLINEAR_ROM_POST_ = 41} alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
@@ -2192,9 +2195,8 @@ struct NonlinearRomFilesData {
   const char *stateDistanceComparisonInfoExactUpdatesName;
   const char *stateDistanceComparisonInfoExactUpdatesMultiICName;
   const char *basisNormalizedCenterProductsName;
-  const char *basisMultiUicProductsName;
-  const char *projErrorName;
   const char *refStateName;
+  const char *projErrorName;
 
   // Krylov snaps
   const char *krylovPrefix;
@@ -2249,6 +2251,7 @@ struct NonlinearRomFilesData {
   const char *sampledMultiSolutionsName; // multiple solutions. Can start from one, or an arbitrary linear combination.
   const char *sampledRefStateName;
   const char *sampledWallDistName;      //wallDistanceRed;
+  const char *sampledDisplacementName;  // sampled initial displacement vector
   const char *gappyJacActionName;             //jacMatrix in sampled coords; 
   const char *gappyResidualName;             //resMatrix in sampled coords;
   const char *approxMetricStateLowRankName; // approximated metric in reduced mesh coordinates
@@ -2256,10 +2259,10 @@ struct NonlinearRomFilesData {
   const char *approxMetricStateLowRankFullCoordsName; // approximated metric in full mesh coordinates
   const char *approxMetricNonlinearLowRankFullCoordsName;
   const char *approxMetricStateLowRankSurfaceCoordsName;
-  const char *approxMetricNonlinearCVXName; // ascii file
+  const char *approxMetricNonlinearName; // ascii file
   const char *correlationMatrixName;
   const char *sampledApproxMetricNonlinearSnapsName;
-  
+
   // Surface quantities
   const char *surfacePrefix;
   const char *surfaceCentersName;
@@ -2268,6 +2271,7 @@ struct NonlinearRomFilesData {
   const char *surfaceSolutionName;
   const char *surfaceMultiSolutionsName;
   const char *surfaceWallDistName;
+  const char *surfaceDisplacementName;
   const char *surfaceMeshName;
 
   NonlinearRomFilesData();
@@ -2326,7 +2330,11 @@ struct NonlinearRomOnlineData {
   enum LineSearch {LINE_SEARCH_FALSE = 0, LINE_SEARCH_BACKTRACKING = 1, LINE_SEARCH_WOLF = 2} lineSearch;
   enum LSSolver {QR = 0, NORMAL_EQUATIONS = 1, REGULARIZED_NORMAL_EQUATIONS = 2, LEVENBERG_MARQUARDT_SVD = 3, PROBABILISTIC_SVD = 4, LSMR = 5} lsSolver;
 
-  enum WeightedLeastSquares {WEIGHTED_LS_FALSE = 0, WEIGHTED_LS_RESIDUAL = 1, WEIGHTED_LS_STATE = 2, WEIGHTED_LS_CV = 3, WEIGHTED_LS_BOCOS = 4 } weightedLeastSquares;
+  enum ResidualScaling {SCALING_OFF=0, SCALING_BALANCED=1, SCALING_ENERGY=2} residualScaling;
+  double turbulenceWeight;
+  double eddyLengthScale;
+
+  enum WeightedLeastSquares {WEIGHTED_LS_FALSE = 0, WEIGHTED_LS_BOCOS = 1 } weightedLeastSquares;
   double weightingExponent;
   double ffWeight;
   double wallWeight;
@@ -2366,6 +2374,10 @@ struct NonlinearRomOnlineData {
 
   enum DistanceComparisons {DISTANCE_COMPARISONS_OFF = 0, DISTANCE_COMPARISONS_ON = 1} distanceComparisons;
   enum StoreAllClusters {STORE_ALL_CLUSTERS_FALSE = 0, STORE_ALL_CLUSTERS_TRUE = 1} storeAllClusters;
+
+  double romSpatialOnlyInitialHomotomyStep;
+  double romSpatialOnlyMaxHomotomyStep;
+  double romSpatialOnlyHomotomyStepExpGrowthRate;
 
   NonlinearRomOnlineNonStateData krylov;
   NonlinearRomOnlineNonStateData sensitivity;
@@ -2623,6 +2635,7 @@ struct GappyConstructionData {
   enum DoPreproGNAT {DO_PREPRO_GNAT_FALSE = 0, DO_PREPRO_GNAT_TRUE = 1} doPreproGNAT;
   enum DoPreproApproxMetricNonlinear {DO_PREPRO_APPROX_METRIC_NL_FALSE = 0, DO_PREPRO_APPROX_METRIC_NL_TRUE = 1} doPreproApproxMetricNonlinear;
   enum DoPreproApproxMetricNonlinearCVX {DO_PREPRO_CVX_METRIC_NL_FALSE = 0, DO_PREPRO_CVX_METRIC_NL_TRUE = 1} doPreproApproxMetricNonlinearCVX;
+  enum DoPreproApproxMetricNonlinearNNLS {DO_PREPRO_NNLS_METRIC_NL_FALSE = 0, DO_PREPRO_NNLS_METRIC_NL_TRUE = 1} doPreproApproxMetricNonlinearNNLS;
 
   int maxDimensionState;
   int minDimensionState;
@@ -2655,7 +2668,7 @@ struct GappyConstructionData {
 
   double initialCluster; // for online matrix computations (restart)
 
-  int maxClusteredSnapshotsCVX;
+  int maxClusteredSnapshotsNonlinearApproxMetric;
 
   int randMatDimension;
   int nPowerIts;

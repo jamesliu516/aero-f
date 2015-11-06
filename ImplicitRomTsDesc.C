@@ -43,27 +43,40 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
     mvp = new MatVecProdH2<dim,MatScalar,dim>(*ioData, this->varFcn, this->timeState, this->spaceOp, this->domain, this->geoState);
   }
 
+  std::vector<double>* weights = NULL;
+  if (strcmp(ioData->input.multiSolutionsParams,"")!=0) {
+    this->formInterpolationWeights(*ioData);
+    weights = &this->interpolatedICWeights; 
+  }
 
-  switch (ioData->romOnline.systemApproximation) {
-    case (NonlinearRomOnlineData::SYSTEM_APPROXIMATION_NONE):
-      rom = new NonlinearRomOnlineII<dim>(dom->getCommunicator(), _ioData, *dom);
-      systemApprox=false;
-      break;
-    case (NonlinearRomOnlineData::GNAT):
-      rom = new NonlinearRomOnlineIII<dim>(dom->getCommunicator(), _ioData, *dom);
-      systemApprox=true;
-      break;
-    case (NonlinearRomOnlineData::COLLOCATION):
-      rom = new NonlinearRomOnlineIII<dim>(dom->getCommunicator(), _ioData, *dom);
-      systemApprox=true;
-      break;
-    case (NonlinearRomOnlineData::APPROX_METRIC_NL):
-      rom = new NonlinearRomOnlineIII<dim>(dom->getCommunicator(), _ioData, *dom);
-      systemApprox=true;
-      break;
-    default:
-      this->com->fprintf(stderr, "*** Error:  Unexpected system approximation type\n");
-      exit (-1);
+  if ((ioData->problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_POST_
+           || ioData->problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_POST_)
+           && (strcmp(ioData->romDatabase.files.surfacePrefix,"")!=0 
+               || strcmp(ioData->romDatabase.files.surfaceStateBasisName,"")!=0)) {
+    rom = new NonlinearRomOnlineIII<dim>(dom->getCommunicator(), _ioData, *dom, weights);
+    systemApprox=true;
+  } else { 
+    switch (ioData->romOnline.systemApproximation) {
+      case (NonlinearRomOnlineData::SYSTEM_APPROXIMATION_NONE):
+        rom = new NonlinearRomOnlineII<dim>(dom->getCommunicator(), _ioData, *dom, weights);
+        systemApprox=false;
+        break;
+      case (NonlinearRomOnlineData::GNAT):
+        rom = new NonlinearRomOnlineIII<dim>(dom->getCommunicator(), _ioData, *dom, weights);
+        systemApprox=true;
+        break;
+      case (NonlinearRomOnlineData::COLLOCATION):
+        rom = new NonlinearRomOnlineIII<dim>(dom->getCommunicator(), _ioData, *dom, weights);
+        systemApprox=true;
+        break;
+      case (NonlinearRomOnlineData::APPROX_METRIC_NL):
+        rom = new NonlinearRomOnlineIII<dim>(dom->getCommunicator(), _ioData, *dom, weights);
+        systemApprox=true;
+        break;
+      default:
+        this->com->fprintf(stderr, "*** Error:  Unexpected system approximation type\n");
+        exit (-1);
+    }
   }
 
   currentCluster = -1;
@@ -86,11 +99,14 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
   clusterSwitch = false;
   updatePerformed = false;
 
+  componentwiseScalingVec = NULL; 
+
   if (ioData->romOnline.weightedLeastSquares!=NonlinearRomOnlineData::WEIGHTED_LS_FALSE) {
     weightVec = new DistSVec<double, dim>(this->domain->getNodeDistInfo());
   } else {
     weightVec = NULL;
   }
+
 
   interiorWeight = 1.0;
   ffWeight = this->ioData->romOnline.ffWeight;
@@ -149,6 +165,25 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
     residualsFile = NULL;
   }
 
+  checkSolutionInNewton = false;
+
+  // reduced coordinate homotopy for Spatial-Only problems
+  homotopyStepInitial = ioData->romOnline.romSpatialOnlyInitialHomotomyStep;
+  homotopyStepMax = ioData->romOnline.romSpatialOnlyMaxHomotomyStep;
+  homotopyStepGrowthRate = max(ioData->romOnline.romSpatialOnlyHomotomyStepExpGrowthRate,1.0);
+
+  if ((ioData->ts.implicit.type == ImplicitData::SPATIAL_ONLY) 
+      && (homotopyStepInitial > 0) && (homotopyStepInitial <= homotopyStepMax)) {
+    if ((ioData->romOnline.systemApproximation == NonlinearRomOnlineData::SYSTEM_APPROXIMATION_NONE) 
+        && ((ioData->romOnline.lsSolver!=NonlinearRomOnlineData::NORMAL_EQUATIONS) 
+             && (ioData->romOnline.lsSolver!=NonlinearRomOnlineData::REGULARIZED_NORMAL_EQUATIONS))) {
+      this->com->fprintf(stderr, "*** Error:  Spatial-Only ROM homotopy is currently only implemented for the normal equations\n");
+      exit (-1); 
+    }  
+    spatialOnlyWithHomotopy = true;
+  } else {
+    spatialOnlyWithHomotopy = false;
+  }
 
 }
 
@@ -162,6 +197,7 @@ ImplicitRomTsDesc<dim>::~ImplicitRomTsDesc()
 
   if (tag) delete tag;
   if (weightVec) delete weightVec;
+  if (componentwiseScalingVec) delete componentwiseScalingVec;
   if (farFieldMask) delete farFieldMask;
   if (farFieldNeighborsMask) delete farFieldNeighborsMask;
   if (wallMask) delete wallMask;
@@ -235,6 +271,12 @@ void ImplicitRomTsDesc<dim>::printRomResiduals(DistSVec<double, dim> &U)  {
 
 template<int dim>
 void ImplicitRomTsDesc<dim>::tryAllClusters(DistSVec<double, dim> &U, const int totalTimeSteps, int* bestCluster) {
+
+
+  if (rom->nClusters == 1) {
+    *bestCluster=0;
+    return;
+  }
 
   this->com->fprintf(stdout, " ... trying to reduce residual with all clusters ...\n");
 
@@ -349,7 +391,7 @@ template<int dim>
 void ImplicitRomTsDesc<dim>::loadCluster(int closestCluster, bool clusterSwitch, DistSVec<double, dim> &U) {
 
   if (clusterSwitch) {
-    deleteRestrictedQuantities(); // only defined for GNAT
+    deleteRestrictedQuantities(); 
     int prevCluster = currentCluster;
     currentCluster = closestCluster;
     rom->readClusteredOnlineQuantities(currentCluster);  // read state basis, update info, and (if applicable) gappy matrices
@@ -620,6 +662,10 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
 
   postProStep(U,totalTimeSteps);
 
+  if (totalTimeSteps == 1 && this->ioData->romOnline.residualScaling != NonlinearRomOnlineData::SCALING_OFF) {
+    computeFullResidual(it, U, true); 
+  }
+
   updateLeastSquaresWeightingVector(); //only updated at the start of Newton
 
   //if (totalTimeSteps==1) printRomResiduals(U);
@@ -632,7 +678,8 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
     computeAJ(it, U, true);	// skipped some times for Broyden
     this->timer->addAJTime(tAJ);
 
-    if (this->ioData->romOnline.weightedLeastSquares != NonlinearRomOnlineData::WEIGHTED_LS_FALSE) {
+    if ((this->ioData->romOnline.weightedLeastSquares != NonlinearRomOnlineData::WEIGHTED_LS_FALSE)
+        || (this->ioData->romOnline.residualScaling != NonlinearRomOnlineData::SCALING_OFF)) {
       computeFullResidual(it, U, true);
     }
 
@@ -673,10 +720,10 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
     U += dUfull;
     this->timer->addSolutionIncrementTime(tSol);
 
-    saveNewtonSystemVectors(totalTimeSteps);	// only implemeted for PG rom
+    saveNewtonSystemVectors(totalTimeSteps); // only implemeted for PG rom
 
-    // verify that the solution is physical
-    if (this->checkSolution(U)) {
+    // verify that the solution is physical (also calls clipping)
+    if (checkSolutionInNewton && this->checkSolution(U)) {
       if (checkFailSafe(U) && fsIt < 5) {
         this->com->fprintf(stderr, "*** Warning: Not yet implemented\n");
         //fprintf(stderr,"*** Warning: Newton solver redoing iteration %d\n", it+1);
@@ -694,7 +741,8 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
  
     breakloopNow = breakloop2(breakloop);
     if (breakloopNow) break;
-  }	// end Newton loop
+
+  } // end Newton loop
 
   if (this->ioData->romOnline.weightedLeastSquares == NonlinearRomOnlineData::WEIGHTED_LS_BOCOS) {
     computeFullResidual(it, U, false);
@@ -710,7 +758,8 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
     this->com->fprintf(stderr, " (Residual: initial=%.2e, reached=%.2e, target=%.2e)\n", res0, res, target);
   }
 
-  if (it==0 && (ioData->problem.alltype != ProblemData::_NONLINEAR_ROM_POST_)) {
+  if (it==0 && (ioData->problem.alltype != ProblemData::_STEADY_NONLINEAR_ROM_POST_) 
+     && (ioData->problem.alltype != ProblemData::_UNSTEADY_NONLINEAR_ROM_POST_)) {
     this->com->fprintf(stderr, "*** Warning: ROM converged on first iteration");
     this->com->fprintf(stderr, " (Residual: initial=%.2e, reached=%.2e, target=%.2e)\n", res0, res, target);
   }
@@ -752,6 +801,7 @@ int ImplicitRomTsDesc<dim>::solveLinearSystem(int it , Vec<double> &rhs, Vec<dou
 }
 
 //------------------------------------------------------------------------------
+
 // this function evaluates (Aw),t + F(w,x,v)
 template<int dim>
 void ImplicitRomTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> &Q, bool applyWeighting,  DistSVec<double, dim> *R, bool includeHomotopy)
@@ -767,23 +817,14 @@ void ImplicitRomTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> &
 
   this->spaceOp->applyBCsToResidual(Q, *R);  // wall BCs only
 
+  if (applyWeighting && (this->ioData->romOnline.residualScaling != NonlinearRomOnlineData::SCALING_OFF)) {
+    if (componentwiseScalingVec) delete componentwiseScalingVec;
+    componentwiseScalingVec = this->varFcn->computeScalingVec(*(this->ioData),Q,R);
+    *R *= *componentwiseScalingVec;
+  }
+
   if (applyWeighting && (this->ioData->romOnline.weightedLeastSquares != NonlinearRomOnlineData::WEIGHTED_LS_FALSE)) {
-    // weight residual
-    double weightExp = this->ioData->romOnline.weightingExponent;
-    double weightNorm = weightVec->norm();
-    weightNorm = (weightNorm<=0.0) ? 1.0 : weightNorm;
-    int numLocSub = R->numLocSub();
-#pragma omp parallel for
-    for (int iSub=0; iSub<numLocSub; ++iSub) {
-      double (*weight)[dim] = weightVec->subData(iSub);
-      double (*r)[dim] = R->subData(iSub);
-      for (int i=0; i<weightVec->subSize(iSub); ++i) {
-        for (int j=0; j<dim; ++j) {
-          //weight[i][j] = pow(abs(weight[i][j])/weightNorm, weightExp);
-          r[i][j] = r[i][j] * weight[i][j];
-        }
-      }
-    }
+    *R *= *weightVec;
   }
 
   this->timer->addResidualTime(tRes);
@@ -1113,54 +1154,36 @@ void ImplicitRomTsDesc<dim>::computeRedHessianSums(int it, DistSVec<double, dim>
 template<int dim>
 void ImplicitRomTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q, bool applyWeighting, DistSVec<double, dim> *R)  {
 
-//  DistMat<PrecScalar,dim> *_pc = dynamic_cast<DistMat<PrecScalar,dim> *>(pc);
-
-//  if (_pc) {
-      
-//      this->com->fprintf(stdout, "attempting to apply preconditioner\n");
-//      this->spaceOp->computeJacobian(*this->X, *this->A, Q, *_pc, this->timeState);
-//      this->timeState->addToJacobian(*this->A, *_pc, Q);
-//      this->spaceOp->applyBCsToJacobian(Q, *_pc);
-
-//      _pc->setup();
-
-//  } else {
   if (R==NULL) R = &F;
 
+  bool componentScaling = (applyWeighting && (this->ioData->romOnline.residualScaling != NonlinearRomOnlineData::SCALING_OFF));
+
   double t0 = this->timer->getTime();
-  mvp->evaluate(it, *this->X, *this->A, Q, *R);
+  if (componentScaling) {
+    mvp->evaluateWeighted(it, *this->X, *this->A, Q, *R, this->varFcn);
+  } else {
+    mvp->evaluate(it, *this->X, *this->A, Q, *R);
+  }
+
   this->timer->addJacEvaluateTime(t0);
 
   if (AJ.numVectors()!=nPod) AJ.resize(nPod);  
+  t0 = this->timer->getTime();
   for (int iPod = 0; iPod < nPod; iPod++) {
-    t0 = this->timer->getTime();
-    mvp->apply(pod[iPod], AJ[iPod]);
-    this->timer->addJacApplyTime(t0);
-  }
-
-  //saveNewtonSystemVectors(totalTimeSteps);
- 
-  // weight AJ
-  if (applyWeighting && (this->ioData->romOnline.weightedLeastSquares != NonlinearRomOnlineData::WEIGHTED_LS_FALSE)) {
-    double weightExp = this->ioData->romOnline.weightingExponent;
-    double weightNorm = weightVec->norm();
-    weightNorm = (weightNorm<=0.0) ? 1.0 : weightNorm;
-    for (int iVec=0; iVec<nPod; ++iVec) {
-      int numLocSub = ((AJ)[iVec]).numLocSub();
-#pragma omp parallel for
-      for (int iSub=0; iSub<numLocSub; ++iSub) {
-        double (*weight)[dim] = weightVec->subData(iSub);
-        double (*aj)[dim] = ((AJ)[iVec]).subData(iSub);
-        for (int i=0; i<weightVec->subSize(iSub); ++i) {
-          for (int j=0; j<dim; ++j)
-            aj[i][j] = aj[i][j] * weight[i][j];
-        }
-      }
+    if (componentScaling) {
+      mvp->applyWeighted(pod[iPod], AJ[iPod], this->varFcn);
+    } else {
+      mvp->apply(pod[iPod], AJ[iPod]);
     }
   }
+  this->timer->addJacApplyTime(t0);
 
-//  }
-
+  // weight AJ
+  if (applyWeighting && (this->ioData->romOnline.weightedLeastSquares != NonlinearRomOnlineData::WEIGHTED_LS_FALSE)) {
+    for (int iVec=0; iVec<nPod; ++iVec) {
+      ((AJ)[iVec]) *= *weightVec;
+    }
+  }
 
 }
 
@@ -1168,19 +1191,24 @@ void ImplicitRomTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q, bool ap
 
 template<int dim>
 void ImplicitRomTsDesc<dim>::saveNewtonSystemVectorsAction(const int totalTimeSteps) {
-	// only do for PG and Galerkin
+	// only do for modelII online and modelIII postpro
 
   int freq = ioData->output.rom.resjacfrequency;
 
-  if ((freq == 0) || (totalTimeSteps%freq == 0)) {
-    DistSVec<double, dim> AJsol(this->domain->getNodeDistInfo()); //CBM--NEED TO CHANGE NAME OF DISTVECTOR
-  	AJsol = 0.0;
-  	for (int i=0; i<this->nPod; ++i)
-  		 AJsol += this->AJ[i] * this->dUromNewtonIt[i]; 
+  if ((freq >= 1) && (totalTimeSteps%freq == 0)) {
+    if (rom->jacActionSnapsFileNameSpecified) {
+      DistSVec<double, dim> AJsol(this->domain->getNodeDistInfo()); 
+      AJsol = 0.0;
+      for (int i=0; i<this->nPod; ++i)
+         AJsol += this->AJ[i] * this->dUromNewtonIt[i]; 
 
-	  // saving 1) residual and 2) this->AJ * this->dUromNewtonIt (for GappyPOD)
-	  rom->writeClusteredBinaryVectors(currentCluster, &(this->F), &AJsol);
-	}
+      // saving 1) residual and 2) this->AJ * this->dUromNewtonIt (for GappyPOD)
+      rom->writeClusteredBinaryVectors(currentCluster, &(this->F), &AJsol);
+    } else {
+      // just residual
+      rom->writeClusteredBinaryVectors(currentCluster, &(this->F)); 
+    }
+  }
 }
 
 
@@ -1236,17 +1264,6 @@ void ImplicitRomTsDesc<dim>::updateLeastSquaresWeightingVector() {
   switch (this->ioData->romOnline.weightedLeastSquares) {
     case (NonlinearRomOnlineData::WEIGHTED_LS_FALSE):
       return;
-      break;
-    case (NonlinearRomOnlineData::WEIGHTED_LS_CV):
-#pragma omp parallel for
-      for (int iSub=0; iSub<numLocSub; ++iSub) {
-        double *cv = this->A->subData(iSub); // vector of control volumes
-        double (*weight)[dim] = weightVec->subData(iSub);
-        for (int i=0; i<this->A->subSize(iSub); ++i) {
-          for (int j=0; j<dim; ++j)
-            weight[i][j] = cv[i];
-        }
-      }
       break;
     case (NonlinearRomOnlineData::WEIGHTED_LS_BOCOS):
 #pragma omp parallel for

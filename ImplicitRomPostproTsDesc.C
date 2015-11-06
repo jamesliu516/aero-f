@@ -17,34 +17,35 @@ ImplicitRomPostproTsDesc<dim>::ImplicitRomPostproTsDesc(IoData &ioData, GeoSourc
     char *fullReducedCoordsName = new char[strlen(this->ioData->input.prefix) + 1 + strlen(this->ioData->input.reducedCoords) + 1];
     sprintf(fullReducedCoordsName, "%s%s", this->ioData->input.prefix, this->ioData->input.reducedCoords);
     reducedCoordsFile = fopen(fullReducedCoordsName, "r");
+    if (!reducedCoordsFile)  {
+      this->com->fprintf(stderr, "*** Error opening reduced coordinates file: %s\n", fullReducedCoordsName);
+      fflush(stderr);
+      exit (-1);
+    }
     delete [] fullReducedCoordsName;
   }
-
- if (!reducedCoordsFile)  {
-   this->com->fprintf(stderr, "*** Error opening reduced coordinates file: %s\n", reducedCoordsFile);
-   exit (-1);
- }
 
   // avoid calling computeTimeStep for steady
   dt = 0.0;
 
+  if (this->ioData->output.rom.resjacfrequency >= 1)
+    this->rom->initializeClusteredOutputs();
+
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void ImplicitRomPostproTsDesc<dim>::computeFullResidual(int , DistSVec<double, dim> &) {
+void ImplicitRomPostproTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> &Q, bool applyWeighting,  DistSVec<double, dim> *R, bool includeHomotopy) {
 
 
-	// do nothing
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void ImplicitRomPostproTsDesc<dim>::computeAJ(int, DistSVec<double, dim> &)  {
+void ImplicitRomPostproTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q, bool applyWeighting,  DistSVec<double, dim> *R) {
 
-	// do nothing
 }
 
 //------------------------------------------------------------------------------
@@ -64,6 +65,16 @@ void ImplicitRomPostproTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U
 
   int tmp, _n, closestCluster, nCoords, prevCluster; 
   char switchStr[50], updateStr[50];
+
+  if (this->currentCluster == -1) { // first iteration
+    if (this->ioData->romOnline.distanceComparisons)
+      this->rom->initializeDistanceComparisons(U);
+    if (this->ioData->romOnline.basisUpdates==NonlinearRomOnlineData::UPDATES_FAST_EXACT) {
+      this->rom->initializeFastExactUpdatesQuantities(U);
+    } else if (this->ioData->romOnline.projectSwitchStateOntoAffineSubspace!=NonlinearRomOnlineData::PROJECT_OFF) {
+      this->rom->initializeProjectionQuantities(U);
+    }
+  }
 
   _n = fscanf(reducedCoordsFile, "%d %s %s %d %d %d %d %d", &tmp, switchStr, updateStr, &closestCluster, &nCoords, &tmp, &tmp, &tmp);
   if (_n == EOF) {
@@ -88,7 +99,13 @@ void ImplicitRomPostproTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U
   for (int iPod = 0; iPod < this->nPod; ++iPod) {
     _n = fscanf(reducedCoordsFile, "%le", &tmp2);
     this->dUromTimeIt[iPod] = tmp2;
+    this->dUromNewtonIt[iPod] = tmp2;
   }
+  this->dUromCurrentROB += this->dUromTimeIt;
+  if (this->UromCurrentROB.size() == this->dUromTimeIt.size()) 
+    this->UromCurrentROB += this->dUromTimeIt;
+  if (this->ioData->romOnline.distanceComparisons)
+    this->rom->advanceDistanceComparisons(this->currentCluster, this->dUromTimeIt, this->UromCurrentROB);
 
 }
 
@@ -97,9 +114,42 @@ void ImplicitRomPostproTsDesc<dim>::checkLocalRomStatus(DistSVec<double, dim> &U
 template<int dim>
 void ImplicitRomPostproTsDesc<dim>::postProStep(DistSVec<double, dim> &U, int totalTimeSteps)  {
 
+
+  // option to output residual and action-of-jacobian during post processing (before incementing)
+  int freq = this->ioData->output.rom.resjacfrequency;
+  if ((freq >= 1) && (totalTimeSteps%freq == 0) ) {
+    ImplicitRomTsDesc<dim>::computeFullResidual(0, U, false);
+
+    if (this->rom->jacActionSnapsFileNameSpecified) { 
+      double tAJ = this->timer->getTime();
+      ImplicitRomTsDesc<dim>::computeAJ(0, U, true);     // skipped some times for Broyden
+      this->timer->addAJTime(tAJ);
+    }
+
+    if (this->ioData->romOnline.weightedLeastSquares != NonlinearRomOnlineData::WEIGHTED_LS_FALSE) {
+      ImplicitRomTsDesc<dim>::computeFullResidual(0, U, true);
+    } 
+    this->saveNewtonSystemVectorsAction(totalTimeSteps);
+  }
+
+  // increment solution
   DistSVec<double, dim> dU(this->domain->getNodeDistInfo());
 	this->expandVector(this->dUromTimeIt, dU); // solution increment in full coordinates
 	U += dU;
+
+  // option to output residual and action-of-jacobian during post processing (after incrementing)
+  if ( (this->ioData->ts.implicit.type != ImplicitData::SPATIAL_ONLY)
+       && !(this->rom->jacActionSnapsFileNameSpecified) // can't output jacAction without the appropriate dUromNewtonIt 
+       && ((freq >= 1) && (totalTimeSteps%freq == 0))) {
+
+    if (this->ioData->romOnline.weightedLeastSquares != NonlinearRomOnlineData::WEIGHTED_LS_FALSE) {
+      ImplicitRomTsDesc<dim>::computeFullResidual(1, U, true);
+    } else {
+      ImplicitRomTsDesc<dim>::computeFullResidual(1, U, false);
+    } 
+
+    this->saveNewtonSystemVectorsAction(totalTimeSteps);
+  }
 
 }
 
@@ -109,7 +159,12 @@ template<int dim>
 bool ImplicitRomPostproTsDesc<dim>::monitorConvergence(int it, DistSVec<double,dim> &U)
 {// avoid residual calculation
 
-    return false;
+  int freq = this->ioData->output.rom.resjacfrequency;
+  if ((freq >= 1) && (it%freq == 0) ) {
+    this->data->residual = this->F.norm();
+  }
+
+  return false;
 
 }
 
