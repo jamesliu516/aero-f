@@ -148,6 +148,12 @@ public:
                                              double, double [3], SVec<double,3> &, 
                                              double* gradP[3], double* dGradP[3]) = 0;
 
+  virtual void computeDerivativeOperatorsOfNodalForce(PostFcn *postFcn, SVec<double,3> &X, SVec<double,dim> &V, double Pin, double* gradP[3],
+                                                      RectangularSparseMat<double,3,3> &dForcedX,
+                                                      RectangularSparseMat<double,3,3> &dForcedGradP,
+                                                      RectangularSparseMat<double,dim,3> &dForcedV,
+                                                      RectangularSparseMat<double,3,3> &dForcedS) = 0;
+
   virtual void computeDerivativeOfNodalHeatPower(ElemSet&, PostFcn*, SVec<double,3>&, 
                                                  SVec<double,3>&, Vec<double>&, 
 			                         double*, double*, SVec<double,dim>&, 
@@ -281,6 +287,14 @@ public:
 			     Vec<double> &d2wall, double *Vwall, double *dVwall, SVec<double,dim> &V, SVec<double,dim> &dV,
 			     double pin, double dS[3], SVec<double,3> &dF, double* gradP[3], double* dGradP[3]) {
     t->computeDerivativeOfNodalForce(elems, postFcn, X, dX, d2wall, Vwall, dVwall, V, dV, pin, dS, dF, gradP, dGradP);
+  }
+
+  void computeDerivativeOperatorsOfNodalForce(PostFcn *postFcn, SVec<double,3> &X, SVec<double,dim> &V, double Pin, double* gradP[3],
+                                              RectangularSparseMat<double,3,3> &dForcedX,
+                                              RectangularSparseMat<double,3,3> &dForcedGradP,
+                                              RectangularSparseMat<double,dim,3> &dForcedV,
+                                              RectangularSparseMat<double,3,3> &dForcedS) {
+    t->computeDerivativeOperatorsOfNodalForce(postFcn, X, V, Pin, gradP, dForcedX, dForcedGradP, dForcedV, dForcedS);
   }
 
   void computeDerivativeOfNodalHeatPower(ElemSet& elems, PostFcn* postFcn, SVec<double,3>& X, 
@@ -730,6 +744,7 @@ public:
   virtual void computeNormalAndDerivative(SVec<double,3> &, SVec<double,3> &, Vec3D &, Vec3D&) = 0;
 
   virtual void computeDerivativeOfNormal(SVec<double,3> &, SVec<double,3> &, Vec3D &, Vec3D &, double &, double &) = 0;
+  virtual void computeDerivativeOperatorsOfNormal(int, SVec<double,3> &, RectangularSparseMat<double,3,3> &) = 0;
 
   // Get face total normal derivative from Vec<Vec3D>
   virtual Vec3D getdNormal(Vec<Vec3D> &) = 0;
@@ -748,6 +763,14 @@ public:
 				      Vec<Vec3D> &dNormals, Vec<double> normalVel, Vec<double> dNormalVel,
 				      SVec<double,dim> &V, double *Ub,
 				      double *dUb, SVec<double,dim> &dFluxes);
+
+  template<int dim>
+  void computeDerivativeOperatorsOfFiniteVolumeTerm(
+              int, FluxFcn **fluxFcn, Vec<Vec3D> &normals,
+				      Vec<double> normalVel, SVec<double,dim> &V, double *Ub,
+				      RectangularSparseMat<double,3,dim> &dFluxdFaceNormal,
+              RectangularSparseMat<double,1,dim> &dFluxdFaceNormalVel,
+              RectangularSparseMat<double,dim,dim> &dFluxdUb);
 
   template<int dim1, int dim2>
   void computeDerivativeOfNodeBcValue(SVec<double,3> &X, SVec<double,3> &dX, double *Uface, double *dUface, SVec<double,dim2> &dUnode);
@@ -770,6 +793,19 @@ public:
     GenFaceWrapper_dim<dim> *wrapper=
       (GenFaceWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
     wrapper->computeDerivativeOfNodalForce(elems, postFcn, X, dX, d2wall, Vwall, dVwall, V, dV, pin, dS, dF, gradP, dGradP);
+  }
+
+  template<int dim>
+  void computeDerivativeOperatorsOfNodalForce(PostFcn *postFcn, SVec<double,3> &X, SVec<double,dim> &V, double Pin, double *gradP[3],
+                                              RectangularSparseMat<double,3,3> &dForcedX,
+                                              RectangularSparseMat<double,3,3> &dForcedGradP,
+                                              RectangularSparseMat<double,dim,3> &dForcedV,
+                                              RectangularSparseMat<double,3,3> &dForcedS) {
+    FaceHelper_dim<dim> h;
+    char xx[64];
+    GenFaceWrapper_dim<dim> *wrapper=
+      (GenFaceWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+    wrapper->computeDerivativeOperatorsOfNodalForce(postFcn, X, V, Pin, gradP, dForcedX, dForcedGradP, dForcedV, dForcedS);
   }
 
   template<int dim>
@@ -957,6 +993,16 @@ public:
   }
 
   template<int dim>
+  void computeDerivativeOperatorsOfNodalForce(PostFcn *postFcn, SVec<double,3> &X,
+                          SVec<double,dim> &V, double pin, double* gradP[3],
+                          RectangularSparseMat<double,3,3> &dForcedX,
+                          RectangularSparseMat<double,3,3> &dForcedGradP,
+                          RectangularSparseMat<double,dim,3> &dForcedV,
+                          RectangularSparseMat<double,3,3> &dForcedS) {
+    fprintf(stderr, "Error: undefined function (computeDerivativeOperatorsOfNodalForce) for this face type\n"); exit(1);
+  }
+
+  template<int dim>
   void computeDerivativeOfNodalHeatPower(ElemSet& elems, PostFcn* postFcn, SVec<double,3>& X, SVec<double,3>& dX, 
                                          Vec<double>& d2wall, double* Vwall, double* dVwall, SVec<double,dim>& V, 
                                          SVec<double,dim>& dV, double dS[3], Vec<double>& dP) {
@@ -1097,6 +1143,28 @@ public:
   template<int dim>
   void computeDerivativeOfFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &,
                                            SVec<double,dim> &, SVec<double,dim> &);
+
+  template<int dim>
+  void computeDerivativeOfFiniteVolumeTerm(RectangularSparseMat<double,3,dim> *dFluxdFaceNormal,
+                                           RectangularSparseMat<double,1,dim> *dFluxdFaceNormalVel,
+                                           RectangularSparseMat<double,dim,dim> *dFluxdUb,
+                                           BcData<dim> &, GeoState &, 
+                                           Vec<Vec3D>&, Vec<double>&, SVec<double,dim> &);
+
+  template<int dim>
+  void computeTransposeDerivativeOfFiniteVolumeTerm(RectangularSparseMat<double,3,dim> *dFluxdFaceNormal,
+                                                    RectangularSparseMat<double,1,dim> *dFluxdFaceNormalVel,
+                                                    RectangularSparseMat<double,dim,dim> *dFluxdUb,
+                                                    BcData<dim> &, GeoState &, SVec<double,dim> &,
+                                                    Vec<Vec3D>&, Vec<double>&);
+
+  template<int dim>
+  void computeDerivativeOperatorsOfFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &bcData,
+              GeoState &geoState, SVec<double,dim> &V,
+              RectangularSparseMat<double,3,dim> &dFluxdFaceNormal,
+              RectangularSparseMat<double,1,dim> &dFluxdFaceNormalVel,
+              RectangularSparseMat<double,dim,dim> &dFluxdUb);
+
   template<int dim>
   void computeDerivativeOfGalerkinTerm(ElemSet &, FemEquationTerm *, BcData<dim> &, GeoState &,
                                        SVec<double,3> &, SVec<double,3> &, SVec<double,dim> &, 

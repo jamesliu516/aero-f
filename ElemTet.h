@@ -3,6 +3,8 @@
 
 #include <Elem.h>
 
+template<class Scalar, int dim, int dim2> class RectangularSparseMat;
+
 //------------------------------------------------------------------------------
 /** Tetrahedral element */
 class ElemTet : public ElemDummy {
@@ -150,15 +152,21 @@ public:
 
 // Included (MB)
   double computeDerivativeOfVolume(SVec<double,3> &, SVec<double,3> &);
+  void computeDerivativeOperatorsOfVolume(SVec<double,3> &, double [][3], double [][3], double [][3], double [][3]);
 
   double computeDerivativeOfControlVolumes(SVec<double,3> &, SVec<double,3> &, Vec<double> &);
+  void computeDerivativeOperatorsOfControlVolumes(SVec<double,3> &, RectangularSparseMat<double,3,1> &);
 
   void computeDerivativeOfEdgeNormals(SVec<double,3> &, SVec<double,3> &, Vec<Vec3D> &, Vec<Vec3D> &, Vec<double> &, Vec<double> &);
+  void computeDerivativeOperatorsOfEdgeNormals(SVec<double,3> &, RectangularSparseMat<double,3,3> &);
 
   void computeDerivativeOfWeightsGalerkin(SVec<double,3> &, SVec<double,3> &, SVec<double,3> &,
 			      SVec<double,3> &, SVec<double,3> &);
+  void computeDerivativeTransposeOfWeightsGalerkin(SVec<double,3> &, SVec<double,3> &, SVec<double,3> &,
+			      SVec<double,3> &, SVec<double,3> &);
 
   double computeDerivativeOfGradientP1Function(SVec<double,3> &, SVec<double,3> &, double [4][3]);
+  void computeDerivativeTransposeOfGradientP1Function(SVec<double,3> &, double, double [4][3], double [4][3], SVec<double,3> &);
 
   template<int dim>
   void computeDerivativeOfGalerkinTerm(FemEquationTerm *, SVec<double,3> &, SVec<double,3> &, Vec<double> &,

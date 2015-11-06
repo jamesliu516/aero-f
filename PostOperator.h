@@ -147,6 +147,17 @@ public:
   //                           DistSVec<double,dim> &, DistVec<double> &,
   //                           DistSVec<double,1> &, DistVec<int> &);
 
+   template<int dimLS>
+  void computeEMBScalarQuantity(DistSVec<double,3>& X,
+				DistSVec<double,dim>& U,
+				DistVec<double>& A,
+				double** EmbQs,
+				DistTimeState<dim> *timeState,
+				DistVec<int>& fluidId, 
+				DistSVec<double,dimLS> *Phi, 
+				DistLevelSetStructure *distLSS,
+				DistVec<GhostPoint<dim>*> *ghostPoints);
+
   void computeVectorQuantity(PostFcn::VectorType, DistSVec<double,3> &,
 			     DistSVec<double,dim> &, DistSVec<double,3> &);
   void computeVectorQuantity(PostFcn::VectorType, DistSVec<double,3> &,
@@ -193,8 +204,33 @@ public:
 					 int hydro=0, VecSet< DistSVec<double,3> > *mX=0, Vec<double> *genCF=0);
 
   void computeDerivativeOfNodalForce(DistSVec<double,3> &, DistSVec<double,3> &,
-                                                                DistSVec<double,dim> &, DistSVec<double,dim> &,
-                                                                DistVec<double> &, double [3], DistSVec<double,3> &);
+                                     DistSVec<double,dim> &, DistSVec<double,dim> &,
+                                     DistVec<double> &, double [3], DistSVec<double,3> &);
+
+  void computeDerivativeOfNodalForce(RectangularSparseMat<double,3,3> **dForcedX,
+                                     RectangularSparseMat<double,3,3> **dForcedGradP,
+                                     RectangularSparseMat<double,dim,3> **dForcedV,
+                                     RectangularSparseMat<double,3,3> **dForcedS,
+                                     RectangularSparseMat<double,dim,dim> **dVdU,
+                                     DistSVec<double,3> &dX, DistSVec<double,3> &dGradPSVec, DistSVec<double,dim> &dU,
+                                     double dS[3], DistSVec<double,3> &dF);
+
+  void computeTransposeDerivativeOfNodalForce(RectangularSparseMat<double,3,3> **dForcedX,
+                                     RectangularSparseMat<double,3,3> **dForcedGradP,
+                                     RectangularSparseMat<double,dim,3> **dForcedV,
+                                     RectangularSparseMat<double,3,3> **dForcedS,
+                                     RectangularSparseMat<double,dim,dim> **dVdU,
+                                     DistSVec<double,3> &dF, DistSVec<double,3> &dX, 
+                                     DistSVec<double,3> &dGradPSVec, DistSVec<double,dim> &dU,
+                                     double dS[3]);
+
+  void computeDerivativeOperatorsOfNodalForce(DistSVec<double,3> &X, DistSVec<double,dim> &U, DistVec<double> &Pin, 
+                                              RectangularSparseMat<double,3,3> **dForcedX,
+                                              RectangularSparseMat<double,3,3> **dForcedGradP,
+                                              RectangularSparseMat<double,dim,3> **dForcedV,
+                                              RectangularSparseMat<double,3,3> **dForcedS,
+                                              RectangularSparseMat<double,dim,dim> **dVdU,
+                                              RectangularSparseMat<double,1,dim> **dVdPstiff);
 								
   void rstVar(IoData &iod) {pressInfty = iod.aero.pressure;}								
 

@@ -8,6 +8,11 @@
 using std::min;
 using std::max;
 #endif
+#ifdef USE_EIGEN3
+#include <Eigen/Core>
+#include <Eigen/Sparse>
+typedef Eigen::SparseMatrix<double> SpMat;
+#endif
 
 #include <FluxFcn.h>
 #include <RecFcn.h>
@@ -174,7 +179,114 @@ void computeLocalWeightsLeastSquaresForEmbeddedStruct(double dx[3], double *R, d
 }
 
 //------------------------------------------------------------------------------
+// Included (YC)
+inline 
+void compute_dWdXAnddWdR(int pm, double dx[3], double *R, double *W, double dWdX[][6], double dWdR[][6])
+{
+  if(R[0]*R[3]*R[5] == 0.0) fprintf(stderr, "Going to divide by 0 %e %e %e\n", R[0], R[3], R[5]);
 
+  double or11 = 1.0 / R[0];
+  double or22 = 1.0 / R[3];
+  double or33 = 1.0 / R[5];
+
+  double r12or11 = R[1] * or11;
+  double r23or22 = R[4] * or22;
+
+  double psi = (R[1]*R[4] - R[2]*R[3]) * or11 * or22;
+  double alpha1 = dx[0] * or11 * or11;
+  double alpha2 = (dx[1] - r12or11*dx[0]) * or22 * or22;
+  double alpha3 = (dx[2] - r23or22*dx[1] + psi*dx[0]) * or33 * or33;
+
+  W[0] = alpha1 - r12or11*alpha2 + psi*alpha3;
+  W[1] = alpha2 - r23or22*alpha3;
+  W[2] = alpha3;
+
+  double co11 = (or11*or11 + psi*or33*or33*psi + r12or11*or22*or22*r12or11);
+  double co12 = (-psi*or33*or33*r23or22 - r12or11*or22*or22);
+  double co13 = psi*or33*or33;
+  double ro11 = (alpha2*R[1] / ( R[0]*R[0] ) - 2.0*dx[0] * or11 / ( R[0]*R[0] ) - psi*or33*or33*dx[0]*or22*(R[1]*R[4] - R[2]*R[3]) / ( R[0]*R[0] ) - r12or11*or22*or22*dx[0]*R[1] / ( R[0]*R[0] ) - alpha3*or22*(R[1]*R[4] - R[2]*R[3]) / ( R[0]*R[0] ));
+  double ro12 = (r12or11*or22*or22*dx[0]*or11 + psi*or33*or33*dx[0]*or11*or22*R[4] + alpha3*or11*or22*R[4] - alpha2*or11);
+  double ro13 = (-alpha3*or11*or22*R[3] - psi*or33*or33*dx[0]*or11*or22*R[3]);
+  double ro14 = (r12or11*2.0*(dx[1] - r12or11*dx[0]) * or22 / ( R[3]*R[3] ) - psi*or33*or33*dx[0]*(or11*or22*R[2] + (R[1]*R[4] - R[2]*R[3]) * or11 / ( R[3]*R[3] )) + psi*or33*or33*dx[1]*R[4] /( R[3]*R[3] ) - alpha3*(or11*or22*R[2] + (R[1]*R[4] - R[2]*R[3]) * or11 / ( R[3]*R[3] )));
+  double ro15 = (alpha3*or11*or22*R[1] + psi*or33*or33*dx[0]*or11*or22*R[1] - psi*or33*or33*dx[1]*or22);
+  double ro16 = -psi*2.0*(dx[2] - r23or22*dx[1] + psi*dx[0]) * or33 / ( R[5]*R[5] );
+  double co21 =  (-or22*or22*r12or11 - r23or22*or33*or33*psi);
+  double co22 = (or22*or22 + r23or22*or33*or33*r23or22);
+  double co23 = - r23or22*or33*or33;
+  double ro21 = (or22*or22*dx[0]*R[1] / ( R[0]*R[0] ) + r23or22*or33*or33*dx[0]*or22*(R[1]*R[4] - R[2]*R[3]) / ( R[0]*R[0] ));
+  double ro22 = -(r23or22*or33*or33*dx[0]*or11*or22*R[4] + or22*or22*dx[0]*or11);
+  double ro23 = r23or22*or33*or33*dx[0]*or11*or22*R[3];
+  double ro24 = (alpha3*R[4] /( R[3]*R[3] ) - 2.0*(dx[1] - r12or11*dx[0]) * or22 / ( R[3]*R[3] ) + r23or22*or33*or33*dx[0]*(or11*or22*R[2] + (R[1]*R[4] - R[2]*R[3]) * or11 / ( R[3]*R[3] )) - r23or22*or33*or33*dx[1]*R[4] /( R[3]*R[3] ));
+  double ro25 = (-alpha3*or22 + r23or22*or33*or33*dx[1]*or22 - r23or22*or33*or33*dx[0]*or11*or22*R[1]);
+  double ro26 = r23or22*2.0*(dx[2] - r23or22*dx[1] + psi*dx[0]) * or33 / ( R[5]*R[5] );
+  double co31 = or33*or33*psi;
+  double co32 = -or33*or33*r23or22;
+  double co33 = or33*or33;
+  double ro31 = -or33*or33*dx[0]*or22*(R[1]*R[4] - R[2]*R[3]) / ( R[0]*R[0] );
+  double ro32 = or33*or33*dx[0]*or11*or22*R[4];
+  double ro33 = - or33*or33*dx[0]*or11*or22*R[3];
+  double ro34 = (or33*or33*dx[1]*R[4] /( R[3]*R[3] ) - or33*or33*dx[0]*(or11*or22*R[2] + (R[1]*R[4] - R[2]*R[3]) * or11 / ( R[3]*R[3] )));
+  double ro35 = (or33*or33*dx[0]*or11*or22*R[1] - or33*or33*dx[1]*or22);
+  double ro36 = - 2.0*(dx[2] - r23or22*dx[1] + psi*dx[0]) * or33 / ( R[5]*R[5] );
+
+// size of dWdddx is 3x6
+  dWdX[0][0] =-pm*co11;  dWdX[0][1] =-pm*co12;  dWdX[0][2] =-pm*co13;  dWdX[0][3] = pm*co11;  dWdX[0][4] = pm*co12;  dWdX[0][5] = pm*co13;
+  dWdX[1][0] =-pm*co21;  dWdX[1][1] =-pm*co22;  dWdX[1][2] =-pm*co23;  dWdX[1][3] = pm*co21;  dWdX[1][4] = pm*co22;  dWdX[1][5] = pm*co23;
+  dWdX[2][0] =-pm*co31;  dWdX[2][1] =-pm*co32;  dWdX[2][2] =-pm*co33;  dWdX[2][3] = pm*co31;  dWdX[2][4] = pm*co32;  dWdX[2][5] = pm*co33;
+/*
+  dWdX = [-co11 -co12 -co13  co11  co12  co13 ] [dX[i][0]]
+         [-co21 -co22 -co23  co21  co22  co23 ] [dX[i][1]]
+         [-co31 -co32 -co33  co31  co32  co33 ] [dX[i][2]]
+                                                [dX[j][0]]
+                                                [dX[j][1]]
+                                                [dX[j][2]]
+*/
+
+// size of dWdR is 3x6
+  dWdR[0][0] = ro11;  dWdR[0][1] = ro12;  dWdR[0][2] = ro13;  dWdR[0][3] = ro14;  dWdR[0][4] = ro15;  dWdR[0][5] = ro16; 
+  dWdR[1][0] = ro21;  dWdR[1][1] = ro22;  dWdR[1][2] = ro23;  dWdR[1][3] = ro24;  dWdR[1][4] = ro25;  dWdR[1][5] = ro26; 
+  dWdR[2][0] = ro31;  dWdR[2][1] = ro32;  dWdR[2][2] = ro33;  dWdR[2][3] = ro34;  dWdR[2][4] = ro35;  dWdR[2][5] = ro36; 
+/*
+  dWdR = [ cl04 cl05 cl06 cl07 cl08 cl09 ] [dR[0]]
+         [ dl04 dl05 dl06 dl07 dl08 dl09 ] [dR[1]]
+         [ bl03 bl04 bl05 bl06 bl07 bl08 ] [dR[2]]
+                                           [dR[3]]
+                                           [dR[4]]
+                                           [dR[5]]
+*/
+
+/*
+  dW[0] = cl01*ddx[0]
+        + cl02*ddx[1]
+        + cl03*ddx[2]
+        + cl04*dR[0]
+        + cl05*dR[1]
+        + cl06*dR[2]
+        + cl07*dR[3]
+        + cl08*dR[4]
+        + cl09*dR[5];
+  dW[1] = dl01*ddx[0]
+        + dl02*ddx[1]
+        + dl03*ddx[2]
+        + dl04*dR[0]
+        + dl05*dR[1]
+        + dl06*dR[2]
+        + dl07*dR[3]
+        + dl08*dR[4]
+        + dl09*dR[5];
+  dW[2] = bl01*ddx[0]
+        + bl02*ddx[1]
+        + bl00*ddx[2]
+        + bl03*dR[0]
+        + bl04*dR[1]
+        + bl05*dR[2]
+        + bl06*dR[3]
+        + bl07*dR[4]
+        + bl08*dR[5];
+*/
+}
+
+//------------------------------------------------------------------------------
 // Included (MB)
 inline
 void computeDerivativeOfLocalWeightsLeastSquares(double dx[3], double ddx[3], double *R, double *dR, double *W, double *dW)
@@ -211,6 +323,30 @@ void computeDerivativeOfLocalWeightsLeastSquares(double dx[3], double ddx[3], do
   dW[0] = dalpha1 - dr12or11*alpha2 - r12or11*dalpha2 + dpsi*alpha3  + psi*dalpha3;
   dW[1] = dalpha2 - dr23or22*alpha3 - r23or22*dalpha3;
   dW[2] = dalpha3;
+/*
+  double dWdX[3][6];
+  double dWdR[3][6];
+  compute_dWdXAnddWdR(dx, R, W, dWdX, dWdR);
+
+  double dW2[3] = {0};
+  for (int i=0; i<3; ++i) 
+    for (int j=0; j<6; ++j) 
+      dW2[i] += dWdX[i][j]*dX[j]; 
+
+  for (int i=0; i<3; ++i) 
+    for (int j=0; j<6; ++j) 
+      dW2[i] += dWdR[i][j]*dR[j]; 
+
+  double relativeDiff = sqrt((dW[0]-dW2[0])*(dW[0]-dW2[0]) + (dW[1]-dW2[1])*(dW[1]-dW2[1]) + (dW[2]-dW2[2])*(dW[2]-dW2[2]));
+  double normOfdW = sqrt(dW[0]*dW[0] + dW[1]*dW[1] + dW[2]*dW[2]);
+  if(normOfdW != 0.0) {
+    double reldiffsquare = relativeDiff/normOfdW;
+    if(reldiffsquare > 1.0e-12)
+      fprintf(stderr," .... relativeDiff = %e\n", reldiffsquare);
+  } else
+    if(relativeDiff > 1.0e-10)
+      fprintf(stderr," ... relativeDiff = %e\n", relativeDiff);
+*/  
 }
 
 //------------------------------------------------------------------------------
@@ -569,10 +705,112 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
 }
 
 //------------------------------------------------------------------------------
+// Included (YC)
+template<int dim, class Scalar>
+void SubDomain::computeDerivativeOfGradientsLeastSquares(
+               RectangularSparseMat<double,3,dim> *dddxdX,
+               RectangularSparseMat<double,3,dim> *dddydX,
+               RectangularSparseMat<double,3,dim> *dddzdX,
+               RectangularSparseMat<double,6,dim> *dddxdR,
+               RectangularSparseMat<double,6,dim> *dddydR,
+               RectangularSparseMat<double,6,dim> *dddzdR,
+               RectangularSparseMat<double,dim,dim> *dddxdV,
+               RectangularSparseMat<double,dim,dim> *dddydV,
+               RectangularSparseMat<double,dim,dim> *dddzdV,
+               SVec<double,3> &dX,
+               SVec<double,6> &dR,
+               SVec<double,dim> &dV,
+               SVec<Scalar,dim> &dddx,
+               SVec<Scalar,dim> &dddy, 
+               SVec<Scalar,dim> &dddz)
+{
+
+  dddx = (Scalar) 0.0;
+  dddy = (Scalar) 0.0;
+  dddz = (Scalar) 0.0;
+
+  SVec<Scalar,dim> xxx(dddx), xxx2(dddx); 
+  SVec<Scalar,dim> yyy(dddy), yyy2(dddy); 
+  SVec<Scalar,dim> zzz(dddz), zzz2(dddz); 
+
+  xxx = (Scalar) 0;    yyy = (Scalar) 0;   zzz = (Scalar) 0;
+  xxx2 = (Scalar) 0;   yyy2 = (Scalar) 0;  zzz2 = (Scalar) 0;
+
+  dddxdX->apply(dX, xxx);
+  dddydX->apply(dX, yyy);
+  dddzdX->apply(dX, zzz);
+
+  dddxdV->apply(dV, xxx2);
+  dddydV->apply(dV, yyy2);
+  dddzdV->apply(dV, zzz2);
+
+  dddxdR->apply(dR, dddx);
+  dddydR->apply(dR, dddy);
+  dddzdR->apply(dR, dddz);
+
+  dddx += xxx;    dddy += yyy;    dddz += zzz;
+  dddx += xxx2;   dddy += yyy2;   dddz += zzz2;
+
+}
+
+//------------------------------------------------------------------------------
+// Included (YC)
+template<int dim, class Scalar>
+void SubDomain::computeTransposeDerivativeOfGradientsLeastSquares(
+               RectangularSparseMat<double,3,dim> *dddxdX,
+               RectangularSparseMat<double,3,dim> *dddydX,
+               RectangularSparseMat<double,3,dim> *dddzdX,
+               RectangularSparseMat<double,6,dim> *dddxdR,
+               RectangularSparseMat<double,6,dim> *dddydR,
+               RectangularSparseMat<double,6,dim> *dddzdR,
+               RectangularSparseMat<double,dim,dim> *dddxdV,
+               RectangularSparseMat<double,dim,dim> *dddydV,
+               RectangularSparseMat<double,dim,dim> *dddzdV,
+               SVec<Scalar,dim> &dddx,
+               SVec<Scalar,dim> &dddy, 
+               SVec<Scalar,dim> &dddz,
+               SVec<double,3> &dX2,
+               SVec<double,6> &dR2,
+               SVec<double,dim> &dV2)
+{
+
+  SVec<Scalar,3> dummyX(dX2);
+  SVec<Scalar,6> dummyR(dR2);
+  SVec<Scalar,dim> dummyV(dV2);
+
+  dummyX = 0.0;
+  dddxdX->applyTranspose(dddx, dummyX);
+  dX2 += dummyX;
+  dummyX = 0.0;
+  dddydX->applyTranspose(dddy, dummyX);
+  dX2 += dummyX;
+  dummyX = 0.0;
+  dddzdX->applyTranspose(dddz, dummyX);
+  dX2 += dummyX;
+
+  dddxdR->applyTranspose(dddx, dummyR);
+  dR2 += dummyR;
+  dddydR->applyTranspose(dddy, dummyR);
+  dR2 += dummyR;
+  dddzdR->applyTranspose(dddz, dummyR);
+  dR2 += dummyR;
+
+// TODO: uncomment below
+  dddxdV->applyTranspose(dddx, dummyV);
+  dV2 += dummyV;
+  dddydV->applyTranspose(dddy, dummyV);
+  dV2 += dummyV;
+  dddzdV->applyTranspose(dddz, dummyV);
+  dV2 += dummyV;
+
+}
+
+//------------------------------------------------------------------------------
 
 // Included (MB)
 template<int dim, class Scalar>
-void SubDomain::computeDerivativeOfGradientsLeastSquares(SVec<double,3> &X, SVec<double,3> &dX,
+void SubDomain::computeDerivativeOfGradientsLeastSquares(
+               SVec<double,3> &X, SVec<double,3> &dX,
 							 SVec<double,6> &R, SVec<double,6> &dR,
 							 SVec<Scalar,dim> &var, SVec<Scalar,dim> &dvar, SVec<Scalar,dim> &dddx,
 							 SVec<Scalar,dim> &dddy, SVec<Scalar,dim> &dddz)
@@ -581,6 +819,154 @@ void SubDomain::computeDerivativeOfGradientsLeastSquares(SVec<double,3> &X, SVec
   dddx = (Scalar) 0.0;
   dddy = (Scalar) 0.0;
   dddz = (Scalar) 0.0;
+
+  SVec<Scalar,dim> xxx(dddx), dddx2(dddx), uux(dddx);
+  SVec<Scalar,dim> yyy(dddy), dddy2(dddy), uuy(dddy);
+  SVec<Scalar,dim> zzz(dddz), dddz2(dddz), uuz(dddz);
+/*
+  if(isSparse) { 
+ 
+    xxx = (Scalar) 0;    yyy = (Scalar) 0;   zzz = (Scalar) 0;
+    dddx2 = (Scalar) 0;  dddy2 = (Scalar) 0; dddz2 = (Scalar) 0;
+
+    dddxdX->apply(dX, xxx, 0);
+    dddydX->apply(dX, yyy, 0);
+    dddzdX->apply(dX, zzz, 0);
+
+    dddxdR->apply(dR, dddx, 0);
+    dddydR->apply(dR, dddy, 0);
+    dddzdR->apply(dR, dddz, 0);
+
+    dddx += xxx;    dddy += yyy;    dddz += zzz;
+    return;
+
+  }
+*/
+
+  dddx = (Scalar) 0.0;
+  dddy = (Scalar) 0.0;
+  dddz = (Scalar) 0.0;
+//  fprintf(stderr, " ... SubDomain::computeDerivativeOfGradientsLeastSquares 02 \n");
+
+  bool *edgeFlag = edges.getMasterFlag();
+  int (*edgePtr)[2] = edges.getPtr();
+
+//  fprintf(stderr, " ... SubDomain::computeDerivativeOfGradientsLeastSquares 03 \n");
+  for (int l=0; l<edges.size(); ++l) {
+
+    if (!edgeFlag[l]) continue;
+
+    int i = edgePtr[l][0];
+    int j = edgePtr[l][1];
+
+    double Wi[3], Wj[3], deltaVar;
+    double dWi[3]={0}, dWj[3]={0}, dDeltaVar;
+    double dWi2[3]={0}, dWj2[3]={0};
+    double dWidX[3][6] = {0}, dWidR[3][6] = {0};
+
+    double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+    double ddx[3] = {dX[j][0] - dX[i][0], dX[j][1] - dX[i][1], dX[j][2] - dX[i][2]};
+//    fprintf(stderr, " ... SubDomain::computeDerivativeOfGradientsLeastSquares 04 \n");
+    computeDerivativeOfLocalWeightsLeastSquares(dx, ddx, R[i], dR[i], Wi, dWi);
+/*    compute_dWdXAnddWdR( 1, dx, R[i], Wi, dWidX, dWidR);
+    for (int k=0; k<3; ++k) {
+      for (int q=0; q<6; ++q)
+        dWi2[k] += dWidR[k][q]*dR[i][q];
+      dWi2[k] += dWidX[k][0]*dX[i][0] + dWidX[k][1]*dX[i][1] + dWidX[k][2]*dX[i][2] + dWidX[k][3]*dX[j][0] + dWidX[k][4]*dX[j][1] + dWidX[k][5]*dX[j][2];
+    }
+
+    double difference(0.0), dWinorm(0.0);
+    for(int k=0; k<3; ++k) {
+      difference += (dWi[k] - dWi2[k])*(dWi[k] - dWi2[k]);
+      dWinorm += dWi[k]*dWi[k];
+    }
+    difference = sqrt(difference);
+    dWinorm = sqrt(dWinorm); 
+    if(dWinorm != 0 ) fprintf(stderr," ... rel. difference is %e\n", difference/dWinorm);
+    else fprintf(stderr," ... abs. difference is %e\n", difference);
+
+
+    double dWjdX[3][6] = {0}, dWjdR[3][6] = {0};
+*/
+    dx[0] = -dx[0]; dx[1] = -dx[1]; dx[2] = -dx[2];
+    ddx[0] = -ddx[0]; ddx[1] = -ddx[1]; ddx[2] = -ddx[2];
+//    fprintf(stderr, " ... SubDomain::computeDerivativeOfGradientsLeastSquares 05 \n");
+    computeDerivativeOfLocalWeightsLeastSquares(dx, ddx, R[j], dR[j], Wj, dWj);
+/*    compute_dWdXAnddWdR(-1, dx, R[j], Wj, dWjdX, dWjdR);
+    for (int k=0; k<3; ++k) {
+      for (int q=0; q<6; ++q)
+        dWj2[k] += dWjdR[k][q]*dR[j][q];
+      dWj2[k] += dWjdX[k][0]*dX[i][0] + dWjdX[k][1]*dX[i][1] + dWjdX[k][2]*dX[i][2] + dWjdX[k][3]*dX[j][0] + dWjdX[k][4]*dX[j][1] + dWjdX[k][5]*dX[j][2];
+    }
+
+    double difference2(0.0), dWjnorm(0.0);
+    for(int k=0; k<3; ++k) {
+      difference2 += (dWj[k] - dWj2[k])*(dWj[k] - dWj2[k]);
+      dWjnorm += dWj[k]*dWj[k];
+    }
+    difference2 = sqrt(difference2);
+    dWjnorm = sqrt(dWjnorm);
+    if(dWjnorm) fprintf(stderr," ... rel. difference2 is %e\n", difference2/dWjnorm);
+    else fprintf(stderr," ... abs. difference2 is %e\n", difference2);
+*/
+
+//    fprintf(stderr, " ... SubDomain::computeDerivativeOfGradientsLeastSquares 06 \n");
+    for (int k=0; k<dim; ++k) {
+      deltaVar = var[j][k] - var[i][k];
+      dDeltaVar = dvar[j][k] - dvar[i][k];
+      dddx[i][k] += (dWi[0] * deltaVar + Wi[0] * dDeltaVar);
+      dddy[i][k] += (dWi[1] * deltaVar + Wi[1] * dDeltaVar);
+      dddz[i][k] += (dWi[2] * deltaVar + Wi[2] * dDeltaVar);
+      dddx[j][k] -= (dWj[0] * deltaVar + Wj[0] * dDeltaVar);
+      dddy[j][k] -= (dWj[1] * deltaVar + Wj[1] * dDeltaVar);
+      dddz[j][k] -= (dWj[2] * deltaVar + Wj[2] * dDeltaVar);
+    }
+//    fprintf(stderr, " ... SubDomain::computeDerivativeOfGradientsLeastSquares 07 \n");
+
+  }
+//  fprintf(stderr, " ... SubDomain::computeDerivativeOfGradientsLeastSquares 08 \n");
+/*
+  uux = dddx - dddx2;
+  uuy = dddy - dddy2;
+  uuz = dddz - dddz2;
+
+  double uuxnorm = uux.norm();
+  double uuynorm = uuy.norm();
+  double uuznorm = uuz.norm();
+  double dddxnorm = dddx.norm();
+  double dddynorm = dddy.norm();
+  double dddznorm = dddz.norm();
+
+  if(dddxnorm != 0 ) fprintf(stderr," ... (dddx2-dddx).norm()/dddx.norm() is %e\n", uuxnorm/dddxnorm );
+  else fprintf(stderr," ... (dddx2-dddx).norm() is %e\n", uuxnorm );
+  if(dddynorm != 0 ) fprintf(stderr," ... (dddy2-dddy).norm()/dddy.norm() is %e\n", uuynorm/dddynorm );
+  else fprintf(stderr," ... (dddy2-dddy).norm() is %e\n", uuynorm );
+  if(dddznorm != 0 ) fprintf(stderr," ... (dddz2-dddz).norm()/dddz.norm() is %e\n", uuznorm/dddznorm );
+  else fprintf(stderr," ... (dddz2-dddz).norm() is %e\n", uuznorm );
+*/
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+template<int dim, class Scalar>
+void SubDomain::computeDerivativeOperatorsOfGradientsLeastSquares(SVec<double,3> &X, SVec<double,6> &R, SVec<Scalar,dim> &var, 
+                                                                  RectangularSparseMat<double,3,dim> &dddxdX,
+                                                                  RectangularSparseMat<double,3,dim> &dddydX,
+                                                                  RectangularSparseMat<double,3,dim> &dddzdX,
+                                                                  RectangularSparseMat<double,6,dim> &dddxdR,
+                                                                  RectangularSparseMat<double,6,dim> &dddydR,
+                                                                  RectangularSparseMat<double,6,dim> &dddzdR,
+                                                                  RectangularSparseMat<double,dim,dim> &dddxdV,
+                                                                  RectangularSparseMat<double,dim,dim> &dddydV,
+                                                                  RectangularSparseMat<double,dim,dim> &dddzdV)
+   
+{
+
+  double dW0dWi[2][3] = {0}, dW0dWj[2][3] = {0}, dW1dWi[2][3] = {0}, dW1dWj[2][3] = {0}, dW2dWi[2][3] = {0}, dW2dWj[2][3] = {0};
+  dW0dWi[0][0] = 1;  dW0dWj[1][0] = 1;
+  dW1dWi[0][1] = 1;  dW1dWj[1][1] = 1;
+  dW2dWi[0][2] = 1;  dW2dWj[1][2] = 1;
 
   bool *edgeFlag = edges.getMasterFlag();
   int (*edgePtr)[2] = edges.getPtr();
@@ -593,28 +979,107 @@ void SubDomain::computeDerivativeOfGradientsLeastSquares(SVec<double,3> &X, SVec
     int j = edgePtr[l][1];
 
     double Wi[3], Wj[3], deltaVar;
-    double dWi[3], dWj[3], dDeltaVar;
+    double dWi[3]={0}, dWj[3]={0}, dWi2[3], dWj2[3];
 
     double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
-    double ddx[3] = {dX[j][0] - dX[i][0], dX[j][1] - dX[i][1], dX[j][2] - dX[i][2]};
-    computeDerivativeOfLocalWeightsLeastSquares(dx, ddx, R[i], dR[i], Wi, dWi);
-
+    double dWidX[3][6] = {0}, dWidR[3][6] = {0};
+    compute_dWdXAnddWdR( 1, dx, R[i], Wi, dWidX, dWidR);
     dx[0] = -dx[0]; dx[1] = -dx[1]; dx[2] = -dx[2];
-    ddx[0] = -ddx[0]; ddx[1] = -ddx[1]; ddx[2] = -ddx[2];
-    computeDerivativeOfLocalWeightsLeastSquares(dx, ddx, R[j], dR[j], Wj, dWj);
+//    ddx[0] = -ddx[0]; ddx[1] = -ddx[1]; ddx[2]  = -ddx[2];
+    double dWjdX[3][6] = {0}, dWjdR[3][6] = {0};
+    compute_dWdXAnddWdR(-1, dx, R[j], Wj, dWjdX, dWjdR);
+/*    computeDerivativeOfLocalWeightsLeastSquares(dx,ddx,R[j],R[j],Wj,dWj2);
+    for (int k=0; k<3; ++k) {
+      for (int q=0; q<6; ++q)
+        dWj[k] += dWjdR[k][q]*R[j][q];
+      dWj[k] += dWjdX[k][0]*X[i][0] + dWjdX[k][1]*X[i][1] + dWjdX[k][2]*X[i][2] + dWjdX[k][3]*X[j][0] + dWjdX[k][4]*X[j][1] + dWjdX[k][5]*X[j][2];
+    }
+
+    double difference2(0.0), dWjnorm(0.0);
+    for(int k=0; k<3; ++k) {
+      difference2 += (dWj[k] - dWj2[k])*(dWj[k] - dWj2[k]);
+      dWjnorm += dWj[k]*dWj[k];
+    }
+    difference2 = sqrt(difference2);
+    fprintf(stderr," ... rel. difference2 is %e\n", difference2/sqrt(dWjnorm));
+*/
+    double dddxdVarray[2*dim][2*dim] = {0}, dddydVarray[2*dim][2*dim] = {0}, dddzdVarray[2*dim][2*dim] = {0};
+
+    for (int k=0; k<dim; ++k) {
+/*
+      deltaVar = var[j][k] - var[i][k];
+      dDeltaVar = dvar[j][k] - dvar[i][k];
+      dddx[i][k] += Wi[0] * dvar[j][k] - Wi[0] * dvar[i][k];
+      dddy[i][k] += Wi[1] * dvar[j][k] - Wi[1] * dvar[i][k];
+      dddz[i][k] += Wi[2] * dvar[j][k] - Wi[2] * dvar[i][k];
+      dddx[j][k] -= Wj[0] * dvar[j][k] - Wj[0] * dvar[i][k];
+      dddy[j][k] -= Wj[1] * dvar[j][k] - Wj[1] * dvar[i][k];
+      dddz[j][k] -= Wj[2] * dvar[j][k] - Wj[2] * dvar[i][k];
+*/      
+      dddxdVarray[k][k] = -Wi[0];      dddxdVarray[k][dim+k] = Wi[0];
+      dddydVarray[k][k] = -Wi[1];      dddydVarray[k][dim+k] = Wi[1];
+      dddzdVarray[k][k] = -Wi[2];      dddzdVarray[k][dim+k] = Wi[2];
+      dddxdVarray[dim+k][k] = Wj[0];   dddxdVarray[dim+k][dim+k] = -Wj[0];
+      dddydVarray[dim+k][k] = Wj[1];   dddydVarray[dim+k][dim+k] = -Wj[1];
+      dddzdVarray[dim+k][k] = Wj[2];   dddzdVarray[dim+k][dim+k] = -Wj[2];
+    }
+
+
+    double ddddW[2*dim][2] = {0};
 
     for (int k=0; k<dim; ++k) {
       deltaVar = var[j][k] - var[i][k];
-      dDeltaVar = dvar[j][k] - dvar[i][k];
 
-      dddx[i][k] += (dWi[0] * deltaVar + Wi[0] * dDeltaVar);
-      dddy[i][k] += (dWi[1] * deltaVar + Wi[1] * dDeltaVar);
-      dddz[i][k] += (dWi[2] * deltaVar + Wi[2] * dDeltaVar);
-      dddx[j][k] -= (dWj[0] * deltaVar + Wj[0] * dDeltaVar);
-      dddy[j][k] -= (dWj[1] * deltaVar + Wj[1] * dDeltaVar);
-      dddz[j][k] -= (dWj[2] * deltaVar + Wj[2] * dDeltaVar);
+      ddddW[k][0] = deltaVar;
+      ddddW[dim+k][1] = -deltaVar;
     }
+    
+    double dW0dX[2][6] = {0}, dW0dR[2][12] = {0};
+    double dW1dX[2][6] = {0}, dW1dR[2][12] = {0};
+    double dW2dX[2][6] = {0}, dW2dR[2][12] = {0};
+    double dQxdX[2*dim][6] = {0}, dQxdR[2*dim][12] = {0};
+    double dQydX[2*dim][6] = {0}, dQydR[2*dim][12] = {0};
+    double dQzdX[2*dim][6] = {0}, dQzdR[2*dim][12] = {0};
 
+    for(int k=0; k<2; ++k) 
+      for(int m=0; m<6; ++m) 
+        for(int n=0; n<3; ++n) {
+          dW0dX[k][m] += dW0dWi[k][n] * dWidX[n][m] + dW0dWj[k][n] * dWjdX[n][m];
+          dW1dX[k][m] += dW1dWi[k][n] * dWidX[n][m] + dW1dWj[k][n] * dWjdX[n][m];
+          dW2dX[k][m] += dW2dWi[k][n] * dWidX[n][m] + dW2dWj[k][n] * dWjdX[n][m];
+          dW0dR[k][m] += dW0dWi[k][n] * dWidR[n][m]; 
+          dW1dR[k][m] += dW1dWi[k][n] * dWidR[n][m]; 
+          dW2dR[k][m] += dW2dWi[k][n] * dWidR[n][m]; 
+          dW0dR[k][m+6] += dW0dWj[k][n] * dWjdR[n][m];
+          dW1dR[k][m+6] += dW1dWj[k][n] * dWjdR[n][m];
+          dW2dR[k][m+6] += dW2dWj[k][n] * dWjdR[n][m];
+        }
+      
+    for(int k=0; k<2*dim; ++k) 
+      for(int m=0; m<6; ++m)
+        for(int n=0; n<2; ++n) {
+          dQxdX[k][m] += ddddW[k][n] * dW0dX[n][m];
+          dQydX[k][m] += ddddW[k][n] * dW1dX[n][m];
+          dQzdX[k][m] += ddddW[k][n] * dW2dX[n][m];
+          dQxdR[k][m] += ddddW[k][n] * dW0dR[n][m];
+          dQydR[k][m] += ddddW[k][n] * dW1dR[n][m];
+          dQzdR[k][m] += ddddW[k][n] * dW2dR[n][m];
+          dQxdR[k][m+6] += ddddW[k][n] * dW0dR[n][m+6];
+          dQydR[k][m+6] += ddddW[k][n] * dW1dR[n][m+6];
+          dQzdR[k][m+6] += ddddW[k][n] * dW2dR[n][m+6];
+        }
+
+    int ndList[2] = {i, j};
+    dddxdV.addContrib(2,ndList,dddxdVarray[0]);
+    dddydV.addContrib(2,ndList,dddydVarray[0]);
+    dddzdV.addContrib(2,ndList,dddzdVarray[0]);
+    dddxdX.addContrib(2,ndList,dQxdX[0]);
+    dddydX.addContrib(2,ndList,dQydX[0]);
+    dddzdX.addContrib(2,ndList,dQzdX[0]);
+    dddxdR.addContrib(2,ndList,dQxdR[0]); 
+    dddydR.addContrib(2,ndList,dQydR[0]); 
+    dddzdR.addContrib(2,ndList,dQzdR[0]); 
+     
   }
 
 }
@@ -1085,15 +1550,152 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 // Included (MB)
 template<int dim>
 void SubDomain::computeDerivativeOfFiniteVolumeTerm(Vec<double> &irey, Vec<double> &dIrey, FluxFcn** fluxFcn, RecFcn* recFcn,
-                                        BcData<dim>& bcData, GeoState& geoState,
-                                        SVec<double,3>& X, SVec<double,3>& dX, SVec<double,dim>& V, SVec<double,dim>& dV,
-                                        NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad, double dMach,
-                                        SVec<double,dim>& dFluxes)
+                                                    BcData<dim>& bcData, GeoState& geoState,
+                                                    SVec<double,3>& X, SVec<double,3>& dX, SVec<double,dim>& V, SVec<double,dim>& dV,
+                                                    NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad, double dMach,
+                                                    SVec<double,dim>& dFluxes)
 {
 
-  edges.computeDerivativeOfFiniteVolumeTerm(irey, dIrey, fluxFcn, recFcn, elems, geoState, X, dX, V, dV, ngrad, egrad, dMach, dFluxes);
+//  if(isSparse) {  
+/*
+    SVec<double,3> dX2(dX); 
+    SVec<double,dim> dFluxes2(dFluxes), dFluxes3(dFluxes);
+    dX2 = 0.0;    
+    dFluxes3 = 0.0;
 
+    Eigen::MatrixXd r(dFluxes3.size(), dim);  r.setRandom();
+    for(int i=0; i<dFluxes2.size(); ++i) for(int j=0; j<dim; ++j) dFluxes2[i][j] = r(i,j); 
+    edges.computeDerivativeOfFiniteVolumeTerm(dFluxdddx, dFluxdddy, dFluxdddz, dFluxdX, dFluxdEdgeNorm,
+                                              elems, geoState, dX, ngrad, egrad, dFluxes3);
+    double aa = dFluxes3*dFluxes2;
+
+    edges.computeTransposeDerivativeOfFiniteVolumeTerm(dFluxdddx, dFluxdddy, dFluxdddz, dFluxdX, dFluxdEdgeNorm,
+                                                       dFluxes2, ngrad, egrad, elems, geoState, dX2);
+    double bb = dX2*dX;
+    double diff = sqrt((aa-bb)*(aa-bb));
+    if(aa != 0) fprintf(stderr, " ... rel.diff = %e, aa = %e, bb = %e\n", diff/aa, aa, bb);
+    else fprintf(stderr, " ... abs.diff = %e, aa = %e, bb = %e\n", diff, aa, bb);
+*/
+//    SVec<double,dim> dFluxes2(dFluxes), diff(dFluxes);
+//    edges.computeDerivativeOfFiniteVolumeTerm(dFluxdddx, dFluxdddy, dFluxdddz, dFluxdX, dFluxdEdgeNorm,
+//                                              elems, geoState, dX, ngrad, egrad, dFluxes);
+/*    edges.computeDerivativeOfFiniteVolumeTerm(irey, dIrey, fluxFcn, recFcn, elems, geoState, X, dX, V, dV, ngrad, egrad, dMach, dFluxes2);
+    diff = dFluxes2 - dFluxes;
+    double diffnorm = diff.norm();
+    double dFluxesnorm = dFluxes.norm();
+    double dFluxes2norm = dFluxes2.norm();
+    if(dFluxesnorm != 0) fprintf(stderr, " ... rel. diff = %e\n", diffnorm/dFluxesnorm);
+    else fprintf(stderr, " ... abs. diff = %e\n", diffnorm);
+
+*/
+
+//  } else 
+  edges.computeDerivativeOfFiniteVolumeTerm(irey, dIrey, fluxFcn, recFcn, elems, geoState, X, dX, V, dV, ngrad, egrad, dMach, dFluxes);
   faces.computeDerivativeOfFiniteVolumeTerm(fluxFcn, bcData, geoState, V, dFluxes);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+template<int dim>
+void SubDomain::computeDerivativeOfFiniteVolumeTerm(
+                                        RectangularSparseMat<double,dim,dim> *dFluxdddx,
+                                        RectangularSparseMat<double,dim,dim> *dFluxdddy,
+                                        RectangularSparseMat<double,dim,dim> *dFluxdddz,
+                                        RectangularSparseMat<double,3,dim> *dFluxdEdgeNorm,
+                                        RectangularSparseMat<double,3,dim> *dFluxdX,
+                                        RectangularSparseMat<double,3,dim> *dFluxdFaceNormal,
+                                        RectangularSparseMat<double,1,dim> *dFluxdFaceNormalVel,
+                                        RectangularSparseMat<double,dim,dim> *dFluxdUb,
+                                        BcData<dim>& bcData, GeoState& geoState,
+                                        SVec<double,3>& dX, 
+                                        NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
+                                        SVec<double,dim>& dddx,
+                                        SVec<double,dim>& dddy,
+                                        SVec<double,dim>& dddz,
+                                        Vec<Vec3D>& dNormal,
+                                        Vec<Vec3D>& dn,
+                                        Vec<double>& dndot, 
+                                        SVec<double,dim>& dFluxes)
+{
+  edges.computeDerivativeOfFiniteVolumeTerm(dFluxdddx, dFluxdddy, dFluxdddz, dFluxdX, dFluxdEdgeNorm,
+                                            elems, geoState, dX, ngrad, egrad, dddx, dddy, dddz, dNormal, dFluxes);
+/*  SVec<double,3> dX2(dX);  
+  SVec<double,dim> dFluxes2(dFluxes);
+    dX2 = 0.0;    dFluxes = 0.0;
+    // fprintf(stderr, " ... norm of dFluxes is %e\n", dFluxes.norm());
+    // fprintf(stderr, " ... norm of dFluxes2 is %e\n", dFluxes2.norm());
+    edges.computeDerivativeOfFiniteVolumeTerm(dFluxdddx, dFluxdddy, dFluxdddz, dFluxdX, dFluxdEdgeNorm,
+                                              elems, geoState, dX, ngrad, egrad, dFluxes);
+    double aa = dFluxes2*dFluxes;
+    // fprintf(stderr, " ... norm of dFluxes is %e\n", dFluxes.norm());
+
+    edges.computeTransposeDerivativeOfFiniteVolumeTerm(dFluxdddx, dFluxdddy, dFluxdddz, dFluxdX, dFluxdEdgeNorm,
+                                                       dFluxes2, ngrad, egrad, elems, geoState, dX2);
+    double bb = dX2*dX;
+    double diff = sqrt((aa-bb)*(aa-bb));
+    if(aa != 0) fprintf(stderr, " ... relative error = %e, aa = %e, bb = %e\n", diff/abs(aa), aa, bb);
+    else fprintf(stderr, " ... absolute error = %e, aa = %e, bb = %e\n", diff, aa, bb);
+*/
+  faces.computeDerivativeOfFiniteVolumeTerm(dFluxdFaceNormal, dFluxdFaceNormalVel, dFluxdUb, 
+                                            bcData, geoState, dn, dndot, dFluxes);
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+template<int dim>
+void SubDomain::computeTransposeDerivativeOfFiniteVolumeTerm(
+                                        RectangularSparseMat<double,dim,dim> *dFluxdddx,
+                                        RectangularSparseMat<double,dim,dim> *dFluxdddy,
+                                        RectangularSparseMat<double,dim,dim> *dFluxdddz,
+                                        RectangularSparseMat<double,3,dim> *dFluxdEdgeNorm,
+                                        RectangularSparseMat<double,3,dim> *dFluxdX,
+                                        RectangularSparseMat<double,3,dim> *dFluxdFaceNormal,
+                                        RectangularSparseMat<double,1,dim> *dFluxdFaceNormalVel,
+                                        RectangularSparseMat<double,dim,dim> *dFluxdUb,
+                                        BcData<dim>& bcData, GeoState& geoState,
+                                        SVec<double,dim>& dFluxes, 
+                                        NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad, 
+                                        SVec<double,3>& dX2,
+                                        SVec<double,dim>& dddx2,
+                                        SVec<double,dim>& dddy2,
+                                        SVec<double,dim>& dddz2,
+                                        Vec<Vec3D>& dEdgeNormal2,
+                                        Vec<Vec3D>& dFaceNormal2,
+                                        Vec<double>& dFaceNormalVel2)
+{
+
+  faces.computeTransposeDerivativeOfFiniteVolumeTerm(dFluxdFaceNormal, dFluxdFaceNormalVel, dFluxdUb, bcData, geoState, dFluxes, dFaceNormal2, dFaceNormalVel2);
+
+  edges.computeTransposeDerivativeOfFiniteVolumeTerm(dFluxdddx, dFluxdddy, dFluxdddz, dFluxdX, dFluxdEdgeNorm,
+                                                     dFluxes, ngrad, egrad, elems, geoState, dX2, dddx2, dddy2, dddz2, dEdgeNormal2);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+template<int dim>
+void SubDomain::computeDerivativeOperatorsOfFiniteVolumeTerm(Vec<double> &irey, Vec<double> &dIrey, FluxFcn** fluxFcn, RecFcn* recFcn,
+                                        BcData<dim>& bcData, GeoState& geoState,
+                                        SVec<double,3>& X, SVec<double,dim>& V,
+                                        NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad, double dMach,
+                                        RectangularSparseMat<double,3,dim>& dFluxdEdgeNorm,
+                                        RectangularSparseMat<double,3,dim> &dFluxdX,
+                                        RectangularSparseMat<double,dim,dim> &dFluxdddx,
+                                        RectangularSparseMat<double,dim,dim> &dFluxdddy,
+                                        RectangularSparseMat<double,dim,dim> &dFluxdddz,
+                                        RectangularSparseMat<double,3,dim> &dFluxdFaceNormal,
+                                        RectangularSparseMat<double,1,dim> &dFluxdFaceNormalVel,
+                                        RectangularSparseMat<double,dim,dim> &dFluxdUb)
+{
+
+  edges.computeDerivativeOperatorsOfFiniteVolumeTerm(irey, dIrey, fluxFcn, recFcn, elems, geoState, X, V, ngrad, egrad, dMach, 
+                                                     dFluxdEdgeNorm, dFluxdX, dFluxdddx,dFluxdddy, dFluxdddz);
+
+  faces.computeDerivativeOperatorsOfFiniteVolumeTerm(fluxFcn, bcData, geoState, V, dFluxdFaceNormal, dFluxdFaceNormalVel, dFluxdUb);
 
 }
 
@@ -1106,7 +1708,7 @@ void SubDomain::computeDerivativeOfFiniteVolumeTerm(FluxFcn** fluxFcn, RecFcn* r
 						    bool linRecAtInterface, bool viscSecOrder,
 						    Vec<int> &fluidId,
 						    ExactRiemannSolver<dim>& riemann,
-						    int Nriemann, SVec<double,3>* Nsbar,
+						    int Nriemann,
 						    NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
 						    double dMach,
 						    SVec<double,dim>& V,
@@ -1117,7 +1719,7 @@ void SubDomain::computeDerivativeOfFiniteVolumeTerm(FluxFcn** fluxFcn, RecFcn* r
 
   edges.computeDerivativeOfFiniteVolumeTerm(fluxFcn, recFcn, geoState, X, LSS, 
 					    linRecAtInterface, fluidId, riemann,
-					    Nriemann, Nsbar, ngrad, egrad, dMach, V, dFluxes);
+					    Nriemann, ngrad, egrad, dMach, V, dFluxes);
 
   faces.computeDerivativeOfFiniteVolumeTerm(fluxFcn, bcData, geoState, V, dFluxes);
 
@@ -1159,7 +1761,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        SVec<double,3>& X, SVec<double,dim>& V,
                                        SVec<double,dim>& Wstarij, SVec<double,dim>& Wstarji, 
                                        LevelSetStructure& LSS, bool linRecAtInterface, 
-                                       Vec<int> &fluidId, int Nriemann, SVec<double,3>* Nsbar, 
+                                       Vec<int> &fluidId, int Nriemann,
                                        FluidSelector &fluidSelector,
                                        NodalGrad<dim>& ngrad, 
 				       EdgeGrad<dim>* egrad,
@@ -1172,7 +1774,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 
   int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn,
                                            recFcn, elems, geoState, X, V, Wstarij, Wstarji, LSS, linRecAtInterface,
-                                           fluidId, Nriemann, Nsbar, fluidSelector,
+                                           fluidId, Nriemann, fluidSelector,
                                            ngrad, egrad, phi, ngradLS, egradLS, fluxes, it,
                                            tag, failsafe, rshift);
 
@@ -1191,7 +1793,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        SVec<double,3>& X, SVec<double,dim>& V,
                                        SVec<double,dim>& Wstarij, SVec<double,dim>& Wstarji,
                                        LevelSetStructure &LSS, bool linRecAtInterface, Vec<int> &fluidId,
-                                       int Nriemann, SVec<double,3>* Nsbar, NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
+                                       int Nriemann, NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
                                        SVec<double,dim>& fluxes, int it,
                                        SVec<int,2>& tag, int failsafe, int rshift)
 {
@@ -1204,7 +1806,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 				     Wstarij, Wstarji, 
 				     dummy,dummy, 
 				     LSS, linRecAtInterface, 
-				     fluidId, Nriemann, Nsbar, 
+				     fluidId, Nriemann,
 				     0.0, 0.1, ngrad, 
 				     egrad, fluxes, it,
                                      tag, failsafe, rshift, 
@@ -1213,7 +1815,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 
   int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn,
                                            recFcn, elems, geoState, X, V, Wstarij, Wstarji, LSS, 
-                                           linRecAtInterface, fluidId, Nriemann, Nsbar, ngrad, egrad, fluxes, it,
+                                           linRecAtInterface, fluidId, Nriemann, ngrad, egrad, fluxes, it,
                                           tag, failsafe, rshift);
 
   faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluidId, fluxes, &LSS);
@@ -1232,7 +1834,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        SVec<double,dim>& Wstarij, SVec<double,dim>& Wstarji,
 									   Vec<int>& countWstarij, Vec<int>& countWstarji,
                                        LevelSetStructure &LSS, bool linRecAtInterface, 
-									   Vec<int> &fluidId, int Nriemann, SVec<double,3>* Nsbar, 
+									   Vec<int> &fluidId, int Nriemann,
 									   double dt, double alpha, 
 									   NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
                                        SVec<double,dim>& fluxes, int it,
@@ -1245,7 +1847,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
   int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn,
                                            recFcn, elems, geoState, X, V, Wstarij, Wstarji, 
 										   countWstarij, countWstarji, LSS, linRecAtInterface, 
-										   fluidId, Nriemann, Nsbar, dt, alpha, ngrad,
+										   fluidId, Nriemann, dt, alpha, ngrad,
   									       egrad, fluxes, it, tag, failsafe, rshift, v6data); 
   faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluidId, fluxes, &LSS);
 
@@ -1465,13 +2067,13 @@ void SubDomain::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann
                                        BcData<dim>& bcData, GeoState& geoState,
                                        SVec<double,3>& X, SVec<double,dim>& V,Vec<double>& ctrlVol,
                                        LevelSetStructure &LSS, Vec<int> &fluidId,
-                                       int Nriemann, SVec<double,3>* Nsbar,
+                                       int Nriemann,
                                        GenMat<Scalar,neq>& A,Vec<double>& irey)
 {
 
   edges.computeJacobianFiniteVolumeTerm(riemann,fluxFcn,
                                         geoState, X, V, ctrlVol, LSS, 
-                                        fluidId, Nriemann, Nsbar, A,irey);
+                                        fluidId, Nriemann, A, irey);
 
   faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A, fluidId, &LSS); 
 
@@ -1493,13 +2095,13 @@ void SubDomain::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann
                                        SVec<double,3>& X, SVec<double,dim>& V,Vec<double>& ctrlVol,
                                        NodalGrad<dimLS> &ngradLS,
                                        LevelSetStructure &LSS,Vec<int> &fluidId,
-                                       int Nriemann, SVec<double,3>* Nsbar,
+                                       int Nriemann,
                                        FluidSelector &fluidSelector,
                                        GenMat<Scalar,neq>& A) {
 
   edges.computeJacobianFiniteVolumeTerm(riemann,locToGlobNodeMap,
-                                        fluxFcn, geoState, X, V, LSS,fluidId,Nriemann, Nsbar,
-                                        fluidSelector, ngradLS,ctrlVol, A);
+                                        fluxFcn, geoState, X, V, LSS, fluidId, Nriemann,
+                                        fluidSelector, ngradLS, ctrlVol, A);
 
   faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A, fluidId, &LSS);
 
@@ -2725,6 +3327,96 @@ MvpMat<Scalar,dim> *SubDomain::createMaskMatVecProd(bool nsFlag)
 
 //------------------------------------------------------------------------------
 
+template<int dim, int dim2>
+RectangularSparseMat<double,dim,dim2> *SubDomain::create_NodeBaseddRdXoperators()
+{
+  Connectivity *nodeToNode = createEdgeBasedConnectivity();
+  int numNodes = nodes.size();
+  int *ia = (*nodeToNode).ptr();
+  int *ja = (*nodeToNode)[0];
+  double (*a)[dim*dim2] = 0;
+
+  RectangularSparseMat<double, dim, dim2> *A = new RectangularSparseMat<double, dim, dim2>(numNodes, ia[numNodes], ia, ja, a, 0, 0);
+  return A;
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, int dim2>
+RectangularSparseMat<double,dim,dim2> *SubDomain::create_ConstantBaseddRdXoperators()
+{
+  Connectivity *nodeToConstant = createNodeToConstantConnectivity();
+  int numNodes = nodes.size();
+  int *ia = (*nodeToConstant).ptr();
+  int *ja = (*nodeToConstant)[0];
+  double (*a)[dim*dim2] = 0;
+
+  RectangularSparseMat<double, dim, dim2> *A = new RectangularSparseMat<double, dim, dim2>(numNodes, ia[numNodes], ia, ja, a, 0, 0);
+  return A;
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, int dim2>
+RectangularSparseMat<double,dim,dim2> *SubDomain::create_EdgeBaseddRdXoperators()
+{
+  Connectivity *edgeToNode = createElementBasedEdgeToNodeConnectivity();
+  int numEdges = edges.size();
+  int *ia = (*edgeToNode).ptr();
+  int *ja = (*edgeToNode)[0];
+  double (*a)[dim*dim2] = 0;
+
+  RectangularSparseMat<double, dim, dim2> *A = new RectangularSparseMat<double, dim, dim2>(numEdges, ia[numEdges], ia, ja, a, 0, 0);
+  return A;
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, int dim2>
+RectangularSparseMat<double,dim,dim2> *SubDomain::create_NodeToEdgeBaseddRdXoperators()
+{
+  Connectivity *nodeToEdge = createElementBasedNodeToEdgeConnectivity();
+  int numNodes = nodes.size();
+  int *ia = (*nodeToEdge).ptr();
+  int *ja = (*nodeToEdge)[0];
+  double (*a)[dim*dim2] = 0;
+
+  RectangularSparseMat<double, dim, dim2> *A = new RectangularSparseMat<double, dim, dim2>(numNodes, ia[numNodes], ia, ja, a, 0, 0);
+  return A;
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, int dim2>
+RectangularSparseMat<double,dim,dim2> *SubDomain::create_NodeToFaceBaseddRdXoperators()
+{
+  Connectivity *nodeToFace = createNodeToFaceConnectivity();
+  int numNodes = nodes.size();
+  int *ia = (*nodeToFace).ptr();
+  int *ja = (*nodeToFace)[0];
+  double (*a)[dim*dim2] = 0;
+  
+  RectangularSparseMat<double, dim, dim2> *A = new RectangularSparseMat<double, dim, dim2>(numNodes, ia[numNodes], ia, ja, a, 0, 0);
+  return A;
+} 
+
+//------------------------------------------------------------------------------
+
+template<int dim, int dim2>
+RectangularSparseMat<double,dim,dim2> *SubDomain::create_FaceBaseddRdXoperators()
+{
+  Connectivity *faceToNode = createFaceToNodeConnectivity();
+  int numFaces = faces.size();
+  int *ia = (*faceToNode).ptr();
+  int *ja = (*faceToNode)[0];
+  double (*a)[dim*dim2] = 0;
+
+  RectangularSparseMat<double, dim, dim2> *A = new RectangularSparseMat<double, dim, dim2>(numFaces, ia[numFaces], ia, ja, a, 0, 0);
+  return A;
+}
+
+//------------------------------------------------------------------------------
+
 template<class Scalar, int dim>
 DiagMat<Scalar,dim> *SubDomain::createMaskDiagonal(typename DiagMat<Scalar,dim>::Type type,
 						   int *ndType)
@@ -2889,12 +3581,71 @@ void SubDomain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn, BcData<dim> &bcData
 //------------------------------------------------------------------------------
 
 template<int dim, class Scalar, int neq>
+void SubDomain::computeH2transpose(FluxFcn **fluxFcn, RecFcn *recFcn, BcData<dim> &bcData,
+                                   GeoState &geoState, SVec<double,3> &X, SVec<double,dim> &V,
+                                   NodalGrad<dim> &ngrad, GenMat<Scalar,neq> &A)
+{
+
+  double ddVij[dim], ddVji[dim], Vi[dim], Vj[dim], dfdVi[dim*dim], dfdVj[dim*dim];
+
+  Scalar *Aij, *Aji;
+
+  // contribution of the edges
+
+  Vec<Vec3D> &edgeNorm = geoState.getEdgeNormal();
+  Vec<double> &edgeNormVel = geoState.getEdgeNormalVel();
+
+  bool *edgeFlag = edges.getMasterFlag();
+  int (*edgePtr)[2] = edges.getPtr();
+
+  SVec<double,dim> &dVdx = ngrad.getX();
+  SVec<double,dim> &dVdy = ngrad.getY();
+  SVec<double,dim> &dVdz = ngrad.getZ();
+
+  for (int l=0; l<edges.size(); ++l) {
+
+    if (!edgeFlag[l]) continue;
+
+    int i = edgePtr[l][0];
+    int j = edgePtr[l][1];
+
+    double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+    int k;
+    for (k=0; k<dim; ++k) {
+      ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
+      ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
+    }
+
+    recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
+
+    fluxFcn[BC_INTERNAL]->computeJacobians(1.0, 0.0, edgeNorm[l], edgeNormVel[l], Vi, Vj, dfdVi, dfdVj);
+
+    Aij = A.getElem_ij(l);
+    Aji = A.getElem_ji(l);
+
+    if (Aij && Aji)  {
+      for (k=0; k<neq*neq; ++k) {
+        Aji[k] += dfdVj[k];
+        Aij[k] += dfdVi[k];
+      }
+    }
+
+  }
+
+  // contribution of the boundary faces
+  faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, class Scalar, int neq>
 void SubDomain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn, BcData<dim> &bcData,
 			  GeoState &geoState, SVec<double,3> &X, SVec<double,dim> &V,
 			  NodalGrad<dim> &ngrad, 
 			  ExactRiemannSolver<dim>& riemann,
 			  LevelSetStructure &LSS, 
-			  Vec<int> &fluidId, int Nriemann, SVec<double,3>* Nsbar,
+			  Vec<int> &fluidId, int Nriemann,
 			  GenMat<Scalar,neq> &A,
 			  SVec<double,dim> &aij, SVec<double,dim> &aji,
 			  SVec<double,dim> &bij, SVec<double,dim> &bji,
@@ -2995,12 +3746,6 @@ void SubDomain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn, BcData<dim> &bcData
 	 case 1: //fluid normal
 	   normalDir = -1.0/(edgeNorm[l].norm())*edgeNorm[l];
 	   break;
-	 case 2: //cell-averaged structure normal
-	   if(fluidId[i]==farfieldFluid)
-	     normalDir =      Vec3D((*Nsbar)[i][0], (*Nsbar)[i][1], (*Nsbar)[i][2]);
-	   else 
-	     normalDir = -1.0*Vec3D((*Nsbar)[i][0], (*Nsbar)[i][1], (*Nsbar)[i][2]);
-	   break;
 	 default:
 	   fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
 	   exit(-1);
@@ -3075,12 +3820,6 @@ void SubDomain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn, BcData<dim> &bcData
 	   break;
 	 case 1: //fluid normal
 	   normalDir = 1.0/(edgeNorm[l].norm())*edgeNorm[l];
-	   break;
-	 case 2: //cell-averaged structure normal
-	   if(fluidId[j]==farfieldFluid)       
-	     normalDir =      Vec3D((*Nsbar)[j][0], (*Nsbar)[j][1], (*Nsbar)[j][2]);
-	   else
-	     normalDir = -1.0*Vec3D((*Nsbar)[j][0], (*Nsbar)[j][1], (*Nsbar)[j][2]);
 	   break;
 	 default:
 	   fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
@@ -3275,6 +4014,47 @@ void SubDomain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn, BcData<dim> &bcData
    }
 
  }
+
+ //------------------------------------------------------------------------------
+
+template<class Scalar, int dim>
+void SubDomain::computeMatVecProdH1transpose(bool *nodeFlag, GenMat<Scalar,dim> &A,
+                                             SVec<double,dim> &p, SVec<double,dim> &prod)
+{
+
+  int i, j, l;
+
+  int numNodes = nodes.size();
+  int numEdges = edges.size();
+
+  bool *edgeFlag = edges.getMasterFlag();
+  int (*edgePtr)[2] = edges.getPtr();
+
+  Scalar (*a)[dim*dim] = A.data();
+
+  prod = 0.0;
+
+#pragma ivdep
+  for (i=0; i<numNodes; ++i)
+    if (nodeFlag[i])
+      DenseMatrixOp<Scalar,dim,dim*dim>::applyTransAndAddToVector(a, i, p.v, i, prod.v, i);
+
+#pragma ivdep
+  for (l=0; l<numEdges; ++l) {
+
+    if (edgeFlag[l]) {
+
+      i = edgePtr[l][0];
+      j = edgePtr[l][1];
+
+      DenseMatrixOp<Scalar,dim,dim*dim>::applyTransAndAddToVector(a, numNodes + 2*l, p.v, j, prod.v, i);
+      DenseMatrixOp<Scalar,dim,dim*dim>::applyTransAndAddToVector(a, numNodes + 2*l + 1, p.v, i, prod.v, j);
+
+    }
+
+  }
+
+}
 
  //------------------------------------------------------------------------------
 
@@ -3475,12 +4255,219 @@ void SubDomain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn, BcData<dim> &bcData
 
  //------------------------------------------------------------------------------
 
+template<class Scalar1, class Scalar2, int dim>
+void SubDomain::computeMatVecProdH2transposeNew(IoData& iod, SVec<double,3> &X,
+                                                Vec<double> &ctrlVol, GenMat<Scalar1,dim> &A,
+                                                SVec<double,dim> &aij, SVec<double,dim> &aji,
+                                                SVec<double,dim> &bij, SVec<double,dim> &bji,
+                                                SVec<Scalar2,dim> &cij, SVec<Scalar2,dim> &cji,
+                                                SVec<Scalar2,dim> &dij, SVec<Scalar2,dim> &dji,
+                                                NodalGrad<dim, Scalar2> &dpdxj,
+                                                SVec<Scalar2,dim> &p, SVec<Scalar2,dim> &prod) {
+
+  int i, j, l, k;
+  double voli, volj;
+
+  Scalar2 tmpi[1][dim], tmpj[1][dim];
+  Scalar1 (*a)[dim*dim] = A.data();
+
+  prod = (Scalar2) 0.0;
+
+  int numNodes = nodes.size();
+  int numEdges = edges.size();
+
+  int (*edgePtr)[2] = edges.getPtr();
+  bool *masterFlag = edges.getMasterFlag();
+
+  if(iod.schemes.ns.reconstruction == SchemeData::LINEAR) {
+    double a, b, c, d;
+    for (l=0; l<numEdges; ++l) {
+      if (!masterFlag[l]) continue;
+      i = edgePtr[l][0];
+      j = edgePtr[l][1];
+      voli = 1.0 / ctrlVol[i];
+      volj = 1.0 / ctrlVol[j];
+
+      for (k=0; k<dim; ++k) {
+        a = aji[l][k]*cij[l][k];
+        b = aij[l][k]*cji[l][k];
+        c = aji[l][k]*dij[l][k];
+        d = aij[l][k]*dji[l][k];
+        prod[i][k] += voli*(a + cji[l][k] - b) - volj*(c + dji[l][k] - d);
+        prod[j][k] += voli*(cij[l][k] - a + b) - volj*(dij[l][k] - c + d);
+      }
+    }
+  } else {
+    for (l=0; l<numEdges; ++l) {
+      if (!masterFlag[l]) continue;
+      i = edgePtr[l][0];
+      j = edgePtr[l][1];
+      voli = 1.0 / ctrlVol[i];
+      volj = 1.0 / ctrlVol[j];
+
+      DenseMatrixOp<Scalar1,dim,dim*dim>::applyTransToVector(a, numNodes + 2*l, p.v, i, tmpi, 0);
+      DenseMatrixOp<Scalar1,dim,dim*dim>::applyTransToVector(a, numNodes + 2*l + 1, p.v, i, tmpj, 0);
+      for (k=0; k<dim; ++k) {
+        prod[i][k] += voli*tmpj[0][k];
+        prod[j][k] += voli*tmpi[0][k];
+      }
+
+      DenseMatrixOp<Scalar1,dim,dim*dim>::applyTransToVector(a, numNodes + 2*l, p.v, j, tmpi, 0);
+      DenseMatrixOp<Scalar1,dim,dim*dim>::applyTransToVector(a, numNodes + 2*l + 1, p.v, j, tmpj, 0);
+      for (k=0; k<dim; ++k) {
+        prod[i][k] += -volj*tmpj[0][k];
+        prod[j][k] += -volj*tmpi[0][k];
+      }
+    }
+  }
+}
+
+ //------------------------------------------------------------------------------
+
+template<class Scalar, int dim>
+void SubDomain::addToMatVecProdH2transposeGalerkinNew(Vec<double> &ctrlVol, SVec<Scalar,dim> &ddxt,
+                                                      SVec<Scalar,dim> &ddyt, SVec<Scalar,dim> &ddzt,
+                                                      NodalGrad<dim, Scalar> &dpdxj, SVec<Scalar,dim> &prod) {
+  int i, j;
+  double voli, volj;
+
+  SVec<double,3> wii = dpdxj.getWii();
+  SVec<double,3> wij = dpdxj.getWij();
+  SVec<double,3> wji = dpdxj.getWji();
+
+  for (i=0; i<nodes.size(); ++i) {
+    double coef = 1.0 / (4.0*ctrlVol[i]);
+    for(int k=0; k<dim; ++k) {
+      prod[i][k] += coef*(ddxt[i][k]*wii[i][0] + ddyt[i][k]*wii[i][1] + ddzt[i][k]*wii[i][2]);
+    }
+  }
+
+  int numEdges = edges.size();
+
+  int (*edgePtr)[2] = edges.getPtr();
+
+  for (int l=0; l<numEdges; ++l) {
+    i = edgePtr[l][0];
+    j = edgePtr[l][1];
+    voli = 1.0/(4.0*ctrlVol[i]);
+    volj = 1.0/(4.0*ctrlVol[j]);
+
+    for (int k=0; k<dim; ++k)  {
+      prod[i][k] += volj*(ddxt[j][k]*wji[l][0] + ddyt[j][k]*wji[l][1] + ddzt[j][k]*wji[l][2]);
+      prod[j][k] += voli*(ddxt[i][k]*wij[l][0] + ddyt[i][k]*wij[l][1] + ddzt[i][k]*wij[l][2]);
+    }
+  }
+}
+
+ //------------------------------------------------------------------------------
+
+template<class Scalar, int dim>
+void SubDomain::addToMatVecProdH2transposeLeastSquareNew(SVec<double,3> &X, SVec<double,6> &R, SVec<Scalar,dim> &ddxt,
+                                                         SVec<Scalar,dim> &ddyt, SVec<Scalar,dim> &ddzt,
+                                                         NodalGrad<dim, Scalar> &dpdxj, SVec<Scalar,dim> &prod) {
+  int i, j;
+  double Wi[3], Wj[3], a, b;
+  int numEdges = edges.size();
+  int (*edgePtr)[2] = edges.getPtr();
+  bool *edgeFlag = edges.getMasterFlag();
+
+  for (int l=0; l<numEdges; ++l) {
+    if (!edgeFlag[l]) continue;
+    i = edgePtr[l][0];
+    j = edgePtr[l][1];
+
+    double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+    computeLocalWeightsLeastSquares(dx, R[i], Wi);
+    dx[0] = -dx[0]; dx[1] = -dx[1]; dx[2] = -dx[2];
+    computeLocalWeightsLeastSquares(dx, R[j], Wj);
+
+    for (int k=0; k<dim; ++k)  {
+      a = ddxt[j][k]*Wj[0] + ddyt[j][k]*Wj[1] + ddzt[j][k]*Wj[2];
+      b = ddxt[i][k]*Wi[0] + ddyt[i][k]*Wi[1] + ddzt[i][k]*Wi[2];
+      prod[i][k] += a-b;
+      prod[j][k] += b-a;
+    }
+  }
+}
+
+ //------------------------------------------------------------------------------
+
+template<class Scalar1, class Scalar2, int dim>
+void SubDomain::computeGradientsTransposeNew(SVec<double,3> &X,
+                                             Vec<double> &ctrlVol, GenMat<Scalar1,dim> &A,
+                                             SVec<double,dim> &bij, SVec<double,dim> &bji,
+                                             SVec<Scalar2,dim> &cij, SVec<Scalar2,dim> &cji,
+                                             SVec<Scalar2,dim> &dij, SVec<Scalar2,dim> &dji,
+                                             SVec<Scalar2,dim> &p, SVec<Scalar2, dim> &ddxt,
+                                             SVec<Scalar2, dim> &ddyt, SVec<Scalar2, dim> &ddzt) {
+
+  int i, j, l, k;
+  double b, c, d, e;
+
+  Scalar1 (*a)[dim*dim] = A.data();
+
+  ddxt = (Scalar2) 0.0;
+  ddyt = (Scalar2) 0.0;
+  ddzt = (Scalar2) 0.0;
+  cij = (Scalar2) 0.0;
+  cji = (Scalar2) 0.0;
+  dij = (Scalar2) 0.0;
+  dji = (Scalar2) 0.0;
+
+  int numNodes = nodes.size();
+  int numEdges = edges.size();
+
+  int (*edgePtr)[2] = edges.getPtr();
+  bool *masterFlag = edges.getMasterFlag();
+
+  for (l=0; l<numEdges; ++l) {
+    if (!masterFlag[l]) continue;
+    i = edgePtr[l][0];
+    j = edgePtr[l][1];
+    double voli = 1.0 / ctrlVol[i];
+    double volj = 1.0 / ctrlVol[j];
+
+    double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+
+    DenseMatrixOp<Scalar1,dim,dim*dim>::applyTransToVector(a, numNodes + 2*l, p.v, i, cij.v, l);
+    DenseMatrixOp<Scalar1,dim,dim*dim>::applyTransToVector(a, numNodes + 2*l + 1, p.v, i, cji.v, l);
+    DenseMatrixOp<Scalar1,dim,dim*dim>::applyTransToVector(a, numNodes + 2*l, p.v, j, dij.v, l);
+    DenseMatrixOp<Scalar1,dim,dim*dim>::applyTransToVector(a, numNodes + 2*l + 1, p.v, j, dji.v, l);
+    for(k=0; k<dim; ++k) {
+      b = bij[l][k]*(voli*cji[l][k] - volj*dji[l][k]);
+      c = bji[l][k]*(-voli*cij[l][k] + volj*dij[l][k]);
+      ddxt[i][k] += b*dx[0];  ddyt[i][k] += b*dx[1];   ddzt[i][k] += b*dx[2];
+      ddxt[j][k] += c*dx[0];  ddyt[j][k] += c*dx[1];   ddzt[j][k] += c*dx[2];
+    }
+  }
+}
+
+ //------------------------------------------------------------------------------
+
+template<class Scalar1, class Scalar2, int dim>
+void SubDomain::addDiagonalInMatVecProdH2transpose(Vec<double> &ctrlVol, GenMat<Scalar1,dim> &A,
+                                                   SVec<Scalar2,dim> &p, SVec<Scalar2,dim> &prod) {
+
+  Scalar1 (*a)[dim*dim] = A.data();
+  int numNodes = nodes.size();
+  // contribution from diagonal entries of A
+  for (int i=0; i<numNodes; ++i) {
+    double voli = 1.0 / ctrlVol[i];
+    for (int k=0; k<dim; ++k) p[i][k] *= voli;
+    DenseMatrixOp<Scalar1,dim,dim*dim>::applyTransAndAddToVector(a, i, p.v, i, prod.v, i);
+    for (int k=0; k<dim; ++k) p[i][k] /= voli;
+  }
+
+}
+
+ //------------------------------------------------------------------------------
+
  template<class Scalar1, class Scalar2, int dim>
  void SubDomain::computeMatVecProdH2(FluxFcn **fluxFcn, RecFcn *recFcn, GeoState &geoState,
 				     SVec<double,3> &X, Vec<double> &ctrlVol, 
 				     ExactRiemannSolver<dim>& riemann,
 				     LevelSetStructure &LSS,
-				     Vec<int> &fluidId, int Nriemann, SVec<double,3>* Nsbar,			    
+				     Vec<int> &fluidId, int Nriemann,
 				     GenMat<Scalar1,dim> &A,
 				     SVec<double,dim> &aij, SVec<double,dim> &aji,
 				     SVec<double,dim> &bij, SVec<double,dim> &bji,
@@ -3587,12 +4574,6 @@ void SubDomain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn, BcData<dim> &bcData
 	 case 1: //fluid normal
 	   normalDir = -1.0/(edgeNorm[l].norm())*edgeNorm[l];
 	   break;
-	 case 2: //cell-averaged structure normal
-	   if(fluidId[i]==farfieldFluid)
-	     normalDir =      Vec3D((*Nsbar)[i][0], (*Nsbar)[i][1], (*Nsbar)[i][2]);
-	   else 
-	     normalDir = -1.0*Vec3D((*Nsbar)[i][0], (*Nsbar)[i][1], (*Nsbar)[i][2]);
-	   break;
 	 default:
 	   fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
 	   exit(-1);
@@ -3647,12 +4628,6 @@ void SubDomain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn, BcData<dim> &bcData
 	   break;
 	 case 1: //fluid normal
 	   normalDir = 1.0/(edgeNorm[l].norm())*edgeNorm[l];
-	   break;
-	 case 2: //cell-averaged structure normal
-	   if(fluidId[j]==farfieldFluid)       
-	     normalDir =      Vec3D((*Nsbar)[j][0], (*Nsbar)[j][1], (*Nsbar)[j][2]);
-	   else
-	     normalDir = -1.0*Vec3D((*Nsbar)[j][0], (*Nsbar)[j][1], (*Nsbar)[j][2]);
 	   break;
 	 default:
 	   fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
@@ -4805,7 +5780,6 @@ template<class Scalar, int dim>
 void SubDomain::writeVectorToFile(const char *prefix, int no,
 				  SVec<Scalar,dim> &U, Scalar* scale)
 {
-
   char name[MAXLINE];
   sprintf(name, "%s%s", prefix, suffix);
 #ifdef SYNCHRO_WRITE
@@ -4825,9 +5799,9 @@ void SubDomain::writeVectorToFile(const char *prefix, int no,
     Scalar* u = reinterpret_cast<Scalar*>(U.data());
     for (int i=0; i<U.size()*dim; ++i)
       v[i] = (*scale) * u[i];
-  }
-  else
+  } else {
     data = U.data();
+  }
 
   int count = 0;
   for (int i=0; i<numNodeRanges; ++i) {
@@ -5028,6 +6002,89 @@ void SubDomain::computeDerivativeOfNodalForce(PostFcn *postFcn, BcData<dim> &bcD
 
   for (int i=0; i<faces.size(); ++i)
     faces[i].computeDerivativeOfNodalForce(elems, postFcn, X, dX, d2wall, Vwall[i], dVwall[i], V, dV, Pin[i], dS, dF, gradP, dGradP);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+template<int dim>
+void SubDomain::computeDerivativeOfNodalForce(RectangularSparseMat<double,3,3> *dForcedX,
+                                              RectangularSparseMat<double,3,3> *dForcedGradP,
+                                              RectangularSparseMat<double,dim,3> *dForcedV,
+                                              RectangularSparseMat<double,3,3> *dForcedS,
+                                              SVec<double,3> &dX, SVec<double,dim> &dV, 
+                                              double dS[3], SVec<double,3> &dF,
+                                              SVec<double,3> &dSSVec, SVec<double,3> &dGradPSVec)
+{
+
+  dF = 0.0;
+  SVec<double,3> dummy(dF);
+  dForcedX->apply(dX, dummy);
+  dF += dummy;
+
+  for (int i=0;i<nodes.size();i++) {
+    dGradPSVec[i][0] = dGradP[0][i];
+    dGradPSVec[i][1] = dGradP[1][i];
+    dGradPSVec[i][2] = dGradP[2][i];
+  }
+
+  dForcedGradP->apply(dGradPSVec, dummy);
+  dF += dummy;
+  dForcedV->apply(dV, dummy);
+  dF += dummy;
+
+  dSSVec[0][0] = dS[0];
+  dSSVec[0][1] = dS[1];
+  dSSVec[0][2] = dS[2];
+
+  dForcedS->apply(dSSVec, dummy);
+  dF += dummy;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+template<int dim>
+void SubDomain::computeTransposeDerivativeOfNodalForce(RectangularSparseMat<double,3,3> *dForcedX,
+                                              RectangularSparseMat<double,3,3> *dForcedGradP,
+                                              RectangularSparseMat<double,dim,3> *dForcedV,
+                                              RectangularSparseMat<double,3,3> *dForcedS,
+                                              SVec<double,3> &dF, SVec<double,3> &dGradPSVec, 
+                                              SVec<double,3> &dX, SVec<double,dim> &dV, SVec<double,3> dSSVec)
+{
+  SVec<double,3> dummydX(dX); 
+  dForcedX->applyTranspose(dF, dummydX);
+  dX += dummydX;
+
+  SVec<double,3> dummydGradPSVec(dGradPSVec); 
+  dForcedGradP->applyTranspose(dF, dummydGradPSVec);
+  dGradPSVec += dummydGradPSVec;
+
+  SVec<double,dim> dummydV(dV);
+  dForcedV->applyTranspose(dF, dummydV);
+  dV += dummydV;
+
+  SVec<double,3> dummydSSVec(dSSVec);
+  dForcedS->applyTranspose(dF, dummydSSVec);
+  dSSVec += dummydSSVec;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+template<int dim>
+void SubDomain::computeDerivativeOperatorsOfNodalForce(PostFcn *postFcn, SVec<double,3> &X, SVec<double,dim> &V, Vec<double> &Pin,
+                                                       RectangularSparseMat<double,3,3> &dForcedX,
+                                                       RectangularSparseMat<double,3,3> &dForcedGradP,
+                                                       RectangularSparseMat<double,dim,3> &dForcedV,
+                                                       RectangularSparseMat<double,3,3> &dForcedS)
+{
+
+  for (int i=0; i<faces.size(); ++i)
+    faces[i].computeDerivativeOperatorsOfNodalForce(postFcn, X, V, Pin[i], gradP, dForcedX, dForcedGradP, dForcedV, dForcedS);
 
 }
 
@@ -7127,6 +8184,78 @@ void SubDomain::getDerivativeOfGradP(NodalGrad<dim>& ngrad)
     dGradP[0][i] = ddVdx[i][4];
     dGradP[1][i] = ddVdy[i][4];
     dGradP[2][i] = ddVdz[i][4];
+    (*dGradPSVec)[i][0] = ddVdx[i][4];
+    (*dGradPSVec)[i][1] = ddVdy[i][4];
+    (*dGradPSVec)[i][2] = ddVdz[i][4];
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+template<int dim>
+void SubDomain::getDerivativeOfGradP(RectangularSparseMat<double,dim,3> &dGradPdddx, 
+                                     RectangularSparseMat<double,dim,3> &dGradPdddy, 
+                                     RectangularSparseMat<double,dim,3> &dGradPdddz, 
+                                     SVec<double,dim>& ddVdx, 
+                                     SVec<double,dim>& ddVdy, 
+                                     SVec<double,dim>& ddVdz, 
+                                     SVec<double,3>& dGradPSVec)
+{
+
+  SVec<double,3> dummy(dGradPSVec);
+  dGradPdddx.apply(ddVdx, dGradPSVec);
+  dGradPdddy.apply(ddVdy, dummy);
+  dGradPSVec += dummy;
+  dGradPdddz.apply(ddVdz, dummy);
+  dGradPSVec += dummy;
+
+  for(int i=0; i<3; ++i)
+    for(int j=0; j<numNodes(); ++j)
+      dGradP[i][j] = dGradPSVec[j][i];
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+template<int dim>
+void SubDomain::getTransposeDerivativeOfGradP(RectangularSparseMat<double,dim,3> &dGradPdddx, 
+                                              RectangularSparseMat<double,dim,3> &dGradPdddy, 
+                                              RectangularSparseMat<double,dim,3> &dGradPdddz, 
+                                              SVec<double,3>& dGradPSVec,
+                                              SVec<double,dim>& ddVdx, 
+                                              SVec<double,dim>& ddVdy, 
+                                              SVec<double,dim>& ddVdz)
+{
+
+  SVec<double,3> dummy(dGradPSVec);
+  dGradPdddx.applyTranspose(dGradPSVec, ddVdx);
+  dGradPdddy.applyTranspose(dGradPSVec, ddVdy);
+  dGradPdddz.applyTranspose(dGradPSVec, ddVdz);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+template<int dim>
+void SubDomain::computeDerivativeOperatorOfGradP(RectangularSparseMat<double,dim,3> &dGradPdddx,
+                                                  RectangularSparseMat<double,dim,3> &dGradPdddy,
+                                                  RectangularSparseMat<double,dim,3> &dGradPdddz)
+{
+
+  for (int i=0;i<nodes.size();i++) {
+    double dGradPddVdxarray[3][dim] = {0};
+    double dGradPddVdyarray[3][dim] = {0};
+    double dGradPddVdzarray[3][dim] = {0};
+    dGradPddVdxarray[0][4] = 1.0;
+    dGradPddVdyarray[1][4] = 1.0;
+    dGradPddVdzarray[2][4] = 1.0;
+    int ndList[1] = {i};
+    dGradPdddx.addContrib(1, ndList, dGradPddVdxarray[0]);
+    dGradPdddy.addContrib(1, ndList, dGradPddVdyarray[0]);
+    dGradPdddz.addContrib(1, ndList, dGradPddVdzarray[0]);
   }
 
 }
@@ -7714,6 +8843,210 @@ void SubDomain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orde
 }
 
 //-----------------------------------------------------------------------------------------------
+//d2d
+template<int dim,int dimLS>
+void SubDomain::computeEMBNodeScalarQuantity(SVec<double,3> &X, SVec<double,dim> &V, 
+					     PostFcn *postFcn, VarFcn *varFcn, 
+					     Vec<int> &fluidId, SVec<double,dimLS>* phi,
+					     double (*Qnty)[3], int sizeQnty, int numStructElems, int (*stElem)[3],
+					     Vec<Vec3D>& Xstruct, LevelSetStructure &LSS,
+					     double pInfty, 
+					     Vec<GhostPoint<dim>*> *ghostPoints,
+					     NodalGrad<dim, double> &ngrad)
+{
+
+  myTree->reconstruct<&Elem::computeBoundingBox>(X, elems.getPointer(), elems.size());
+
+  int qOrder = 1;
+  Quadrature quadrature_formula(qOrder);
+  int nqPoint = quadrature_formula.n_point;
+  double (*qloc)[3](quadrature_formula.qloc);
+  double *qweight(quadrature_formula.weight);
+
+  int iElem = -1;
+  int T[4];       //nodes in a tet.
+
+
+  Vec3D vectorIJ, gradP, flocal;
+  SVec<double,dim> gradX = ngrad.getX();
+  SVec<double,dim> gradY = ngrad.getY();
+  SVec<double,dim> gradZ = ngrad.getZ();
+  
+  CrackingSurface* cs = LSS.getCrackingSurface();
+
+  // if(cs) {
+  //   fprintf(stderr, "Warning: wall quantities cannot be computed on a cracked embedded surface.\n");
+  //   return;
+  // }
+
+  double Vext[dim]; 
+  int stNode[3];
+  Vec3D Xst[3];
+  Vec3D Xp;
+
+  int nq = 0;
+  
+  for(int nSt = 0; nSt < numStructElems; ++nSt) {
+
+    for (int j=0; j<3; ++j) {
+      stNode[j] = stElem[nSt][j];
+         Xst[j] = Xstruct[stNode[j]]; 
+    }
+    Vec3D normal = 0.5*(Xst[1]-Xst[0])^(Xst[2]-Xst[0]);
+
+    for (int j=0; j<3; ++j){
+	Xp[j] = qloc[nq][0]*Xst[0][j] + qloc[nq][1]*Xst[1][j] + qloc[nq][2]*Xst[2][j];
+    }
+    
+    ElemForceCalcValid myObj;
+    Elem* E = myTree->search<&Elem::isPointInside, ElemForceCalcValid,
+			     &ElemForceCalcValid::Valid>(&myObj, X, Xp);
+
+    if (!E) 
+      continue;
+
+    if (cs && cs->getPhi(nSt, qloc[nq][0], qloc[nq][1]) < 0.0)
+      continue;
+ 
+    for (int i=0; i<4; i++) T[i] = (*E)[i];
+
+    Vec3D Xf[4]; 
+    for (int i=0; i<4; i++)
+      for(int j=0;j<3;++j) Xf[i][j] = X[T[i]][j];
+
+    // Compute barycentric coordinates
+    Vec3D bary;
+    E->computeBarycentricCoordinates(X,Xp,bary); 
+    if (bary[0] < 0.0 || bary[1] < 0.0 || bary[2] < 0.0 || bary[0]+bary[1]+bary[2] > 1.0) {
+      E = 0;
+      continue;
+    }
+
+    Vec3D dbary[4];
+    dbary[0] = Vec3D(1.0-bary[0],bary[1],bary[2]);
+    dbary[1] = Vec3D(bary[0],1.0-bary[1],bary[2]);
+    dbary[2] = Vec3D(bary[0],bary[1],1.0-bary[2]);
+    dbary[3] = Vec3D(bary[0],bary[1],bary[2]);
+    
+    // Determine the side of the nodes of the tet on intersected edges
+    int norm[4] = { 0, 0, 0, 0 };
+    for (int e=0; e<6; ++e) {
+      int l = E->edgeNum(e);
+      if (LSS.edgeIntersectsStructure(0,l)) {
+	int i = E->edgeEnd(e,0);
+	int j = E->edgeEnd(e,1);
+	LevelSetResult lsResij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, (T[i]<T[j]));
+	norm[i] = (lsResij.gradPhi*(Xstruct[lsResij.trNodes[0]]-Xf[i]) <= 0) ? -1 : 1;
+	LevelSetResult lsResji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, (T[i]>=T[j]));
+	norm[j] = (lsResji.gradPhi*(Xstruct[lsResji.trNodes[0]]-Xf[j]) <= 0) ? -1 : 1;
+      }
+    }
+
+    // Check for the dual volume using barycentric coordinates) of the tet on the either side of the surface element
+    double mindist[2] = {FLT_MAX,FLT_MAX};
+    int node[2] = {-1,-1};
+    Vec3D nf[2] = {-normal,normal};
+    for (int i=0; i<4; i++) {
+      double dist = dbary[i].norm();
+      if (norm[i] < 0) {  
+	  
+	if( (LSS.isActive(0,T[i]) || (cs && !LSS.isOccluded(0,T[i]))) && dist < mindist[0] && normal*(Xp-Xf[i]) <= 0. ) {
+	  mindist[0] = dist;
+	  node[0] = T[i];
+	}
+      } else if(norm[i] > 0) {
+	if( (LSS.isActive(0,T[i])|| (cs && !LSS.isOccluded(0,T[i]))) && dist < mindist[1] && normal*(Xp-Xf[i]) > 0. ) {
+	  mindist[1] = dist;
+	  node[1] = T[i];
+	}
+      }
+    }
+
+    
+    // ---- For viscous simulation ----
+
+    // Gradient of the P1 basis functions
+    double dp1dxj[4][3]; 
+    for(int i=0;i<4;++i) {
+      for(int j=0;j<3;++j) { 
+	dp1dxj[i][j] = 0.0;
+      }
+    }
+
+    // not used, but required by postFcn->computeViscousForce(...)
+    double d2w[3]; 
+    d2w[0] = d2w[1] = d2w[2] = 0.0;
+    double *Vwall = 0;
+    double *Vface[3] = {0,0,0};
+      
+    double *vtet[2][4];
+    if(ghostPoints) {
+      E->computeGradientP1Function(X, dp1dxj);
+      for(int i=0; i<4; ++i) {
+	vtet[0][i] = V[T[i]];
+	vtet[1][i] = V[T[i]];
+      }
+      
+      GhostPoint<dim> *gp;
+      for(int i=0; i<4; ++i) {
+	gp = (*ghostPoints)[T[i]];
+	if (gp) {
+	  if (norm[i] <= 0.) vtet[1][i] = gp->getPrimitiveState();
+	  else               vtet[0][i] = gp->getPrimitiveState();
+	}
+      }
+    }
+        
+    double Cplocal = 0.0, Cflocal = 0.0;
+    for (int n = 0; n < 2; ++n) {
+
+      int i = node[n];
+      if (i < 0) continue;
+      double *v = V[i];
+
+      for(int m=0;m<3;++m) {
+	vectorIJ[m] = Xp[m] - X[i][m];
+      }
+      for (int k = 0; k < dim; ++k) {
+	Vext[k] = v[k] + gradX[i][k]*vectorIJ[0]+
+                         gradY[i][k]*vectorIJ[1]+
+                         gradZ[i][k]*vectorIJ[2];
+      }
+
+      double S = sqrt(nf[n]*nf[n]);
+
+      int fid(0);
+      fid = fluidId[i]?fluidId[i]:0;	
+      double pp = postFcn->computeNodeScalarQuantity(PostFcn::PRESSURECOEFFICIENT, Vext, Xp, fid, NULL);
+      Cplocal += pp;
+
+      // Viscous Simulation
+      if(ghostPoints) {
+	Vec3D t(1.0, 0.0, 0.0);
+	Vec3D F = postFcn->computeViscousForce(dp1dxj, nf[n], d2w, Vwall, Vface, vtet[n]);
+	Cflocal += 2.0 * t * F / S;
+      }
+
+      Qnty[stNode[0]][0] += S;
+      Qnty[stNode[1]][0] += S;
+      Qnty[stNode[2]][0] += S;
+
+      Qnty[stNode[0]][1] += Cplocal*S;
+      Qnty[stNode[1]][1] += Cplocal*S;
+      Qnty[stNode[2]][1] += Cplocal*S;
+
+      Qnty[stNode[0]][2] += Cflocal*S;
+      Qnty[stNode[1]][2] += Cflocal*S;
+      Qnty[stNode[2]][2] += Cflocal*S;
+
+    }	
+    
+  }
+
+}
+
+//-----------------------------------------------------------------------------------------------
+
 
 template<int dim>
 void SubDomain::computederivativeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int order, SVec<double,3> &X,

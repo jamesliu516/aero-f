@@ -91,6 +91,8 @@ private:
   char *conservation;
   char *modeFile;
   char *embeddedsurface;
+  char *embeddedsurfaceCp;
+  char *embeddedsurfaceCf;
   char *cputiming;
   char *stateVectors;
   char *residualVectors;
@@ -123,8 +125,8 @@ private:
   FILE *fpError;
   FILE *fpEmbeddedSurface;
   FILE *fpCpuTiming;
-
-
+  FILE *fpEmbeddedSurfaceCp;
+  FILE *fpEmbeddedSurfaceCf;
   DistVec<double>    *Qs;
   DistSVec<double,3> *Qv;
 
@@ -236,6 +238,7 @@ public:
                                      DistSVec<double,dim> &U);
 
   void writePositionSensitivityVectorToDisk(int step, double tag, DistSVec<double,3> &X);
+
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &, 
                                 DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
 
@@ -260,9 +263,11 @@ public:
                            DistLevelSetStructure *distLSS = 0,
                            DistVec<GhostPoint<dim>*> *ghostPoints = 0);
   
+  // d2d
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &,
                                 DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *,
-                                DistVec<int> &);
+                                DistVec<int> &, DistLevelSetStructure *distLSS = 0,
+				DistVec<GhostPoint<dim>*> *ghostPoints = 0);
 
   void writeProbesToDisk(bool lastIt, int it, double t, DistSVec<double,3> &X,
                          DistVec<double> &A, DistSVec<double,dim> &U,

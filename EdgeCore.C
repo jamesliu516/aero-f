@@ -192,30 +192,6 @@ void EdgeSet::computeCharacteristicEdgeLength(SVec<double,3> &X, double &minLeng
 #endif
 //---------------------------------------------------------------------------------
 
-void EdgeSet::computeCellAveragedStructNormal(SVec<double,3> &Nsbar, Vec<double> &weights, LevelSetStructure &LSS)
-{
-  for (int l=0; l<numEdges; ++l) {
-    if (!masterFlag[l]) continue;
-
-    int i = ptr[l][0];
-    int j = ptr[l][1];
-    bool intersect = LSS.edgeIntersectsStructure(0,l);
-    if (!intersect) continue;
-
-    LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0,l,true);
-    for(int k=0; k<3; k++)
-      Nsbar[i][k] += resij.gradPhi[k];
-    weights[i] += 1.0;
-
-    LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0,l,false);
-    for(int k=0; k<3; k++)
-      Nsbar[j][k] += resji.gradPhi[k];
-    weights[j] += 1.0;
-  }
-}
-
-//------------------------------------------------------------------------------
-
 void EdgeSet::attachProgrammedBurn(ProgrammedBurn* p) {
 
   programmedBurn = p;

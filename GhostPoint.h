@@ -10,7 +10,7 @@
 using std::cout;
 using std::endl;
 
-class VarFcn;
+//class VarFcn;
 
 template<class Scalar> class Vec;
 

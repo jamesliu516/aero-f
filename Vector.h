@@ -2,6 +2,7 @@
 #define _VECTOR_H_
 
 #include <complex>
+#include <Vector3D.h>
 
 using std::complex;
 
@@ -57,6 +58,9 @@ double sqNorm(double x) { return x*x;}
 template <class Scalar>
 inline
 double sqNorm(complex<Scalar> x) { return (x*conj(x)).real(); }
+
+inline
+double sqNorm(Vec3D x) { return x.v[0]*x.v[0] + x.v[1]*x.v[1] + x.v[2]*x.v[2]; }
 
 template<class Scalar> inline Scalar DotTerm(const Scalar &a, const Scalar &b) {return a*b; }
 
@@ -409,7 +413,7 @@ Scalar
 Vec<Scalar>::operator*(const Vec<Scalar> &y) 
 {
 
-  Scalar res = 0;
+  Scalar res = 0.0;
 
   for (int i=0; i<len; ++i) res += v[i] * y.v[i];
 

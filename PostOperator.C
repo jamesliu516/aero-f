@@ -227,6 +227,125 @@ void PostOperator<dim>::computeDerivativeOfNodalForce(DistSVec<double,3> &X, Dis
 }
 
 //------------------------------------------------------------------------------
+// the nodal force F is *** NOT *** assembled
+
+// Included (YC)
+template<int dim>
+void PostOperator<dim>::computeDerivativeOfNodalForce(RectangularSparseMat<double,3,3> **dForcedX,
+                                                      RectangularSparseMat<double,3,3> **dForcedGradP,
+                                                      RectangularSparseMat<double,dim,3> **dForcedV,
+                                                      RectangularSparseMat<double,3,3> **dForcedS,
+                                                      RectangularSparseMat<double,dim,dim> **dVdU,
+                                                      DistSVec<double,3> &dX, DistSVec<double,3> &dGradPSVec, DistSVec<double,dim> &dU,
+                                                      double dS[3], DistSVec<double,3> &dF)
+{
+
+//Remark: Error mesage for pointers
+  if (dV == 0) {
+    com->fprintf(stderr, "*** Error: PostOperator::Variable dV does not exist!\n");
+    exit(1);
+  }
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+//    varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub));
+//    varFcn->conservativeToPrimitiveDerivative(U(iSub), dU(iSub), (*V)(iSub), (*dV)(iSub));
+    dVdU[iSub]->apply(dU(iSub), (*dV)(iSub));
+
+    SVec<double,3> dSSVec(1); 
+    subDomain[iSub]->computeDerivativeOfNodalForce(dForcedX[iSub], dForcedGradP[iSub], dForcedV[iSub], dForcedS[iSub],
+                                                   dX(iSub), (*dV)(iSub), dS, dF(iSub), dSSVec, dGradPSVec(iSub));
+/*
+    SVec<double,3> dX2(dX(iSub)), dSSVec2(dSSVec), dGradPSVec2(dGradPSVec), dF2(dF(iSub));
+    SVec<double,dim> dU2(dU(iSub)), dV2((*dV)(iSub));
+    dX2 = 0.0;   dSSVec2 = 0.0;   dGradPSVec2 = 0.0;   dU2 = 0.0;  dV2 = 0.0;
+    dVdU[iSub]->apply(dU(iSub), dV2);
+    subDomain[iSub]->computeDerivativeOfNodalForce(dForcedX[iSub], dForcedGradP[iSub], dForcedV[iSub], dForcedS[iSub],
+                                                   dX(iSub), dV2, dS, dF2, dSSVec, dGradPSVec);
+    double aa = dF(iSub)*dF2;
+
+    dV2 = 0.0;
+    subDomain[iSub]->computeTransposeDerivativeOfNodalForce(dForcedX[iSub], dForcedGradP[iSub], dForcedV[iSub], dForcedS[iSub],
+                                                            dF(iSub), dGradPSVec2, dX2, dV2, dSSVec2);
+    dVdU[iSub]->applyTranspose(dV2, dU2);
+    double bb = dGradPSVec2*dGradPSVec + dX2*dX(iSub) + dU2*dU(iSub) + dSSVec2*dSSVec;
+    double diffnorm = sqrt((aa-bb)*(aa-bb));
+    double aanorm = sqrt(aa*aa);
+    if(aanorm != 0) fprintf(stderr, " ... rel. diff is %e\n", diffnorm/aanorm);
+    else fprintf(stderr, " ... abs. diff is %e\n", diffnorm);
+*/
+
+  }
+
+  CommPattern<double> *vec3DPat = domain->getCommPat(dF);
+  domain->assemble(vec3DPat, dF);  // TODO: was not assembled originally
+
+}
+
+//------------------------------------------------------------------------------
+// Included (YC)
+template<int dim>
+void PostOperator<dim>::computeTransposeDerivativeOfNodalForce(RectangularSparseMat<double,3,3> **dForcedX,
+                                                      RectangularSparseMat<double,3,3> **dForcedGradP,
+                                                      RectangularSparseMat<double,dim,3> **dForcedV,
+                                                      RectangularSparseMat<double,3,3> **dForcedS,
+                                                      RectangularSparseMat<double,dim,dim> **dVdU,
+                                                      DistSVec<double,3> &dF, DistSVec<double,3> &dX,
+                                                      DistSVec<double,3> &dGradPSVec, 
+                                                      DistSVec<double,dim> &dU, double dS[3])
+{
+
+//Remark: Error mesage for pointers
+  if (dV == 0) {
+    com->fprintf(stderr, "*** Error: PostOperator::Variable dV does not exist!\n");
+    exit(1);
+  }
+  *dV = 0.0;
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    SVec<double,3> dSSVec(1);
+    subDomain[iSub]->computeTransposeDerivativeOfNodalForce(dForcedX[iSub], dForcedGradP[iSub], dForcedV[iSub], dForcedS[iSub],
+                                                            dF(iSub), dGradPSVec(iSub), dX(iSub), (*dV)(iSub), dSSVec);
+    dVdU[iSub]->applyTranspose((*dV)(iSub), dU(iSub));
+    for(int i=0; i<3; ++i) dS[i] = dSSVec[0][i];
+  }
+/*
+  CommPattern<double> *vec3DPat = domain->getCommPat(dX);
+  domain->assemble(vec3DPat, dGradPSVec);
+  domain->assemble(vec3DPat, dX);
+  CommPattern<double> *vPat = domain->getCommPat(dU);
+  domain->assemble(vPat, dU);
+*/
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+template<int dim>
+void PostOperator<dim>::computeDerivativeOperatorsOfNodalForce(DistSVec<double,3> &X, DistSVec<double,dim> &U, 
+                                                               DistVec<double> &Pin, 
+                                                               RectangularSparseMat<double,3,3> **dForcedX,
+                                                               RectangularSparseMat<double,3,3> **dForcedGradP,
+                                                               RectangularSparseMat<double,dim,3> **dForcedV,
+                                                               RectangularSparseMat<double,3,3> **dForcedS,
+                                                               RectangularSparseMat<double,dim,dim> **dVdU,
+                                                               RectangularSparseMat<double,1,dim> **dVdPstiff)
+{
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) { 
+    varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub));
+    varFcn->computeConservativeToPrimitiveDerivativeOperators(U(iSub), (*V)(iSub), *dVdU[iSub], *dVdPstiff[iSub]);
+    subDomain[iSub]->computeDerivativeOperatorsOfNodalForce(postFcn, X(iSub), (*V)(iSub), Pin(iSub), 
+                                                            *dForcedX[iSub], *dForcedGradP[iSub],
+                                                            *dForcedV[iSub], *dForcedS[iSub]);
+  }
+  
+
+}
+
+//------------------------------------------------------------------------------
 // the nodal heat power is *** NOT *** assembled
 
 template<int dim>
@@ -1253,6 +1372,75 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
 
 template<int dim>
 template<int dimLS>
+void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
+						 DistSVec<double,dim>& U,
+						 DistVec<double>& A,
+						 double** EmbQs,
+						 DistTimeState<dim> *timeState,
+						 DistVec<int>& fluidId, 
+						 DistSVec<double,dimLS> *Phi, 
+						 DistLevelSetStructure *distLSS,
+						 DistVec<GhostPoint<dim>*> *ghostPoints)
+{
+
+  int iSub;
+
+  varFcn->conservativeToPrimitive(U, *V, &fluidId);
+
+  DistNodalGrad<dim, double> * ngrad = spaceOp->getDistNodalGrad(*V);
+
+  int numStructNodes  = distLSS->getNumStructNodes();
+  int numStructElems  = distLSS->getNumStructElems();
+  int   (*stElem)[3]  = distLSS->getStructElems();
+  Vec<Vec3D>& Xstruct = distLSS->getStructPosition();
+
+  typedef double my_array[3];
+  my_array **subEmbQ = new my_array * [numLocSub];
+  for(int i=0; i<numLocSub; ++i) subEmbQ[i] = new my_array[numStructNodes];
+
+  Vec<GhostPoint<dim>*> *gp = 0;
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++) {
+
+    for (int is=0; is<numStructNodes; is++) {
+      subEmbQ[iSub][is][0] = 0.0;
+      subEmbQ[iSub][is][1] = 0.0;
+      subEmbQ[iSub][is][2] = 0.0;
+    }
+
+    if(ghostPoints) gp = ghostPoints->operator[](iSub);
+
+    if (Phi){
+      subDomain[iSub]->computeEMBNodeScalarQuantity(X(iSub), (*V)(iSub), postFcn, varFcn, 
+ 						   fluidId(iSub), &((*Phi)(iSub)),
+     						   subEmbQ[iSub], numStructNodes, numStructElems, stElem, Xstruct, 
+						   (*distLSS)(iSub), 1.0, gp, (*ngrad)(iSub) );
+    } else {
+      subDomain[iSub]->computeEMBNodeScalarQuantity(X(iSub), (*V)(iSub), postFcn, varFcn, 
+ 						   fluidId(iSub), (SVec<double,1>*)0,
+						   subEmbQ[iSub], numStructNodes, numStructElems, stElem, Xstruct, 
+     					           (*distLSS)(iSub), 1.0, gp, (*ngrad)(iSub) );
+    }
+  
+    for (int is=0; is<numStructNodes; is++) {
+      if( subEmbQ[iSub][is][0] ) {
+	EmbQs[is][0] = subEmbQ[iSub][is][0];
+	EmbQs[is][1] = subEmbQ[iSub][is][1]/subEmbQ[iSub][is][0]; //Cp
+	EmbQs[is][2] = subEmbQ[iSub][is][2]/subEmbQ[iSub][is][0]; //Cf
+      }
+    } 
+    
+  }
+
+  for(int i=0; i<numLocSub; ++i) delete [] subEmbQ[i];
+  delete [] subEmbQ;
+  
+}
+// -----------------------------------------------------------------------------------------------------------------------------
+
+template<int dim>
+template<int dimLS>
 void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
 					      DistSVec<double,3>& X,
 					      DistSVec<double,dim>& U,
@@ -1532,16 +1720,15 @@ void PostOperator<dim>::computeDerivativeOfVectorQuantity(PostFcn::VectorDerivat
 {
 
   int iSub;
-
   if (type == PostFcn::DERIVATIVE_VELOCITY_VECTOR) {
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {
-      double (*u)[dim] = U.subData(iSub);
+      double (*u)[dim]  =  U.subData(iSub);
       double (*du)[dim] = dU.subData(iSub);
-      double (*dq)[3] = dQ.subData(iSub);
+      double (*dq)[3]   = dQ.subData(iSub);
 
       for (int i=0; i<dQ.subSize(iSub); ++i) {
-	double v[dim];
+	double  v[dim];
         double dv[dim];
 	varFcn->conservativeToPrimitive(u[i], v);
 	varFcn->conservativeToPrimitiveDerivative(u[i], du[i], v, dv);

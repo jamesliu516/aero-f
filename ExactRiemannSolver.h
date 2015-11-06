@@ -50,6 +50,8 @@ class ExactRiemannSolver{
 			 HigherOrderMultiFluid* );
 
   // for multiphase Riemann problem
+  int fluid1(int IDi, int IDj);
+  int fluid2(int IDi, int IDj);
   int computeRiemannSolution(double *Vi, double *Vj,
 			     int IDi, int IDj, double *nphi, VarFcn *vf,
 			     double *Wi, double *Wj,

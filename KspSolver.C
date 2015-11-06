@@ -613,11 +613,11 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp,ScalarT>::solveT(VecType &b,
 
   do {
 
-    this->mvpOp->applyT(x, w);
+    this->mvpOp->applyTranspose(x, w);
 
     r = b - w;
 
-    if (typePrec == 1) { this->pcOp->applyT(r, w); r = w; }
+    if (typePrec == 1) { this->pcOp->applyTranspose(r, w); r = w; }
 
     beta = r.norm();
 
@@ -639,10 +639,10 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp,ScalarT>::solveT(VecType &b,
     for (j=0; j<numVec; ++j) {
 
       switch (typePrec) {
-      case 0: { this->mvpOp->applyT(V[j], w); } break;
-      case 1: { this->mvpOp->applyT(V[j], r); this->pcOp->applyT(r, w); } break;
-      case 2: {this->pcOp->applyT(V[j], r);
-      this->mvpOp->applyT(r, w);
+      case 0: { this->mvpOp->applyTranspose(V[j], w); } break;
+      case 1: { this->mvpOp->applyTranspose(V[j], r); this->pcOp->applyTranspose(r, w); } break;
+      case 2: {this->pcOp->applyTranspose(V[j], r);
+      this->mvpOp->applyTranspose(r, w);
       } break;
 
       }
@@ -686,7 +686,7 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp,ScalarT>::solveT(VecType &b,
 
     for (int m=0; m<=j; ++m) w += y[m] * V[m];
 
-    if (typePrec == 2) { this->pcOp->applyT(w, r); w = r; }
+    if (typePrec == 2) { this->pcOp->applyTranspose(w, r); w = r; }
 
     x += w;
 
@@ -695,10 +695,10 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp,ScalarT>::solveT(VecType &b,
 
   if (this->checkFinalRes) {
 
-    this->mvpOp->applyT(x, w);
+    this->mvpOp->applyTranspose(x, w);
     r = b - w;
 
-    if (typePrec == 1) { this->pcOp->applyT(r, w); r = w; }
+    if (typePrec == 1) { this->pcOp->applyTranspose(r, w); r = w; }
 
 //    if (this->output)
 //      ioOp->fprintf(this->output, "  %d %e (actual residual norm)\n", iter, r.norm() );

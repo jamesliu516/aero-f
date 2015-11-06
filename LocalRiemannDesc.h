@@ -1318,7 +1318,7 @@ void LocalRiemannGfmparJWLJWL::computeRiemannJacobian(double *Vi, double *Vj,
     // cell i is fluid2
     // cell j is fluid1
 
-    ImplicitRiemann::computeJwlJwlJacobian(vf_, IDi, IDj, Vi, Vj, Wi,Wj, dWidWi3, dWidWj3,  dWjdWj3, dWjdWi3 );
+    ImplicitRiemann::computeJwlJwlJacobian(vf_, IDj, IDi, Vj, Vi, Wj,Wi, dWjdWj3, dWjdWi3,  dWidWi3, dWidWj3 );
 
   }
 
@@ -3202,18 +3202,9 @@ int LocalRiemannFluidStructure<dim>::computeRiemannSolution(double *Vi, double *
   double rc = vf->getVarFcnBase(Id)->rhomin;
   double pc = vf->getVarFcnBase(Id)->pmin;
 
-  if (Vi[0] < rc)
-    Vi[0] = rc;
-
-  ////
-  if (Vi[4] < pc)
-    Vi[4] = pc;
-  ////
-
-  R_1 = Vi[0];
-
+  R_1 = std::max(rc,Vi[0]);
   U_1 = vni;
-  P_1  = vf->getPressure(Vi,Id);
+  P_1  = std::max(pc,vf->getPressure(Vi,Id));
   U_i = Vstar[0]*nphi[0]+Vstar[1]*nphi[1]+Vstar[2]*nphi[2];
   double U_ti[3] = {Vstar[0] - U_i*nphi[0], Vstar[1] - U_i*nphi[1], Vstar[2] - U_i*nphi[2]};
 
@@ -3267,9 +3258,9 @@ int LocalRiemannFluidStructure<dim>::computeRiemannSolution(double *Vi, double *
   vti[1] = Vi0[2] - vni*nphi[1];
   vti[2] = Vi0[3] - vni*nphi[2];
 
-  R_1 = Vi0[0];
+  R_1 = std::max(rc,Vi0[0]);
   U_1 = vni;
-  P_1 = vf->getPressure(Vi0,Id);
+  P_1 = std::max(pc,vf->getPressure(Vi0,Id));
 
   // U_i is the same.
   switch (vf->getType(Id)) {
@@ -3287,7 +3278,7 @@ int LocalRiemannFluidStructure<dim>::computeRiemannSolution(double *Vi, double *
   Wstar[dim+2]  = U_i*nphi[1] + viscous_switch*U_ti[1] + (1.0-viscous_switch)*(1.0-stabil_alpha)*vti[1];
   Wstar[dim+3]  = U_i*nphi[2] + viscous_switch*U_ti[2] + (1.0-viscous_switch)*(1.0-stabil_alpha)*vti[2];
   if (vf->getType(Id) == VarFcnBase::TAIT) 
-    Wstar[dim+4] = vf->computeTemperature(Vi, Id);
+    Wstar[dim+4] = vf->computeTemperature(Vi0, Id);
   else
     Wstar[dim+4]  = P_i;
   if(dim == 6)

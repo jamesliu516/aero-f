@@ -53,6 +53,14 @@ public:
     exit(1);
   }
 
+  virtual void compute_dFluxdNormal_dFluxdNormalVel_dFluxdVL_dFluxdVR(double *n, double nv, double *vl, double *vr,
+                                                                      double dmach, double *f, double dfdn[7][3],
+                                                                      double *fdnv, double dfdvl[7][7], double dfdvr[7][7])
+  {
+    std::cout << "\n !!! FluxFcnBase::compute_dFluxdNormal_dFluxdNormalVel_dFluxdVL_dFluxdVR is not implemented !!!\n\n";
+    exit(1);
+  }
+
   //--- Sensitivity Analysis Function
   virtual void computeDerivative
   (
@@ -61,6 +69,13 @@ public:
   ) 
   {
     std::cout << "\n !!! FluxFcnBase::computeDerivative (11 arg.) is not implemented !!!\n\n";
+    exit(1);
+  }
+
+  virtual void computeDerivativeOperators(double *n, double nv, double *v, 
+                                          double *ub, double dfdn[7][3], double dfdv[7][1], double dfdub[7][7])
+  {
+    std::cout << "\n !!! FluxFcnBase::computeDerivativeOperators is not implemented !!!\n\n";
     exit(1);
   }
 

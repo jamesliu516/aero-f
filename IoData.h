@@ -269,6 +269,7 @@ struct TransientData {
   const char *rMatrixFile;
   const char *romFile;
   const char *gendispFile;
+  const char *romInitialConditionFile;
   const char *philevel;
   const char *philevel2;
   const char *controlvolume;
@@ -456,12 +457,12 @@ struct ProblemData {
                 _ROLL_ = 12, _RBM_ = 13, _UNSTEADY_LINEARIZED_AEROELASTIC_ = 14,
                 _UNSTEADY_LINEARIZED_ = 15, _NONLINEAR_ROM_OFFLINE_ = 16,
                 _ROM_AEROELASTIC_ = 17, _ROM_ = 18, _FORCED_LINEARIZED_ = 19,
-                _INTERPOLATION_ = 20, _NONLINEAR_EIGENRESIDUAL_ = 21,
+                _INTERPOLATION_ = 20, _NONLINEAR_EIGEN_ERROR_INDICATOR_ = 21,
                 _SPARSEGRIDGEN_ = 22, _ONE_DIMENSIONAL_ = 23, _UNSTEADY_NONLINEAR_ROM_ = 24, _NONLINEAR_ROM_PREPROCESSING_ = 25,
                 _SURFACE_MESH_CONSTRUCTION_ = 26, _SAMPLE_MESH_SHAPE_CHANGE_ = 27, _UNSTEADY_NONLINEAR_ROM_POST_ = 28, _POD_CONSTRUCTION_ = 29, 
                 _ROB_INNER_PRODUCT_ = 30, _AERO_ACOUSTIC_ = 31, _SHAPE_OPTIMIZATION_ = 32, _AEROELASTIC_SHAPE_OPTIMIZATION_ = 33,
-                _AEROELASTIC_ANALYSIS_ = 34, _GAM_CONSTRUCTION_ = 35, _NONLINEAR_EIGENRESIDUAL2_ = 36, _ACC_UNSTEADY_NONLINEAR_ROM_ = 37,
-                _STEADY_NONLINEAR_ROM_ = 38, _FORCED_NONLINEAR_ROM_ = 39, _ROM_SHAPE_OPTIMIZATION_ = 40, _STEADY_NONLINEAR_ROM_POST_ = 41} alltype;
+                _AEROELASTIC_ANALYSIS_ = 34, _GAM_CONSTRUCTION_ = 35, _ACC_UNSTEADY_NONLINEAR_ROM_ = 36,
+                _STEADY_NONLINEAR_ROM_ = 37, _FORCED_NONLINEAR_ROM_ = 38, _ROM_SHAPE_OPTIMIZATION_ = 39, _STEADY_NONLINEAR_ROM_POST_ = 40} alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
@@ -1209,39 +1210,35 @@ struct SparseGridData {
 
 struct MultiFluidData {
   enum Method {NONE = 0, GHOSTFLUID_FOR_POOR = 1, GHOSTFLUID_WITH_RIEMANN} method;
-  enum FictitiousTime {GLOBAL = 0, LOCAL = 1} localtime;
-  enum InterfaceTracking {LINEAR = 0, GRADIENT = 1, HERMITE = 2} typeTracking;
+  enum InterfaceTracking {LINEAR = 0, GRADIENT = 1, HERMITE = 2}; 
   enum RiemannComputation {FE = 0, RK2 = 1, TABULATION2 = 2, TABULATION5 = 3} riemannComputation;
   int bandlevel;
-  int subIt;
-  double cfl;
   int frequency;
   double eps;
   int outputdiff;
   double jwlRelaxationFactor;
-  enum Problem {BUBBLE = 0, SHOCKTUBE = 1} problem;
   enum TypePhaseChange {ASIS = 0, RIEMANN_SOLUTION = 1, EXTRAPOLATION = 2} typePhaseChange;
-  enum CopyCloseNodes {FALSE = 0, TRUE = 1} copy;
-  enum LSInit {VOLUMES = 1, OLD = 0, GEOMETRIC = 2} lsInit;
+  enum CopyCloseNodes {FALSE = 0, TRUE = 1} copyCloseNodes;
   enum InterfaceType {FSF = 0, FF = 1, FSFandFF = 2} interfaceType;
   
   enum InterfaceTreatment {FIRSTORDER=0, SECONDORDER=1} interfaceTreatment;
-  enum InterfaceExtrapolation {EXTRAPOLATIONFIRSTORDER=0, EXTRAPOLATIONSECONDORDER=1} interfaceExtrapolation;
+  enum InterfaceExtrapolation {EXTRAPOLATIONFIRSTORDER=0, EXTRAPOLATIONSECONDORDER=1, AUTO=2} interfaceExtrapolation;
   enum InterfaceLimiter {LIMITERNONE = 0, LIMITERALEX1 = 1} interfaceLimiter;
+
+  // TRIANGULATED refers to some tests Alex was doing where the multifluid interface is represented by a triangulated surface
+  //    (akin to a massless embedded structure).  It is mostly implemented, but he left out a few parts he didn't need for his tests.
   enum LevelSetMethod { CONSERVATIVE = 0, HJWENO = 1, SCALAR=2, PRIMITIVE = 3,
                         TRIANGULATED = 4} levelSetMethod;
 
-  enum RiemannNormal {REAL = 0, MESH = 1 } riemannNormal;
+  enum RiemannNormal {REAL = 0, MESH = 1, LEGACYMESH = 2 } riemannNormal;
 
-  enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
+  enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1, SAME_AS_PROBLEM = 2} prec;
 
   MultiInitialConditionsData multiInitialConditions;
 
   SparseGridData sparseGrid;
 
   int testCase;
-
-  int interfaceOmitCells;
 
   MultiFluidData();
   ~MultiFluidData() {}
@@ -2737,6 +2734,7 @@ struct LinearizedData {
   enum Domain {TIME = 0, FREQUENCY = 1} domain;
   enum InitialCondition {DISPLACEMENT = 0, VELOCITY = 1} initCond;
   enum GramSchmidt {TRUE_GS = 1, FALSE_GS = 0} doGramSchmidt;
+  enum ErrorIndicator {OIBEI = 0, RBEI1 = 1, RBEI2 = 2, RBEI3 = 3, RBEI4 = 4} errorIndicator;
   double amplification;
   double frequency;
   double stepsize;
@@ -2838,15 +2836,15 @@ struct EmbeddedFramework {
   enum StructureNormal {ELEMENT_BASED = 0, NODE_BASED = 1} structNormal;
   enum EOSChange {NODAL_STATE = 0, RIEMANN_SOLUTION = 1} eosChange;
   enum ForceAlgorithm {RECONSTRUCTED_SURFACE = 0, CONTROL_VOLUME_BOUNDARY = 1, EMBEDDED_SURFACE = 2} forceAlg;
-  enum RiemannNormal {STRUCTURE = 0, FLUID = 1, AVERAGED_STRUCTURE = 2} riemannNormal;
-  enum PhaseChangeAlgorithm {AVERAGE = 0, LEAST_SQUARES = 1} phaseChangeAlg;
+  enum RiemannNormal {STRUCTURE = 0, FLUID = 1} riemannNormal;
+  enum PhaseChangeAlgorithm {AVERAGE = 0, LEAST_SQUARES = 1, AUTO = 2} phaseChangeAlg;
   enum InterfaceAlgorithm {MID_EDGE = 0, INTERSECTION = 1} interfaceAlg;
 
   enum InterfaceLimiter {LIMITERNONE = 0, LIMITERALEX1 = 1} interfaceLimiter;
   // Low mach preconditioning of the exact Riemann problem.
   // Added by Alex Main (December 2013)
   //
-  enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
+  enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1, SAME_AS_PROBLEM = 3 } prec;
 
   double alpha;   // In the case of solve Riemann problem at intersection, this parameter
                   // controls whether to switch to a first order method to avoid divided-by-zero
@@ -2863,12 +2861,10 @@ struct EmbeddedFramework {
 
   int qOrder; // order of quadrature rule used for EMBEDDED_SURFACE forceAlg
   
-  //Debug variables
   enum CrackingWithLevelSet {OFF = 0, ON = 1} crackingWithLevelset;
-  enum Coupling {TWOWAY = 0, ONEWAY = 1} coupling;
-  enum Dim2Treatment {NO = 0, YES = 1} dim2Treatment;
   enum Reconstruction {CONSTANT = 0, LINEAR = 1} reconstruct;
   enum ViscousInterfaceOrder {FIRST = 0, SECOND = 1} viscousinterfaceorder;
+  enum ViscousBoundaryCondition {WEAK = 0, STRONG = 1} viscousboundarycondition;
 
   int testCase; 
  

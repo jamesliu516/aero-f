@@ -36,6 +36,7 @@ private:
   //StructExc *strExc;
 
   MatVecProd<dim,dim> *mvp;
+  MatVecProd<dim,dim> *dRdX;
   KspPrec<dim> *pc;
   KspSolver<DistSVec<double,dim>, MatVecProd<dim,dim>, KspPrec<dim>, Communicator> *ksp;
   double steadyTol;
@@ -91,6 +92,17 @@ private:
   DistSVec<double,3> Xminus;
   DistSVec<double,3> dX;
 
+  DistSVec<double,dim> dddx;  // nodal gradients or adjoint vectors
+  DistSVec<double,dim> dddy;
+  DistSVec<double,dim> dddz;
+
+  DistVec<Vec3D> dEdgeNorm;      // derivative of edge normal or adjoint vectors
+  DistVec<Vec3D> dFaceNorm;      // derivative of face normal or adjoint vectors
+  DistVec<double> dFaceNormVel;  // derivative of face normal velocity or adjoint vectors
+
+  DistSVec<double,6> dR;        // derivative of least square gradient coefficient or adjoint vectors
+  DistSVec<double,3> dGradP;    // nodal pressure gradient
+
   FILE* outFile;
   void setDFSPAR(IoData &);  
   
@@ -129,29 +141,30 @@ public:
 
   void fsoGetDerivativeOfEffortsFiniteDifference(IoData &, DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double>&, DistSVec<double,dim> &, DistSVec<double,dim> &, Vec3D &, Vec3D &);
 
-  void fsoGetDerivativeOfEffortsAnalytical(IoData &, DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &, Vec3D &, Vec3D &, Vec3D &);
+  void fsoGetDerivativeOfEffortsAnalytical(bool, IoData &, DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &, Vec3D &, Vec3D &, Vec3D &);
 
   /// \note This function is implemented but never called.
   void fsoGetDerivativeOfLoadFiniteDifference(IoData &, DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,3> &, DistSVec<double,3> &);
 
   /// \note This function is implemented but never called.
-  void fsoGetDerivativeOfLoadAnalytical(IoData &, DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,3> &, DistSVec<double,3> &);
-
+  void fsoGetDerivativeOfLoadAnalytical(bool, IoData &, DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,3> &, DistSVec<double,3> &);
+  void fsoGetTransposeDerivativeOfLoadAnalytical(IoData &, DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,dim> &);
   void fsoSemiAnalytical(IoData &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
-  void fsoAnalytical(IoData &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void fsoAnalytical(bool, IoData &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void fsoAnalyticalTranspose(DistSVec<double,dim> &, DistSVec<double,3> &);
   void fsoSetUpLinearSolver(IoData &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
   void fsoLinearSolver(IoData &, DistSVec<double,dim> &, DistSVec<double,dim> &, bool=false);
   int fsoHandler(IoData &, DistSVec<double,dim> &);
   int fsoAeroelasticHandler(IoData &, DistSVec<double,dim> &);
-  void fsoComputeDerivativesOfFluxAndSolution(IoData &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, bool=false);
-  void fsoComputeSensitivities(IoData &, const char *, const char *, DistSVec<double,3> &, DistSVec<double,dim> &);
-  void fsoComputeAndSendForceSensitivities(IoData &, const char *, DistSVec<double,3> &, DistSVec<double,dim> &);
+  void fsoComputeDerivativesOfFluxAndSolution(IoData &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, bool=false, bool=false);
+  void fsoComputeSensitivities(bool, IoData &, const char *, const char *, DistSVec<double,3> &, DistSVec<double,dim> &);
+  void fsoComputeAndSendForceSensitivities(bool, IoData &, const char *, DistSVec<double,3> &, DistSVec<double,dim> &);
   void fsoInitialize(IoData &ioData, DistSVec<double,dim> &U);
-  void fso_on_aeroelasticSensitivityFSI(IoData &ioData, DistSVec<double,dim> &U);
-  void fso_on_sensitivityMesh(IoData &ioData, DistSVec<double,dim> &U);
-  void fso_on_sensitivityMach(IoData &ioData, DistSVec<double,dim> &U);
-  void fso_on_sensitivityAlpha(IoData &ioData, DistSVec<double,dim> &U);
-  void fso_on_sensitivityBeta(IoData &ioData, DistSVec<double,dim> &U);
+  void fso_on_aeroelasticSensitivityFSI(bool, IoData &ioData, DistSVec<double,dim> &U);
+  void fso_on_sensitivityMesh(bool, IoData &ioData, DistSVec<double,dim> &U);
+  void fso_on_sensitivityMach(bool, IoData &ioData, DistSVec<double,dim> &U);
+  void fso_on_sensitivityAlpha(bool, IoData &ioData, DistSVec<double,dim> &U);
+  void fso_on_sensitivityBeta(bool, IoData &ioData, DistSVec<double,dim> &U);
 
 };
 

@@ -15,7 +15,7 @@ class ParallelRom {
 	Domain &domain;
 	Communicator *com; 
 	SubDomain **subDomain;
-  const DistInfo &distInfo;
+	const DistInfo &distInfo;
 	int nTotCpus;
 	int thisCPU;
 
