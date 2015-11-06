@@ -28,8 +28,6 @@ void ParallelRom<dim>::transferData(VecContainer &snaps, double* subMat, int nSn
 template \
 void ParallelRom<dim>::transferDataBack(double *U, VecContainer &Utrue , int nSnaps);\
 \
-template \
-void ParallelRom<dim>::parallelLSMultiRHSClean();
 
 #define INSTANTIATION_HELPER_3(dim, VecContainer1, VecContainer2)\
 template \
