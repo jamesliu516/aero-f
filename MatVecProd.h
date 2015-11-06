@@ -7,6 +7,7 @@
 #include <DistMatrix.h>
 #include <complex>
 #include <RestrictionMapping.h>
+//#include <TsDesc.h>
 
 typedef std::complex<double> bcomp;
 
@@ -22,6 +23,7 @@ template<int dim> class SpaceOperator;
 template<int dim, int dimLS> class MultiPhaseSpaceOperator;
 template<int dim> class DistExactRiemannSolver;
 template<int dim> class TsOutput;
+template<int dim> class TsDesc;
 
 //------------------------------------------------------------------------------
 
@@ -54,13 +56,48 @@ public:
   virtual void applyT(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &) = 0;
 
   virtual void evaluateRestrict(int, DistSVec<double,3> &, DistVec<double> &,
-                DistSVec<double,dim> &, DistSVec<double,dim> &, RestrictionMapping<dim> &) {
+                DistSVec<double,dim> &, DistSVec<double,dim> &, RestrictionMapping<dim> &,
+                TsDesc<dim>* probDesc=NULL,
+		int (TsDesc<dim>::*checkSolution)(DistSVec<double,dim> &)=NULL) {
     std::cout<<"*** Error: function evaluateRestrict not implemented"<<std::endl;
     sleep(1);
     exit(-1);
   }
-  virtual void applyRestrict(DistSVec<double,neq> &, DistSVec<double,neq> &, RestrictionMapping<neq> &) {
+  virtual void applyRestrict(DistSVec<double,neq> &, DistSVec<double,neq> &, RestrictionMapping<neq> &,
+                TsDesc<dim>* probDesc=NULL,
+                int (TsDesc<dim>::*checkSolution)(DistSVec<double,dim> &)=NULL) { 
     std::cout<<"*** Error: function applyRestrict not implemented"<<std::endl;
+    sleep(1);
+    exit(-1);
+  }
+
+
+  // ROMs minimize the residual, so the weighting of the residual becomes very important.
+  // These functions allow for Jacobians of residuals with non-constant weights.
+  virtual void evaluateWeighted(int, DistSVec<double,3> &, DistVec<double> &, 
+			DistSVec<double,dim> &, DistSVec<double,dim> &, VarFcn *) {
+    std::cout<<"*** Error: function evaluateWeighted not implemented"<<std::endl;
+    sleep(1);
+    exit(-1);
+  }
+
+  virtual void applyWeighted(DistSVec<double,neq> &, DistSVec<double,neq> &, VarFcn *){
+    std::cout<<"*** Error: function applyWeighted not implemented"<<std::endl;
+    sleep(1);
+    exit(-1);
+  }
+
+  virtual void evaluateWeightedRestrict(int, DistSVec<double,3> &, DistVec<double> &, 
+                DistSVec<double,dim> &, DistSVec<double,dim> &, RestrictionMapping<dim> &, VarFcn *,
+                TsDesc<dim>* probDesc=NULL, int (TsDesc<dim>::*checkSolution)(DistSVec<double,dim> &)=NULL) {
+    std::cout<<"*** Error: function evaluateWeighted not implemented"<<std::endl;
+    sleep(1);
+    exit(-1);
+  }
+
+  virtual void applyWeightedRestrict(DistSVec<double,neq> &, DistSVec<double,neq> &, RestrictionMapping<dim> &, VarFcn *,
+               TsDesc<dim>* probDesc=NULL, int (TsDesc<dim>::*checkSolution)(DistSVec<double,dim> &)=NULL) {
+    std::cout<<"*** Error: function applyWeighted not implemented"<<std::endl;
     sleep(1);
     exit(-1);
   }
@@ -129,6 +166,8 @@ class MatVecProdFD : public MatVecProd<dim,neq> {
 
   Communicator *com;
 
+  DistSVec<double, neq>* energyWeightVec;
+
 // Included (MB)
   DistSVec<double,neq> Ftmp;
   IoData *iod;
@@ -155,6 +194,8 @@ public:
 
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
 		DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void evaluateWeighted(int, DistSVec<double,3> &, DistVec<double> &, 
+		DistSVec<double,dim> &, DistSVec<double,dim> &, VarFcn *);
   void evaluate(DistExactRiemannSolver<dim> &, int, DistSVec<double,3> &, DistVec<double> &, 
 		DistSVec<double,dim> &, DistSVec<double,dim> &);
 
@@ -162,9 +203,22 @@ public:
 		  DistVec<double> &bcVal );
 
   void evaluateRestrict(int, DistSVec<double,3> &, DistVec<double> &, 
-		DistSVec<double,dim> &, DistSVec<double,dim> &, RestrictionMapping<dim> &);
+		DistSVec<double,dim> &, DistSVec<double,dim> &, RestrictionMapping<dim> &,
+                TsDesc<dim>* probDesc=NULL,
+                int (TsDesc<dim>::*checkSolution)(DistSVec<double,dim> &)=NULL);
+  void evaluateWeightedRestrict(int, DistSVec<double,3> &, DistVec<double> &,
+                DistSVec<double,dim> &, DistSVec<double,dim> &, RestrictionMapping<dim> &, VarFcn *,
+                TsDesc<dim>* probDesc=NULL,
+                int (TsDesc<dim>::*checkSolution)(DistSVec<double,dim> &)=NULL);
+
   void apply(DistSVec<double,neq> &, DistSVec<double,neq> &);
-  void applyRestrict(DistSVec<double,neq> &, DistSVec<double,neq> &, RestrictionMapping<neq> &);
+  void applyWeighted(DistSVec<double,neq> &, DistSVec<double,neq> &, VarFcn *);
+  void applyRestrict(DistSVec<double,neq> &, DistSVec<double,neq> &, RestrictionMapping<neq> &,
+                TsDesc<dim>* probDesc=NULL,
+                int (TsDesc<dim>::*checkSolution)(DistSVec<double,dim> &)=NULL);
+  void applyWeightedRestrict(DistSVec<double,neq> &, DistSVec<double,neq> &, RestrictionMapping<neq> &, VarFcn*,
+                TsDesc<dim>* probDesc=NULL,
+                int (TsDesc<dim>::*checkSolution)(DistSVec<double,dim> &)=NULL);
 
   void apply(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &); //!!!
 
@@ -191,6 +245,8 @@ public:
   }
 
   void rstSpaceOp(IoData &, VarFcn *, SpaceOperator<dim> *, bool, SpaceOperator<dim> * = 0);
+
+
   
 };
 
@@ -245,8 +301,12 @@ public:
     std::cout << "... ERROR: ::apply function not implemented for class MatVecProdH1 with complex arguments" << endl; }
 
   void evaluateRestrict(int, DistSVec<double,3> &, DistVec<double> &,
-                DistSVec<double,dim> &, DistSVec<double,dim> &, RestrictionMapping<dim> &);
-  void applyRestrict(DistSVec<double,neq> &, DistSVec<double,neq> &, RestrictionMapping<neq> &);
+                DistSVec<double,dim> &, DistSVec<double,dim> &, RestrictionMapping<dim> &,
+                TsDesc<dim>* probDesc=NULL,
+                int (TsDesc<dim>::*checkSolution)(DistSVec<double,dim> &)=NULL);
+  void applyRestrict(DistSVec<double,neq> &, DistSVec<double,neq> &, RestrictionMapping<neq> &,
+                TsDesc<dim>* probDesc=NULL,
+                int (TsDesc<dim>::*checkSolution)(DistSVec<double,dim> &)=NULL);
 
   void apply(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &);
 
@@ -426,8 +486,12 @@ public:
   void evalH(int , DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &);
 
   void evaluateRestrict(int, DistSVec<double,3> &, DistVec<double> &,
-                DistSVec<double,dim> &, DistSVec<double,dim> &, RestrictionMapping<dim> &);
-  void applyRestrict(DistSVec<double,neq> &, DistSVec<double,neq> &, RestrictionMapping<neq> &);
+                DistSVec<double,dim> &, DistSVec<double,dim> &, RestrictionMapping<dim> &,
+                TsDesc<dim>* probDesc=NULL,
+                int (TsDesc<dim>::*checkSolution)(DistSVec<double,dim> &)=NULL);
+  void applyRestrict(DistSVec<double,neq> &, DistSVec<double,neq> &, RestrictionMapping<neq> &,
+                TsDesc<dim>* probDesc=NULL,
+                int (TsDesc<dim>::*checkSolution)(DistSVec<double,dim> &)=NULL);
 
   void apply(DistSVec<double,neq>        &, DistSVec<double,neq> &);
   void apply(DistSVec<bcomp,neq>         &, DistSVec<bcomp,neq> &);

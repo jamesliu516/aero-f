@@ -73,7 +73,8 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
     else
         com->fprintf(stderr, "*** Error: this type of nonlinear ROM simulation is not currently supported\n");
   }
-  else if (ioData.problem.alltype == ProblemData::_NONLINEAR_ROM_POST_) {
+  else if (ioData.problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_POST_ ||
+           ioData.problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_POST_) {
       ImplicitRomPostproTsDesc <dim> tsDesc(ioData, geoSource, &domain);
       TsSolver<ImplicitRomPostproTsDesc<dim> > tsSolver(&tsDesc);
       tsSolver.solve(ioData);

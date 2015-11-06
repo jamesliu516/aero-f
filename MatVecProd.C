@@ -162,7 +162,9 @@ void MatVecProdFD<dim, neq>::evaluate(DistExactRiemannSolver<dim> &riemann, int 
 template<int dim, int neq>
 void MatVecProdFD<dim, neq>::evaluateRestrict(int it, DistSVec<double,3> &x,
 		DistVec<double> &cv, DistSVec<double,dim> &q, DistSVec<double,dim> &f,
-		RestrictionMapping<dim> & restrictionMapping)
+		RestrictionMapping<dim> & restrictionMapping,
+                TsDesc<dim>* probDesc,
+                int (TsDesc<dim>::*checkSolution)(DistSVec<double,dim> &))
 {
 
 	std::vector<std::vector<int> > sampledLocNodes =
@@ -170,6 +172,12 @@ void MatVecProdFD<dim, neq>::evaluateRestrict(int it, DistSVec<double,3> &x,
   X = &x;
   ctrlVol = &cv;
   Qeps = q;
+  Qeps.strip(Q);
+
+  // clipping
+  if (dim>5 && probDesc!=NULL && checkSolution!=NULL) {
+    (probDesc->*checkSolution)(Qeps);
+  }
 
   if (recFcnCon) {
     spaceOp->computeResidualRestrict(*X, *ctrlVol, Qeps, Feps, timeState, sampledLocNodes);
@@ -183,8 +191,6 @@ void MatVecProdFD<dim, neq>::evaluateRestrict(int it, DistSVec<double,3> &x,
   else  {
     Feps = f;
   }
-
-  Qeps.strip(Q);
   Feps.strip(F);
   
 }
@@ -375,11 +381,11 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
 //------------------------------------------------------------------------------
 template<int dim, int neq>
 void MatVecProdFD<dim, neq>::applyRestrict(DistSVec<double,neq> &p,
-		DistSVec<double,neq> &prod, RestrictionMapping<neq> & restrictionMapping)
+		DistSVec<double,neq> &prod, RestrictionMapping<neq> & restrictionMapping,
+                TsDesc<dim>* probDesc,
+                int (TsDesc<dim>::*checkSolution)(DistSVec<double,dim> &))
 {
-	std::vector<std::vector<int> > sampledLocNodes =
-		restrictionMapping.getRestrictedToOriginLocNode() ;
-
+  std::vector<std::vector<int> > sampledLocNodes = restrictionMapping.getRestrictedToOriginLocNode() ;
   DistSVec<double, neq> pRestricted(restrictionMapping.restrictedDistInfo());
   restrictionMapping.restriction(p,pRestricted);
 
@@ -389,6 +395,11 @@ void MatVecProdFD<dim, neq>::applyRestrict(DistSVec<double,neq> &p,
   Qepstmp = Q + eps * p;
 
   Qepstmp.pad(Qeps);
+
+  // clipping
+  if (dim>5 && probDesc!=NULL && checkSolution!=NULL) {
+    (probDesc->*checkSolution)(Qeps);
+  }
 
   spaceOp->computeResidualRestrict(*X, *ctrlVol, Qeps, Feps, timeState, sampledLocNodes);
 
@@ -424,6 +435,222 @@ void MatVecProdFD<dim, neq>::applyRestrict(DistSVec<double,neq> &p,
   }
 
 }
+
+//-----------------------------------------------------
+
+  // ROMs minimize the residual, so the weighting of the residual becomes very important.
+  // These functions allow for Jacobians of residuals with non-constant weights.
+
+template<int dim, int neq>
+void MatVecProdFD<dim, neq>::evaluateWeighted(int it, DistSVec<double,3> &x, DistVec<double> &cv,
+                            DistSVec<double,dim> &q, DistSVec<double,dim> &f, VarFcn *varFcn)
+{
+  X = &x;
+  ctrlVol = &cv;
+  Qeps = q;
+
+  if (recFcnCon && !this->isFSI) {
+    spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
+    if (timeState) {
+      timeState->add_dAW_dt(it, *geoState, *ctrlVol, Qeps, Feps);
+    }
+    spaceOp->applyBCsToResidual(Qeps, Feps);
+  } else {
+    Feps = f;
+  }
+
+  if (timeState && iod->ts.dualtimestepping == TsData::ON) {
+    timeState->add_dAW_dtau(it, *geoState, *ctrlVol, Qeps, Feps);
+    spaceOp->applyBCsToResidual(Qeps, Feps);
+  }
+
+  DistSVec<double, dim>* componentwiseScalingVec = varFcn->computeScalingVec(*iod,Qeps);
+  Feps *= *componentwiseScalingVec;
+  delete componentwiseScalingVec;
+
+  Qeps.strip(Q);
+  Feps.strip(F);
+
+}
+
+template<int dim, int neq>
+void MatVecProdFD<dim, neq>::applyWeighted(DistSVec<double,neq> &p, DistSVec<double,neq> &prod, VarFcn *varFcn)
+{
+  double eps = computeEpsilon(Q, p);
+
+  Qepstmp = Q + eps * p;
+
+  Qepstmp.pad(Qeps);
+
+  if (!this->isFSI)
+    spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
+  else
+    spaceOp->computeResidual(*X,*ctrlVol, Qeps, *(this->fsi.Wtemp),*(this->fsi.Wtemp),
+                             this->fsi.LSS, this->fsi.linRecAtInterface, this->fsi.viscSecOrder, *(this->fsi.fluidId),
+                             Feps, this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar, 0, this->fsi.ghostPoints);
+
+  if (timeState) {
+    timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
+    if (iod->ts.dualtimestepping == TsData::ON)
+      timeState->add_dAW_dtau(-1, *geoState, *ctrlVol, Qeps, Feps);
+  }
+
+  if (this->isFSI)
+    spaceOp->applyBCsToResidual(Qeps, Feps, this->fsi.LSS);
+  else
+    spaceOp->applyBCsToResidual(Qeps, Feps);
+
+  DistSVec<double, dim>* componentwiseScalingVec = varFcn->computeScalingVec(*iod,Qeps);
+  Feps *= *componentwiseScalingVec;
+  delete componentwiseScalingVec;
+
+  Feps.strip(Fepstmp);
+  if (output) int status = output->writeBinaryVectorsToDiskRom(false, 0, 0, NULL, &Feps);
+
+  if (fdOrder == 1) {
+    prod = (1.0/eps) * (Fepstmp - F);
+  } else if (fdOrder == 2) {
+
+    Qepstmp = Q - eps * p;
+    
+    Qepstmp.pad(Qeps);
+  
+    if (!this->isFSI)
+      spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
+    else
+      spaceOp->computeResidual(*X,*ctrlVol, Qeps, *(this->fsi.Wtemp),*(this->fsi.Wtemp),
+                               this->fsi.LSS, this->fsi.linRecAtInterface, this->fsi.viscSecOrder, *(this->fsi.fluidId),
+                               Feps, this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar, 0, this->fsi.ghostPoints);
+ 
+    if (timeState) {
+      timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
+      if (iod->ts.dualtimestepping == TsData::ON)
+        timeState->add_dAW_dtau(-1, *geoState, *ctrlVol, Qeps, Feps);
+    }
+
+    if (this->isFSI)
+      spaceOp->applyBCsToResidual(Qeps, Feps, this->fsi.LSS);
+    else
+      spaceOp->applyBCsToResidual(Qeps, Feps);
+
+    DistSVec<double, dim>* componentwiseScalingVec = varFcn->computeScalingVec(*iod,Qeps);
+    Feps *= *componentwiseScalingVec;
+    delete componentwiseScalingVec;
+
+    Feps.strip(Ftmp);
+
+    prod = (0.5/eps) * (Fepstmp - Ftmp);
+
+    if (output) int status = output->writeBinaryVectorsToDiskRom(false, 0, 0, NULL, &Feps);
+
+  }
+}
+
+//--------------------------------------------------
+
+template<int dim, int neq>
+void MatVecProdFD<dim, neq>::evaluateWeightedRestrict(int it, DistSVec<double,3> &x,
+                                  DistVec<double> &cv,
+                                  DistSVec<double,dim> &q, DistSVec<double,dim> &f,
+                                  RestrictionMapping<dim> & restrictionMapping,
+                                  VarFcn *varFcn, TsDesc<dim>* probDesc,
+                                  int (TsDesc<dim>::*checkSolution)(DistSVec<double,dim> &)){
+
+  std::vector<std::vector<int> > sampledLocNodes = restrictionMapping.getRestrictedToOriginLocNode() ;
+  X = &x;
+  ctrlVol = &cv;
+  Qeps = q;
+
+  // clipping
+  if (dim>5 && probDesc!=NULL && checkSolution!=NULL) {
+    (probDesc->*checkSolution)(Qeps);
+  }
+
+  if (recFcnCon) {
+    spaceOp->computeResidualRestrict(*X, *ctrlVol, Qeps, Feps, timeState, sampledLocNodes);
+
+    if (timeState)
+      timeState->add_dAW_dtRestrict(it, *geoState, *ctrlVol, Qeps, Feps, sampledLocNodes);
+
+    spaceOp->applyBCsToResidual(Qeps, Feps);
+
+  }
+  else  {
+    Feps = f;
+  }
+
+  DistSVec<double, dim>* componentwiseScalingVec = varFcn->computeScalingVec(*iod,Qeps);
+  Feps *= *componentwiseScalingVec;
+  delete componentwiseScalingVec;
+
+  Qeps.strip(Q);
+  Feps.strip(F);
+
+}
+
+//--------------------------------------------------
+
+template<int dim, int neq>
+void MatVecProdFD<dim, neq>::applyWeightedRestrict(DistSVec<double,neq> &p,
+                                         DistSVec<double,neq> &prod,
+                                         RestrictionMapping<neq> & restrictionMapping,
+                                         VarFcn *varFcn,
+                                         TsDesc<dim>* probDesc,
+                                         int (TsDesc<dim>::*checkSolution)(DistSVec<double,dim> &))
+{
+
+  std::vector<std::vector<int> > sampledLocNodes = restrictionMapping.getRestrictedToOriginLocNode() ;
+  DistSVec<double, neq> pRestricted(restrictionMapping.restrictedDistInfo());
+  restrictionMapping.restriction(p,pRestricted);
+
+  double eps = computeEpsilon(Q, pRestricted);
+
+  Qepstmp = Q + eps * p;
+
+  Qepstmp.pad(Qeps);
+
+  // clipping
+  if (dim>5 && probDesc!=NULL && checkSolution!=NULL) {
+    (probDesc->*checkSolution)(Qeps);
+  }
+
+  spaceOp->computeResidualRestrict(*X, *ctrlVol, Qeps, Feps, timeState, sampledLocNodes);
+
+  if (timeState)
+    timeState->add_dAW_dtRestrict(-1, *geoState, *ctrlVol, Qeps, Feps, sampledLocNodes);
+
+  spaceOp->applyBCsToResidual(Qeps, Feps);
+
+  DistSVec<double, dim>* componentwiseScalingVec = varFcn->computeScalingVec(*iod,Qeps);
+  Feps *= *componentwiseScalingVec;
+  delete componentwiseScalingVec;
+
+  Feps.strip(Fepstmp);
+
+  if (fdOrder == 1) {
+    prod = (1.0/eps) * (Fepstmp - F);
+  }
+  else if (fdOrder == 2) {
+    Qepstmp = Q - eps * p;
+    Qepstmp.pad(Qeps);
+    spaceOp->computeResidualRestrict(*X, *ctrlVol, Qeps, Feps, timeState, sampledLocNodes);
+
+    if (timeState)
+      timeState->add_dAW_dtRestrict(-1, *geoState, *ctrlVol, Qeps, Feps, sampledLocNodes);
+
+    spaceOp->applyBCsToResidual(Qeps, Feps);
+
+    DistSVec<double, dim>* componentwiseScalingVec = varFcn->computeScalingVec(*iod,Qeps);
+    Feps *= *componentwiseScalingVec;
+    delete componentwiseScalingVec;
+
+    Feps.strip(Ftmp);
+    prod = (0.5/eps) * (Fepstmp - Ftmp);
+  }
+
+}
+
+//--------------------------------------------------
 
 template<int dim, int neq>
 void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedVec<double,neq> & prod) {
@@ -905,7 +1132,9 @@ void MatVecProdH1<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &X, DistV
 template<int dim, class Scalar, int neq>
 void MatVecProdH1<dim,Scalar,neq>::evaluateRestrict(int it, DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                                             DistSVec<double,dim> &Q, DistSVec<double,dim> &F, 
-                                            RestrictionMapping<dim> & restrictionMapping) {
+                                            RestrictionMapping<dim> & restrictionMapping,
+                                            TsDesc<dim>* probDesc,
+                                            int (TsDesc<dim>::*checkSolution)(DistSVec<double,dim> &)) {
   //TODO
   MatVecProdH1<dim,Scalar,neq>::evaluate(it, X, ctrlVol, Q, F);
 
@@ -982,7 +1211,9 @@ void MatVecProdH1<dim,Scalar,neq>::apply(DistSVec<double,neq> &p, DistSVec<doubl
 
 template<int dim, class Scalar, int neq>
 void MatVecProdH1<dim,Scalar,neq>::applyRestrict(DistSVec<double,neq> &p, DistSVec<double,neq> &prod,
-                                         RestrictionMapping<neq> & restrictionMapping)
+                                         RestrictionMapping<neq> & restrictionMapping,
+                                         TsDesc<dim>* probDesc,
+                                         int (TsDesc<dim>::*checkSolution)(DistSVec<double,dim> &))
 { //TODO
   MatVecProdH1<dim,Scalar,neq>::apply(p, prod);
 }
@@ -1266,7 +1497,9 @@ void MatVecProdH2<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &x, DistV
 template<int dim, class Scalar, int neq>
 void MatVecProdH2<dim,Scalar,neq>::evaluateRestrict(int it, DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                                             DistSVec<double,dim> &Q, DistSVec<double,dim> &F, 
-                                            RestrictionMapping<dim> & restrictionMapping) {
+                                            RestrictionMapping<dim> & restrictionMapping,
+                                            TsDesc<dim>* probDesc,
+                                            int (TsDesc<dim>::*checkSolution)(DistSVec<double,dim> &)) {
 
   // TODO
   MatVecProdH2<dim,Scalar,neq>::evaluate(it, X, ctrlVol, Q, F);
@@ -1440,7 +1673,9 @@ void MatVecProdH2<dim,Scalar,neq>::apply(DistSVec<double,neq> &p, DistSVec<doubl
 
 template<int dim, class Scalar, int neq>
 void MatVecProdH2<dim,Scalar,neq>::applyRestrict(DistSVec<double,neq> &p, DistSVec<double,neq> &prod,
-                                         RestrictionMapping<neq> & restrictionMapping)
+                                         RestrictionMapping<neq> & restrictionMapping,
+                                         TsDesc<dim>* probDesc,
+                                         int (TsDesc<dim>::*checkSolution)(DistSVec<double,dim> &))
 {
   //TODO
   MatVecProdH2<dim,Scalar,neq>::apply(p, prod);

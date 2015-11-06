@@ -139,8 +139,8 @@ public:
   double recomputeResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
   void evaluateFluxAtMultipleSolutions(IoData &iod, char* best_soln);
   void setRestartIterationAndTime(int it, double t) { restart->etime = t; restart->iteration = it;}
-  void parametricInitialConditionViaInterpolation(DistSVec<double,dim> *, IoData&);
-  virtual void formInterpolatedInitialCondition(DistSVec<double,dim> *, std::vector<double> &);
+  void formInterpolationWeights(IoData&);
+  virtual void formInterpolatedInitialCondition(DistSVec<double,dim> *U, IoData &iod);
   virtual void setInterpWeightsForMultiIC(std::vector<double> ) {}
   virtual void setupTimeStepping(DistSVec<double,dim> *, IoData &);
   virtual double computeTimeStep(int, double *, DistSVec<double,dim> &, double);
@@ -227,6 +227,7 @@ public:
   bool outputOnlySpatialResidual() {return outputOnlySpatialResidualBool;}
   virtual void calculateSpatialResidual(DistSVec<double,dim> &, DistSVec<double,dim> &) {}
 
+  std::vector<double> interpolatedICWeights;
 };
 
 //------------------------------------------------------------------------------

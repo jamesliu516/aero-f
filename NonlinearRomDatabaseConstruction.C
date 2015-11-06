@@ -32,7 +32,8 @@ NonlinearRomDatabaseConstruction<dim>::NonlinearRomDatabaseConstruction(Communic
   projErrorLog = NULL;
   initialCondition = NULL; 
 
-  arbitraryUniformIC = false;
+  preproForArbitraryUniformIC = false;
+  preproForInterpolatedIC = false;
 
   robConstruction = &(this->ioData->romOffline.rob);
   projError = &(robConstruction->relativeProjectionError);
@@ -1945,6 +1946,11 @@ void NonlinearRomDatabaseConstruction<dim>::localPod(const char* basisType) {
           exit(-1);
       }
 
+      if (maxBasisSize >= maxVecStorage) {
+          this->com->fprintf(stderr, "*** Error: maxBasisSize >= maxVecStorage.  This doesn't make any sense.  The intended scenario is:  maxBasisSize < maxVecStorage < nTotSnaps.\n");
+          exit(-1);
+      }
+
       VecSet< DistSVec<double, dim> >* fullSnaps = NULL; // matrix for final SVD
 
       int nStoredSnaps = 0;
@@ -2242,8 +2248,6 @@ void NonlinearRomDatabaseConstruction<dim>::probabilisticSVDWrapper(VecSet< Dist
 template<int dim>
 void NonlinearRomDatabaseConstruction<dim>::preprocessForExactBasisUpdates() {
 
-  //TODO INTERP
-
 this->com->fprintf(stdout, "\nPreprocessing for fast exact basis updates (GNAT compatible)\n");
 this->com->fprintf(stdout, " ... Note: This preprocessing step currently assumes that V^T * V = I\n");
 double exactUpdatesPreproTime = this->timer->getTime();
@@ -2255,9 +2259,12 @@ double exactUpdatesPreproTime = this->timer->getTime();
   this->basisUrefProducts.resize(this->nClusters);
   this->urefUrefProducts.resize(this->nClusters);
 
-  if (arbitraryUniformIC) {
+  if (preproForArbitraryUniformIC) {
     this->urefComponentwiseSums.resize(this->nClusters);
     this->basisComponentwiseSums.resize(this->nClusters);
+  } else if (preproForInterpolatedIC) {
+    this->urefMultiUicProducts.resize(this->nClusters);
+    this->basisMultiUicProducts.resize(this->nClusters);
   } else {
     this->urefUicProducts.clear();
     this->urefUicProducts.resize(this->nClusters, 0.0);
@@ -2304,7 +2311,7 @@ double exactUpdatesPreproTime = this->timer->getTime();
     DistSVec<double, dim> Uref_p(this->domain.getNodeDistInfo());   
     this->readClusteredReferenceState(iCluster, "state");
     Uref_i = *(this->Uref);
-    if (arbitraryUniformIC) {
+    if (preproForArbitraryUniformIC) {
       this->urefComponentwiseSums[iCluster].clear();
       this->urefComponentwiseSums[iCluster].resize(dim, 0.0);
       double componentSums[dim];
@@ -2319,6 +2326,17 @@ double exactUpdatesPreproTime = this->timer->getTime();
         (*rob_i)[iVec].sum(componentSums);
         for (int iDim=0; iDim<dim; ++iDim) {
           this->basisComponentwiseSums[iCluster][iVec][iDim] = componentSums[iDim];
+        }
+      }
+    } else if (preproForInterpolatedIC) {
+      int nIC = this->multiUic->numVectors();
+      this->urefMultiUicProducts[iCluster].resize(nIC);
+      this->basisMultiUicProducts[iCluster].resize(nIC);
+      for (int iIC=0; iIC<nIC; ++iIC) {
+        this->urefMultiUicProducts[iCluster][iIC] = (*this->multiUic)[iIC] * Uref_i;
+        this->basisMultiUicProducts[iCluster][iIC].resize(rob_i->numVectors()); 
+        for (int iVec=0; iVec<rob_i->numVectors(); ++iVec) {
+          this->basisMultiUicProducts[iCluster][iIC][iVec] = (*rob_i)[iVec] * (*this->multiUic)[iIC];
         }
       }
     } else {
@@ -2358,7 +2376,7 @@ double exactUpdatesPreproTime = this->timer->getTime();
   // std::vector<std::vector<double> > urefUrefProducts; //[iCluster][jCluster] symmetric (lower triangular)
   this->outputClusteredInfoASCII(-1, "urefUrefProducts", NULL, &this->urefUrefProducts);
 
-  if (arbitraryUniformIC) {
+  if (preproForArbitraryUniformIC) {
     // Uref Componentwise Sums
     // std::vector<std::vector<double> > urefComponentwiseSums; //[iCluster][1:dim]
     this->outputClusteredInfoASCII(-1, "urefComponentwiseSums", NULL, &this->urefComponentwiseSums);
@@ -2366,6 +2384,14 @@ double exactUpdatesPreproTime = this->timer->getTime();
     // Basis Componentwise Sums
     // std::vector<std::vector<std::vector<double> > > basisComponentwiseSums;  // [iCluster][iVec][1:dim]
     this->outputClusteredInfoASCII(-1, "basisComponentwiseSums", NULL, NULL, &this->basisComponentwiseSums);
+  } else if (preproForInterpolatedIC) {
+    // Basis MultiUic Products
+    // std::vector<std::vector<double> > basisMultiUicProducts;  // [iCluster][jIC][1:nPod] only precomputed if multiUic specified
+    this->outputClusteredInfoASCII(-1, "basisMultiUicProducts", NULL, NULL, &this->basisMultiUicProducts);
+
+    // Uref MultiUic Products
+    // std::vector<double> urefMultiUicProducts; // [iCluster][jIC] only precomputed if multiUic specified
+    this->outputClusteredInfoASCII(-1, "urefMultiUicProducts", NULL, &this->urefMultiUicProducts);
   } else {
     // Basis Uic Products
     // std::vector<std::vector<double> > basisUicProducts;  // [iCluster][1:nPod] only precomputed if Uic specified
@@ -2443,13 +2469,14 @@ void NonlinearRomDatabaseConstruction<dim>::preprocessForDistanceComparisonsStan
   readInitialCondition();
   
   this->readClusterCenters("centers");
-  std::vector<std::vector<double> > clusterCenterNorms; // nClusters-by-2, or nClusters-by-(dim+1)
+  std::vector<std::vector<double> > clusterCenterNorms; // nClusters-by-1, or nClusters-by-(dim+1)
   clusterCenterNorms.resize(this->nClusters);
   
-  if (arbitraryUniformIC) {  // preprocess for an arbitrary uniform initial condition
+  if (preproForArbitraryUniformIC) {  // preprocess for an arbitrary uniform initial condition
 
     // loop through all cluster centers, store squared norm of center and component-wise sums of center
     for (int iCenter=0; iCenter<(this->nClusters); ++iCenter) {
+      clusterCenterNorms[iCenter].clear();
       clusterCenterNorms[iCenter].reserve(dim+1);
       DistSVec<double,dim> difference(this->domain.getNodeDistInfo());
       double norm = ((*(this->clusterCenters))[iCenter]).norm();
@@ -2462,66 +2489,36 @@ void NonlinearRomDatabaseConstruction<dim>::preprocessForDistanceComparisonsStan
       }
     } 
 
-  } else { // preprocess for specified initial condition
+  } else { // preprocess for specified initial condition / multiUic
 
-    // loop through all cluster centers, store the squared norm of (center - IC)
     for (int iCenter=0; iCenter<(this->nClusters); ++iCenter) {
         clusterCenterNorms[iCenter].clear();
-        clusterCenterNorms[iCenter].resize(2);
+        clusterCenterNorms[iCenter].resize(1);
         double centerNorm = ((*(this->clusterCenters))[iCenter]).norm();
         centerNorm *= centerNorm;
         clusterCenterNorms[iCenter][0]=centerNorm;
-        DistSVec<double,dim> difference(this->domain.getNodeDistInfo());
-        difference = (*(this->clusterCenters))[iCenter] - *initialCondition;
-        double diffNorm = difference.norm();
-        diffNorm *= diffNorm;  // norm squared
-        clusterCenterNorms[iCenter][1]=diffNorm;
     }
 
   }
  
   this->outputCenterNorms(clusterCenterNorms);
 
-  //--------- End (noUpdates || exactUpdates || approxUpdates) ---------------//
-
-
-  if (robConstruction->basisUpdates.preprocessForNoUpdates || 
-      robConstruction->basisUpdates.preprocessForExactUpdates) {
-
-    for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
-      productOfBasisAndCenterDifferences(iCluster, "state");
-      if (strcmp(this->krylovBasisName,"")!=0) productOfBasisAndCenterDifferences(iCluster, "krylov");
-    }
-
-    if (strcmp(this->sensitivityBasisName,"")!=0) productOfBasisAndCenterDifferences(-2, "sensitivity");
-
+  
+  for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+    productOfVectorAndCenterDifferences(iCluster, "referenceState");
   }
 
-  //--------- End (noUpdates || exactUpdates) ---------------//
+  productOfVectorAndCenterDifferences(-1, "initialCondition");
 
-
-  if (robConstruction->basisUpdates.preprocessForExactUpdates) {
-      this->com->fprintf(stdout, "\nPreprocessing for fast online cluster selection (For exact online ROB updates)\n");
-
-    for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
-      productOfVectorAndCenterDifferences(iCluster, "referenceState");
-    }
- 
-    productOfVectorAndCenterDifferences(-1, "initialCondition");
-
+  for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
+    productOfBasisAndCenterDifferences(iCluster, "state");
+    if (strcmp(this->krylovBasisName,"")!=0) productOfBasisAndCenterDifferences(iCluster, "krylov");
   }
 
-  //--------- End (exactUpdates) ---------------//
-
-
-  //if (robConstruction->basisUpdates.preprocessForApproxUpdates) {
-    //this->com->fprintf(stdout, "\nPreprocessing for fast online cluster selection (For approximate online ROB updates)\n");
-    // this is performed in Gnat preprocessing
-  //}
-
-  //--------- End (approxUpdates) ---------------//
+  if (strcmp(this->sensitivityBasisName,"")!=0) productOfBasisAndCenterDifferences(-2, "sensitivity");
 
   this->timer->addDistCalcsPreproTime(distCalcsTime);
+
 }
 
 //----------------------------------------------------------------------------------
@@ -2571,41 +2568,75 @@ void NonlinearRomDatabaseConstruction<dim>::productOfVectorAndCenterDifferences(
   // note that in this case 0 <= p < m < nClusters, which differs from Amsallem et al., INJME 2012
   // (this allows for easy indexing [m][p] without any unnecessary storage)
 
-  DistSVec<double,dim>* vec;
-  vec = NULL;
+  if (preproForArbitraryUniformIC) return;
 
-  if (strcmp(vecType,"referenceState")==0) {
-    this->readClusteredReferenceState(iCluster, "state");
-    vec = this->Uref;
-  } else if (strcmp(vecType, "initialCondition")==0) {
-    if (initialCondition) {
-      vec = initialCondition;
-    } else { //need to precompute component-wise sums of (center_m - center_p)
-      assert(arbitraryUniformIC);
-      return;
-    }
-  } else {
-    this->com->fprintf(stderr, "*** Error: unanticipated vector type '%s' encountered", vecType);
-    exit(-1);
-  }
+  if (this->nClusters == 1) return;
 
   if (this->clusterCenters==NULL) this->readClusterCenters("state");
 
-  std::vector<std::vector<double> > result;  // collection of vectors: [m][p]
-  result.resize(this->nClusters);
+  if (preproForInterpolatedIC && strcmp(vecType,"initialCondition")==0) {
 
-  // result[0][0] is a vector of zeros, no need to compute this
-
-  for (int mCenter=1; mCenter<this->nClusters; ++mCenter) {
-    for (int pCenter=0; pCenter<mCenter; ++pCenter) {
-      DistSVec<double,dim> difference(this->domain.getNodeDistInfo());
-      difference = (*(this->clusterCenters))[pCenter] - (*(this->clusterCenters))[mCenter]; 
-      double tmp = 2.0 * ((*vec) * difference);
-      result[mCenter].push_back(tmp); 
+    std::vector<std::vector<std::vector<double> > > result;  // collection of vectors: [m][p][iIC]
+    result.resize(this->nClusters);
+    // result[0][0] is a vector of zeros, no need to compute this
+    int nIC = this->multiUic->numVectors();
+    for (int mCenter=1; mCenter<this->nClusters; ++mCenter) {
+      result[mCenter].resize(mCenter);
+      for (int pCenter=0; pCenter<mCenter; ++pCenter) {
+        DistSVec<double,dim> difference(this->domain.getNodeDistInfo());
+        difference = (*(this->clusterCenters))[pCenter] - (*(this->clusterCenters))[mCenter];
+        result[mCenter][pCenter].resize(nIC);
+        for (int iIC=0; iIC<nIC; ++iIC) {
+          double tmp = 2.0 * ((*this->multiUic)[iIC] * difference);
+          result[mCenter][pCenter][iIC]=tmp;
+        }
+      }
     }
-  }
+    this->outputClusteredInfoASCII(iCluster, "multiInitialCondition", NULL, NULL, &result);
 
-  this->outputClusteredInfoASCII(iCluster, vecType, NULL, &result);
+    // also need to output multiUicMultiUicProducts
+    std::vector<std::vector<double> > multiUicMultiUicProducs;  // collection of vectors: [iIC][jIC]
+    multiUicMultiUicProducs.resize(nIC);
+    for (int iIC=0; iIC<nIC; ++iIC) {
+      multiUicMultiUicProducs[iIC].resize(iIC+1);
+      for (int jIC=0; jIC<=iIC; ++jIC) {
+        multiUicMultiUicProducs[iIC][jIC] = (*this->multiUic)[iIC] * (*this->multiUic)[jIC];
+      }
+    }
+    this->outputClusteredInfoASCII(iCluster, "multiUicMultiUicProducts", NULL, &multiUicMultiUicProducs);
+
+  } else {
+
+    DistSVec<double,dim>* vec;
+    vec = NULL;
+  
+    if (strcmp(vecType,"referenceState")==0) {
+      this->readClusteredReferenceState(iCluster, "state");
+      vec = this->Uref;
+    } else if (strcmp(vecType, "initialCondition")==0 && initialCondition!=NULL) {
+      vec = initialCondition;
+    } else {
+      this->com->fprintf(stderr, "*** Error: unanticipated vector type '%s' encountered (or initialCondition=NULL)", vecType);
+      exit(-1);
+    }
+  
+    std::vector<std::vector<double> > result;  // collection of vectors: [m][p]
+    result.resize(this->nClusters);
+  
+    // result[0][0] is a vector of zeros, no need to compute this
+  
+    for (int mCenter=1; mCenter<this->nClusters; ++mCenter) {
+      for (int pCenter=0; pCenter<mCenter; ++pCenter) {
+        DistSVec<double,dim> difference(this->domain.getNodeDistInfo());
+        difference = (*(this->clusterCenters))[pCenter] - (*(this->clusterCenters))[mCenter]; 
+        double tmp = 2.0 * ((*vec) * difference);
+        result[mCenter].push_back(tmp); 
+      }
+    }
+  
+    this->outputClusteredInfoASCII(iCluster, vecType, NULL, &result);
+
+  }
 
 }
 
@@ -2616,7 +2647,7 @@ template<int dim>
 void NonlinearRomDatabaseConstruction<dim>::readInitialCondition() {
 
   // check if this function has already been called
-  if (initialCondition || arbitraryUniformIC) return;
+  if (initialCondition || preproForArbitraryUniformIC || preproForInterpolatedIC) return;
 
   if (strcmp(this->ioData->input.solutions,"")!=0) {
 
@@ -2635,11 +2666,49 @@ void NonlinearRomDatabaseConstruction<dim>::readInitialCondition() {
     }
 
     delete [] icFile;
+  
+  } else if (strcmp(this->ioData->input.multiSolutionsParams,"")!=0) {
+
+    // read file, store solutions and parameters
+    FILE *paramsFile = fopen(this->ioData->input.multiSolutionsParams,"r");
+    if (!paramsFile)  {
+      this->com->fprintf(stderr, "*** Error: No solution data FILES in %s\n", this->ioData->input.multiSolutionsParams);
+      exit (-1);
+    }
+    int nData, _n, nParams;
+    _n = fscanf(paramsFile, "%d",&nData);
+    this->com->fprintf(stdout, " ... reading %d solutions for interpolation\n",nData);
+  
+    _n = fscanf(paramsFile, "%d",&nParams);
+    this->com->fprintf(stdout, " ... %d-dimensional parameter space\n",nParams);
+ 
+    this->multiUic = new VecSet<DistSVec<double,dim> >(nData, this->domain.getNodeDistInfo() );
+ 
+    char solnFile[500];
+    for (int iData=0; iData < nData; ++iData) {
+      // read solution
+      _n = fscanf(paramsFile, "%s", solnFile);
+      double tmp;
+      bool status = this->domain.readVectorFromFile(solnFile, 0, &tmp, (*this->multiUic)[iData]);
+
+      if (!status) {
+        this->com->fprintf(stderr, "*** Error: unable to read vector from file %s\n", solnFile);
+        exit(-1);
+      }
+
+      // read parameters
+      for (int iParam=0; iParam < nParams; ++iParam) {
+        _n = fscanf(paramsFile, "%lf", &tmp);
+      } 
+    }
+    fclose(paramsFile);
+
+    preproForInterpolatedIC = true;
 
   } else {
 
     this->com->fprintf(stdout, "\n ... no initial condition specified; preprocessing for a uniform initial condition\n");
-    arbitraryUniformIC = true;
+    preproForArbitraryUniformIC = true;
 
   }
 

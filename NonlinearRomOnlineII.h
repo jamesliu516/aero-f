@@ -11,7 +11,8 @@ class NonlinearRomOnlineII : public NonlinearRom<dim> {
 
   public:
 
-  NonlinearRomOnlineII(Communicator *, IoData &, Domain &);
+  NonlinearRomOnlineII(Communicator *_com, IoData &_ioData, Domain &_domain,
+                       std::vector<double>* _weights=NULL);
   ~NonlinearRomOnlineII();
 
   bool updateBasis(int, DistSVec<double, dim> &, Vec<double>* coords = NULL);

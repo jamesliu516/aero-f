@@ -94,6 +94,7 @@ InputData::InputData()
   d2wall = "";
   perturbed = "";
   solutions = "";
+  referenceSolution = "";
   multiSolutions = "";
   multiSolutionsParams = "";
   parameters = "";
@@ -107,6 +108,7 @@ InputData::InputData()
   restart_file_package = "";
   podFile = "";
   optimalPressureFile = "";
+  matchStateFile = "";
   multiStateSnapRefSolution = "";
   stateSnapRefSolution = "";
   stateSnapFile = "";
@@ -151,7 +153,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 38, father);
+  ClassAssigner *ca = new ClassAssigner(name, 39, father);
   new ClassStr<InputData>(ca, "Prefix", this, &InputData::prefix);
   new ClassStr<InputData>(ca, "GeometryPrefix", this, &InputData::geometryprefix);
   new ClassStr<InputData>(ca, "Connectivity", this, &InputData::connectivity);
@@ -164,6 +166,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "WallDistance", this, &InputData::d2wall);
   new ClassStr<InputData>(ca, "Perturbed", this, &InputData::perturbed);
   new ClassStr<InputData>(ca, "Solution", this, &InputData::solutions);
+  new ClassStr<InputData>(ca, "ReferenceSolution", this, &InputData::referenceSolution);
   new ClassStr<InputData>(ca, "MultipleSolutions", this, &InputData::multiSolutions);
   new ClassToken<InputData>(ca, "UseMultipleSolutionsGappy", this, reinterpret_cast<int InputData::*>(&InputData::useMultiSolutionsGappy), 2, "False", 0, "True", 1);
   new ClassStr<InputData>(ca, "ParametersForMultipleSolutions", this, &InputData::multiSolutionsParams);
@@ -177,6 +180,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "RestartData", this, &InputData::rstdata);
   new ClassStr<InputData>(ca, "FilePackage", this, &InputData::restart_file_package);
   new ClassStr<InputData>(ca, "PODData", this, &InputData::podFile);
+  new ClassStr<InputData>(ca, "ComparisonState", this, &InputData::matchStateFile);
   new ClassStr<InputData>(ca, "OptimalPressure", this, &InputData::optimalPressureFile);
   new ClassToken<InputData>(ca, "OptimalPressureDimensionality", this, reinterpret_cast<int InputData::*>(&InputData::optPressureDim), 3, "NonDimensional", 0, "Dimensional", 1,"None",2);
   new ClassStr<InputData>(ca, "StateSnapshotData", this, &InputData::stateSnapFile);
@@ -407,6 +411,7 @@ TransientData::TransientData()
   hydrodynamiclift = "";
   residuals = "";
   matchpressure = "";
+  matchstate = "";
   fluxnorm = "";
   materialVolumes = "";
   conservation = "";
@@ -523,6 +528,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "GeneralizedForce", this, &TransientData::generalizedforces);
   new ClassStr<TransientData>(ca, "LiftandDrag", this, &TransientData::lift);
   new ClassStr<TransientData>(ca, "MatchPressure", this, &TransientData::matchpressure);
+  new ClassStr<TransientData>(ca, "MatchState", this, &TransientData::matchstate);
   new ClassStr<TransientData>(ca, "FluxNorm", this, &TransientData::fluxnorm);
   new ClassStr<TransientData>(ca, "HydroStaticLiftandDrag", this, &TransientData::hydrostaticlift);
   new ClassStr<TransientData>(ca, "HydroDynamicLiftandDrag", this, &TransientData::hydrodynamiclift);
@@ -619,7 +625,7 @@ ROMOutputData::ROMOutputData()
 
   residualsForCoordRange = "";
 
-  overwriteNonlinearSnaps = OVERWRITE_ON;
+  overwriteNonlinearSnaps = OVERWRITE_OFF;
 
   resjacfrequency = 0;  //TODO
 
@@ -791,7 +797,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 5, father);
   new ClassToken<ProblemData>
     (ca, "Type", this,
-     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 41,
+     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 42,
      "Steady", 0, "Unsteady", 1, "AcceleratedUnsteady", 2, "SteadyAeroelastic", 3,
      "UnsteadyAeroelastic", 4, "AcceleratedUnsteadyAeroelastic", 5,
      "SteadyAeroThermal", 6, "UnsteadyAeroThermal", 7, "SteadyAeroThermoElastic", 8,
@@ -802,10 +808,10 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
      "NonlinearEigenResidual", 21, "SparseGridGeneration", 22,
      "1D", 23, "UnsteadyNonlinearROM", 24, "NonlinearROMPreprocessing", 25,
      "NonlinearROMSurfaceMeshConstruction",26, "SampledMeshShapeChange", 27,
-     "NonlinearROMPostprocessing", 28, "PODConstruction", 29, "ROBInnerProduct", 30,
+     "UnsteadyNonlinearROMPostprocessing", 28, "PODConstruction", 29, "ROBInnerProduct", 30,
      "Aeroacoustic", 31, "SteadySensitivityAnalysis", 32, "SteadyAeroelasticSensitivityAnalysis", 33, "EigenAeroelastic", 34, 
      "GAMConstruction", 35, "NonlinearEigenResidual2", 36, "AcceleratedUnsteadyNonlinearROM", 37,
-     "SteadyNonlinearROM", 38, "ForcedNonlinearROM", 39, "RomShapeOptimization", 40);
+     "SteadyNonlinearROM", 38, "ForcedNonlinearROM", 39, "RomShapeOptimization", 40, "SteadyNonlinearROMPostprocessing", 41);
 
   new ClassToken<ProblemData>
     (ca, "Mode", this,
@@ -3827,7 +3833,6 @@ NonlinearRomFilesData::NonlinearRomFilesData()
   stateDistanceComparisonInfoExactUpdatesName = "";
   stateDistanceComparisonInfoExactUpdatesMultiICName = "";
   basisNormalizedCenterProductsName = "";
-  basisMultiUicProductsName = "";
   projErrorName = "";
   refStateName = "";
 
@@ -3884,6 +3889,7 @@ NonlinearRomFilesData::NonlinearRomFilesData()
   sampledMultiSolutionsName = "";
   sampledRefStateName = "";
   sampledWallDistName = "";
+  sampledDisplacementName = "";
   gappyJacActionName = "";
   gappyResidualName = "";
   approxMetricStateLowRankName = "";
@@ -3891,7 +3897,7 @@ NonlinearRomFilesData::NonlinearRomFilesData()
   approxMetricStateLowRankFullCoordsName = "";
   approxMetricNonlinearLowRankFullCoordsName = "";
   approxMetricStateLowRankSurfaceCoordsName = "";
-  approxMetricNonlinearCVXName = "";
+  approxMetricNonlinearName = "";
   correlationMatrixName = "";
   sampledApproxMetricNonlinearSnapsName = "";
 
@@ -3902,6 +3908,7 @@ NonlinearRomFilesData::NonlinearRomFilesData()
   surfaceRefStateName = "";
   surfaceSolutionName = "";
   surfaceWallDistName = "";
+  surfaceDisplacementName = "";
   surfaceMeshName = "";
   surfaceMultiSolutionsName = "";
 }
@@ -3937,7 +3944,6 @@ void NonlinearRomFilesData::setup(const char *name, ClassAssigner *father)
   new ClassStr<NonlinearRomFilesData>(ca, "StateDistanceComparisonInfoExactUpdates", this, &NonlinearRomFilesData::stateDistanceComparisonInfoExactUpdatesName);
   new ClassStr<NonlinearRomFilesData>(ca, "StateDistanceComparisonInfoExactUpdatesMultiIC", this, &NonlinearRomFilesData::stateDistanceComparisonInfoExactUpdatesMultiICName);
   new ClassStr<NonlinearRomFilesData>(ca, "StateIncrementComparisonInfo", this, &NonlinearRomFilesData::basisNormalizedCenterProductsName);
-  new ClassStr<NonlinearRomFilesData>(ca, "MultiInitialConditionInterpolationInfo", this, &NonlinearRomFilesData::basisMultiUicProductsName);
   new ClassStr<NonlinearRomFilesData>(ca, "ProjectionError", this, &NonlinearRomFilesData::projErrorName);
   new ClassStr<NonlinearRomFilesData>(ca, "ReferenceState", this, &NonlinearRomFilesData::refStateName);
 
@@ -3993,6 +3999,7 @@ void NonlinearRomFilesData::setup(const char *name, ClassAssigner *father)
   new ClassStr<NonlinearRomFilesData>(ca, "SampledMultiSolutions", this, &NonlinearRomFilesData::sampledMultiSolutionsName);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledReferenceState", this, &NonlinearRomFilesData::sampledRefStateName);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledWallDistance", this, &NonlinearRomFilesData::sampledWallDistName);
+  new ClassStr<NonlinearRomFilesData>(ca, "SampledDisplacement", this, &NonlinearRomFilesData::sampledDisplacementName);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledMesh", this, &NonlinearRomFilesData::sampledMeshName);
   new ClassStr<NonlinearRomFilesData>(ca, "GNATOnlineResidualMatrix", this, &NonlinearRomFilesData::gappyResidualName);
   new ClassStr<NonlinearRomFilesData>(ca, "GNATOnlineJacActionMatrix", this, &NonlinearRomFilesData::gappyJacActionName);
@@ -4001,7 +4008,7 @@ void NonlinearRomFilesData::setup(const char *name, ClassAssigner *father)
   new ClassStr<NonlinearRomFilesData>(ca, "ApproxMetricStateLowRankMatrixFullCoords", this, &NonlinearRomFilesData::approxMetricStateLowRankFullCoordsName);
   new ClassStr<NonlinearRomFilesData>(ca, "ApproxMetricNonlinearLowRankMatrixFullCoords", this, &NonlinearRomFilesData::approxMetricNonlinearLowRankFullCoordsName);
   new ClassStr<NonlinearRomFilesData>(ca, "ApproxMetricStateLowRankMatrixSurfaceCoords", this, &NonlinearRomFilesData::approxMetricStateLowRankSurfaceCoordsName);
-  new ClassStr<NonlinearRomFilesData>(ca, "ApproxMetricNonlinearCVX", this, &NonlinearRomFilesData::approxMetricNonlinearCVXName);
+  new ClassStr<NonlinearRomFilesData>(ca, "ApproxMetricNonlinear", this, &NonlinearRomFilesData::approxMetricNonlinearName);
   new ClassStr<NonlinearRomFilesData>(ca, "CorrelationMatrix", this, &NonlinearRomFilesData::correlationMatrixName);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledApproxMetricNonlinearSnaps", this, &NonlinearRomFilesData::sampledApproxMetricNonlinearSnapsName);
 
@@ -4011,6 +4018,7 @@ void NonlinearRomFilesData::setup(const char *name, ClassAssigner *father)
   new ClassStr<NonlinearRomFilesData>(ca, "SurfaceStateBasis", this, &NonlinearRomFilesData::surfaceStateBasisName);
   new ClassStr<NonlinearRomFilesData>(ca, "SurfaceSolution", this, &NonlinearRomFilesData::surfaceSolutionName);
   new ClassStr<NonlinearRomFilesData>(ca, "SurfaceWallDistance", this, &NonlinearRomFilesData::surfaceWallDistName);
+  new ClassStr<NonlinearRomFilesData>(ca, "SurfaceDisplacement", this, &NonlinearRomFilesData::surfaceDisplacementName);
   new ClassStr<NonlinearRomFilesData>(ca, "SurfacedMesh", this, &NonlinearRomFilesData::surfaceMeshName);
   new ClassStr<NonlinearRomFilesData>(ca, "SurfaceMultiSolutions", this, &NonlinearRomFilesData::surfaceMultiSolutionsName);
 
@@ -4039,6 +4047,10 @@ NonlinearRomOnlineData::NonlinearRomOnlineData()
 
   incrementCoordsTol = 1e-10;
 
+  residualScaling = SCALING_OFF;
+  turbulenceWeight = 1.0;
+  eddyLengthScale = 1.0;
+
   weightedLeastSquares = WEIGHTED_LS_FALSE;
   weightingExponent = 1.0;
 
@@ -4061,6 +4073,10 @@ NonlinearRomOnlineData::NonlinearRomOnlineData()
   adjustInteriorWeight = ADJUST_INTERIOR_WEIGHT_FALSE;
   allowBCWeightDecrease = ALLOW_DECREASE_TRUE;
 
+  romSpatialOnlyInitialHomotomyStep = -1.0;
+  romSpatialOnlyMaxHomotomyStep = 1e16;
+  romSpatialOnlyHomotomyStepExpGrowthRate = 2;
+ 
 }
 
 //------------------------------------------------------------------------------
@@ -4099,8 +4115,13 @@ void NonlinearRomOnlineData::setup(const char *name, ClassAssigner *father)
 
 
   new ClassToken<NonlinearRomOnlineData> (ca, "WeightedLeastSquares", this, reinterpret_cast<int
-      NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::weightedLeastSquares), 5, "False", 0, "Residual", 1, "StateMinusFarField", 2, "ControlVolumes", 3, "BoundaryConditions", 4);
+      NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::weightedLeastSquares), 2, "False", 0, "BoundaryConditions", 1);
 
+  new ClassToken<NonlinearRomOnlineData> (ca, "ComponentwiseResidualScaling", this, reinterpret_cast<int
+      NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::residualScaling), 3, "Off", 0, "Balanced", 1, "EnergyInterpretation",2);
+
+  new ClassDouble<NonlinearRomOnlineData>(ca, "EddyLengthScale", this, &NonlinearRomOnlineData::eddyLengthScale);
+  new ClassDouble<NonlinearRomOnlineData>(ca, "TurbulenceWeight", this, &NonlinearRomOnlineData::turbulenceWeight);
   new ClassDouble<NonlinearRomOnlineData>(ca, "FarFieldWeight", this, &NonlinearRomOnlineData::ffWeight);
   new ClassDouble<NonlinearRomOnlineData>(ca, "WallWeight", this, &NonlinearRomOnlineData::wallWeight);
   new ClassDouble<NonlinearRomOnlineData>(ca, "BCWeightGrowthFactor", this, &NonlinearRomOnlineData::bcWeightGrowthFactor);
@@ -4115,6 +4136,9 @@ void NonlinearRomOnlineData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<NonlinearRomOnlineData>(ca, "RegularizationThreshold", this, &NonlinearRomOnlineData::regThresh);
   new ClassInt<NonlinearRomOnlineData>(ca, "ControlNodeID", this, &NonlinearRomOnlineData::controlNodeID);
 
+  new ClassDouble<NonlinearRomOnlineData>(ca, "SpatialOnlyInitialHomotopyStep", this, &NonlinearRomOnlineData::romSpatialOnlyInitialHomotomyStep);
+  new ClassDouble<NonlinearRomOnlineData>(ca, "SpatialOnlyMaxHomotopyStep", this, &NonlinearRomOnlineData::romSpatialOnlyMaxHomotomyStep);
+  new ClassDouble<NonlinearRomOnlineData>(ca, "SpatialOnlyHomotopyStepExpGrowthRate", this, &NonlinearRomOnlineData::romSpatialOnlyHomotomyStepExpGrowthRate);
   new ClassDouble<NonlinearRomOnlineData>(ca, "ResidualsCoordMin", this, &NonlinearRomOnlineData::residualsCoordMin);
   new ClassDouble<NonlinearRomOnlineData>(ca, "ResidualsCoordMax", this, &NonlinearRomOnlineData::residualsCoordMax);
   new ClassInt<NonlinearRomOnlineData>(ca, "ResidualsCoordResolution", this, &NonlinearRomOnlineData::residualsCoordRes);
@@ -4196,6 +4220,7 @@ GappyConstructionData::GappyConstructionData()
   doPreproGNAT = DO_PREPRO_GNAT_FALSE;
   doPreproApproxMetricNonlinear = DO_PREPRO_APPROX_METRIC_NL_FALSE;
   doPreproApproxMetricNonlinearCVX = DO_PREPRO_CVX_METRIC_NL_FALSE;
+  doPreproApproxMetricNonlinearNNLS = DO_PREPRO_NNLS_METRIC_NL_FALSE;
   sowerInputs = SOWER_INPUTS_FALSE;
 
   maxDimensionState = -1;
@@ -4257,7 +4282,7 @@ GappyConstructionData::GappyConstructionData()
   pseudoInverseSolver = PSEUDO_INVERSE_SCALAPACK;
 
   testApproxMetric = TEST_APPROX_METRIC_FALSE;
-  maxClusteredSnapshotsCVX = -1;
+  maxClusteredSnapshotsNonlinearApproxMetric = -1;
 }
 
 //------------------------------------------------------------------------------
@@ -4276,6 +4301,8 @@ void GappyConstructionData::setup(const char *name, ClassAssigner *father) {
       GappyConstructionData::*>(&GappyConstructionData::doPreproApproxMetricNonlinear), 2, "False", 0, "True", 1);
   new ClassToken<GappyConstructionData>(ca, "PerformApproxMetricNonlinearPreproCVX", this, reinterpret_cast<int
       GappyConstructionData::*>(&GappyConstructionData::doPreproApproxMetricNonlinearCVX), 2, "False", 0, "True", 1);
+  new ClassToken<GappyConstructionData>(ca, "PerformApproxMetricNonlinearPreproNNLS", this, reinterpret_cast<int
+      GappyConstructionData::*>(&GappyConstructionData::doPreproApproxMetricNonlinearNNLS), 2, "False", 0, "True", 1);
 
   new ClassInt<GappyConstructionData>(ca, "MaxDimensionStateROB", this, &GappyConstructionData::maxDimensionState);	// default: full size
   new ClassInt<GappyConstructionData>(ca, "MinDimensionStateROB", this, &GappyConstructionData::minDimensionState); // default: 0
@@ -4307,7 +4334,7 @@ void GappyConstructionData::setup(const char *name, ClassAssigner *father) {
 
   approxMetricNonlinear.setup("ApproxMetricNonlinear",ca);
 
-  new ClassInt<GappyConstructionData>(ca, "MaxClusteredSnapshotsUsedByCVX", this, &GappyConstructionData::maxClusteredSnapshotsCVX);
+  new ClassInt<GappyConstructionData>(ca, "MaxClusteredSnapshotsForNonlinearApproxMetric", this, &GappyConstructionData::maxClusteredSnapshotsNonlinearApproxMetric);
 
   new ClassToken<GappyConstructionData> (ca, "SelectSampledNodes", this, reinterpret_cast<int
       GappyConstructionData::*>(&GappyConstructionData::selectSampledNodes), 2, "False", 0, "True", 1);
@@ -5595,6 +5622,7 @@ void IoData::resetInputValues()
 
   if (problem.alltype == ProblemData::_UNSTEADY_ ||
       problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_ ||
+      problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_POST_ ||
       problem.alltype == ProblemData::_ACC_UNSTEADY_ ||
       problem.alltype == ProblemData::_ACC_UNSTEADY_NONLINEAR_ROM_ ||
       problem.alltype == ProblemData::_UNSTEADY_AEROELASTIC_ ||
@@ -6189,7 +6217,8 @@ int IoData::checkInputValues()
              || (problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_)
              || (problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) ) {
     error += checkInputValuesNonlinearRomOnline();
-  } else if (problem.alltype == ProblemData::_NONLINEAR_ROM_POST_) {
+  } else if (problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_POST_ 
+             || problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_POST_) {
     error += checkInputValuesNonlinearRomPostprocessing();
   }
 
@@ -8158,13 +8187,12 @@ int IoData::checkInputValuesNonlinearRomOnline() {
 int IoData::checkInputValuesNonlinearRomPostprocessing() {
   int error = 0;
 
-  // TODO KMW
-  romOnline.distanceComparisons = NonlinearRomOnlineData::DISTANCE_COMPARISONS_OFF;
+  //romOnline.distanceComparisons = NonlinearRomOnlineData::DISTANCE_COMPARISONS_OFF;
 
-  if (romOnline.basisUpdates==NonlinearRomOnlineData::UPDATES_FAST_EXACT) {
-    com->fprintf(stderr, "*** Warning: changing basis updates to Simple\n");
-    romOnline.basisUpdates = NonlinearRomOnlineData::UPDATES_SIMPLE; 
-  }
+  //if (romOnline.basisUpdates==NonlinearRomOnlineData::UPDATES_FAST_EXACT) {
+  //  com->fprintf(stderr, "*** Warning: changing basis updates to Simple\n");
+  //  romOnline.basisUpdates = NonlinearRomOnlineData::UPDATES_SIMPLE; 
+  //}
 
   return error;
 }

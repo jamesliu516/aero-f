@@ -21,7 +21,7 @@ class Timer {
 		eulerFSI, embedforce, walldistance, lsreinitialization, readSnapshotFile,
 		clustering, pod, distCalcsPrepro, exactUpdatesPrepro, projError, mds, 	
 		approxMetricPrepro, surfaceMeshConstruction, surfaceOutput, sampledMeshConstruction, sampledOutput, pseudoInv,
-                gappyOffline, romOffline, NUMTIMINGS
+                gappyOffline, romOffline, icInterp, NUMTIMINGS
   };
 
   int numTimings;
@@ -63,6 +63,7 @@ public:
   double addMeshMetricsTime(double);
   double addEmbeddedForceTime(double);
   double addStructUpdTime(double);
+  double addICInterpTime(double);
   double addMeshSolutionTime(double);
   double addMeshAssemblyTime(double);
   double addMeshPrecSetupTime(double);

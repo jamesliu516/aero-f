@@ -75,11 +75,13 @@ com(_com), ioData(&_ioData), domain(_domain)
   determineFileName("", "exactUpdates_F", exactUpdateInfoPrefix, basisBasisProductsName);
   determineFileName("", "exactUpdates_e", exactUpdateInfoPrefix, basisUrefProductsName);
   determineFileName("", "exactUpdates_d", exactUpdateInfoPrefix, basisUicProductsName);
+  determineFileName("", "exactUpdates_d_multiIC", exactUpdateInfoPrefix, basisMultiUicProductsName);
   determineFileName("", "exactUpdates_c", exactUpdateInfoPrefix, urefUicProductsName);
   determineFileName("", "exactUpdates_c_multiIC", exactUpdateInfoPrefix, urefMultiUicProductsName);
   determineFileName("", "exactUpdates_g", exactUpdateInfoPrefix, urefUrefProductsName);
   determineFileName("", "exactUpdates_UrefComponentwiseSums", exactUpdateInfoPrefix, urefComponentwiseSumsName);
   determineFileName("", "exactUpdates_StateBasisComponentwiseSums", exactUpdateInfoPrefix, basisComponentwiseSumsName);
+  determineFileName("", "exactUpdates_multiICMultiICProducts", exactUpdateInfoPrefix, multiUicMultiUicProductsName);
   determineFileName(romFiles->stateDistanceComparisonInfoExactUpdatesName, "exactUpdatesDistanceInfo", exactUpdateInfoPrefix, stateDistanceComparisonInfoExactUpdatesName); 
   determineFileName(romFiles->stateDistanceComparisonInfoExactUpdatesMultiICName, "exactUpdatesDistanceInfoMultiIC", exactUpdateInfoPrefix, stateDistanceComparisonInfoExactUpdatesMultiICName);
 
@@ -124,7 +126,6 @@ com(_com), ioData(&_ioData), domain(_domain)
   determineFileName(romFiles->sampledStateBasisName, "sampledStateROB", romFiles->gappyPrefix, sampledStateBasisName);
   determineFileName(romFiles->sampledSensitivityBasisName, "sampledSensitivityROB", romFiles->gappyPrefix, sampledSensitivityBasisName);
   determineFileName(romFiles->sampledKrylovBasisName, "sampledKrylovROB", romFiles->gappyPrefix, sampledKrylovBasisName);
-  determineFileName(romFiles->basisMultiUicProductsName, "basisMultiUicProducts", stateBasisPrefix, basisMultiUicProductsName);
   determineFileName(romFiles->sampledResidualBasisName, "sampledResROB", romFiles->gappyPrefix, sampledResidualBasisName);
   determineFileName(romFiles->sampledJacActionBasisName, "sampledJacROB", romFiles->gappyPrefix, sampledJacActionBasisName);
   determineFileName(romFiles->sampledMeshName, "top", romFiles->gappyPrefix, sampledMeshName);
@@ -132,13 +133,14 @@ com(_com), ioData(&_ioData), domain(_domain)
   determineFileName(romFiles->sampledMultiSolutionsName, "sampledMultiSolutions", romFiles->gappyPrefix, sampledMultiSolutionsName);
   determineFileName(romFiles->sampledRefStateName, "sampledRefState", romFiles->gappyPrefix, sampledRefStateName);
   determineFileName(romFiles->sampledWallDistName, "sampledWallDist", romFiles->gappyPrefix, sampledWallDistName);
+  determineFileName(romFiles->sampledDisplacementName, "sampledDisplacement", romFiles->gappyPrefix, sampledDisplacementName);
   determineFileName(romFiles->gappyJacActionName, "gappyJac", romFiles->gappyPrefix, gappyJacActionName);
   determineFileName(romFiles->gappyResidualName, "gappyRes", romFiles->gappyPrefix, gappyResidualName);
   determineFileName(romFiles->approxMetricStateLowRankName, "approxMetricState", romFiles->gappyPrefix, approxMetricStateLowRankName);
   determineFileName(romFiles->approxMetricStateLowRankFullCoordsName, "approxMetricStateFullCoords", romFiles->gappyPrefix, approxMetricStateLowRankFullCoordsName);
   determineFileName(romFiles->approxMetricNonlinearLowRankName, "approxMetricNonlinear", romFiles->gappyPrefix, approxMetricNonlinearLowRankName);
   determineFileName(romFiles->approxMetricNonlinearLowRankFullCoordsName, "approxMetricNonlinearFullCoords", romFiles->gappyPrefix, approxMetricNonlinearLowRankFullCoordsName);
-  determineFileName(romFiles->approxMetricNonlinearCVXName, "approxMetricNonlinearCVX", romFiles->gappyPrefix, approxMetricNonlinearCVXName);
+  determineFileName(romFiles->approxMetricNonlinearName, "approxMetricNonlinear", romFiles->gappyPrefix, approxMetricNonlinearName);
   determineFileName(romFiles->correlationMatrixName, "correlationMatrix", romFiles->gappyPrefix, correlationMatrixName);
   determineFileName(romFiles->sampledApproxMetricNonlinearSnapsName, "sampledApproxMetricNLSnaps", romFiles->gappyPrefix, sampledApproxMetricNonlinearSnapsName);
 
@@ -149,6 +151,7 @@ com(_com), ioData(&_ioData), domain(_domain)
   determineFileName(romFiles->surfaceSolutionName, "surfaceSolution", romFiles->surfacePrefix, surfaceSolutionName);
   determineFileName(romFiles->surfaceMultiSolutionsName, "surfaceMultiSolutions", romFiles->surfacePrefix, surfaceMultiSolutionsName);
   determineFileName(romFiles->surfaceWallDistName, "surfaceWallDist", romFiles->surfacePrefix, surfaceWallDistName);
+  determineFileName(romFiles->surfaceDisplacementName, "surfaceDisplacement", romFiles->surfacePrefix, surfaceDisplacementName);
   determineFileName(romFiles->surfaceMeshName, "top", romFiles->surfacePrefix, surfaceMeshName);
   determineFileName(romFiles->approxMetricStateLowRankSurfaceCoordsName, "approxMetricStateSurfaceCoords", romFiles->surfacePrefix, approxMetricStateLowRankSurfaceCoordsName);
 
@@ -229,8 +232,11 @@ com(_com), ioData(&_ioData), domain(_domain)
   specifiedIC = false;
   interpolatedMultiIC = false;
   uniformIC = NULL;
+  multiUic = NULL;
 
   rTol = ioData->romOnline.basisUpdateTolerance;
+  jacActionSnapsFileNameSpecified = (strcmp(jacActionSnapsName,"")!=0);
+
 }
 
 //----------------------------------------------------------------------------------
@@ -258,6 +264,7 @@ NonlinearRom<dim>::~NonlinearRom()
   delete [] urefUicProductsName;
   delete [] urefMultiUicProductsName;
   delete [] urefUrefProductsName;    
+  delete [] multiUicMultiUicProductsName;    
   delete [] urefComponentwiseSumsName;
   delete [] basisComponentwiseSumsName;
   delete [] stateDistanceComparisonInfoName;
@@ -287,6 +294,7 @@ NonlinearRom<dim>::~NonlinearRom()
   delete [] sampledMultiSolutionsName;
   delete [] sampledRefStateName;
   delete [] sampledWallDistName;
+  delete [] sampledDisplacementName;
   delete [] gappyJacActionName;
   delete [] gappyResidualName;
   delete [] approxMetricNonlinearLowRankName;
@@ -294,7 +302,7 @@ NonlinearRom<dim>::~NonlinearRom()
   delete [] approxMetricStateLowRankFullCoordsName;
   delete [] approxMetricNonlinearLowRankFullCoordsName;
   delete [] approxMetricStateLowRankSurfaceCoordsName;
-  delete [] approxMetricNonlinearCVXName;
+  delete [] approxMetricNonlinearName;
   delete [] correlationMatrixName;
   delete [] sampledApproxMetricNonlinearSnapsName;
   delete [] surfaceCentersName;
@@ -303,6 +311,7 @@ NonlinearRom<dim>::~NonlinearRom()
   delete [] surfaceSolutionName;
   delete [] surfaceMultiSolutionsName;
   delete [] surfaceWallDistName;
+  delete [] surfaceDisplacementName;
   delete [] surfaceMeshName;
 
   delete [] stateBasisPrefix;
@@ -385,6 +394,7 @@ NonlinearRom<dim>::~NonlinearRom()
   }
 
   if (uniformIC) delete uniformIC;
+  if (multiUic) delete multiUic;
 
 }
 
@@ -500,6 +510,11 @@ template<int dim>
 void NonlinearRom<dim>::closestCenter(DistSVec<double, dim> &vec, int *index1) {
 
   // for determining the closest cluster center during an online ROM simulation
+
+  if (nClusters == 1) {
+    *index1 = 0;
+    return;
+  }
 
   if (ioData->romOnline.distanceComparisons) {
     closestCenterFast(index1);
@@ -641,12 +656,12 @@ void NonlinearRom<dim>::checkInitialConditionScenario() {
 
   if (specifiedIC || interpolatedMultiIC || uniformIC) return;
 
-  if (strcmp(ioData->input.solutions,"")!=0) {
-    com->fprintf(stdout, " ... Initial condition file is specified \n");
-    specifiedIC = true;
-  } else if (strcmp(ioData->input.multiSolutions,"")!=0 && strcmp(ioData->input.multiSolutionsParams,"")!=0) {
+  if (strcmp(ioData->input.multiSolutionsParams,"")!=0) {
     com->fprintf(stdout, " ... Interpolated initial condition \n");
     interpolatedMultiIC = true;
+  } else if (strcmp(ioData->input.solutions,"")!=0) {
+    com->fprintf(stdout, " ... Initial condition file is specified \n");
+    specifiedIC = true;
   } else {
     com->fprintf(stdout, " ... No initial solution specified -- checking for uniform initial condition\n");
   }
@@ -684,6 +699,8 @@ void NonlinearRom<dim>::checkUniformInitialCondition(DistSVec<double, dim> &ic) 
 template<int dim>
 void NonlinearRom<dim>::resetDistanceComparisonQuantitiesApproxUpdates() {
 // resets some fast distance comparison quantities that are unique to approximate updates
+
+  if (nClusters == 1) return;
 
   int robSize = basis->numVectors();
 
@@ -723,9 +740,10 @@ void NonlinearRom<dim>::initializeProjectionQuantities(DistSVec<double, dim> &ic
   checkInitialConditionScenario();
 
   if (specifiedIC) {
-    // do nothing; basisUicProducts and urefUicProducts should already be stored
-  } else if (interpolatedMultiIC) {
-    assert(false);
+    // do nothing; basisUicProducts should already be stored
+  } else if (interpolatedMultiIC) { 
+    // do nothing; basisUicProducts should already have been formed
+    // using basisMultiUicProducts and the interpWeightsForMultiIC
   } else {
     // we have urefComponentwiseSums and basisComponentwiseSums, but we need urefUicProducts and basisUicProducts 
     checkUniformInitialCondition(ic); // checks if IC is uniform, sets variable uniformIC
@@ -759,7 +777,8 @@ void NonlinearRom<dim>::initializeFastExactUpdatesQuantities(DistSVec<double, di
   if (specifiedIC) {
     // do nothing; basisUicProducts and urefUicProducts should already be stored
   } else if (interpolatedMultiIC) {
-    assert(false);
+    // do nothing; basisUicProducts and urefUicProducts should already have been formed
+    // using basisMultiUicProducts, urefMultiUicProducts, and the interpWeightsForMultiIC
   } else {
     // we have urefComponentwiseSums and basisComponentwiseSums, but we need urefUicProducts and basisUicProducts 
     checkUniformInitialCondition(ic); // checks if IC is uniform, sets variable uniformIC
@@ -805,7 +824,29 @@ void NonlinearRom<dim>::initializeFastExactUpdatesQuantities(DistSVec<double, di
       }
       this->uicNorm = tag;
     } else if (interpolatedMultiIC) {
-     assert(false); 
+      // form uicNorm (using interpWeightsForMultiIC and multiUicMultiUicProducts)
+      readClusteredInfoASCII(-1, "multiUicMultiUicProducts", NULL, &multiUicMultiUicProducts);
+      int nSol = multiUicMultiUicProducts.size();
+      std::vector<double> result;
+      result.resize(nSol,0.0);
+      for (int iSol=0; iSol<nSol; ++iSol) {
+        for (int jSol=0; jSol<nSol; ++jSol) {
+          if (iSol>=jSol) {
+            result[iSol] += multiUicMultiUicProducts[iSol][jSol]*interpWeightsForMultiIC[jSol];
+          } else {
+            result[iSol] += multiUicMultiUicProducts[jSol][iSol]*interpWeightsForMultiIC[jSol];
+          }
+        }
+      } 
+      multiUicMultiUicProducts.clear();
+
+      this->uicNorm = 0.0;
+      for (int iSol=0; iSol<nSol; ++iSol) {
+        this->uicNorm += result[iSol]*interpWeightsForMultiIC[iSol];
+      }
+      result.clear();
+      this->uicNorm = pow(this->uicNorm,0.5);
+
     } else {
       if (nFullMeshNodes==0) {
          readCenterNorms();
@@ -840,6 +881,8 @@ void NonlinearRom<dim>::initializeFastExactUpdatesQuantities(DistSVec<double, di
 template<int dim>
 void NonlinearRom<dim>::initializeDistanceComparisons(DistSVec<double, dim> &ic) {
 
+  if (nClusters == 1) return;
+
   // the diagonal elements are all zero, but element [0][0] is inserted to make the indexing more intuitive ([mCenter][pCenter])
   distanceComparisons.clear();
   distanceComparisons.resize(nClusters);  
@@ -856,36 +899,24 @@ void NonlinearRom<dim>::initializeDistanceComparisons(DistSVec<double, dim> &ic)
 
   } else {
   
-    std::vector<double> centerMinusICNorms;
-    centerMinusICNorms.resize(nClusters);
-  
     checkInitialConditionScenario();
   
     if (specifiedIC) { // preprocessing was performed for a specified IC 
-  
-      // centerNorms is nClusters-by-2 with format: ||Center_0||^2, || Center_0 - IC ||^2;  ||Center_1||^2, || Center_1 - IC ||^2; ...
-      
-      for (int mCenter=0; mCenter<nClusters; ++mCenter) {
-        centerMinusICNorms[mCenter] = centerNorms[mCenter][1]; 
-      }
+      // centerNorms is nClusters-by-1 with format: ||Center_0||^2;  ||Center_1||^2; ...
+      // initialConditionCentersDifProduct has been precomputed
 
     } else if (interpolatedMultiIC) {
-      assert(false); 
+      // centerNorms is nClusters-by-1 with format: ||Center_0||^2;  ||Center_1||^2; ...
+      // initialConditionCentersDifProduct has been formed and stored
 
     } else { // preprocesing was performed assuming a uniform initial condition for the online ROM
   
       // centerNorms is nClusters-by-(dim+1) with format:
       //    ||Center_0||^2, sum( Center_0(iDim=0) ), ... , sum( Center_0(iDim=dim-1) ); ||Center_1||^2, ...
-  
+
+      // need to form initialConditionCentersDifProduct 
+ 
       checkUniformInitialCondition(ic); // checks if IC is uniform, sets variable uniformIC
-  
-      for (int mCenter=0; mCenter<nClusters; ++mCenter) {
-        centerMinusICNorms[mCenter] = centerNorms[mCenter][0];
-        for (int iDim=0; iDim<dim; ++iDim) { 
-          centerMinusICNorms[mCenter] -= 2.0 * (*uniformIC)[0][iDim] * centerNorms[mCenter][iDim+1];
-          centerMinusICNorms[mCenter] += ((double) nFullMeshNodes) * (*uniformIC)[0][iDim] * (*uniformIC)[0][iDim];
-        }
-      }
   
       if (ioData->romOnline.basisUpdates == NonlinearRomOnlineData::UPDATES_FAST_EXACT) {
         initialConditionCentersDifProduct.resize(nClusters);
@@ -903,9 +934,9 @@ void NonlinearRom<dim>::initializeDistanceComparisons(DistSVec<double, dim> &ic)
     }
 
     for (int mCenter=1; mCenter<nClusters; ++mCenter) {
-      distanceComparisons[mCenter].reserve(mCenter);
+      distanceComparisons[mCenter].resize(mCenter,0.0);
       for (int pCenter=0; pCenter<mCenter; ++pCenter) {
-        distanceComparisons[mCenter].push_back(centerMinusICNorms[mCenter] - centerMinusICNorms[pCenter]);
+        distanceComparisons[mCenter][pCenter]=(centerNorms[mCenter][0] - centerNorms[pCenter][0] + initialConditionCentersDifProduct[mCenter][pCenter]);
       }
     }
 
@@ -917,6 +948,8 @@ void NonlinearRom<dim>::initializeDistanceComparisons(DistSVec<double, dim> &ic)
 
 template<int dim>
 void NonlinearRom<dim>::advanceDistanceComparisons(int currentCluster, Vec<double> dUromTimeIt, Vec<double> UromCurrentROB) {
+
+  if (nClusters == 1) return;
 
   if (incrementalStateSnaps) {
     distanceComparisonsForIncrements(dUromTimeIt, currentCluster);
@@ -950,6 +983,8 @@ void NonlinearRom<dim>::advanceDistanceComparisons(int currentCluster, Vec<doubl
 
 template<int dim>
 void NonlinearRom<dim>::distanceComparisonsForIncrements(Vec<double> dUromTimeIt, int currentCluster) {
+
+  if (nClusters == 1) return;
 
   for (int mCenter=1; mCenter<nClusters; ++mCenter) {
 
@@ -985,6 +1020,8 @@ void NonlinearRom<dim>::distanceComparisonsForProjection(Vec<double> UromCurrent
 // stateBasisCentersDifProduct[i][m][p] = 2 * StateROB_i^T *(center_p - center_m)
 // centerNorms[i] = center_i^T * center_i
  
+  if (nClusters == 1) return;
+
   for (int mCenter=1; mCenter<nClusters; ++mCenter) {
     for (int pCenter=0; pCenter<mCenter; ++pCenter) {
       distanceComparisons[mCenter][pCenter] = refStateCentersDifProduct[currentCluster][mCenter][pCenter]
@@ -1009,6 +1046,8 @@ void NonlinearRom<dim>::distanceComparisonsForProjection(Vec<double> UromCurrent
 template<int dim>
 void NonlinearRom<dim>::incrementDistanceComparisonsForNoUpdates(Vec<double> dUromTimeIt, int currentCluster) {
  
+  if (nClusters == 1) return;
+
   for (int mCenter=1; mCenter<nClusters; ++mCenter) {
     for (int pCenter=0; pCenter<mCenter; ++pCenter) {
       for (int iState=0; iState<dUromTimeIt.size(); ++iState) {
@@ -1044,6 +1083,7 @@ void NonlinearRom<dim>::incrementDistanceComparisonsForExactUpdates(Vec<double> 
   // f_(m,p) = refStateCentersDifProduct[iRefState][mCenter][pCenter]
   // g_(m,p) = stateBasisCentersDifProduct[iCluster][mCenter][pCenter][iState]
 
+  if (nClusters == 1) return;
  
   std::vector<double> tmp;
 
@@ -1084,6 +1124,8 @@ void NonlinearRom<dim>::incrementDistanceComparisonsForExactUpdates(Vec<double> 
 
 template<int dim>
 void NonlinearRom<dim>::incrementDistanceComparisonsForApproxUpdates(Vec<double> dUromTimeIt, int currentCluster) {
+
+  if (nClusters == 1) return;
 
   for (int mCenter=1; mCenter<nClusters; ++mCenter) {
     for (int pCenter=0; pCenter<mCenter; ++pCenter) {
@@ -1198,7 +1240,12 @@ int NonlinearRom<dim>::readSnapshotFiles(const char* snapType, bool preprocess) 
       exit(-1);
     }
     if (iStart < 1) iStart = 1;
-    if (iEnd < 0) iEnd = 0;
+    if (iEnd <= 0) {
+      iEnd = 0;
+    } else if (iEnd < iStart) {
+      com->fprintf(stderr, "*** Error in %s: endSnap (%d) < startSnap (%d)\n", vecFile, iEnd, iStart);
+      exit(-1);
+    }
     if (iFreq < 1) iFreq = 1;
     //numSnaps[iData] = nSnap;
     strcpy(snapFile[iData],snapFile1);
@@ -1878,12 +1925,12 @@ void NonlinearRom<dim>::readClusteredReferenceState(int iCluster, const char* re
   }
 
   char *refStatePath = 0;
-  if (strcmp(refType,"state")==0) {
-      if (ioData->problem.alltype == ProblemData::_NONLINEAR_ROM_POST_ && strcmp(surfaceRefStateName,"")!=0) {
-        determinePath(surfaceRefStateName, iCluster, refStatePath);
-      } else {
-        determinePath(refStateName, iCluster, refStatePath);
-      }
+  if ((ioData->problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_POST_ 
+           || ioData->problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_POST_) 
+           && strcmp(surfaceRefStateName,"")!=0) {
+      determinePath(surfaceRefStateName, iCluster, refStatePath);
+  } else if (strcmp(refType,"state")==0) {
+      determinePath(refStateName, iCluster, refStatePath);
   } else if (strcmp(refType,"sampledState")==0) {
       determinePath(sampledRefStateName, iCluster, refStatePath);
   } else {
@@ -1906,12 +1953,12 @@ template<int dim>
 void NonlinearRom<dim>::readClusterCenters(const char* centersType) {
 
   char *clustCentersPath = 0;
-  if (strcmp(centersType,"centers")==0) {
-    if (ioData->problem.alltype == ProblemData::_NONLINEAR_ROM_POST_ && strcmp(surfaceCentersName,"")!=0) {
+  if ((ioData->problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_POST_
+           || ioData->problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_POST_)
+           && strcmp(surfaceCentersName,"")!=0) {
       determinePath(surfaceCentersName, -1, clustCentersPath);
-    } else {
+  } else if (strcmp(centersType,"centers")==0) {
       determinePath(centersName, -1, clustCentersPath);
-    }
   } else if (strcmp(centersType,"sampledCenters")==0) {
       determinePath(sampledCentersName, -1, clustCentersPath);
   } else {
@@ -2129,14 +2176,22 @@ void NonlinearRom<dim>::readClusteredBasis(int iCluster, const char* basisType, 
   
   if (strcmp(basisType,"state")==0) {
       determinePath(stateSingValsName, iCluster, singValsPath);
-      if (ioData->problem.alltype == ProblemData::_NONLINEAR_ROM_POST_ && strcmp(surfaceStateBasisName,"")!=0) {
+      if ((ioData->problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_POST_
+           || ioData->problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_POST_)
+           && strcmp(surfaceStateBasisName,"")!=0) {
         determinePath(surfaceStateBasisName, iCluster, basisPath);
       } else {
         determinePath(stateBasisName, iCluster, basisPath);
       }
   } else if (strcmp(basisType,"sampledState")==0) {
       determinePath(stateSingValsName, iCluster, singValsPath);
-      determinePath(sampledStateBasisName, iCluster, basisPath);
+      if ((ioData->problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_POST_
+           || ioData->problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_POST_)
+           && strcmp(surfaceStateBasisName,"")!=0) {
+        determinePath(surfaceStateBasisName, iCluster, basisPath);
+      } else {
+        determinePath(sampledStateBasisName, iCluster, basisPath);
+      }
   } else if (strcmp(basisType,"residual")==0) { 
       determinePath(residualSingValsName, iCluster, singValsPath);
       determinePath(residualBasisName, iCluster, basisPath);
@@ -2171,6 +2226,7 @@ void NonlinearRom<dim>::readClusteredBasis(int iCluster, const char* basisType, 
     exit (-1);
   }
 
+  if (minDimension<=1) minDimension = 1;
   if (maxDimension<=0) maxDimension = numSteps;
 
   FILE *singValFile = fopen(singValsPath, "r");
@@ -2314,27 +2370,44 @@ void NonlinearRom<dim>::readProjectionInfo() {
 
   // Basis Basis Products (rob_i^T * rob_p)
   // std::vector<std::vector<std::vector<std::vector<double> > > > basisBasisProducts;  // [iCluster][pCluster][:][:]
-  readClusteredInfoASCII(-1, "basisBasisProducts", NULL, NULL, NULL, &this->basisBasisProducts);
+  readClusteredInfoASCII(-1, "basisBasisProducts", NULL, NULL, NULL, &basisBasisProducts);
 
   // Basis Uref Products (rob_i^T * Uref_p)
   // std::vector<std::vector<std::vector<double> > > basisUrefProducts;  // [Cluster_Basis][Cluster_Uref][:]
-  readClusteredInfoASCII(-1, "basisUrefProducts", NULL, NULL, &this->basisUrefProducts);
+  readClusteredInfoASCII(-1, "basisUrefProducts", NULL, NULL, &basisUrefProducts);
 
   checkInitialConditionScenario();
 
   if (specifiedIC) {
     // Basis Uic Products
     // std::vector<std::vector<double> > basisUicProducts;  // [iCluster][1:nPod] only precomputed if Uic specified
-    readClusteredInfoASCII(-1, "basisUicProducts", NULL, &this->basisUicProducts);
+    readClusteredInfoASCII(-1, "basisUicProducts", NULL, &basisUicProducts);
   } else if (interpolatedMultiIC){
-    // Uic was interpolated from multiple initial conditions, form basisUicProducts after interpolating
-    // std::vector<std::vector<double> > basisMultiUicProducts;  // [iSolution][1:nPod] (clustered)
- //   readClusteredInfoASCII(-1, "basisMultiUicProducts", NULL, &this->basisMultiUicProducts);
-    assert(false);
+    // Uic was interpolated from multiple initial conditions, need to form basisUicProducts
+    // basisMultiUicProducts;  // [iCluster][iSolution][1:nPod]
+    readClusteredInfoASCII(-1, "basisMultiUicProducts", NULL, NULL, &basisMultiUicProducts);
+    basisUicProducts.resize(nClusters);
+    for (int iCluster=0; iCluster<nClusters; ++iCluster) {
+      basisUicProducts[iCluster].clear();
+      basisUicProducts[iCluster].resize(basisMultiUicProducts[iCluster][0].size(),0.0);
+      if (basisMultiUicProducts[iCluster].size() != interpWeightsForMultiIC.size()) {
+        this->com->fprintf(stderr, "*** Error: number of interpolated solutions used "
+                            "for this simulation does not match precomputed quantities\n");
+        exit(-1);
+      }
+      for (int iSol=0; iSol<basisMultiUicProducts[iCluster].size(); ++iSol) {
+        for (int iPod=0; iPod<basisMultiUicProducts[iCluster][iSol].size(); ++iPod) {
+          basisUicProducts[iCluster][iPod] += basisMultiUicProducts[iCluster][iSol][iPod]
+                                              * interpWeightsForMultiIC[iSol];
+        }
+      }
+    } 
+    basisMultiUicProducts.clear();
+   
   } else {
     // Basis Componentwise Sums
     // std::vector<std::vector<std::vector<double> > > basisComponentwiseSums;  // [iCluster][iVec][1:dim]
-    readClusteredInfoASCII(-1, "basisComponentwiseSums", NULL, NULL, &this->basisComponentwiseSums);
+    readClusteredInfoASCII(-1, "basisComponentwiseSums", NULL, NULL, &basisComponentwiseSums);
   }
 
 }
@@ -2348,15 +2421,15 @@ void NonlinearRom<dim>::readExactUpdateInfo() {
 
   // Basis Basis Products (rob_i^T * rob_p)
   // std::vector<std::vector<std::vector<std::vector<double> > > > basisBasisProducts;  // [iCluster][pCluster][:][:]
-  readClusteredInfoASCII(-1, "basisBasisProducts", NULL, NULL, NULL, &this->basisBasisProducts);
+  readClusteredInfoASCII(-1, "basisBasisProducts", NULL, NULL, NULL, &basisBasisProducts);
 
   // Basis Uref Products (rob_i^T * Uref_p)
   // std::vector<std::vector<std::vector<double> > > basisUrefProducts;  // [Cluster_Basis][Cluster_Uref][:]
-  readClusteredInfoASCII(-1, "basisUrefProducts", NULL, NULL, &this->basisUrefProducts);
+  readClusteredInfoASCII(-1, "basisUrefProducts", NULL, NULL, &basisUrefProducts);
 
   // Uref Uref Products
   // std::vector<std::vector<double> > urefUrefProducts; //[iCluster][jCluster] symmetric (lower triangular)
-  readClusteredInfoASCII(-1, "urefUrefProducts", NULL, &this->urefUrefProducts);
+  readClusteredInfoASCII(-1, "urefUrefProducts", NULL, &urefUrefProducts);
 
   checkInitialConditionScenario();
 
@@ -2364,24 +2437,52 @@ void NonlinearRom<dim>::readExactUpdateInfo() {
 
     // Basis Uic Products
     // std::vector<std::vector<double> > basisUicProducts;  // [iCluster][1:nPod] only precomputed if Uic specified
-    readClusteredInfoASCII(-1, "basisUicProducts", NULL, &this->basisUicProducts);
+    readClusteredInfoASCII(-1, "basisUicProducts", NULL, &basisUicProducts);
 
     // Uref Uic Products
     // std::vector<double> urefUicProducts; // [iCluster] only precomputed if Uic specified
-    readClusteredInfoASCII(-1, "urefUicProducts", &this->urefUicProducts);
+    readClusteredInfoASCII(-1, "urefUicProducts", &urefUicProducts);
 
   } else if (interpolatedMultiIC) {
 
-    assert(false); 
+    readClusteredInfoASCII(-1, "basisMultiUicProducts", NULL, NULL, &basisMultiUicProducts);
+    basisUicProducts.resize(nClusters);
+    for (int iCluster=0; iCluster<nClusters; ++iCluster) {
+      basisUicProducts[iCluster].clear();
+      basisUicProducts[iCluster].resize(basisMultiUicProducts[iCluster][0].size(),0.0);
+      if (basisMultiUicProducts[iCluster].size() != interpWeightsForMultiIC.size()) {
+        this->com->fprintf(stderr, "*** Error: number of interpolated solutions used "
+                            "for this simulation does not match precomputed quantities\n");
+        exit(-1);
+      }
+      for (int iSol=0; iSol<basisMultiUicProducts[iCluster].size(); ++iSol) {
+        for (int iPod=0; iPod<basisMultiUicProducts[iCluster][iSol].size(); ++iPod) {
+          basisUicProducts[iCluster][iPod] += basisMultiUicProducts[iCluster][iSol][iPod]
+                                              * interpWeightsForMultiIC[iSol];
+        }
+      }
+    } 
+    basisMultiUicProducts.clear();
+
+    readClusteredInfoASCII(-1, "urefMultiUicProducts", NULL, &urefMultiUicProducts);
+    urefUicProducts.clear();
+    urefUicProducts.resize(nClusters,0.0);
+    for (int iCluster=0; iCluster<nClusters; ++iCluster) {
+      for (int iSol=0; iSol<urefMultiUicProducts[iCluster].size(); ++iSol) {
+          urefUicProducts[iCluster] += urefMultiUicProducts[iCluster][iSol]
+                                              * interpWeightsForMultiIC[iSol];
+      }
+    } 
+    urefMultiUicProducts.clear();
 
   } else {
     // Uref Componentwise Sums
     // std::vector<std::vector<double> > urefComponentwiseSums; //[iCluster][1:dim]
-    readClusteredInfoASCII(-1, "urefComponentwiseSums", NULL, &this->urefComponentwiseSums);
+    readClusteredInfoASCII(-1, "urefComponentwiseSums", NULL, &urefComponentwiseSums);
 
     // Basis Componentwise Sums
     // std::vector<std::vector<std::vector<double> > > basisComponentwiseSums;  // [iCluster][iVec][1:dim]
-    readClusteredInfoASCII(-1, "basisComponentwiseSums", NULL, NULL, &this->basisComponentwiseSums);
+    readClusteredInfoASCII(-1, "basisComponentwiseSums", NULL, NULL, &basisComponentwiseSums);
   }
 
 
@@ -2963,7 +3064,7 @@ void NonlinearRom<dim>::readClusteredNonlinearMetric(int iCluster) {
     delete metric;
     metric = NULL;
   }
-  determinePath(approxMetricNonlinearCVXName, iCluster, metricPath);
+  determinePath(approxMetricNonlinearName, iCluster, metricPath);
   com->fprintf(stdout, "\nReading nonlinear approximate metric for cluster %d\n", iCluster);
 
   double tag = 0.0;
@@ -3090,7 +3191,9 @@ void NonlinearRom<dim>::readApproxMetricStateLowRankFactor(const char* sampledOr
     determinePath(approxMetricStateLowRankName,-1,approxMetricPath);
     if (!clusterCenters) readClusterCenters("sampledCenters"); 
   } else if (strcmp(sampledOrFull,"full")==0) {
-    if (ioData->problem.alltype==ProblemData::_NONLINEAR_ROM_POST_ && strcmp(approxMetricStateLowRankSurfaceCoordsName,"")!=0) {
+    if ((ioData->problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_POST_
+           || ioData->problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_POST_)
+           && strcmp(approxMetricStateLowRankSurfaceCoordsName,"")!=0) {
       determinePath(approxMetricStateLowRankSurfaceCoordsName,-1,approxMetricPath);
     } else {
       determinePath(approxMetricStateLowRankFullCoordsName,-1,approxMetricPath);
@@ -3572,7 +3675,7 @@ void NonlinearRom<dim>::readCenterNorms() {
 
   checkInitialConditionScenario();
   if (specifiedIC) {
-    assert(vecSize==2);
+    assert(vecSize==1);
   } else if (interpolatedMultiIC) {
     assert(vecSize==1);
   } else {
@@ -3682,6 +3785,9 @@ void NonlinearRom<dim>::outputClusteredInfoASCII(int iCluster, const char* type,
   } else if (strcmp(type, "correlationMatrix") == 0) {
     determinePath(correlationMatrixName, iCluster, infoPath);
     assert(vec2);
+  } else if (strcmp(type, "multiUicMultiUicProducts") == 0) {                
+    determinePath(multiUicMultiUicProductsName, -1, infoPath);
+    assert(vec2);
   } else {
     exit(-1);
   }
@@ -3714,56 +3820,63 @@ void NonlinearRom<dim>::readClusteredInfoASCII(int iCluster, const char* type, s
 
   char *infoPath = NULL;
 
-  //TODO INTERP
-
-  if (strcmp(type, "referenceState") == 0) {// 2*(U_center_p - U_center_m)^T U_ref
+  if (strcmp(type, "referenceState") == 0) { // 2*(U_center_p - U_center_m)^T U_ref
     determinePath(stateDistanceComparisonInfoExactUpdatesName, iCluster, infoPath);
     assert(vec2);
-  } else if (strcmp(type, "initialCondition") == 0) {// 2*(U_center_p - U_center_m)^T U_ic
+  } else if (strcmp(type, "initialCondition") == 0) { // 2*(U_center_p - U_center_m)^T U_ic
     determinePath(stateDistanceComparisonInfoExactUpdatesName, -1, infoPath);
     assert(vec2);
-  } else if (strcmp(type, "multiInitialCondition") == 0) {// 2*(U_center_p - U_center_m)^T U_ic_i
+  } else if (strcmp(type, "multiInitialCondition") == 0) { // 2*(U_center_p - U_center_m)^T U_ic
     determinePath(stateDistanceComparisonInfoExactUpdatesMultiICName, -1, infoPath);
     assert(vec3);
-  } else if (strcmp(type, "state") == 0) {// 2*(U_center_p - U_center_m)^T V_state_k
+  } else if (strcmp(type, "state") == 0) { // 2*(U_center_p - U_center_m)^T V_state_k
     determinePath(stateDistanceComparisonInfoName, iCluster, infoPath);
     assert(vec3);
-  } else if (strcmp(type, "krylov") == 0) {// 2*(U_center_p - U_center_m)^T V_krylov_k
+  } else if (strcmp(type, "krylov") == 0) { // 2*(U_center_p - U_center_m)^T V_krylov_k
     determinePath(krylovDistanceComparisonInfoName, iCluster, infoPath);
     assert(vec3);
-  } else if (strcmp(type, "sensitivity") == 0) {// 2*(U_center_p - U_center_m)^T V_sens
+  } else if (strcmp(type, "sensitivity") == 0) { // 2*(U_center_p - U_center_m)^T V_sens
     determinePath(sensitivityDistanceComparisonInfoName, -2, infoPath);
     assert(vec3);
-  } else if (strcmp(type, "basisBasisProducts") == 0) {
-    determinePath(basisBasisProductsName, -1, infoPath);
-    assert(vec4);
+  } else if (strcmp(type, "distanceMatrix") == 0) { // A_ij = ||U_i - U_j||_2 
+    determinePath(distanceMatrixName, -1, infoPath);
+    assert(vec2);
   } else if (strcmp(type, "basisNormalizedCenterProducts") == 0) { // (rob_i^T * Center_p / || Center_p ||_2)
     determinePath(basisNormalizedCenterProductsName, -1, infoPath);
     assert(vec3);
-  } else if (strcmp(type, "basisUrefProducts") == 0) {
+  } else if (strcmp(type, "basisBasisProducts") == 0) {               
+    determinePath(basisBasisProductsName, -1, infoPath);
+    assert(vec4);
+  } else if (strcmp(type, "basisUrefProducts") == 0) {               
     determinePath(basisUrefProductsName, -1, infoPath);
     assert(vec3);
-  } else if (strcmp(type, "urefUrefProducts") == 0) {
+  } else if (strcmp(type, "urefUrefProducts") == 0) {                
     determinePath(urefUrefProductsName, -1, infoPath);
     assert(vec2);
-  } else if (strcmp(type, "urefUicProducts") == 0) {
+  } else if (strcmp(type, "urefUicProducts") == 0) {               
     determinePath(urefUicProductsName, -1, infoPath);
     assert(vec1);
   } else if (strcmp(type, "urefMultiUicProducts") == 0) {
     determinePath(urefMultiUicProductsName, -1, infoPath);
     assert(vec2);
-  } else if (strcmp(type, "basisUicProducts") == 0) {
+  } else if (strcmp(type, "basisUicProducts") == 0) {               
     determinePath(basisUicProductsName, -1, infoPath);
     assert(vec2);
   } else if (strcmp(type, "basisMultiUicProducts") == 0) {
     determinePath(basisMultiUicProductsName, iCluster, infoPath);
     assert(vec3);
-  } else if (strcmp(type, "urefComponentwiseSums") == 0) {
+  } else if (strcmp(type, "urefComponentwiseSums") == 0) {               
     determinePath(urefComponentwiseSumsName, -1, infoPath);
     assert(vec2);
-  } else if (strcmp(type, "basisComponentwiseSums") == 0) {
+  } else if (strcmp(type, "basisComponentwiseSums") == 0) {               
     determinePath(basisComponentwiseSumsName, -1, infoPath);
     assert(vec3);
+  } else if (strcmp(type, "correlationMatrix") == 0) {
+    determinePath(correlationMatrixName, iCluster, infoPath);
+    assert(vec2);
+  } else if (strcmp(type, "multiUicMultiUicProducts") == 0) {                
+    determinePath(multiUicMultiUicProductsName, -1, infoPath);
+    assert(vec2);
   } else {
     exit(-1);
   }
@@ -3873,6 +3986,10 @@ void NonlinearRom<dim>::readMultiVecASCII(char* path, std::vector<double>* vec1,
   }
 
   FILE *inputFile = fopen(path, "r");
+  if (inputFile==NULL) {
+    com->fprintf(stderr, "*** Error: could not open %s\n",path);
+    exit(-1); 
+  }
 
   int expectedMultiVecType;
 
@@ -3946,39 +4063,62 @@ void NonlinearRom<dim>::readMultiVecASCII(char* path, std::vector<double>* vec1,
 template<int dim>
 void NonlinearRom<dim>::readDistanceComparisonInfo(const char* updateType) {
 
+  if (nClusters == 1) return;
+
   checkInitialConditionScenario();
  
   if (incrementalStateSnaps) {
 
     readClusteredInfoASCII(-1, "basisNormalizedCenterProducts", NULL, NULL, &basisNormalizedCenterProducts);
  
-  } else if ((strcmp(updateType, "noUpdates") == 0) || (strcmp(updateType, "exactUpdates") == 0) || (strcmp(updateType, "project") == 0)){
+  } else if ((strcmp(updateType, "noUpdates") == 0) ||
+             (strcmp(updateType, "exactUpdates") == 0) ||
+             (strcmp(updateType, "project") == 0) ||
+             (strcmp(updateType, "approxUpdates") == 0)){
 
     readCenterNorms();
 
-    stateBasisCentersDifProduct.resize(nClusters);
+    if ((strcmp(updateType, "noUpdates") == 0) ||
+             (strcmp(updateType, "exactUpdates") == 0) ||
+             (strcmp(updateType, "project") == 0)) {
 
-    if (ioData->romOnline.krylov.include==NonlinearRomOnlineNonStateData::INCLUDE_ON)
-      krylovBasisCentersDifProduct.resize(nClusters); 
+      stateBasisCentersDifProduct.resize(nClusters);
 
-    for (int iCluster=0; iCluster<nClusters; ++iCluster) {
-      readClusteredInfoASCII(iCluster, "state", NULL, NULL, &stateBasisCentersDifProduct[iCluster]);
-    
       if (ioData->romOnline.krylov.include==NonlinearRomOnlineNonStateData::INCLUDE_ON)
-        readClusteredInfoASCII(iCluster, "krylov", NULL, NULL, &krylovBasisCentersDifProduct[iCluster]); 
-    }
+        krylovBasisCentersDifProduct.resize(nClusters); 
 
-    if (ioData->romOnline.sensitivity.include==NonlinearRomOnlineNonStateData::INCLUDE_ON)
-      readClusteredInfoASCII(-2, "sensitivity", NULL, NULL, &sensitivityBasisCentersDifProduct);      
-
-    if (strcmp(updateType, "exactUpdates") == 0) {
-      if (specifiedIC) {
-        readClusteredInfoASCII(-1, "initialCondition", NULL, &initialConditionCentersDifProduct);
-      } else if (interpolatedMultiIC) {
-        assert(false);
-      } else {
-        // this will be constructed during initializeDistanceComparisons 
+      for (int iCluster=0; iCluster<nClusters; ++iCluster) {
+        readClusteredInfoASCII(iCluster, "state", NULL, NULL, &stateBasisCentersDifProduct[iCluster]);
+    
+        if (ioData->romOnline.krylov.include==NonlinearRomOnlineNonStateData::INCLUDE_ON)
+          readClusteredInfoASCII(iCluster, "krylov", NULL, NULL, &krylovBasisCentersDifProduct[iCluster]); 
       }
+
+      if (ioData->romOnline.sensitivity.include==NonlinearRomOnlineNonStateData::INCLUDE_ON)
+        readClusteredInfoASCII(-2, "sensitivity", NULL, NULL, &sensitivityBasisCentersDifProduct);      
+    }
+   
+    if (specifiedIC) {
+      readClusteredInfoASCII(-1, "initialCondition", NULL, &initialConditionCentersDifProduct);
+    } else if (interpolatedMultiIC) {
+
+      readClusteredInfoASCII(-1, "multiInitialCondition", NULL, NULL, &multiUicCentersDifProduct);
+      initialConditionCentersDifProduct.resize(nClusters);
+      for (int iCluster=0; iCluster<nClusters; ++iCluster) {
+        int rowLength = multiUicCentersDifProduct[iCluster].size();
+        initialConditionCentersDifProduct[iCluster].clear();
+        initialConditionCentersDifProduct[iCluster].resize(rowLength,0.0);
+        for (int jCluster=0; jCluster<rowLength; ++jCluster) {
+          for (int iSol=0; iSol<multiUicCentersDifProduct[iCluster][jCluster].size(); ++iSol) {
+            initialConditionCentersDifProduct[iCluster][jCluster] +=
+              multiUicCentersDifProduct[iCluster][jCluster][iSol]*interpWeightsForMultiIC[iSol];
+          }
+        }
+      } 
+      multiUicCentersDifProduct.clear();
+   
+    } else {
+      // this will be constructed during initializeDistanceComparisons 
     }
 
     if ((strcmp(updateType, "exactUpdates") == 0) || (strcmp(updateType, "project") == 0)) {
@@ -3987,17 +4127,14 @@ void NonlinearRom<dim>::readDistanceComparisonInfo(const char* updateType) {
         readClusteredInfoASCII(iCluster, "referenceState", NULL, &refStateCentersDifProduct[iCluster]);
       }
     }
-  } else if (strcmp(updateType, "approxUpdates") == 0) {   
 
-    readCenterNorms();
-
-    if (ioData->romOnline.systemApproximation == NonlinearRomOnlineData::GNAT 
-        || ioData->romOnline.systemApproximation == NonlinearRomOnlineData::COLLOCATION
-        || ioData->romOnline.systemApproximation == NonlinearRomOnlineData::APPROX_METRIC_NL ) {
-      this->readClusterCenters("sampledCenters");
-    } else {
-      this->readClusterCenters("centers");
-    }
+    if (strcmp(updateType, "approxUpdates") == 0) {   
+      if (ioData->romOnline.systemApproximation == NonlinearRomOnlineData::SYSTEM_APPROXIMATION_NONE) {
+        this->readClusterCenters("centers");
+      } else {
+        this->readClusterCenters("sampledCenters");
+      }
+    }  
 
   } else {
     com->fprintf(stderr, "*** Error: unexpected update method\n");
@@ -4636,11 +4773,21 @@ void NonlinearRom<dim>::partitionAndSowerForGappy(bool surfaceMeshConstruction) 
       determinePath(surfaceSolutionName, -1, surfaceSolutionPath);
       callSowerSplit(meshPathString, connectivityPathString, surfaceSolutionPath);
       delete [] surfaceSolutionPath;
-    
+
+      char *surfaceMultiSolutionsPath = NULL;
+      determinePath(surfaceMultiSolutionsName, -1, surfaceMultiSolutionsPath);
+      callSowerSplit(meshPathString, connectivityPathString, surfaceMultiSolutionsPath);
+      delete [] surfaceMultiSolutionsPath;   
+
       char *surfaceWallDistPath = NULL;
       determinePath(surfaceWallDistName, -1, surfaceWallDistPath);
       callSowerSplit(meshPathString, connectivityPathString, surfaceWallDistPath);
       delete [] surfaceWallDistPath;
+    
+      char *surfaceDisplacementPath = NULL;
+      determinePath(surfaceDisplacementName, -1, surfaceDisplacementPath);
+      callSowerSplit(meshPathString, connectivityPathString, surfaceDisplacementPath);
+      delete [] surfaceDisplacementPath;
 
       char *approxMetricStateLowRankSurfaceCoordsPath = NULL;
       determinePath(approxMetricStateLowRankSurfaceCoordsName, -1, approxMetricStateLowRankSurfaceCoordsPath);
@@ -4754,11 +4901,21 @@ void NonlinearRom<dim>::partitionAndSowerForGappy(bool surfaceMeshConstruction) 
       determinePath(sampledSolutionName, -1, sampledSolutionPath);
       callSowerSplit(meshPathString, connectivityPathString, sampledSolutionPath);
       delete [] sampledSolutionPath;
+     
+      char *sampledMultiSolutionsPath = NULL;
+      determinePath(sampledMultiSolutionsName, -1, sampledMultiSolutionsPath);
+      callSowerSplit(meshPathString, connectivityPathString, sampledMultiSolutionsPath);
+      delete [] sampledMultiSolutionsPath;
     
       char *sampledWallDistPath = NULL;
       determinePath(sampledWallDistName, -1, sampledWallDistPath);
       callSowerSplit(meshPathString, connectivityPathString, sampledWallDistPath);
       delete [] sampledWallDistPath;
+
+      char *sampledDisplacementPath = NULL;
+      determinePath(sampledDisplacementName, -1, sampledDisplacementPath);
+      callSowerSplit(meshPathString, connectivityPathString, sampledDisplacementPath);
+      delete [] sampledDisplacementPath;
     
       char *approxMetricStateLowRankPath = NULL;
       determinePath(approxMetricStateLowRankName, -1, approxMetricStateLowRankPath);
@@ -4786,10 +4943,10 @@ void NonlinearRom<dim>::partitionAndSowerForGappy(bool surfaceMeshConstruction) 
         callSowerSplit(meshPathString, connectivityPathString, sampledRefStatePath);
         delete [] sampledRefStatePath;
 
-        char *approxMetricNonlinearCVXPath = NULL;
-        determinePath(approxMetricNonlinearCVXName, iCluster, approxMetricNonlinearCVXPath);
-        callSowerSplit(meshPathString, connectivityPathString, approxMetricNonlinearCVXPath);
-        delete [] approxMetricNonlinearCVXPath;
+        char *approxMetricNonlinearPath = NULL;
+        determinePath(approxMetricNonlinearName, iCluster, approxMetricNonlinearPath);
+        callSowerSplit(meshPathString, connectivityPathString, approxMetricNonlinearPath);
+        delete [] approxMetricNonlinearPath;
    
       }
 
@@ -4852,7 +5009,7 @@ void NonlinearRom<dim>::printDebug(int iDebug) {
 //----------------------------------------------
 
 template<int dim>
-void NonlinearRom<dim>::formInterpolatedInitialConditionQuantities(DistSVec<double,dim> *U, std::vector<double> &weights) {
+void NonlinearRom<dim>::formInterpolatedInitialCondition(DistSVec<double,dim> *U, IoData &iod) {
 
   // form the path to multi solutions
   *U = 0.0;
@@ -4860,19 +5017,10 @@ void NonlinearRom<dim>::formInterpolatedInitialConditionQuantities(DistSVec<doub
   determinePath(sampledMultiSolutionsName, -1, sampledMultiSolutionsPath);
   DistSVec<double, dim> solVec(domain.getNodeDistInfo());
 
-  // if necessary, read urefMultiUicProducts, basisMultiUicProducts, and centersMultiUicProducts
-
-  for (int iData=0; iData<weights.size(); ++iData) {
+  for (int iData=0; iData<interpWeightsForMultiIC.size(); ++iData) {
     // add this vector's contribution to U
     domain.readVectorFromFile(sampledMultiSolutionsPath, iData, 0, solVec);
-    *U += weights[iData]*solVec;
-
-    // add this vector's contribution to urefUicProducts
-
-    // add this vector's contribution to basisUicProducts
-
-    // add this vector's contribution to centersUicProducts
-
+    *U += interpWeightsForMultiIC[iData]*solVec;
   }
 
   delete [] sampledMultiSolutionsPath; 

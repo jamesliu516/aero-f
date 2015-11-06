@@ -280,7 +280,9 @@ protected:
   virtual void outputLocalStateBasisReduced(int);
   virtual void outputLocalReferenceStateReduced(int);
   virtual void outputWallDistanceReduced();
-  void outputReducedSVec(const DistSVec<double,dim> &distSVec, char* outFilePath , double tag, int step, int nTotSteps, const char *);
+  virtual void outputDisplacementReduced();
+  void outputReducedSVec(const DistSVec<double,dim> &distSVec, FILE* myOutFile, double tag);
+  void outputReduced3DSVec(const DistSVec<double,3> &distSVec, FILE* myOutFile, double tag);
   void outputReducedVec(const DistVec<double> &distVec, FILE* outFile , int iVector);
 	//void determineFileName(const char *fileNameInput, const char
 	//		*currentExtension, const char *(&fileNameBase), const char
@@ -299,6 +301,7 @@ protected:
   void computePseudoInverseTranspose();
   void computeApproximatedMetricLowRankFactor();
   void computeApproxMetricNonlinearCVX(int iCluster);
+  void computeApproxMetricNonlinearNNLS(int iCluster);
   void outputApproxMetricLowRankFactorFullCoords(const char* type, int iCluster = -1);
   void outputApproxMetricLowRankFactorReducedCoords(const char* type, int iCluster = -1);
   void testInnerProduct(const char *);

@@ -37,7 +37,8 @@ class NonlinearRomDatabaseConstruction : public NonlinearRomOnlineII<dim> {
   void localRelProjErrorSweep();
 
   // fast distance calculation preprocessing
-  bool arbitraryUniformIC;
+  bool preproForArbitraryUniformIC;
+  bool preproForInterpolatedIC;
   DistSVec<double, dim>* initialCondition;
   void readInitialCondition();
   void preprocessForDistanceComparisons();

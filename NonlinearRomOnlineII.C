@@ -17,9 +17,11 @@ extern "C"      {
 }
 
 template<int dim> 
-NonlinearRomOnlineII<dim>::NonlinearRomOnlineII(Communicator* _com, IoData& _ioData, Domain& _domain)  : 
+NonlinearRomOnlineII<dim>::NonlinearRomOnlineII(Communicator* _com, IoData& _ioData, Domain& _domain, std::vector<double>* _weights)  : 
   NonlinearRom<dim>(_com, _ioData, _domain)
 { 
+  if (_weights)
+    this->interpWeightsForMultiIC = *_weights;
 
   // this->ioData->example, this->com->example, this->domain.example
 
@@ -47,6 +49,8 @@ NonlinearRomOnlineII<dim>::~NonlinearRomOnlineII()
 
 template<int dim>
 void NonlinearRomOnlineII<dim>::readClosestCenterInfoModelII() {
+
+  if (this->nClusters == 1) return;
 
   if (this->ioData->romOnline.distanceComparisons) {
     switch (this->ioData->romOnline.basisUpdates) {

@@ -79,6 +79,7 @@ ImplicitPGTsDesc<dim>::ImplicitPGTsDesc(IoData &ioData, GeoSource &geoSource, Do
     this->com->globalMax(1,&controlNodeCpuNum);
   }
 
+ 
 }
 
 //------------------------------------------------------------------------------
@@ -120,6 +121,23 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
   this->com->fprintf(stdout, "||(W*J*Phi)' * W*R|| = %1.12e\n", res);
   */
   double resReg = 0;
+
+  // print some residual information
+  this->com->fprintf(stdout, " ... component-wise residual norms are");
+  double (*iDimMask)[dim] = new double[this->domain->getNodeDistInfo().totLen][dim];
+  for (int iDim=0; iDim<dim; ++iDim) {
+    for (int iNode=0; iNode<this->domain->getNodeDistInfo().totLen; ++iNode) {
+      for (int jDim=0; jDim<dim; ++jDim) {
+        iDimMask[iNode][jDim] = 0.0;
+      }
+      iDimMask[iNode][iDim] = 1.0;
+    }
+    DistSVec<double, dim> iDimMaskedRes(this->domain->getNodeDistInfo(), iDimMask);
+    iDimMaskedRes *= this->F;
+    this->com->fprintf(stdout, " %e", iDimMaskedRes.norm());
+  }
+  this->com->fprintf(stdout, "\n");
+  delete [] iDimMask;
 
   if (res < 0.0){
     this->com->fprintf(stderr, "*** negative residual: %e\n", res);
@@ -311,12 +329,26 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
     delete V_AJ;
 
   } else if (lsSolver==NonlinearRomOnlineData::NORMAL_EQUATIONS)  {    // normal equations
+
     transMatMatProd(this->AJ,this->AJ,jactmp);  // TODO: make symmetric product
     for (int iRow = 0; iRow < this->nPod; ++iRow) {
       for (int iCol = 0; iCol < this->nPod; ++iCol) {
         this->jac[iRow][iCol] = jactmp[iRow + iCol * this->nPod];
       }
     } 
+
+    // homotopy on reduced-coordinates for spatial-only problems
+    if (this->spatialOnlyWithHomotopy) {
+      double homotopyStep = min(this->homotopyStepInitial*pow(this->homotopyStepGrowthRate,totalTimeSteps),this->homotopyStepMax);
+      double invHomotopyStep = 1/homotopyStep;
+      Vec<double> dUrom(this->dUromTimeIt);
+      dUrom *= invHomotopyStep;
+      rhs -= dUrom;
+      for (int iDiag = 0; iDiag < this->nPod; ++iDiag) {
+        this->jac[iDiag][iDiag] += invHomotopyStep;
+      }
+    }
+
     this->solveLinearSystem(it, rhs, this->dUromNewtonIt);
 
     double dUromNewtonItNormSquared = 0;
@@ -413,7 +445,19 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
         this->jac[iRow][iCol] = jactmp[iRow + iCol * this->nPod] + (this->regWeight*(*PhiT_A_Phi)[iRow][iCol]);
       }
     }
- 
+
+    // homotopy on reduced-coordinates for spatial-only problems
+    if (this->spatialOnlyWithHomotopy) {
+      double homotopyStep = min(this->homotopyStepInitial*pow(10,it), 1e10);
+      double invHomotopyStep = 1/homotopyStep;
+      Vec<double> dUrom(this->dUromTimeIt);
+      dUrom *= invHomotopyStep;
+      rhs -= dUrom;
+      for (int iDiag = 0; iDiag < this->nPod; ++iDiag) {
+        this->jac[iDiag][iDiag] += invHomotopyStep;
+      }
+    }
+
     this->solveLinearSystem(it, rhs, this->dUromNewtonIt);    
 
   } 

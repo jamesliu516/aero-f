@@ -12,9 +12,10 @@ protected:
 
 	FILE *reducedCoordsFile;	// file of reduced coordinates
 
+  void saveNewtonSystemVectors(const int totalTimeSteps) {this->saveNewtonSystemVectorsAction(totalTimeSteps);}
 	void solveNewtonSystem(const int &it, double &res, bool &breakloop, DistSVec<double, dim>&, const int& totalTimeSteps = 0);
-	virtual void computeFullResidual(int it, DistSVec<double, dim> &Q);
-	virtual void computeAJ(int it, DistSVec<double, dim> &Q);
+	virtual void computeFullResidual(int it, DistSVec<double, dim> &Q, bool applyWeighting,  DistSVec<double, dim> *R, bool includeHomotopy);
+	virtual void computeAJ(int it, DistSVec<double, dim> &Q, bool applyWeighting,  DistSVec<double, dim> *R);
   DistSVec<double, dim> Uinitial;	// solution increment at EACH NEWTON ITERATION in full coordinates
 	virtual void postProStep(DistSVec<double,dim> &, int);	// by default, do not do post processing
   

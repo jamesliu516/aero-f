@@ -49,34 +49,31 @@ void ImplicitGappyTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim>
   // Evaluate residual on full mesh
 
   if (R==NULL) R=&(this->F);
- 
+
+  //clipping
+  DistSVec<double, dim> Qeval(Q); 
+  if (dim>5) {
+    this->checkSolution(Qeval);
+  } 
+
   double tRes = this->timer->getTime(); 
 
-  this->spaceOp->computeResidualRestrict(*this->X, *this->A, Q, *R, this->timeState, (this->rom->restrictMapping())->getRestrictedToOriginLocNode());
+  this->spaceOp->computeResidualRestrict(*this->X, *this->A, Qeval, *R, this->timeState, (this->rom->restrictMapping())->getRestrictedToOriginLocNode());
 
   if (includeHomotopy) {
-    this->timeState->add_dAW_dtRestrict(it, *this->geoState, *this->A, Q, *R, (this->rom->restrictMapping())->getRestrictedToOriginLocNode());
+    this->timeState->add_dAW_dtRestrict(it, *this->geoState, *this->A, Qeval, *R, (this->rom->restrictMapping())->getRestrictedToOriginLocNode());
   }
 
-  this->spaceOp->applyBCsToResidual(Q, *R);
+  this->spaceOp->applyBCsToResidual(Qeval, *R);
+
+  if (applyWeighting && (this->ioData->romOnline.residualScaling != NonlinearRomOnlineData::SCALING_OFF)) {
+    if (this->componentwiseScalingVec) delete this->componentwiseScalingVec;
+    this->componentwiseScalingVec = this->varFcn->computeScalingVec(*(this->ioData),Q,R);
+    *R *= *this->componentwiseScalingVec;
+  }
 
   if (applyWeighting && (this->ioData->romOnline.weightedLeastSquares != NonlinearRomOnlineData::WEIGHTED_LS_FALSE)) {
-    // weight residual
-    double weightExp = this->ioData->romOnline.weightingExponent;
-    double weightNorm = this->weightVec->norm();
-    weightNorm = (weightNorm<=0.0) ? 1.0 : weightNorm;
-    int numLocSub = R->numLocSub();
-#pragma omp parallel for
-    for (int iSub=0; iSub<numLocSub; ++iSub) {
-      double (*weight)[dim] = this->weightVec->subData(iSub);
-      double (*r)[dim] = R->subData(iSub);
-      for (int i=0; i<this->weightVec->subSize(iSub); ++i) {
-        for (int j=0; j<dim; ++j) {
-          //weight[i][j] = pow(abs(weight[i][j])/weightNorm, weightExp);
-          r[i][j] = r[i][j] * weight[i][j];
-        }
-      }
-    }
+    *R *= *(this->weightVec);
   }
 
   this->timer->addResidualTime(tRes); 
@@ -95,33 +92,34 @@ void ImplicitGappyTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q, bool 
   // Evaluate action of Jacobian on full mesh
   if (R==NULL) R = &this->F;
 
+  bool componentScaling = (applyWeighting && (this->ioData->romOnline.residualScaling != NonlinearRomOnlineData::SCALING_OFF));
+
   double t0 = this->timer->getTime();
-  this->mvp->evaluateRestrict(it, *this->X, *this->A, Q, *R, *(this->rom->restrictMapping()));	// very cheap
+  if (componentScaling) {
+    this->mvp->evaluateWeightedRestrict(it, *this->X, *this->A, Q, *R, 
+                                        *(this->rom->restrictMapping()), this->varFcn,this, &TsDesc<dim>::checkSolution);
+  } else { 
+    this->mvp->evaluateRestrict(it, *this->X, *this->A, Q, *R, *(this->rom->restrictMapping()), this, &TsDesc<dim>::checkSolution);
+  }
   this->timer->addJacEvaluateTime(t0);
 
   if (this->AJ.numVectors()!=this->nPod) this->AJ.resize(this->nPod);
 
+  t0 = this->timer->getTime();
   for (int iPod = 0; iPod < this->nPod; iPod++) {
-    t0 = this->timer->getTime();
-    this->mvp->applyRestrict(this->pod[iPod], this->AJ[iPod], *(this->rom->restrictMapping()));
-    this->timer->addJacApplyTime(t0);
+    if (componentScaling) {
+      this->mvp->applyWeightedRestrict(this->pod[iPod], this->AJ[iPod], *(this->rom->restrictMapping()),this->varFcn, 
+                             this, &TsDesc<dim>::checkSolution);
+    } else {
+      this->mvp->applyRestrict(this->pod[iPod], this->AJ[iPod], *(this->rom->restrictMapping()),
+                             this, &TsDesc<dim>::checkSolution);
+    }
   }
+  this->timer->addJacApplyTime(t0);
 
   if (applyWeighting && (this->ioData->romOnline.weightedLeastSquares != NonlinearRomOnlineData::WEIGHTED_LS_FALSE)) {
-    double weightExp = this->ioData->romOnline.weightingExponent;
-    double weightNorm = this->weightVec->norm();
-    weightNorm = (weightNorm<=0.0) ? 1.0 : weightNorm;
     for (int iVec=0; iVec<this->nPod; ++iVec) {
-      int numLocSub = (this->AJ[iVec]).numLocSub();
-#pragma omp parallel for
-      for (int iSub=0; iSub<numLocSub; ++iSub) {
-        double (*weight)[dim] = this->weightVec->subData(iSub);
-        double (*aj)[dim] = (this->AJ[iVec]).subData(iSub);
-        for (int i=0; i<this->weightVec->subSize(iSub); ++i) {
-          for (int j=0; j<dim; ++j)
-            aj[i][j] = aj[i][j] * weight[i][j];
-        }
-      }
+      this->AJ[iVec] *= *(this->weightVec);
     }
   }
 
@@ -159,6 +157,7 @@ double ImplicitGappyTsDesc<dim>::meritFunction(int it, DistSVec<double, dim> &Q,
 
   DistSVec<double, dim> newQ(this->domain->getNodeDistInfo());
   newQ = Q + stepLength*dQ;
+  this->checkSolution(newQ);
   computeFullResidual(it,newQ,true,&F);
 
   double merit = 0.0;
@@ -288,16 +287,6 @@ void ImplicitGappyTsDesc<dim>::setReferenceResidual()
 
 }
 
-//------------------------------------------------------------------------------
-template<int dim>
-void ImplicitGappyTsDesc<dim>::formInterpolatedInitialCondition(DistSVec<double,dim> *U, std::vector<double> &weights)  {
-  // interpolating conservative variables currently, since the conservative-to-primitive conversion isn't Gappy-friendly
 
-  // call NonlinearROM.C method to build state from information stored in database
-  // also need to build basisMultiUicProducts, urefMultiUicProducts, and centersMultiUicProducts
-  this->rom->formInterpolatedInitialConditionQuantities( U, weights);
-
- 
-}
 
 

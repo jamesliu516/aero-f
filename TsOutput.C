@@ -31,6 +31,8 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   Qv = 0;
   Qs_match     = 0;
   Qs_match_opt = 0;
+  Uref = 0;
+  Uref_norm = -1.0;
   
   for (i=0; i<PostFcn::AVSSIZE; ++i) AvQs[i] = 0;
   for (i=0; i<PostFcn::AVVSIZE; ++i) AvQv[i] = 0;
@@ -63,6 +65,24 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     com->fprintf(stdout, "\nReading optimal pressure distribution from %s\n", fullOptPressureName);
     domain->readVectorFromFile(fullOptPressureName,0,0,*Qs_match_opt);
   }
+
+  if (iod.input.matchStateFile[0]!=0) {
+    const char* matchStateName = iod.input.matchStateFile;
+    char *matchStatePath = new char[strlen(iod.input.prefix) + strlen(matchStateName) + 1];
+    sprintf(matchStatePath, "%s%s", iod.input.prefix, matchStateName);
+
+    if ((iod.input.optPressureDim == InputData::NON_DIMENSIONAL) || (iod.input.optPressureDim == InputData::NONE && iod.problem.mode==ProblemData::NON_DIMENSIONAL))
+      optPressureDimensional=false;
+    else
+      optPressureDimensional=true;
+
+    if (!Uref) Uref = new DistSVec<double,dim>(domain->getNodeDistInfo());
+    com->fprintf(stdout, "\nReading comparison state %s\n", matchStatePath);
+    domain->readVectorFromFile(matchStatePath,0,0,*Uref);
+
+    delete [] matchStatePath;
+  }
+
 
   for (i=0; i<PostFcn::SSIZE; ++i) {
     sscale[i] = 1.0;
@@ -428,6 +448,13 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else
     matchpressure = 0;
 
+  if (iod.output.transient.matchstate[0] != 0){
+    matchstate = new char[sp + strlen(iod.output.transient.matchstate)];
+    sprintf(matchstate, "%s%s", iod.output.transient.prefix, iod.output.transient.matchstate);
+  }
+  else
+    matchstate = 0;
+
   if (iod.output.transient.fluxnorm[0] != 0){
     fluxnorm = new char[sp + strlen(iod.output.transient.fluxnorm)];
     sprintf(fluxnorm, "%s%s", iod.output.transient.prefix, iod.output.transient.fluxnorm);
@@ -528,6 +555,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
 
   fpCpuTiming = 0;
   fpResiduals = 0;
+  fpMatchState = 0;
   fpMatchPressure = 0;
   fpFluxNorm      = 0;
   fpMatVolumes = 0;
@@ -856,6 +884,7 @@ TsOutput<dim>::~TsOutput()
   if (Qs_match_opt) delete Qs_match_opt;
   if (Qs) delete Qs;
   if (Qv) delete Qv;
+  if (Uref) delete Uref;
   if(TavF) delete [] TavF;
   if(TavM) delete [] TavM;
   if(TavL) delete [] TavL;
@@ -892,6 +921,7 @@ TsOutput<dim>::~TsOutput()
   delete[] heatfluxes;
   delete[] residuals;
   delete[] matchpressure;
+  if (matchstate) delete[] matchstate;
   delete[] fluxnorm;
   delete[] material_volumes;
   delete[] embeddedsurface;
@@ -1574,6 +1604,20 @@ void TsOutput<dim>::openAsciiFiles()
     fflush(fpMatchPressure);
   }
 
+  if (matchstate) {
+    if (it0 != 0)
+      fpMatchState = backupAsciiFile(matchstate);
+    if (it0 == 0 || fpMatchState == 0) {
+      fpMatchState = fopen(matchstate, "w");
+      if (!fpMatchState) {
+        fprintf(stderr, "*** Error: could not open \'%s\'\n", matchstate);
+        exit(1);
+      }
+      fprintf(fpMatchState, "#TimeIteration Time ElapsedTime ||U-U_ref||_2/||U_ref||_2\n");
+    }
+    fflush(fpMatchState);
+  }
+
    if (fluxnorm) {
     if (it0 != 0) 
       fpFluxNorm = backupAsciiFile(fluxnorm);
@@ -1680,6 +1724,7 @@ void TsOutput<dim>::closeAsciiFiles()
 
   if (fpResiduals) fclose(fpResiduals);
   if (fpMatchPressure) fclose(fpMatchPressure);
+  if (fpMatchState) fclose(fpMatchState);
   if (fpFluxNorm) fclose(fpFluxNorm);
   if (fpMatVolumes) fclose(fpMatVolumes);
   if (fpEmbeddedSurface) fclose(fpEmbeddedSurface);
@@ -2387,6 +2432,40 @@ void TsOutput<dim>::writeResidualsToDisk(int it, double cpu, double res, double 
     com->printf(0, "It %5d: Res = %e, Cfl = %e, Elapsed Time = %.2e s\n", it, res, cfl, cpu);
 
 }
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void TsOutput<dim>::writeMatchStateToDisk(IoData &iod,  int it, double t, double cpu, DistSVec<double,dim> &U, DistVec<double> &A)
+{
+
+  // monitoring convergence to a reference solution (error = |Uref - U|/|Uref|)
+
+  if (iod.output.transient.matchstate[0] == 0) return;
+
+  double time = refVal->time * t;
+
+  if (Uref_norm<0) {
+    *Uref *= A;
+    Uref_norm = Uref->norm();
+  }
+
+  DistSVec<double, dim> Udif(U);
+  Udif *= A; 
+  Udif -= *Uref;
+
+  double relDif;
+  relDif = Udif.norm()/Uref_norm;
+
+  if (com->cpuNum() != 0) return;
+  if (fpMatchState) {
+    fprintf(fpMatchState, "%d %e %e %e \n",it, time, cpu, relDif);
+    fflush(fpMatchState);
+  }
+
+}
+
+
 //------------------------------------------------------------------------------
 
 template<int dim>

@@ -214,7 +214,7 @@ template \
 void GappyPreprocessing<dim>::outputMultiSolutionsReduced();\
 \
 template \
-void GappyPreprocessing<dim>::outputReducedSVec(const DistSVec<double,dim> &distSVec, char* outFilePath , double tag, int step, int nTotSteps, const char *);\
+void GappyPreprocessing<dim>::outputReducedSVec(const DistSVec<double,dim> &distSVec, FILE* myOutFile , double tag);\
 \
 template \
 void GappyPreprocessing<dim>::reinitializeMapsForSampleNodes();\
@@ -229,7 +229,10 @@ template \
 void GappyPreprocessing<dim>::outputApproxSnapsReduced(int iCluster);\
 \
 template \
-void GappyPreprocessing<dim>::computeApproxMetricNonlinearCVX(int iCluster);
+void GappyPreprocessing<dim>::computeApproxMetricNonlinearCVX(int iCluster);\
+\
+template \
+void GappyPreprocessing<dim>::computeApproxMetricNonlinearNNLS(int iCluster);
 
 INSTANTIATION_HELPER(5);
 INSTANTIATION_HELPER(6);
