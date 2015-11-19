@@ -5014,7 +5014,14 @@ void NonlinearRom<dim>::formInterpolatedInitialCondition(DistSVec<double,dim> *U
   // form the path to multi solutions
   *U = 0.0;
   char *sampledMultiSolutionsPath = NULL;
-  determinePath(sampledMultiSolutionsName, -1, sampledMultiSolutionsPath);
+  if ((ioData->problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_POST_ 
+           || ioData->problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_POST_) 
+           && strcmp(surfaceRefStateName,"")!=0) {
+    determinePath(surfaceMultiSolutionsName, -1, sampledMultiSolutionsPath);
+  } else {
+    determinePath(sampledMultiSolutionsName, -1, sampledMultiSolutionsPath);
+  }
+
   DistSVec<double, dim> solVec(domain.getNodeDistInfo());
 
   for (int iData=0; iData<interpWeightsForMultiIC.size(); ++iData) {
