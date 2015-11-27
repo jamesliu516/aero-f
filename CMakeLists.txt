@@ -277,8 +277,6 @@ ADD_LIBRARY(FluidBase
              KirchhoffIntegrator.C
              TriangulatedInterface.C
 	     LevelSet/MultiGridLevelSetStructure.C
-             RadialBasisFunction/r8lib.C
-             RadialBasisFunction/RBFInterpND.C
             )
 
 ADD_LIBRARY(Utils utils/Predicate.C utils/Laguerre.C)
