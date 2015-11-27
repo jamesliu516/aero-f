@@ -792,4 +792,6 @@ DistSVec<double,dim>* VarFcn::computeBalancedWeightVec(IoData &iod, DistSVec<dou
   return balancedWeightVec;
 }
 
+//------------------------------------------------------------------------------
+
 #endif

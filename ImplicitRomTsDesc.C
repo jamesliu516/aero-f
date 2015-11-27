@@ -665,7 +665,14 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
   if (totalTimeSteps == 1 && this->ioData->romOnline.residualScaling != NonlinearRomOnlineData::SCALING_OFF) {
     computeFullResidual(it, U, true); 
   }
+  // reset the balancing scaling at the start of every timestep for unsteady
+  if (unsteady && (this->ioData->romOnline.residualScaling == NonlinearRomOnlineData::SCALING_BALANCED)) {  
+    this->com->fprintf(stdout, " ... using the initial weighting vector for all timesteps\n");
+   // this->com->fprintf(stdout, "resetting the weighting vector\n");
+   // this->varFcn->weights[0]=-1;
+  }
 
+  // spatial residual scaling (primarily for bocos -- unrelated to the component-wise scaling)
   updateLeastSquaresWeightingVector(); //only updated at the start of Newton
 
   //if (totalTimeSteps==1) printRomResiduals(U);

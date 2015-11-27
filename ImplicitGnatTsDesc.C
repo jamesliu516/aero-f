@@ -105,7 +105,7 @@ void ImplicitGnatTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool
   this->com->globalSum(this->nPod, this->dUromNewtonIt.data());
   res = this->dUromNewtonIt.norm();
 
-  this->com->fprintf(stdout, " ... debugging: newton step size %e\n", res);
+  //this->com->fprintf(stdout, " ... debugging: newton step size %e\n", res);
 
 
   // Convergence criterion
