@@ -889,7 +889,7 @@ void GappyPreprocessing<dim>::computeApproxMetricNonlinearNNLS(int iCluster) {
   double nnlsTime = this->timer->getTime();
 
   // pick lambda
-  double lambdaMin = -12;
+  double lambdaMin = -6;
   double lambdaMax = 4;
   double lambda = lambdaMin + (lambdaMax-lambdaMin)*double(thisCPU)/double(nTotCpus);
 
@@ -1025,12 +1025,18 @@ void GappyPreprocessing<dim>::computeApproxMetricNonlinearNNLS(int iCluster) {
                               iCPU, lambdas[iCPU], nonzeros[iCPU], nVars, error[iCPU], nnlsTimes[iCPU]);
   }
 
-  int minValCPU = 0;
-  for (int iCPU = 1; iCPU < nTotCpus; iCPU++){
-    if(error[iCPU] < error[minValCPU]) minValCPU = iCPU;              
+  int minValCPU = nTotCpus-1;
+  for (int iCPU = nTotCpus-1; iCPU >= 0; iCPU--){
+    if (nonzeros[iCPU]<nVars) break;
+    if (error[iCPU] <= error[minValCPU]) {
+      minValCPU = iCPU;
+    } else {
+      break;
+    }            
   }
   double minError = error[minValCPU];
-  this->com->fprintf(stdout, "... CPU %d has minimum error %e\n", minValCPU, minError);
+  this->com->fprintf(stdout, "... CPU %d selected (error %e, nonzero %d/%d)\n",
+                            minValCPU, minError, nonzeros[minValCPU], nVars);
 
   // form metric
   com->broadcast(nVars,sol,minValCPU);
