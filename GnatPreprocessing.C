@@ -314,6 +314,8 @@ void GnatPreprocessing<dim>::buildReducedModel() {
     if (thisCPU == 0) outputTopFile(unionOfSampleNodes);
   
     outputInitialConditionReduced();
+    outputInitialDisplacementReduced();
+    outputShapeDerivativeReduced();
     outputMultiSolutionsReduced();
     outputWallDistanceReduced();  // distributed info (parallel)
  
@@ -3251,6 +3253,131 @@ void GnatPreprocessing<dim>::outputInitialConditionReduced() {
 //----------------------------------------------
 
 template<int dim>
+void GnatPreprocessing<dim>::outputInitialDisplacementReduced() {
+  //INPUTS
+  // ioData, nReducedNodes, domain
+  // needed by outputReducedSVec: globalNodes, globalNodeToCpuMap,
+  // globalNodeToLocSubDomainsMap, globalNodeToLocalNodesMap 
+
+  if (strcmp(ioData->input.displacements,"")!=0) {
+
+    com->fprintf(stdout," ... Writing initial displacements in sample mesh coordinates ...\n");
+  
+    char *sampledInitialDisplacementPath = NULL;
+    if (surfaceMeshConstruction) {
+      this->determinePath(this->surfaceInitialDisplacementName, -1, sampledInitialDisplacementPath);
+    } else {
+      this->determinePath(this->sampledInitialDisplacementName, -1, sampledInitialDisplacementPath);
+    }
+  
+
+    // read in initial displacement
+    char *dispFile = new char[strlen(ioData->input.prefix) + strlen(ioData->input.displacements) + 1];
+    sprintf(dispFile, "%s%s", ioData->input.prefix, ioData->input.displacements);
+    
+    DistSVec<double,3> *initialDisplacement = new DistSVec<double,3>( domain.getNodeDistInfo() );
+    double tmp;
+    bool status = domain.readVectorFromFile(dispFile, 0, &tmp, *initialDisplacement);
+
+    if (!status) {
+      com->fprintf(stderr, "*** Error: unable to read vector from file %s\n", dispFile);
+      exit(-1);
+    }
+
+    delete [] dispFile;
+
+    // output
+    std::string header("Vector InitialDisplacement under load for FluidNodesRed");
+    outputReducedSVec(*initialDisplacement,sampledInitialDisplacementPath,initialDisplacement->norm(),0,1,header.c_str());
+
+    if (initialDisplacement) {
+      delete initialDisplacement;
+      initialDisplacement = NULL;
+    }
+
+    if (sampledInitialDisplacementPath) {
+      delete [] sampledInitialDisplacementPath;
+      sampledInitialDisplacementPath = NULL;
+    }
+
+  }
+}
+
+//----------------------------------------------
+
+template<int dim>
+void GnatPreprocessing<dim>::outputShapeDerivativeReduced() {
+  //INPUTS
+  // ioData, nReducedNodes, domain
+  // needed by outputReducedSVec: globalNodes, globalNodeToCpuMap,
+  // globalNodeToLocSubDomainsMap, globalNodeToLocalNodesMap 
+
+  if (strcmp(ioData->input.shapederivatives,"")!=0) {
+
+    com->fprintf(stdout," ... Writing shape derivatives in sample mesh coordinates ...\n");
+  
+    char *sampledShapeDerivativePath = NULL;
+    if (surfaceMeshConstruction) {
+      this->determinePath(this->surfaceShapeDerivativeName, -1, sampledShapeDerivativePath);
+    } else {
+      this->determinePath(this->sampledShapeDerivativeName, -1, sampledShapeDerivativePath);
+    }
+  
+
+    // read in shape derivative
+    char *derFile = new char[strlen(ioData->input.prefix) + strlen(ioData->input.shapederivatives) + 1];
+    sprintf(derFile, "%s%s", ioData->input.prefix, ioData->input.shapederivatives);
+    
+    DistSVec<double,3> *shapeDerivative = new DistSVec<double,3>( domain.getNodeDistInfo() );
+    double tmp = 0.0;
+    bool status;
+    int nShapeDer=-1;
+    while (true) {
+      nShapeDer += 1;
+      status = domain.readVectorFromFile(derFile, nShapeDer, &tmp, *shapeDerivative);
+
+      if (!status && nShapeDer == 0) {
+        com->fprintf(stderr, "*** Error: unable to read vector from file %s\n", derFile);
+        exit(-1);
+      } else if (!status && nShapeDer > 0) {
+        break;
+      }
+    }
+
+    int shapeDerNum = -1;
+    while (true) {
+      shapeDerNum += 1;
+      status = domain.readVectorFromFile(derFile, shapeDerNum, &tmp, *shapeDerivative);
+
+      if (!status && shapeDerNum == 0) {
+        com->fprintf(stderr, "*** Error: unable to read vector from file %s\n", derFile);
+        exit(-1);
+      } else if (!status && shapeDerNum > 0) {
+        break;
+      }
+
+      // output
+      std::string header("Vector ShapeDerivative under load for FluidNodesRed");
+      outputReducedSVec(*shapeDerivative,sampledShapeDerivativePath,double(shapeDerNum),shapeDerNum,nShapeDer,header.c_str());
+    }
+
+    if (shapeDerivative) {
+      delete shapeDerivative;
+      shapeDerivative = NULL;
+    }
+
+    if (sampledShapeDerivativePath) {
+      delete [] sampledShapeDerivativePath;
+      sampledShapeDerivativePath = NULL;
+    }
+
+    delete [] derFile;
+  }
+}
+
+//----------------------------------------------
+
+template<int dim>
 void GnatPreprocessing<dim>::outputClusterCentersReduced() {
   //INPUTS
   // nReducedNodes
@@ -3571,6 +3698,153 @@ void GnatPreprocessing<dim>::outputReducedSVec(const DistSVec<double,dim>
   }
  
 }
+
+// -------------------------------------------------
+
+template<int dim>
+void GnatPreprocessing<dim>::outputReducedSVec(const DistSVec<double,3>
+    &distSVec, char* outFilePath, double tag, int step, int nTotSteps, const char* header) {
+
+  double sampledOutputTime = this->timer->getTime();  
+
+  // communicate full vector to CPU0
+  double* sampledVec;
+  int sampledDOF = nReducedNodes*3;
+  sampledVec = new double[sampledDOF];
+  for (int iDOF = 0; iDOF < sampledDOF; ++iDOF) {
+    sampledVec[iDOF] =  0.0;
+  }
+
+  for (int iNode = 0; iNode < nReducedNodes; ++iNode) {
+    int currentGlobalNode = globalNodes[0][iNode];
+    int iCpu = globalNodeToCpuMap.find(currentGlobalNode)->second;
+    if (thisCPU == iCpu){
+      int iSubDomain = globalNodeToLocSubDomainsMap.find(currentGlobalNode)->second;
+      int iLocalNode = globalNodeToLocalNodesMap.find(currentGlobalNode)->second;
+      SubDomainData<3> locValue = distSVec.subData(iSubDomain);
+      for (int iDim = 0; iDim < 3; ++iDim) {
+        sampledVec[iNode*3 + iDim] = locValue[iLocalNode][iDim];
+      }
+    }
+  }
+
+  com->globalSumRoot(sampledDOF, sampledVec); 
+  if (thisCPU != 0) delete [] sampledVec;
+
+  // clean up any temporary files that may be hanging around from a crashed simulation
+  //if (cleanTempFiles) {
+    if (step==0 && thisCPU==0) {
+      FILE *shell;
+      std::string rmCommandString("rm ");
+      rmCommandString += outFilePath;
+      rmCommandString += "_step_* ";
+      const char *rmCommandChar = rmCommandString.c_str();
+    
+      com->fprintf(stdout, "\n%s\n", rmCommandChar);
+      if (!(shell = popen(rmCommandChar, "r"))) {
+        com->fprintf(stderr, " *** Error: attempt to use system call (rm) failed!\n");
+        exit(-1);
+      }
+    
+      char buff[512];
+      while (fgets(buff, sizeof(buff), shell)!=NULL){}
+      pclose(shell);
+    }
+    com->barrier();
+  //}
+
+  // name and open each temporary file (base file name + _step_ + step number)
+  int requiredZeros = 0;
+  double tmpTime = this->timer->getTime();
+
+  if (thisCPU == 0) {
+ 
+    std::string myOutFilePathString("");
+    myOutFilePathString += outFilePath;
+    if (nTotSteps>1) { // if only one step, then just write the final file directly
+      myOutFilePathString += "_step_";
+      requiredZeros = int(floor(log10(double(max(nTotSteps-1,1)*10)))) - int(floor(log10(double(max(step,1)*10))));
+      for (int iZero=0; iZero<requiredZeros; ++iZero)
+        myOutFilePathString += "0";
+      myOutFilePathString += boost::lexical_cast<std::string>(step);
+    }
+    const char *myOutFilePath = myOutFilePathString.c_str();
+
+    // write temporary file 
+    FILE* myOutFile = fopen(myOutFilePath, "wt");
+    if (step==0) {
+      com->fprintf(myOutFile,"%s\n", header);
+      com->fprintf(myOutFile,"%d\n", nReducedNodes);
+    }
+    com->fprintf(myOutFile,"%e\n", tag);
+    for (int iNode = 0; iNode < nReducedNodes; ++iNode) {
+      fprintf(myOutFile,"%8.15e %8.15e %8.15e\n",
+            sampledVec[iNode*3],
+            sampledVec[iNode*3 + 1],
+            sampledVec[iNode*3 + 2]);
+    }
+    fclose(myOutFile);
+    delete [] sampledVec;
+  }
+
+  double writeTime = this->timer->getTime()-tmpTime;
+  com->fprintf(stderr,"... write time = %es\n", writeTime);
+
+  // create the final file after the final step
+  if ((step==(nTotSteps-1)) && nTotSteps>1) {
+    // call cat on step files
+    if (thisCPU == 0) {
+      FILE *shell;
+      std::string catCommandString("cat ");
+      catCommandString += outFilePath;
+      catCommandString += "_step_* > ";
+      catCommandString += outFilePath;
+      const char *catCommandChar = catCommandString.c_str();
+
+      com->fprintf(stdout, "\n%s\n", catCommandChar);
+      if (!(shell = popen(catCommandChar, "r"))) {
+        com->fprintf(stderr, " *** Error: attempt to use system call (cat) failed!\n");
+        exit(-1);
+      }
+
+      char buff[512];
+      while (fgets(buff, sizeof(buff), shell)!=NULL){
+        com->fprintf(stdout, "%s", buff);
+      }
+      pclose(shell);
+    }
+
+    // delete all temporary files (serial)
+    if (thisCPU == 0) {
+      FILE *shell;
+      std::string rmCommandString("rm ");
+      rmCommandString += outFilePath;
+      rmCommandString += "_step_* ";
+      const char *rmCommandChar = rmCommandString.c_str();
+    
+      com->fprintf(stdout, "\n%s\n", rmCommandChar);
+      if (!(shell = popen(rmCommandChar, "r"))) {
+        com->fprintf(stderr, " *** Error: attempt to use system call (rm) failed!\n");
+        exit(-1);
+      }
+    
+      char buff[512];
+      while (fgets(buff, sizeof(buff), shell)!=NULL){
+        com->fprintf(stdout, "%s", buff);
+      }
+      pclose(shell);
+    }
+  }
+
+  com->barrier();
+  if (surfaceMeshConstruction) {
+    this->timer->addSampledOutputTime(sampledOutputTime);
+  } else {     
+    this->timer->addSurfaceOutputTime(sampledOutputTime); 
+  }
+ 
+}
+
 
 //----------------------------------------------
 

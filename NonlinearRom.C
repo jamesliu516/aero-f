@@ -129,6 +129,8 @@ com(_com), ioData(&_ioData), domain(_domain)
   determineFileName(romFiles->sampledJacActionBasisName, "sampledJacROB", romFiles->gnatPrefix, sampledJacActionBasisName);
   determineFileName(romFiles->sampledMeshName, "top", romFiles->gnatPrefix, sampledMeshName);
   determineFileName(romFiles->sampledSolutionName, "sampledSolution", romFiles->gnatPrefix, sampledSolutionName);
+  determineFileName(romFiles->sampledInitialDisplacementName, "sampledInitialDisplacement", romFiles->gnatPrefix, sampledInitialDisplacementName);
+  determineFileName(romFiles->sampledShapeDerivativeName, "sampledShapeDerivative", romFiles->gnatPrefix, sampledShapeDerivativeName);
   determineFileName(romFiles->sampledMultiSolutionsName, "sampledMultiSolutions", romFiles->gnatPrefix, sampledMultiSolutionsName);
   determineFileName(romFiles->sampledRefStateName, "sampledRefState", romFiles->gnatPrefix, sampledRefStateName);
   determineFileName(romFiles->sampledWallDistName, "sampledWallDist", romFiles->gnatPrefix, sampledWallDistName);
@@ -141,6 +143,8 @@ com(_com), ioData(&_ioData), domain(_domain)
   determineFileName(romFiles->surfaceCentersName, "surfaceCenters", romFiles->surfacePrefix, surfaceCentersName);
   determineFileName(romFiles->surfaceStateBasisName, "surfaceStateROB", romFiles->surfacePrefix, surfaceStateBasisName);
   determineFileName(romFiles->surfaceRefStateName, "surfaceRefState", romFiles->surfacePrefix, surfaceRefStateName);
+  determineFileName(romFiles->surfaceInitialDisplacementName, "surfaceInitialDisplacement", romFiles->surfacePrefix, surfaceInitialDisplacementName);
+  determineFileName(romFiles->surfaceShapeDerivativeName, "surfaceShapeDerivative", romFiles->surfacePrefix, surfaceShapeDerivativeName);
   determineFileName(romFiles->surfaceSolutionName, "surfaceSolution", romFiles->surfacePrefix, surfaceSolutionName);
   determineFileName(romFiles->surfaceMultiSolutionsName, "surfaceMultiSolutions", romFiles->surfacePrefix, surfaceMultiSolutionsName);
   determineFileName(romFiles->surfaceWallDistName, "surfaceWallDist", romFiles->surfacePrefix, surfaceWallDistName);
@@ -274,6 +278,8 @@ NonlinearRom<dim>::~NonlinearRom()
   delete [] sampledJacActionBasisName;
   delete [] sampledMeshName;
   delete [] sampledSolutionName;
+  delete [] sampledInitialDisplacementName;
+  delete [] sampledShapeDerivativeName;
   delete [] sampledMultiSolutionsName;
   delete [] sampledRefStateName;
   delete [] sampledWallDistName;
@@ -286,6 +292,8 @@ NonlinearRom<dim>::~NonlinearRom()
   delete [] surfaceStateBasisName;
   delete [] surfaceRefStateName;
   delete [] surfaceSolutionName;
+  delete [] surfaceInitialDisplacementName;
+  delete [] surfaceShapeDerivativeName;
   delete [] surfaceMultiSolutionsName;
   delete [] surfaceWallDistName;
   delete [] surfaceMeshName;
@@ -4500,6 +4508,16 @@ void NonlinearRom<dim>::partitionAndSowerForGnat(bool surfaceMeshConstruction) {
     callSowerSplit(meshPathString, connectivityPathString, sampledSolutionPath);
     delete [] sampledSolutionPath;
   
+    char *sampledInitialDisplacementPath = NULL;
+    determinePath(sampledInitialDisplacementName, -1, sampledInitialDisplacementPath);
+    callSowerSplit(meshPathString, connectivityPathString, sampledInitialDisplacementPath);
+    delete [] sampledInitialDisplacementPath;
+
+    char *sampledShapeDerivativePath = NULL;
+    determinePath(sampledShapeDerivativeName, -1, sampledShapeDerivativePath);
+    callSowerSplit(meshPathString, connectivityPathString, sampledShapeDerivativePath);
+    delete [] sampledShapeDerivativePath;
+
     char *sampledWallDistPath = NULL;
     determinePath(sampledWallDistName, -1, sampledWallDistPath);
     callSowerSplit(meshPathString, connectivityPathString, sampledWallDistPath);

@@ -266,11 +266,14 @@ protected:
   virtual void outputReducedToFullNodes();
   //virtual void outputStateReduced();
   virtual void outputInitialConditionReduced();
+  virtual void outputInitialDisplacementReduced();
+  virtual void outputShapeDerivativeReduced();
   virtual void outputMultiSolutionsReduced();
   virtual void outputClusterCentersReduced();
   virtual void outputLocalStateBasisReduced(int);
   virtual void outputLocalReferenceStateReduced(int);
   virtual void outputWallDistanceReduced();
+  void outputReducedSVec(const DistSVec<double,3> &distSVec, char* outFilePath , double tag, int step, int nTotSteps, const char *);
   void outputReducedSVec(const DistSVec<double,dim> &distSVec, char* outFilePath , double tag, int step, int nTotSteps, const char *);
   void outputReducedVec(const DistVec<double> &distVec, FILE* outFile , int iVector);
 	//void determineFileName(const char *fileNameInput, const char

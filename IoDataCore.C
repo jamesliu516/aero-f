@@ -81,6 +81,7 @@ InputData::InputData()
 
   optPressureDim=NONE;
   useMultiSolutionsGNAT=MULTI_SOLUTIONS_GNAT_FALSE;
+  shapederivativesType=WALL;
 
   prefix = "";
   geometryprefix = "";
@@ -187,6 +188,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "InitialWallDisplacement", this, &InputData::wallsurfacedisplac); // YC
 // Included (MB)
   new ClassStr<InputData>(ca, "ShapeDerivative", this, &InputData::shapederivatives);
+  new ClassToken<InputData>(ca, "ShapeDerivativeType", this, reinterpret_cast<int InputData::*>(&InputData::shapederivativesType), 2, "Wall", 0, "Volume", 1);
   new ClassStr<InputData>(ca, "StrModes", this, &InputData::strModesFile);
   new ClassStr<InputData>(ca, "RedEigState", this, &InputData::reducedEigState);
 
@@ -3921,6 +3923,8 @@ NonlinearRomFilesData::NonlinearRomFilesData()
   sampledJacActionBasisName = "";
   sampledMeshName = "";
   sampledSolutionName = "";
+  sampledInitialDisplacementName = "";
+  sampledShapeDerivativeName = "";
   sampledMultiSolutionsName = "";
   sampledRefStateName = "";
   sampledWallDistName = "";
@@ -3936,6 +3940,8 @@ NonlinearRomFilesData::NonlinearRomFilesData()
   surfaceStateBasisName = "";
   surfaceRefStateName = "";
   surfaceSolutionName = "";
+  surfaceInitialDisplacementName = "";
+  surfaceShapeDerivativeName = "";
   surfaceWallDistName = "";
   surfaceMeshName = "";
   surfaceMultiSolutionsName = "";
@@ -4025,6 +4031,8 @@ void NonlinearRomFilesData::setup(const char *name, ClassAssigner *father)
   new ClassStr<NonlinearRomFilesData>(ca, "SampledResidualBasis", this, &NonlinearRomFilesData::sampledResidualBasisName);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledJacActionBasis", this, &NonlinearRomFilesData::sampledJacActionBasisName);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledSolution", this, &NonlinearRomFilesData::sampledSolutionName);
+  new ClassStr<NonlinearRomFilesData>(ca, "SampledInitialDisplacement", this, &NonlinearRomFilesData::sampledInitialDisplacementName);
+  new ClassStr<NonlinearRomFilesData>(ca, "SampledShapeDerivative", this, &NonlinearRomFilesData::sampledShapeDerivativeName);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledMultiSolutions", this, &NonlinearRomFilesData::sampledMultiSolutionsName);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledReferenceState", this, &NonlinearRomFilesData::sampledRefStateName);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledWallDistance", this, &NonlinearRomFilesData::sampledWallDistName);
@@ -4040,6 +4048,8 @@ void NonlinearRomFilesData::setup(const char *name, ClassAssigner *father)
   new ClassStr<NonlinearRomFilesData>(ca, "SurfaceClusterCenters", this, &NonlinearRomFilesData::surfaceCentersName);
   new ClassStr<NonlinearRomFilesData>(ca, "SurfaceStateBasis", this, &NonlinearRomFilesData::surfaceStateBasisName);
   new ClassStr<NonlinearRomFilesData>(ca, "SurfaceSolution", this, &NonlinearRomFilesData::surfaceSolutionName);
+  new ClassStr<NonlinearRomFilesData>(ca, "SurfaceInitialDisplacement", this, &NonlinearRomFilesData::surfaceInitialDisplacementName);
+  new ClassStr<NonlinearRomFilesData>(ca, "SurfaceShapeDerivative", this, &NonlinearRomFilesData::surfaceShapeDerivativeName);
   new ClassStr<NonlinearRomFilesData>(ca, "SurfaceWallDistance", this, &NonlinearRomFilesData::surfaceWallDistName);
   new ClassStr<NonlinearRomFilesData>(ca, "SurfacedMesh", this, &NonlinearRomFilesData::surfaceMeshName);
   new ClassStr<NonlinearRomFilesData>(ca, "SurfaceMultiSolutions", this, &NonlinearRomFilesData::surfaceMultiSolutionsName);
