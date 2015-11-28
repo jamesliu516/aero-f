@@ -17,6 +17,7 @@
 #include <MultiGridCoupledTsDesc.h>
 #include <FluidShapeOptimizationHandler.h>
 #include <FluidRomShapeOptimizationHandler.h>  // MZ
+#include <FluidGnatShapeOptimizationHandler.h>  // MZ
 
 template<int dim>
 void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain &domain)
@@ -37,9 +38,18 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
       tsSolver.fsisoSolve(ioData);
   }
   else if (ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) { // MZ
+    if (ioData.romOnline.projection == NonlinearRomOnlineData::PETROV_GALERKIN && ioData.romOnline.systemApproximation == NonlinearRomOnlineData::SYSTEM_APPROXIMATION_NONE) {
       FluidRomShapeOptimizationHandler<dim> fsoh(ioData, geoSource, &domain);
       TsSolver<FluidRomShapeOptimizationHandler<dim> > tsSolver(&fsoh);
       tsSolver.fsoSolve(ioData);
+    } else if (ioData.romOnline.projection == NonlinearRomOnlineData::PETROV_GALERKIN && ioData.romOnline.systemApproximation == NonlinearRomOnlineData::GNAT) {
+      FluidGnatShapeOptimizationHandler<dim> fsoh(ioData, geoSource, &domain);
+      TsSolver<FluidGnatShapeOptimizationHandler<dim> > tsSolver(&fsoh);
+      tsSolver.fsoSolve(ioData);
+    } else {
+      com->fprintf(stderr, "*** Error: this system approximation method is not currently supported forROM Shape optimization\n");
+      exit(-1);
+    }
   }
   else if ((ioData.problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_) || 
            (ioData.problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_) ||

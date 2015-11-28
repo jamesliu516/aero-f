@@ -62,6 +62,7 @@ struct OneDimensionalInputData {
 struct InputData {
 
   enum OptimalPressureDimensionality {NON_DIMENSIONAL=0, DIMENSIONAL=1,NONE=2} optPressureDim;
+  enum ShapeDerivativeType {WALL=0, VOLUME=1} shapederivativesType;
   enum UseMultiSolutionsGappy {MULTI_SOLUTIONS_GAPPY_FALSE=0, MULTI_SOLUTIONS_GAPPY_TRUE=1} useMultiSolutionsGappy;
 
   const char *prefix;
@@ -142,6 +143,7 @@ struct InputData {
   const char *reducedEigState;
 // Included (MB)
   const char *shapederivatives;
+  const char *shapederivativestype;
 
   ObjectMap< OneDimensionalInputData > oneDimensionalInput;
 
@@ -2245,6 +2247,7 @@ struct NonlinearRomFilesData {
   const char *sampledJacActionBasisName; //podFileJacHat;
   const char *sampledMeshName;          //mesh;
   const char *sampledSolutionName;      //solution;
+  const char *sampledShapeDerivativeName;      //solution;
   const char *sampledMultiSolutionsName; // multiple solutions. Can start from one, or an arbitrary linear combination.
   const char *sampledRefStateName;
   const char *sampledWallDistName;      //wallDistanceRed;
@@ -2266,6 +2269,8 @@ struct NonlinearRomFilesData {
   const char *surfaceStateBasisName;
   const char *surfaceRefStateName;
   const char *surfaceSolutionName;
+  const char *surfaceInitialDisplacementName;
+  const char *surfaceShapeDerivativeName;
   const char *surfaceMultiSolutionsName;
   const char *surfaceWallDistName;
   const char *surfaceDisplacementName;

@@ -112,6 +112,7 @@ class NonlinearRom {
   char* sampledJacActionBasisName;
   char* sampledMeshName;
   char* sampledSolutionName;
+  char* sampledShapeDerivativeName;
   char* sampledMultiSolutionsName;
   char* sampledRefStateName;
   char* sampledWallDistName;
@@ -132,6 +133,8 @@ class NonlinearRom {
   char* surfaceStateBasisName;
   char* surfaceRefStateName;
   char* surfaceSolutionName;
+  char* surfaceInitialDisplacementName;
+  char* surfaceShapeDerivativeName;
   char* surfaceMultiSolutionsName;
   char* surfaceWallDistName;
   char* surfaceDisplacementName;
