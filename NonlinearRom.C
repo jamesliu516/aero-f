@@ -133,6 +133,7 @@ com(_com), ioData(&_ioData), domain(_domain)
   determineFileName(romFiles->sampledMultiSolutionsName, "sampledMultiSolutions", romFiles->gappyPrefix, sampledMultiSolutionsName);
   determineFileName(romFiles->sampledRefStateName, "sampledRefState", romFiles->gappyPrefix, sampledRefStateName);
   determineFileName(romFiles->sampledWallDistName, "sampledWallDist", romFiles->gappyPrefix, sampledWallDistName);
+  determineFileName(romFiles->sampledShapeDerivativeName, "sampledShapeDerivative", romFiles->gappyPrefix, sampledShapeDerivativeName);
   determineFileName(romFiles->sampledDisplacementName, "sampledDisplacement", romFiles->gappyPrefix, sampledDisplacementName);
   determineFileName(romFiles->gappyJacActionName, "gappyJac", romFiles->gappyPrefix, gappyJacActionName);
   determineFileName(romFiles->gappyResidualName, "gappyRes", romFiles->gappyPrefix, gappyResidualName);
@@ -148,6 +149,8 @@ com(_com), ioData(&_ioData), domain(_domain)
   determineFileName(romFiles->surfaceCentersName, "surfaceCenters", romFiles->surfacePrefix, surfaceCentersName);
   determineFileName(romFiles->surfaceStateBasisName, "surfaceStateROB", romFiles->surfacePrefix, surfaceStateBasisName);
   determineFileName(romFiles->surfaceRefStateName, "surfaceRefState", romFiles->surfacePrefix, surfaceRefStateName);
+  determineFileName(romFiles->surfaceInitialDisplacementName, "surfaceInitialDisplacement", romFiles->surfacePrefix, surfaceInitialDisplacementName);
+  determineFileName(romFiles->surfaceShapeDerivativeName, "surfaceShapeDerivative", romFiles->surfacePrefix, surfaceShapeDerivativeName);
   determineFileName(romFiles->surfaceSolutionName, "surfaceSolution", romFiles->surfacePrefix, surfaceSolutionName);
   determineFileName(romFiles->surfaceMultiSolutionsName, "surfaceMultiSolutions", romFiles->surfacePrefix, surfaceMultiSolutionsName);
   determineFileName(romFiles->surfaceWallDistName, "surfaceWallDist", romFiles->surfacePrefix, surfaceWallDistName);
@@ -291,6 +294,7 @@ NonlinearRom<dim>::~NonlinearRom()
   delete [] sampledJacActionBasisName;
   delete [] sampledMeshName;
   delete [] sampledSolutionName;
+  delete [] sampledShapeDerivativeName;
   delete [] sampledMultiSolutionsName;
   delete [] sampledRefStateName;
   delete [] sampledWallDistName;
@@ -309,6 +313,8 @@ NonlinearRom<dim>::~NonlinearRom()
   delete [] surfaceStateBasisName;
   delete [] surfaceRefStateName;
   delete [] surfaceSolutionName;
+  delete [] surfaceInitialDisplacementName;
+  delete [] surfaceShapeDerivativeName;
   delete [] surfaceMultiSolutionsName;
   delete [] surfaceWallDistName;
   delete [] surfaceDisplacementName;
@@ -4907,6 +4913,11 @@ void NonlinearRom<dim>::partitionAndSowerForGappy(bool surfaceMeshConstruction) 
       callSowerSplit(meshPathString, connectivityPathString, sampledMultiSolutionsPath);
       delete [] sampledMultiSolutionsPath;
     
+    char *sampledShapeDerivativePath = NULL;
+    determinePath(sampledShapeDerivativeName, -1, sampledShapeDerivativePath);
+    callSowerSplit(meshPathString, connectivityPathString, sampledShapeDerivativePath);
+    delete [] sampledShapeDerivativePath;
+
       char *sampledWallDistPath = NULL;
       determinePath(sampledWallDistName, -1, sampledWallDistPath);
       callSowerSplit(meshPathString, connectivityPathString, sampledWallDistPath);
