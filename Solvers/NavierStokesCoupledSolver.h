@@ -18,6 +18,8 @@
 #include <FluidShapeOptimizationHandler.h>
 #include <FluidRomShapeOptimizationHandler.h>  // MZ
 #include <FluidGnatShapeOptimizationHandler.h>  // MZ
+#include <FluidMetricShapeOptimizationHandler.h>  // MZ
+#include <FluidCollocationShapeOptimizationHandler.h>  // MZ
 
 template<int dim>
 void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain &domain)
@@ -45,6 +47,14 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
     } else if (ioData.romOnline.projection == NonlinearRomOnlineData::PETROV_GALERKIN && ioData.romOnline.systemApproximation == NonlinearRomOnlineData::GNAT) {
       FluidGnatShapeOptimizationHandler<dim> fsoh(ioData, geoSource, &domain);
       TsSolver<FluidGnatShapeOptimizationHandler<dim> > tsSolver(&fsoh);
+      tsSolver.fsoSolve(ioData);
+    } else if (ioData.romOnline.projection == NonlinearRomOnlineData::PETROV_GALERKIN && ioData.romOnline.systemApproximation == NonlinearRomOnlineData::COLLOCATION) {
+      FluidCollocationShapeOptimizationHandler<dim> fsoh(ioData, geoSource, &domain);
+      TsSolver<FluidCollocationShapeOptimizationHandler<dim> > tsSolver(&fsoh);
+      tsSolver.fsoSolve(ioData);
+    } else if (ioData.romOnline.projection == NonlinearRomOnlineData::PETROV_GALERKIN && ioData.romOnline.systemApproximation == NonlinearRomOnlineData::APPROX_METRIC_NL) {
+      FluidMetricShapeOptimizationHandler<dim> fsoh(ioData, geoSource, &domain);
+      TsSolver<FluidMetricShapeOptimizationHandler<dim> > tsSolver(&fsoh);
       tsSolver.fsoSolve(ioData);
     } else {
       com->fprintf(stderr, "*** Error: this system approximation method is not currently supported forROM Shape optimization\n");
