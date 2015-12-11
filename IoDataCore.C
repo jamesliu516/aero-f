@@ -3883,7 +3883,6 @@ NonlinearRomFilesData::NonlinearRomFilesData()
   surfaceStateBasisName = "";
   surfaceRefStateName = "";
   surfaceSolutionName = "";
-  surfaceInitialDisplacementName = "";
   surfaceShapeDerivativeName = "";
   surfaceWallDistName = "";
   surfaceDisplacementName = "";
@@ -3996,7 +3995,6 @@ void NonlinearRomFilesData::setup(const char *name, ClassAssigner *father)
   new ClassStr<NonlinearRomFilesData>(ca, "SurfaceClusterCenters", this, &NonlinearRomFilesData::surfaceCentersName);
   new ClassStr<NonlinearRomFilesData>(ca, "SurfaceStateBasis", this, &NonlinearRomFilesData::surfaceStateBasisName);
   new ClassStr<NonlinearRomFilesData>(ca, "SurfaceSolution", this, &NonlinearRomFilesData::surfaceSolutionName);
-  new ClassStr<NonlinearRomFilesData>(ca, "SurfaceInitialDisplacement", this, &NonlinearRomFilesData::surfaceInitialDisplacementName);
   new ClassStr<NonlinearRomFilesData>(ca, "SurfaceShapeDerivative", this, &NonlinearRomFilesData::surfaceShapeDerivativeName);
   new ClassStr<NonlinearRomFilesData>(ca, "SurfaceWallDistance", this, &NonlinearRomFilesData::surfaceWallDistName);
   new ClassStr<NonlinearRomFilesData>(ca, "SurfaceDisplacement", this, &NonlinearRomFilesData::surfaceDisplacementName);

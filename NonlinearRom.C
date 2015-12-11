@@ -149,7 +149,6 @@ com(_com), ioData(&_ioData), domain(_domain)
   determineFileName(romFiles->surfaceCentersName, "surfaceCenters", romFiles->surfacePrefix, surfaceCentersName);
   determineFileName(romFiles->surfaceStateBasisName, "surfaceStateROB", romFiles->surfacePrefix, surfaceStateBasisName);
   determineFileName(romFiles->surfaceRefStateName, "surfaceRefState", romFiles->surfacePrefix, surfaceRefStateName);
-  determineFileName(romFiles->surfaceInitialDisplacementName, "surfaceInitialDisplacement", romFiles->surfacePrefix, surfaceInitialDisplacementName);
   determineFileName(romFiles->surfaceShapeDerivativeName, "surfaceShapeDerivative", romFiles->surfacePrefix, surfaceShapeDerivativeName);
   determineFileName(romFiles->surfaceSolutionName, "surfaceSolution", romFiles->surfacePrefix, surfaceSolutionName);
   determineFileName(romFiles->surfaceMultiSolutionsName, "surfaceMultiSolutions", romFiles->surfacePrefix, surfaceMultiSolutionsName);
@@ -313,7 +312,6 @@ NonlinearRom<dim>::~NonlinearRom()
   delete [] surfaceStateBasisName;
   delete [] surfaceRefStateName;
   delete [] surfaceSolutionName;
-  delete [] surfaceInitialDisplacementName;
   delete [] surfaceShapeDerivativeName;
   delete [] surfaceMultiSolutionsName;
   delete [] surfaceWallDistName;
@@ -4795,6 +4793,11 @@ void NonlinearRom<dim>::partitionAndSowerForGappy(bool surfaceMeshConstruction) 
       callSowerSplit(meshPathString, connectivityPathString, surfaceDisplacementPath);
       delete [] surfaceDisplacementPath;
 
+      char *surfaceShapeDerivativePath = NULL;
+      determinePath(surfaceShapeDerivativeName, -1, surfaceShapeDerivativePath);
+      callSowerSplit(meshPathString, connectivityPathString, surfaceShapeDerivativePath);
+      delete [] surfaceShapeDerivativePath;
+
       char *approxMetricStateLowRankSurfaceCoordsPath = NULL;
       determinePath(approxMetricStateLowRankSurfaceCoordsName, -1, approxMetricStateLowRankSurfaceCoordsPath);
       callSowerSplit(meshPathString, connectivityPathString, approxMetricStateLowRankSurfaceCoordsPath);
@@ -4913,11 +4916,6 @@ void NonlinearRom<dim>::partitionAndSowerForGappy(bool surfaceMeshConstruction) 
       callSowerSplit(meshPathString, connectivityPathString, sampledMultiSolutionsPath);
       delete [] sampledMultiSolutionsPath;
     
-    char *sampledShapeDerivativePath = NULL;
-    determinePath(sampledShapeDerivativeName, -1, sampledShapeDerivativePath);
-    callSowerSplit(meshPathString, connectivityPathString, sampledShapeDerivativePath);
-    delete [] sampledShapeDerivativePath;
-
       char *sampledWallDistPath = NULL;
       determinePath(sampledWallDistName, -1, sampledWallDistPath);
       callSowerSplit(meshPathString, connectivityPathString, sampledWallDistPath);
@@ -4927,6 +4925,11 @@ void NonlinearRom<dim>::partitionAndSowerForGappy(bool surfaceMeshConstruction) 
       determinePath(sampledDisplacementName, -1, sampledDisplacementPath);
       callSowerSplit(meshPathString, connectivityPathString, sampledDisplacementPath);
       delete [] sampledDisplacementPath;
+
+      char *sampledShapeDerivativePath = NULL;
+      determinePath(sampledShapeDerivativeName, -1, sampledShapeDerivativePath);
+      callSowerSplit(meshPathString, connectivityPathString, sampledShapeDerivativePath);
+      delete [] sampledShapeDerivativePath;
     
       char *approxMetricStateLowRankPath = NULL;
       determinePath(approxMetricStateLowRankName, -1, approxMetricStateLowRankPath);

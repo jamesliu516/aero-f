@@ -388,6 +388,7 @@ void GappyPreprocessing<dim>::buildReducedModel() {
     outputMultiSolutionsReduced();
     outputWallDistanceReduced();  // distributed info (parallel)
     outputDisplacementReduced();
+    outputShapeDerivativeReduced();
  
     for (int iCluster=0; iCluster<(this->nClusters); ++iCluster) {
   
@@ -4376,6 +4377,80 @@ void GappyPreprocessing<dim>::outputWallDistanceReduced() {
 //----------------------------------------------
 
 template<int dim>
+void GappyPreprocessing<dim>::outputShapeDerivativeReduced() {
+
+
+  if (strcmp(ioData->input.shapederivatives,"")!=0) {
+
+    com->fprintf(stdout," ... Writing shape derivatives in sample mesh coordinates ...\n");
+
+    char *sampledShapeDerivativePath = NULL;
+    if (surfaceMeshConstruction) {
+      this->determinePath(this->surfaceShapeDerivativeName, -1, sampledShapeDerivativePath);
+    } else {
+      this->determinePath(this->sampledShapeDerivativeName, -1, sampledShapeDerivativePath);
+    }
+    char *derFile = new char[strlen(ioData->input.prefix) + strlen(ioData->input.shapederivatives) + 1];
+    sprintf(derFile, "%s%s", ioData->input.prefix, ioData->input.shapederivatives);
+
+    DistSVec<double,3> *shapeDerivative = new DistSVec<double,3>( domain.getNodeDistInfo() );
+    double tmp = 0.0;
+    bool status;
+    int nShapeDer=-1;
+    while (true) {
+      nShapeDer += 1;
+      status = domain.readVectorFromFile(derFile, nShapeDer, &tmp, *shapeDerivative);
+
+      if (!status && nShapeDer == 0) {
+        com->fprintf(stderr, "*** Error: unable to read vector from file %s\n", derFile);
+        exit(-1);
+      } else if (!status && nShapeDer > 0) {
+        break;
+      }
+    }
+
+    std::string header("Vector ShapeDerivative under load for FluidNodesRed");
+    FILE* myOutFile = NULL;
+    if (thisCPU==0) {
+      myOutFile = fopen(sampledShapeDerivativePath, "wt");
+      fprintf(myOutFile,"%s\n", header.c_str());
+      fprintf(myOutFile,"%d\n", nReducedNodes);
+    }
+
+    int shapeDerNum = -1;
+    while (true) {
+      shapeDerNum += 1;
+      status = domain.readVectorFromFile(derFile, shapeDerNum, &tmp, *shapeDerivative);
+
+      if (!status && shapeDerNum == 0) {
+        com->fprintf(stderr, "*** Error: unable to read vector from file %s\n", derFile);
+        exit(-1);
+      } else if (!status && shapeDerNum > 0) {
+        break;
+      }
+      //outputReducedSVec(*shapeDerivative,sampledShapeDerivativePath,double(shapeDerNum),shapeDerNum,nShapeDer,header.c_str());
+      outputReduced3DSVec(*shapeDerivative,myOutFile,double(shapeDerNum));
+    }
+
+    if (thisCPU==0) fclose(myOutFile);
+    if (shapeDerivative) {
+      delete shapeDerivative;
+      shapeDerivative = NULL;
+    }
+
+    if (sampledShapeDerivativePath) {
+      delete [] sampledShapeDerivativePath;
+      sampledShapeDerivativePath = NULL;
+    }
+
+    delete [] derFile;
+  }
+}
+
+
+//----------------------------------------------
+
+template<int dim>
 void GappyPreprocessing<dim>::outputDisplacementReduced() {
   //INPUTS
   // ioData, nReducedNodes, domain
@@ -4437,6 +4512,8 @@ void GappyPreprocessing<dim>::outputDisplacementReduced() {
   }
 
 }
+
+
 
 
 //----------------------------------------------
@@ -4526,7 +4603,7 @@ void GappyPreprocessing<dim>::checkConsistency() {
 
   // PURPOSE: debugging
 
-  if(com->cpuNum() == 0) std::cerr << " *** WARNING: GnatPreprocessing::checkConsistency is not up-to-date\n";
+  if(com->cpuNum() == 0) std::cerr << " *** WARNING: GappyPreprocessing::checkConsistency is not up-to-date\n";
 
   int numRhs = nSampleNodes * dim;  // number of RHS treated
   double **consistency = new double * [numRhs];
