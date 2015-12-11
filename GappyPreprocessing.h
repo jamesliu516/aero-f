@@ -281,6 +281,8 @@ protected:
   virtual void outputLocalReferenceStateReduced(int);
   virtual void outputWallDistanceReduced();
   virtual void outputDisplacementReduced();
+  virtual void outputShapeDerivativeReduced();
+
   void outputReducedSVec(const DistSVec<double,dim> &distSVec, FILE* myOutFile, double tag);
   void outputReduced3DSVec(const DistSVec<double,3> &distSVec, FILE* myOutFile, double tag);
   void outputReducedVec(const DistVec<double> &distVec, FILE* outFile , int iVector);
