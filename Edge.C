@@ -3371,17 +3371,16 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	  if (masterFlag[l]) {
 
 	    V6NodeData (*v6data)[2] = higherOrderFSI->getV6Data();
-	    if (v6data == NULL) {
-	      for (int k=0; k<dim; k++) {
-		Wstar[k] = V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k]);
-	      }
-              varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Wstar);
-	    }else {
-	      higherOrderFSI->extrapolateV6(l, 0, i, V, Vi, Wstar, X, resij.alpha, length, fluidId, betai);
-              varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Vi);
-	    }
-
-	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi, fluidId[i], false);
+            if (v6data == NULL) {
+              for (int k=0; k<dim; k++) {
+                Wstar[k] = V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k]);
+              }
+            } else {
+              higherOrderFSI->extrapolateV6(l, 0, i, V, Vi, Wstar, X, resij.alpha, length, fluidId, betai);
+              memcpy(Wstar, Vi, sizeof(double)*dim);
+            }
+            varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Wstar);
+            fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxi, fluidId[i], false);
 
             if (iPorous) {
               fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[i]);
@@ -3479,19 +3478,17 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	  if (masterFlag[l]) {
 
 	    V6NodeData (*v6data)[2] = higherOrderFSI->getV6Data();      
+            if (v6data==NULL) {
+              for (int k=0; k<dim; k++) {
+                Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
+              }
+            } else {
+              higherOrderFSI->extrapolateV6(l, 1, j, V, Vj, Wstar, X, 1.0-resji.alpha, length, fluidId,betaj);
+              memcpy(Wstar, Vj, sizeof(double)*dim);
+            }
+            varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Wstar);
+            fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxj, fluidId[j], false);
 
-	    if (v6data==NULL) {
-	      for (int k=0; k<dim; k++) {
-		Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
-	      }
-              varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Wstar);
-	    } else {	     
-	      higherOrderFSI->extrapolateV6(l, 1, j, V, Vj, Wstar, X, 1.0-resji.alpha, length, fluidId,betaj);
-              varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Vj);
-	    }	    
-
-	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj, fluidId[j], false);
-	  
             if (jPorous) {
               fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[j]);
               for (int k=0; k<dim; k++) {
