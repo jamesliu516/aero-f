@@ -103,7 +103,7 @@ BCApplier::setEmbeddedALEDofType(MatchNodeSet** matchNodes)
 
 #pragma omp parallel for
   for (int iSub = 0; iSub<numLocSub; ++iSub)
-    subD[iSub]->completeMeshMotionDofType(dofType[iSub], ndC);
+    subD[iSub]->completeEmbeddedALEMeshMotionDofType(dofType[iSub], ndC);
 }
 
 

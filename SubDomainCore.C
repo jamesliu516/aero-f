@@ -4228,7 +4228,7 @@ int* SubDomain::completeOffWallNode(CommPattern<int> &ntP)
 //------------------------------------------------------------------------------
 // -----------------------------------------------------------
 // HB: create the dofType array using the matchNodeSet, the sliding faces & the nodeType array
-// Note that the order in which the dofType is filled is crucial: its is fisrt to BC_FREE (i.e. all
+// Note that the order in which the dofType is filled is crucial: it is first set to BC_FREE (i.e. all
 // the dofs are assumed to be free to move), and then they are (potentially) constrained if necessary.
 
 int*
@@ -4418,6 +4418,25 @@ SubDomain::completeMeshMotionDofType(int* DofType, CommPattern<int> &ntP)
       for(int l=0; l<3; l++)
         if(buffer[i][l]!=BC_FREE)
           dofType[(*sharedNodes)[iSub][i]][l] = buffer[i][l];
+  }
+}
+
+//------------------------------------------------------------------------------
+
+void
+SubDomain::completeEmbeddedALEMeshMotionDofType(int* DofType, CommPattern<int> &ntP)
+{
+  int (*dofType)[3] = reinterpret_cast<int (*)[3]>(DofType);
+
+  for (int iSub = 0; iSub < numNeighb; ++iSub) {
+    SubRecInfo<int> nInfo = ntP.recData(rcvChannel[iSub]);
+    int (*buffer)[3] = reinterpret_cast<int (*)[3]>(nInfo.data);
+    for (int i = 0; i < sharedNodes->num(iSub); ++i)
+      for(int l=0; l<3; l++)
+        if(buffer[i][l]!=BC_FREE) {
+          if(buffer[i][l] != BC_MATCHEDSLIDE || dofType[(*sharedNodes)[iSub][i]][l] == BC_FREE)
+            dofType[(*sharedNodes)[iSub][i]][l] = buffer[i][l];
+        }
   }
 }
 

@@ -1156,6 +1156,8 @@ public:
 
   void completeMeshMotionDofType(int* DofType, CommPattern<int> &ntP);
 
+  void completeEmbeddedALEMeshMotionDofType(int* DofType, CommPattern<int> &ntP);
+
   void changeSurfaceType(map<int,SurfaceData*>& surfaceMap, map<int,BoundaryData*>& bcMap);
   void markFaceBelongsToSurface(Vec<int> &faceFlag, CommPattern<int> &ntP);
   void completeFaceBelongsToSurface(Vec<int> &faceFlag, Vec<double> &nodeTemp, map<int,SurfaceData*>& surfaceMap, CommPattern<int> &ntP);
