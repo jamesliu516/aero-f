@@ -1,5 +1,5 @@
       SUBROUTINE HLLEFLUX1(gamma,gam,pstiff,enormal,evitno,
-     &     Ug,Ud,phi1,mach,k1,cmach,irey,prec)
+     &     Ug,Ud,phi1,mach,k1,cmach,shockreducer,irey,length,prec)
 c-----------------------------------------------------------------------
 c This routine computes the Flux of Roe taken at the vectors Ug, Ud
 c normal is the normal of the boundary concerned by the flux.
@@ -26,7 +26,7 @@ c-----------------------------------------------------------------------
       REAL*8 tet1 , tet2 , tet3
       REAL*8 gam , gam1, vitg2, vitd2, pstiff
       REAL*8 r,s,t,A,B,H1,beta, mach00,beta2
-      REAL*8 maxu2,maxrho,minpres,mach,k1
+      REAL*8 maxu2,maxrho,minpres,mach,k1,shock,shockreducer,length
       REAL*8 locMach, cmach, irey
       REAL*8 bdHL, bgHL, thetaHL, chiHL
       INTEGER type, prec
@@ -118,18 +118,12 @@ c
       if (prec .eq. 0) then
         beta = 1.d0
       else
-c
-c     Better way to compute beta
-c        local Preconditioning (ARL)
-c        beta = MIN(MAX(0.000001d0,beta),1.d0)
-      locMach = DSQRT(2.0d0*qir*cr2)
-      beta = MAX(k1*locMach, mach)
-      beta = (1.0d0+DSQRT(irey))*beta
-      beta = MIN(beta, cmach)
-c
-c     Crude way to compute beta
-c
-c        beta = mach 
+c       local Preconditioning (ARL)
+        shock = DABS(Ug(5) - Ud(5))/(Ug(5)+Ud(5))/length
+        locMach = DSQRT(2.0d0*qir*cr2)
+        beta = MAX(k1*locMach, mach)
+        beta = (1.0d0+DSQRT(irey))*beta+shockreducer*shock
+        beta = MIN(beta, cmach)
       end if
       
       beta2 = beta * beta 

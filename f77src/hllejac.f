@@ -1,5 +1,6 @@
       SUBROUTINE HLLEJAC(type,gamma,gam,pstiff,enormal,evitno,Ug,Ud,
-     &                   jac,sw,mach,k1,cmach,irey,prec)
+     &                   jac,sw,mach,k1,cmach,shockreducer,irey,length,
+     &                   prec)
 c-----------------------------------------------------------------------
 c This routine computes the jacobian of the flux of Roe (defect correction) 
 c with respect to the conservative variables taken at the vectors Ug, Ud.
@@ -29,7 +30,7 @@ c-----------------------------------------------------------------------
       INTEGER ient
       REAL*8 gam, gam1, gamma, epsiim, pstiff
       REAL*8 rRT,sRT,tRT,beta, mach00,betaRT2
-      REAL*8 maxu2,maxrho,minpres,mach,k1,shock
+      REAL*8 maxu2,maxrho,minpres,mach,k1,shock,shockreducer,length
       REAL*8 locMach, cmach, irey
       REAL*8 bdHL, bgHL, thetaHL, chiHL
       INTEGER prec,sw
@@ -145,7 +146,7 @@ c
         beta = 1.d0
       else
 c       local Preconditioning (ARL)
-        shock = DABS(Ugr(5) - Udr(5))/(Ugr(5)+Udr(5))/length
+        shock = DABS(Ug(5) - Ud(5))/(Ug(5)+Ud(5))/length
         locMach = DSQRT(2.0d0*qir*cr2)
         beta = MAX(k1*locMach, mach)
         beta = (1.0d0+DSQRT(irey))*beta+shockreducer*shock
