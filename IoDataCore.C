@@ -3263,6 +3263,7 @@ DefoMeshMotionData::DefoMeshMotionData()
 
   mode = NonRecursive;
   numIncrements = 1;
+  slidingSurfaceTreatment = Default;
 
   newton.ksp.type = KspData::CG;
   newton.ksp.epsFormula = KspData::CONSTANT;
@@ -3278,7 +3279,7 @@ DefoMeshMotionData::DefoMeshMotionData()
 void DefoMeshMotionData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 8, father);
+  ClassAssigner *ca = new ClassAssigner(name, 9, father);
 
   new ClassToken<DefoMeshMotionData>
     (ca, "Type", this,
@@ -3297,6 +3298,10 @@ void DefoMeshMotionData::setup(const char *name, ClassAssigner *father)
      reinterpret_cast<int DefoMeshMotionData::*>(&DefoMeshMotionData::mode), 2,
      "Recursive", 1, "NonRecursive", 2);
   new ClassInt<DefoMeshMotionData>(ca, "NumIncrements", this, &DefoMeshMotionData::numIncrements);
+
+  new ClassToken<DefoMeshMotionData>
+    (ca, "SlidingSurfaceTreatment", this,
+     reinterpret_cast<int DefoMeshMotionData::*>(&DefoMeshMotionData::slidingSurfaceTreatment), 2, "Default", 0, "PrescribedAverage", 1);
 
   symmetry.setup("Symmetry", ca);
   newton.setup("Newton", ca);

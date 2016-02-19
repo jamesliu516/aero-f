@@ -1150,9 +1150,10 @@ public:
   void createSlipSurfProjection(int *surfaceOwn, CommPattern<int> &, BCApplier *,
                                 SurfaceData *slipSurfaces[]);
 
-  int* getMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<int> &ntP, MatchNodeSet* matchNodes=0 );
+  int* getMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<int> &ntP, MatchNodeSet* matchNodes=0);
 
-  int* getEmbeddedALEMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<int> &ntP, MatchNodeSet* matchNodes=0 );
+  int* getEmbeddedALEMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<int> &ntP, MatchNodeSet* matchNodes=0,
+                                       DefoMeshMotionData::SlidingSurfaceTreatment slidingSurfaceTreatment=DefoMeshMotionData::Default);
 
   void completeMeshMotionDofType(int* DofType, CommPattern<int> &ntP);
 
