@@ -1864,6 +1864,7 @@ struct DefoMeshMotionData {
   double volStiff;
   enum Mode {Recursive = 1, NonRecursive = 2} mode;
   int numIncrements;
+  enum SlidingSurfaceTreatment {Default = 0, PrescribedAverage = 1} slidingSurfaceTreatment;
 
   BLMeshMotionData blmeshmotion;
   NewtonData<KspData> newton;

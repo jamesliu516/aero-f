@@ -7,7 +7,8 @@
 
 #define HB_MESHMOTION_WARNINGS
 
-BCApplier::BCApplier(int nLocSub, Domain* dom, IoData& ioData):domain(dom),surfaceMap(ioData.surfaces.surfaceMap.dataMap)
+BCApplier::BCApplier(int nLocSub, Domain* dom, IoData& ioData):domain(dom),surfaceMap(ioData.surfaces.surfaceMap.dataMap),
+                                                               slidingSurfaceTreatment(ioData.dmesh.slidingSurfaceTreatment)
 {
  numLocSub = nLocSub;
  dofType   = 0;
@@ -96,7 +97,7 @@ BCApplier::setEmbeddedALEDofType(MatchNodeSet** matchNodes)
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
     MatchNodeSet* subMatchNodes = (matchNodes) ? matchNodes[iSub] : 0;
-    dofType[iSub] = subD[iSub]->getEmbeddedALEMeshMotionDofType(surfaceMap, ndC, subMatchNodes);
+    dofType[iSub] = subD[iSub]->getEmbeddedALEMeshMotionDofType(surfaceMap, ndC, subMatchNodes, slidingSurfaceTreatment);
   }
   
   ndC.exchange();

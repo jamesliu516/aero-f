@@ -51,6 +51,7 @@ class BCApplier {
     int **dofTypeStep2;
     map<int,SurfaceData*>& surfaceMap;
     list<ProjData> *proj;
+    const DefoMeshMotionData::SlidingSurfaceTreatment &slidingSurfaceTreatment;
 
   public:
     BCApplier(int nLocSub, Domain *dom, IoData& ioData);
