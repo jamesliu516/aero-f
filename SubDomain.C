@@ -9870,6 +9870,7 @@ void SubDomain::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U,
   elems.interpolateSolution(X,U,locs,sol,status,last,LSS,ghostPoints,varFcn,
 			    assumeCache);
   for (int i = 0; i < locs.size(); ++i) {
+    if(!status[i]) continue;
     int eid = last[i],nn;
     Elem& E = elems[eid];
     double mindist = std::numeric_limits<double>::max(),dst;
