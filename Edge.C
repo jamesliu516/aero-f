@@ -2212,12 +2212,11 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
         bool hasFix = (dVdx[i][0]*dVdx[i][0]+dVdy[i][0]*dVdy[i][0]+dVdz[i][0]*dVdz[i][0] == 0.0 ||
                        dVdx[j][0]*dVdx[j][0]+dVdy[j][0]*dVdy[j][0]+dVdz[j][0]*dVdz[j][0] == 0.0);
-
+/*
 	if (hasFix) {
 	  std::cout << "has fix! " << i << " " << j << " " << dVdx[i][0] << " " << dVdx[j][0] << std::endl;
 	}
-
-
+*/
         hasFix = false;
 	
 	// There are two cases.  In the first case the surrogate interface is the
