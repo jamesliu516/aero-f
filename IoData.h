@@ -1210,6 +1210,8 @@ struct MultiFluidData {
                         TRIANGULATED = 4} levelSetMethod;
 
   enum RiemannNormal {REAL = 0, MESH = 1, LEGACYMESH = 2 } riemannNormal;
+  double riemannEps;
+  int riemannMaxIts;
 
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1, SAME_AS_PROBLEM = 2} prec;
 

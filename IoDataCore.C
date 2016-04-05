@@ -2222,6 +2222,8 @@ MultiFluidData::MultiFluidData()
   prec = NON_PRECONDITIONED;
 
   riemannNormal = REAL;
+  riemannEps = 0.001;
+  riemannMaxIts = 100;
 }
 
 //------------------------------------------------------------------------------
@@ -2277,6 +2279,10 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
   new ClassToken<MultiFluidData>(ca, "RiemannNormal", this,
                                  reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::riemannNormal),3,
                                  "LevelSet",0,"Fluid",1,"LegacyFluid",2);
+
+  new ClassDouble<MultiFluidData>(ca, "RiemannEps", this, &MultiFluidData::riemannEps);
+  new ClassInt<MultiFluidData>(ca, "RiemannMaxIts", this, &MultiFluidData::riemannMaxIts);
+   
 
   // Low mach preconditioning of the exact Riemann problem.
   // Added by Alex Main (December 2013)

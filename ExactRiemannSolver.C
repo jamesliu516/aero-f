@@ -116,7 +116,8 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
 	    } else {
 
 	      if(fluid1IsAGas && fluid2IsAGas){
-		lriemann[iRiemann] = new LocalRiemannGfmparGasGas(vf,fluid1,fluid2, iod.mf.typePhaseChange);
+		lriemann[iRiemann] = new LocalRiemannGfmparGasGas(vf,fluid1,fluid2, iod.mf.typePhaseChange,
+                                                                  iod.mf.riemannEps, iod.mf.riemannMaxIts);
 	      }
 	      else if(it1->second->fluid  == FluidModelData::LIQUID &&
 		      fluid2IsAGas){
@@ -125,7 +126,8 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
 	      }
 	      else if(it1->second->fluid  == FluidModelData::LIQUID &&
 		      it2->second->fluid == FluidModelData::LIQUID){
-		lriemann[iRiemann] = new LocalRiemannGfmparTaitTait(vf,fluid1,fluid2, iod.mf.typePhaseChange);
+		lriemann[iRiemann] = new LocalRiemannGfmparTaitTait(vf,fluid1,fluid2, iod.mf.typePhaseChange,
+                                                                    iod.mf.riemannEps, iod.mf.riemannMaxIts);
 	      }
 	      else if(fluid1IsAGas && 
 		      it2->second->fluid == FluidModelData::LIQUID){
