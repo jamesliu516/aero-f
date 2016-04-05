@@ -21,14 +21,15 @@ extern "C" {
                             const double&, const double&, const double&,
                             const double&, const double&, const double &,
                             const double &, const double&, const double&,
-                            const double &, const double&);
+                            const double &, const double&, const double&,
+                            const int&);
   void F77NAME(eriemanngg) (const double&, const double&, const double&,
                             const double&, const double&, const double&,
                             const double&, const double&, const double &,
                             const double &, const double&, const double&,
                             const double &, const double&,int &,
                             const double&, const double&, const double&,
-                            const double&);
+                            const double&, const double&, const int&);
   void F77NAME(eriemannww) (const double&, const double&, const double&,
                             const double&, const double&, const double&,
                             const double&, const double&, const double&,
@@ -36,7 +37,7 @@ extern "C" {
                             const double&, const double&, const double&,
                             const double&,  int &,
                             const double&, const double&, const double&,
-                            const double&);
+                            const double&, const double&, const int&);
 };
 
 //----------------------------------------------------------------------------
@@ -342,8 +343,13 @@ int LocalRiemannGfmpGasJWL::computeRiemannSolution(double *Vi, double *Vj,
 
 class LocalRiemannGfmparGasGas : public LocalRiemannGfmpar {
 
+  double tolpre_;
+  int nriter_;
+
 public:
-  LocalRiemannGfmparGasGas(VarFcn *vf, int tag1, int tag2, MultiFluidData::TypePhaseChange typePhaseChange) : LocalRiemannGfmpar(vf,tag1,tag2,typePhaseChange) {}
+  LocalRiemannGfmparGasGas(VarFcn *vf, int tag1, int tag2, MultiFluidData::TypePhaseChange typePhaseChange,
+                           double tolpre, int nriter) : LocalRiemannGfmpar(vf,tag1,tag2,typePhaseChange)
+                           { tolpre_ = tolpre; nriter_ = nriter; }
   ~LocalRiemannGfmparGasGas() { vf_ = 0; }
 
   int computeRiemannSolution(double *Vi, double *Vj,
@@ -442,7 +448,7 @@ int LocalRiemannGfmparGasGas::computeRiemannSolution(double *Vi, double *Vj,
 
 
     F77NAME(eriemanngg)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,gam2,pref2,gam1,pref1,err,
-                        pmin2,pmin1,rhomin2,rhomin1);
+                        pmin2,pmin1,rhomin2,rhomin1,tolpre_,nriter_);
 
     Wi[0]  = R_i1;                    Wi[dim]    = Wi[0];
     Wi[1]  = vti[0]+U_i*nphi[0];      Wi[dim+1]  = Wi[1];
@@ -465,7 +471,7 @@ int LocalRiemannGfmparGasGas::computeRiemannSolution(double *Vi, double *Vj,
     P_1  = vf_->getPressure(Vj, IDj);
 
     F77NAME(eriemanngg)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,gam2,pref2,gam1,pref1,err,
-                        pmin2,pmin1,rhomin2,rhomin1);
+                        pmin2,pmin1,rhomin2,rhomin1,tolpre_,nriter_);
 
     Wi[0]  = R_i2;                    Wi[dim]    = Wi[0];
     Wi[1]  = vti[0]+U_i*nphi[0];      Wi[dim+1]  = Wi[1];
@@ -909,8 +915,13 @@ void LocalRiemannGfmparGasTait::computeRiemannJacobian(double *Vi, double *Vj,
 
 class LocalRiemannGfmparTaitTait: public LocalRiemannGfmpar {
 
+  double tolpre_;
+  int nriter_;
+
 public:
-  LocalRiemannGfmparTaitTait(VarFcn *vf, int tag1, int tag2, MultiFluidData::TypePhaseChange typePhaseChange) : LocalRiemannGfmpar(vf,tag1,tag2,typePhaseChange) {}
+  LocalRiemannGfmparTaitTait(VarFcn *vf, int tag1, int tag2, MultiFluidData::TypePhaseChange typePhaseChange,
+                             double tolpre, int nriter) : LocalRiemannGfmpar(vf,tag1,tag2,typePhaseChange)
+                            { tolpre_ = tolpre; nriter_ = nriter; }
   ~LocalRiemannGfmparTaitTait() { vf_ = 0; }
 
   int computeRiemannSolution(double *Vi, double *Vj,
@@ -999,7 +1010,7 @@ int LocalRiemannGfmparTaitTait::computeRiemannSolution(double *Vi, double *Vj,
     
     F77NAME(eriemannww)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,
                         alpha2,beta2,pref2,alpha1,beta1,pref1,err,
-                        pmin2,pmin1,rhomin2,rhomin1);
+                        pmin2,pmin1,rhomin2,rhomin1,tolpre_,nriter_);
     
     Wi[0]  = R_i1;                    Wi[dim]    = Wi[0];
     Wi[1]  = vti[0]+U_i*nphi[0];      Wi[dim+1]  = Wi[1];
@@ -1027,7 +1038,7 @@ int LocalRiemannGfmparTaitTait::computeRiemannSolution(double *Vi, double *Vj,
     
     F77NAME(eriemannww)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,
                         alpha2,beta2,pref2,alpha1,beta1,pref1,err,
-                        pmin2,pmin1,rhomin2,rhomin1);
+                        pmin2,pmin1,rhomin2,rhomin1,tolpre_,nriter_);
     
     Wi[0]  = R_i2;                      Wi[dim]    = Wi[0];
     Wi[1]  = vti[0]+U_i*nphi[0];        Wi[dim+1]  = Wi[1];
@@ -1109,7 +1120,7 @@ void LocalRiemannGfmparTaitTait::computeRiemannJacobian(double *Vi, double *Vj,
     P_1  = vf_->getPressure(Vi, IDi);
     F77NAME(eriemannww)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,
                         alpha2,beta2,pref2,alpha1,beta1,pref1,err,
-                        pmin2,pmin1,rhomin2,rhomin1);
+                        pmin2,pmin1,rhomin2,rhomin1,tolpre_,nriter_);
 ;
 
     ImplicitRiemann::computeTaitTaitJacobian(P_i, alpha2,beta2,pref2,P_2,R_2, alpha1, beta1,pref1, P_1,R_1, dWjdWj3, dWjdWi3,  dWidWi3, dWidWj3 );
@@ -1124,7 +1135,7 @@ void LocalRiemannGfmparTaitTait::computeRiemannJacobian(double *Vi, double *Vj,
     P_1  = vf_->getPressure(Vj, IDj);
     F77NAME(eriemannww)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,
                         alpha2,beta2,pref2,alpha1,beta1,pref1,err,
-                        pmin2,pmin1,rhomin2,rhomin1);
+                        pmin2,pmin1,rhomin2,rhomin1,tolpre_,nriter_);
 
     ImplicitRiemann::computeTaitTaitJacobian(P_i, alpha2,beta2,pref2, P_2,R_2,alpha1, beta1,pref1,P_1,R_1, dWidWi3, dWidWj3,  dWjdWj3, dWjdWi3 );
   }
