@@ -203,7 +203,7 @@ computeAlpha(int nodeId,const double* currentV,
 			     std::max<double>(1e-8,fabs(neighborV[k]-currentV[k])));
   }
 
-  std::cout << "alpha = " << alpha << std::endl;
+  //std::cout << "alpha = " << alpha << std::endl;
 
   return alpha;
 }
