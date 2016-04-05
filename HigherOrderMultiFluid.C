@@ -197,8 +197,8 @@ computeAlpha(int nodeId,const double* currentV,
   double alpha = 1.0;
   for (int k = 0; k < dim; ++k) {
 
-    std::cout << currentV[k] << " " << vlast[k]<< " " << 
-      neighborV[k] << std::endl;
+    //std::cout << currentV[k] << " " << vlast[k]<< " " << 
+    //  neighborV[k] << std::endl;
     alpha = std::min<double>(alpha, fabs(currentV[k]-vlast[k])/
 			     std::max<double>(1e-8,fabs(neighborV[k]-currentV[k])));
   }

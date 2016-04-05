@@ -2902,7 +2902,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
           }
         }
 
-        std::cout << s << " " << phi[j][lsdim]/(phi[j][lsdim]-phi[i][lsdim]) << std::endl;
+        //std::cout << s << " " << phi[j][lsdim]/(phi[j][lsdim]-phi[i][lsdim]) << std::endl;
 
 	for (int k=0; k<3; k++)
 	  iloc[k] = X[i][k]*s+X[j][k]*(1.0-s);
