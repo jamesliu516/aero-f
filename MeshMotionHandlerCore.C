@@ -2270,7 +2270,7 @@ void EmbeddedALEMeshMotionHandler::setup(DistSVec<double,3> &X, DistSVec<double,
   cs->setup(Xs, distLSS->getNumStructNodes());
   cs->applyProjector(Xdot);
 
-  delete Xs;
+  delete [] Xs;
 }
 
 //------------------------------------------------------------------------------
@@ -2320,7 +2320,7 @@ double EmbeddedALEMeshMotionHandler::update(bool *lastIt, int it, double t,
 
   }
 
-  delete Xs;
+  delete [] Xs;
 
   return dt;
 
