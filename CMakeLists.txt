@@ -79,11 +79,13 @@ if(NOT LAPACK_FOUND)
  FIND_PACKAGE(LAPACK)
 endif(NOT LAPACK_FOUND)
 IF(BLAS_LIBRARIES)
+  message("BLAS Libraries " ${BLAS_LIBRARIES} " found")
   SET(EXTRALIBRARIES ${BLAS_LIBRARIES})
 ELSE(BLAS_LIBRARIES)
   SET(EXTRALIBRARIES "")
 ENDIF(BLAS_LIBRARIES)
 IF(LAPACK_LIBRARIES)
+  message("LAPCK Libraries " ${LAPACK_LIBRARIES} " found")
   SET(EXTRALIBRARIES ${LAPACK_LIBRARIES} ${EXTRALIBRARIES})
 ENDIF(LAPACK_LIBRARIES)
 
@@ -502,6 +504,26 @@ ELSE (NOT WITH_PHYSBAM EQUAL 0)
 ENDIF (NOT WITH_PHYSBAM EQUAL 0)
 ##############################
 
+##############################
+# add ALS
+##############################
+
+include_directories( AlternatingLeastSquare AlternatingLeastSquare/include)
+
+add_library(als AlternatingLeastSquare/als_lapack.cpp AlternatingLeastSquare/als_util.cpp)
+
+target_link_libraries(als ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
+
+#find_package(MPI REQUIRED)
+#include_directories(${MPI_INCLUDE_PATH})
+target_link_libraries(als ${MPI_LIBRARIES} -lpthread)
+set_target_properties(als PROPERTIES LINK_FLAGS "${MPI_COMPILE_FLAGS}")
+set_target_properties(als PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
+
+set(EXTRALIBRARIES ${EXTRALIBRARIES} als)
+
+##############################
+
 ADD_EXECUTABLE(fluid ${MAIN_FILES} ${CMAKE_CURRENT_BINARY_DIR}/hgidentity.C)
 
 SET_TARGET_PROPERTIES(FluidBase
@@ -578,6 +600,8 @@ IF(MPI_FOUND)
   
   IF(NOT USE_SCALAPACK)
     ADD_LIBRARY(fluidlib SHARED Main.C ${CMAKE_CURRENT_BINARY_DIR}/hgidentity.C)
+    SET_TARGET_PROPERTIES(fluidlib PROPERTIES
+                          LINK_FLAGS "-Wl, -rpath=/opt/intel/composer_xe_2013.0.079/mkl/lib")
     SET_TARGET_PROPERTIES(fluidlib 
                           PROPERTIES COMPILE_FLAGS -DCREATE_DSO)
     TARGET_LINK_LIBRARIES(fluidlib FluidBase Parser FortranLib Utils 
@@ -620,12 +644,15 @@ INCLUDE_DIRECTORIES( ${INC_DIR} )
 
 add_definitions(-DTEMPLATE_FIX -DF_NEEDS_UNDSC -DTYPE_PREC=float)
 
-message( ${EXTRALIBRARIES} ${MPI_LIBRARIES} ${CMAKE_DL_LIBS})
+message( "Extra Libraries are " ${EXTRALIBRARIES} ". MPI libraries are " ${MPI_LIBRARIES} ". CMake DL libraries are " ${CMAKE_DL_LIBS})
 IF(NOT USE_SCALAPACK)
   TARGET_LINK_LIBRARIES(fluid FluidBase Parser FortranLib Utils ${EXTRALIBRARIES} ${MPI_LIBRARIES} ${CMAKE_DL_LIBS} -lpthread)
 ELSE(NOT USE_SCALAPACK)
   TARGET_LINK_LIBRARIES(fluid FluidBase Parser FortranLib FortranScalapackLib Utils ${EXTRALIBRARIES} ${MPI_LIBRARIES} ${CMAKE_DL_LIBS} -lpthread)
 ENDIF(NOT USE_SCALAPACK)
+
+#SET_TARGET_PROPERTIES(fluid PROPERTIES
+#        LINK_FLAGS "-Wl, -rpath=/opt/intel/composer_xe_2013.0.079/mkl/lib")
 
 SET_TARGET_PROPERTIES(fluid PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${BINDIR}
 	RELEASE_OUTPUT_NAME aerof.opt DEBUG_OUTPUT_NAME aerof.debug)

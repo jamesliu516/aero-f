@@ -6,7 +6,6 @@
 //------------------------------------------------------------------------------
 void startNonlinearRomOfflineSolver(Communicator *com, IoData &ioData, Domain &domain, GeoSource &geoSource)
 {
-
    if (ioData.eqs.type == EquationsData::EULER ) {
     NonlinearRomOfflineSolver<5> offlineSolver(com, ioData, domain, geoSource);
     domain.createVecPat(5, &ioData);

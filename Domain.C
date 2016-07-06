@@ -3777,6 +3777,7 @@ bool Domain::readTagFromFile(const char *prefix, int step, double *tag, int *num
     if (step >= *numSteps)  return false;
     return true;
   } else {
+    com->fprintf(stdout, "File [%s] does not exist\n", prefix);
     *numSteps = 0;
     *tag = 0;
     return false;
@@ -3811,7 +3812,39 @@ bool Domain::readVectorFromFile(const char *prefix, int step, double *tag,
 
   timer->addBinaryReadTime(t0);
 
-  com->printf(3, "Read solution %d from \'%s\'\n", step, prefix);
+  com->fprintf(stdout, "Read solution %d from \'%s\'\n", step, prefix);
+
+  return true;
+
+}
+
+
+//------------------------------------------------------------------------------
+
+template<class Scalar>
+bool Domain::readVectorFromFile(const char *prefix, int step, double *tag,
+                                DistVec<Scalar> &U, Scalar* scale)
+{
+  int neq, numSteps;
+  double t = subDomain[0]->template readTagFromFile<Scalar, 1>(prefix, step, &neq, &numSteps);
+  if (tag) *tag = t;
+  com->fprintf(stdout, "from [%s], neq = %d, numSteps = %d, step = %d\n", prefix, neq, numSteps, step);
+  if (neq != 1)
+    com->fprintf(stdout, "*** Warning: mismatch in dim for \'%s\' (%d vs 1)\n", prefix, neq);
+
+  if (step >= numSteps)
+    return false;
+
+//  com->barrier(); //For timing (of i/o) purpose.
+  double t0 = timer->getTime();
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->readVectorFromFile(prefix, step, U(iSub));
+
+  timer->addBinaryReadTime(t0);
+
+  com->fprintf(stdout, "Read solution %d from \'%s\'\n", step, prefix);
 
   return true;
 
@@ -3843,6 +3876,44 @@ void Domain::writeVectorToFile(const char *prefix, int step, double tag,
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->template writeTagToFile<Scalar,dim>(prefix, step, tag);
+
+#ifndef SYNCHRO_WRITE
+  sync();
+#endif
+
+  timer->addBinaryWriteTime(t0);
+
+  com->printf(1, "Wrote solution %d to \'%s\'\n", step, prefix);
+
+}
+
+
+//------------------------------------------------------------------------------
+
+template<class Scalar>
+void Domain::writeVectorToFile(const char *prefix, int step, double tag,
+                               DistVec<Scalar> &U, Scalar* scale)
+{
+
+  int iSub;
+
+  com->barrier(); //For timing (of i/o) purpose.
+  double t0 = timer->getTime();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->template openFileForWriting<Scalar, 1>(prefix, step);
+
+  if (step == 0)
+    com->barrier();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->writeVectorToFile(prefix, step, U(iSub), scale);
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->template writeTagToFile<Scalar, 1>(prefix, step, tag);
 
 #ifndef SYNCHRO_WRITE
   sync();

@@ -678,6 +678,11 @@ void EmbeddedTsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it
     this->output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
     this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
     this->output->writeResidualsToDisk(it, 0.0, 1.0, this->data->cfl);
+    // Lei Lei, 02/01/2015: added for embedded ROM training purpose
+    DistSVec<char, dim> temp(this->domain->getNodeDistInfo());
+    Bool2Char(distLSS->getIsActive(), temp);
+    this->output->writeStateMaskVectorsToDiskRom(it, U, temp);
+    //
     this->output->writeMaterialVolumesToDisk(it, 0.0, *this->A, &nodeTag);
     this->output->writeCPUTimingToDisk(*lastIt, it, t, this->timer);
     this->output->writeEmbeddedSurfaceToDisk(*lastIt, it, t, distLSS->getStructPosition_n(), distLSS->getStructPosition_0());
@@ -708,6 +713,13 @@ void EmbeddedTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int
   this->output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTag);
   this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTag);
   this->output->writeResidualsToDisk(it, cpu, res, this->data->cfl);
+  // Lei Lei, 02/01/2015: added for embedded ROM training purpose
+  /*
+  DistSVec<char, dim> temp(this->domain->getNodeDistInfo());
+  Bool2Char(distLSS->getIsActive(), temp);
+  this->output->writeStateMaskVectorsToDiskRom(it, U, temp);
+   */
+  //
   this->output->writeMaterialVolumesToDisk(it, t, *this->A, &nodeTag);
   this->output->writeCPUTimingToDisk(*lastIt, it, t, this->timer);
   if (*lastIt)
@@ -940,7 +952,7 @@ void EmbeddedTsDesc<dim>::computederivativeOfForceLoad(DistSVec<double,dim> *Wij
   for (int i=0; i<numStructNodes; i++) 
     dFs[i][0] = dFs[i][1] = dFs[i][2] = 0.0;
 
-  this->spaceOp->computederivativeOfForceLoad(forceApp, orderOfAccuracy, *this->X, *this->A, 
+  this->spaceOp->computederivativeOfForceLoad(forceApp, orderOfAccuracy, *this->X, *this->A,
 					      dFs, numStructNodes, distLSS, *Wij, *Wji, dV, dS,
 					      ghostPoints, this->postOp->getPostFcn(), &nodeTag);
 
@@ -1260,4 +1272,32 @@ template<int dim>
 void EmbeddedTsDesc<dim>::setCurrentTimeStep(double dt) { 
 
   currentTimeStep = dt;
+}
+
+//-------------------------------------------------------------------------------
+
+template<int dim>
+void EmbeddedTsDesc<dim>::Bool2Char(DistVec<bool> &X, DistSVec<char, dim> &Y) {
+  for(int iSub = 0; iSub < X.numLocSub(); iSub++){
+    bool *buffer = X.subData(iSub);
+    char (*res)[dim] = Y.subData(iSub);
+    for(int iNode = 0; iNode < X.subSize(iSub); iNode++){
+      for(int k = 0; k < dim; k++){
+        res[iNode][k] = buffer[iNode] ? 1 : 0;
+      }
+    }
+  }
+}
+
+//-------------------------------------------------------------------------------
+
+template<int dim>
+void EmbeddedTsDesc<dim>::writeBinaryVectorsToDiskRom(bool lastNewtonIt, int timeStep, int newtonIter,
+DistSVec<double, dim> *state, DistSVec<double, dim> *residual)
+{
+  if (newtonIter > 0) return;
+  //Lei Lei: 04 July 2016, does not capture residual during Newton Iterations for now.
+  DistSVec<char, dim> temp(this->domain->getNodeDistInfo());
+  Bool2Char(distLSS->getIsActive(), temp);
+  this->output->writeStateMaskVectorsToDiskRom(timeStep, *state, temp);
 }

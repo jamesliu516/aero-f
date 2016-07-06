@@ -94,6 +94,7 @@ private:
   char *embeddedsurfaceCf;
   char *cputiming;
   char *stateVectors;
+    char *stateMaskVectors; //<! for embdded ROM, Lei lei, 02/01/2016
   char *residualVectors;
   double tscale;
   double xscale;
@@ -237,6 +238,9 @@ public:
                                 DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
 
   void writeBinaryVectorsToDiskRom(bool, int, int, DistSVec<double,dim> *, DistSVec<double,dim> *);
+
+    //Lei Lei, 02/01/2016: only called in EmbeddedTsDesc::outputToDisk()
+    void writeStateMaskVectorsToDiskRom(int it, DistSVec<double, dim> &state, DistSVec<char, dim> &mask);
 
   void cleanProbesFile();
   

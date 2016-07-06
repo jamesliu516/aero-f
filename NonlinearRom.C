@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <sys/types.h>
 #include <sys/stat.h>
+//#include <NonlinearRom.h>
 
 using std::stable_sort;
 
@@ -904,10 +905,11 @@ int NonlinearRom<dim>::readSnapshotFiles(const char* snapType, bool preprocess) 
   // Check for snapshot command file
   char *vecFile;
   bool typeIsState = false;
-
+com->fprintf(stdout, "snapType is %s\n", snapType);
   if (strcmp(snapType, "state")==0) {
     vecFile = new char[strlen(ioData->input.prefix) + strlen(ioData->input.stateSnapFile) + 1];
     sprintf(vecFile, "%s%s", ioData->input.prefix, ioData->input.stateSnapFile);
+    com->fprintf(stdout, "[%s] + [%s] = [%s]\n", ioData->input.prefix, ioData->input.stateSnapFile, vecFile);
     typeIsState = true;
   } else if (strcmp(snapType,"sensitivity")==0) {
     vecFile = new char[strlen(ioData->input.prefix) + strlen(ioData->input.sensitivitySnapFile) + 1];
@@ -2222,11 +2224,12 @@ void NonlinearRom<dim>::outputClusteredBasis(int iCluster, int nTotSnaps, const 
   }
 
   // output vectors
-  com->fprintf(stdout, "\nWriting basis %d to disk\n", iCluster);
+  com->fprintf(stdout, "\nWriting basis %d to disk, podSize = %d\n", iCluster, podSize);
   for (int iVec=0; iVec<podSize; ++iVec) {
       domain.writeVectorToFile(basisPath, iVec, double(iVec), (*basis)[iVec] );
   }
 
+    this->com->fprintf(stdout, "ready to delete basis %p and basispath %s\n", (void *)basis, basisPath);
   delete basis;
   basis = NULL;
   delete [] basisPath;

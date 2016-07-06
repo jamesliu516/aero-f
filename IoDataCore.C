@@ -159,6 +159,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "OptimalPressure", this, &InputData::optimalPressureFile);
   new ClassToken<InputData>(ca, "OptimalPressureDimensionality", this, reinterpret_cast<int InputData::*>(&InputData::optPressureDim), 3, "NonDimensional", 0, "Dimensional", 1,"None",2);
   new ClassStr<InputData>(ca, "StateSnapshotData", this, &InputData::stateSnapFile);
+  new ClassStr<InputData>(ca, "StateMaskSnapshotData", this, &InputData::stateMaskSnapFile); // Lei Lei, March 21 2015,
   new ClassStr<InputData>(ca, "StateSnapshotReferenceSolution", this, &InputData::stateSnapRefSolution);
   new ClassStr<InputData>(ca, "MultipleStateSnapshotReferenceSolutions", this, &InputData::multiStateSnapRefSolution);
   new ClassStr<InputData>(ca, "ResidualSnapshotData", this, &InputData::residualSnapFile);
@@ -565,6 +566,7 @@ ROMOutputData::ROMOutputData()
   dFluxNorm="";
 
   stateVector = "";
+  stateMaskVector = "";
   stateOutputFreqTime = 1;
   stateOutputFreqNewton = 0;
 
@@ -599,6 +601,8 @@ void ROMOutputData::setup(const char *name, ClassAssigner *father) {
 
   new ClassStr<ROMOutputData>(ca, "FluxNormSensitivity", this, &ROMOutputData::dFluxNorm);
   new ClassStr<ROMOutputData>(ca, "StateVector", this, &ROMOutputData::stateVector);
+  new ClassStr<ROMOutputData>(ca, "StateMaskVector", this,
+                              &ROMOutputData::stateMaskVector); //<! added for embedded frameworl, Lei Lei, 02/10/2016
   new ClassInt<ROMOutputData>(ca, "StateVectorOutputFrequencyTime", this, &ROMOutputData::stateOutputFreqTime);
   new ClassInt<ROMOutputData>(ca, "StateVectorOutputFrequencyNewton", this, &ROMOutputData::stateOutputFreqNewton);
 
@@ -752,7 +756,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 5, father);
   new ClassToken<ProblemData>
     (ca, "Type", this,
-     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 42,
+     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 44,
      "Steady", 0, "Unsteady", 1, "AcceleratedUnsteady", 2, "SteadyAeroelastic", 3,
      "UnsteadyAeroelastic", 4, "AcceleratedUnsteadyAeroelastic", 5,
      "SteadyAeroThermal", 6, "UnsteadyAeroThermal", 7, "SteadyAeroThermoElastic", 8,
@@ -762,12 +766,13 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
      "ROM", 18, "ForcedLinearized", 19, "PODInterpolation", 20,
      "NonlinearEigenErrorIndicator", 21, "SparseGridGeneration", 22,
      "1D", 23, "UnsteadyNonlinearROM", 24, "NonlinearROMPreprocessing", 25,
-     "NonlinearROMSurfaceMeshConstruction",26, "SampledMeshShapeChange", 27,
+     "NonlinearROMSurfaceMeshConstruction", 26, "SampledMeshShapeChange", 27,
      "NonlinearROMPreprocessingStep1", 28, "NonlinearROMPreprocessingStep2", 29,
      "NonlinearROMPostprocessing", 30, "PODConstruction", 31, "ROBInnerProduct", 32,
-     "Aeroacoustic", 33, "SteadySensitivityAnalysis", 34, "SteadyAeroelasticSensitivityAnalysis", 35, "EigenAeroelastic", 36, 
+     "Aeroacoustic", 33, "SteadySensitivityAnalysis", 34, "SteadyAeroelasticSensitivityAnalysis", 35, "EigenAeroelastic", 36,
      "GAMConstruction", 37, "AcceleratedUnsteadyNonlinearROM", 38,
-     "SteadyNonlinearROM", 39, "ForcedNonlinearROM", 40, "RomShapeOptimization", 41);
+     "SteadyNonlinearROM", 39, "ForcedNonlinearROM", 40, "RomShapeOptimization", 41,
+     "EmbeddedALSROM"/*Lei Lei, 02/13/2016*/, 42, "EmbeddedALSonline", 43);
 
   new ClassToken<ProblemData>
     (ca, "Mode", this,
@@ -5502,13 +5507,15 @@ void IoData::resetInputValues()
       problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_STEP_1_ ||
       problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_STEP_2_ ||
       problem.alltype == ProblemData::_SURFACE_MESH_CONSTRUCTION_ || 
-      problem.alltype == ProblemData::_SAMPLE_MESH_SHAPE_CHANGE_)
+      problem.alltype == ProblemData::_SAMPLE_MESH_SHAPE_CHANGE_ ||
+          problem.alltype == ProblemData::_EMBEDDED_ALS_ROM_ /* Lei Lei, 02/17/2016 */)
     problem.type[ProblemData::NLROMOFFLINE] = true;
 
   if (problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_ ||
       problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_ ||
       problem.alltype == ProblemData::_ACC_UNSTEADY_NONLINEAR_ROM_ ||
-      problem.alltype == ProblemData::_FORCED_NONLINEAR_ROM_)
+      problem.alltype == ProblemData::_FORCED_NONLINEAR_ROM_ ||
+          problem.alltype == ProblemData::_EMBEDDED_ALS_ROM_ONLINE_ /* Lei Lei, 05/16/2016 */)
     problem.type[ProblemData::NLROMONLINE] = true;
 
 

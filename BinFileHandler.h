@@ -8,6 +8,9 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <limits.h>   // PATH_MAX
+#include <string.h>   // strdup
+#include <libgen.h>   // dirname()
 
 #define MAXLINE 500
 
@@ -46,6 +49,7 @@ private:
   int fileid;
 
   FILE *file;
+    void makepath(const char * filename);
 
 public:
 
@@ -170,6 +174,9 @@ BinFileHandler::BinFileHandler(const char *name, const char *flag, double ver) :
   file(0), fileid(0), swapBytes(0), version(ver) 
 {
 
+  // lei lei, 28 March 2016: calls mkdir() recursively if dirname(name) does not exist
+  makepath(name);
+
   int ierr = 0;
 
   if (strcmp(flag, "r") == 0) {
@@ -206,7 +213,7 @@ BinFileHandler::BinFileHandler(const char *name, const char *flag, double ver) :
   }
   
  if (ierr) {
-    fprintf(stderr, "*** Error: unable to open \'%s\'\n", name); 
+   fprintf(stderr, "*** Error: unable to open \'%s\' with flag (%s)\n", name, flag);
     exit(1);
   }
 
@@ -279,5 +286,30 @@ char *computeClusterSuffix(int num, int maxNum)
 }
 
 //------------------------------------------------------------------------------
+
+//TODO: add error handling code later
+inline
+void BinFileHandler::makepath(const char *filename) {
+  char *s = strdup(filename);
+  char *path = dirname(s);
+
+  char tmp[PATH_MAX];
+  char *p = NULL;
+  size_t len;
+
+  snprintf(tmp, sizeof(tmp), "%s", path);
+  len = strlen(tmp);
+  if (tmp[len - 1] == '/')
+    tmp[len - 1] = '\0';
+  for (p = tmp + 1; *p; p++) {
+    if (*p == '/') {
+      *p = '\0';
+      mkdir(tmp, S_IRWXU);
+      *p = '/';
+    }
+  }
+  mkdir(tmp, S_IRWXU);
+  free(s);
+}
 
 #endif

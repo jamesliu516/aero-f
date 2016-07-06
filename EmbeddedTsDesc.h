@@ -179,6 +179,9 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   void setCurrentTime(double t,DistSVec<double,dim>& U);
   void setCurrentTimeStep(double dt);
+    void Bool2Char(DistVec<bool> &X, DistSVec<char, dim> &Y); //<! Lei Lei, 24 March 2016
+    void writeBinaryVectorsToDiskRom(bool lastNewtonIt, int timeStep, int newtonIter,
+                                     DistSVec<double, dim> *state, DistSVec<double, dim> *residual); //<! Lei Lei, 04 July 2016
 };
 
 

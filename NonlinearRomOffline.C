@@ -17,6 +17,7 @@
 #include <DistTimeState.h>
 #include <PostOperator.h>
 #include <ParallelRom.h>
+#include <EmbeddedAlternatingLeastSquare.h> //<! Lei Lei, 02/13/2016
 
 
 template <int dim>
@@ -34,12 +35,29 @@ NonlinearRomOfflineSolver<dim>::NonlinearRomOfflineSolver(Communicator *_com, Io
 template <int dim>
 void NonlinearRomOfflineSolver<dim>::solve()  {
 
- // set up Timers
+ // set up Timer
  Timer *modalTimer = domain.getTimer();
  double t0;
 
 
  if (ioData->problem.alltype == ProblemData::_NONLINEAR_ROM_OFFLINE_) {
+     //Lei Lei, 04 July 2016, if (embedded) do ALS
+     if(ioData->problem.framework == ProblemData::EMBEDDED) {
+         com->fprintf(stdout, "reached  Embedded ALS ROM\n");
+         geoState = new DistGeoState(*ioData, &domain);
+         EmbeddedAlternatingLeastSquare<dim> embeddedAlternatingLeastSquare(com, *ioData, domain/*, geoState * not sure why it is needed */);
+         // offline phase, construct the basis
+         embeddedAlternatingLeastSquare.readSnapshotsFilesHelper("mask", false);
+         embeddedAlternatingLeastSquare.readSnapshotsFilesHelper("state", false);
+         com->fprintf(stderr, "... read state file successfully\n");
+         //testing
+         //embeddedAlternatingLeastSquare.testingSnapshotIO();
+         embeddedAlternatingLeastSquare.ReducedOrderBasisConstruction(40);
+         // early termination
+         modalTimer->print(this->domain.getStrTimer());
+         if (geoState) delete geoState;
+         return;
+     }
    // create file system, cluster snapshots, construct ROBs
    if (ioData->romDatabase.nClusters > 0) {
      t0 = modalTimer->getTime();
@@ -95,8 +113,22 @@ void NonlinearRomOfflineSolver<dim>::solve()  {
    geoState->setup1(tInput->positions, &Xref, &controlVol);
    ReducedMeshShapeChanger<dim> reducedMeshShapeChanger(com,*ioData,domain,geoState);
    reducedMeshShapeChanger.buildReducedModel();
+ } else if (ioData->problem.alltype == ProblemData::_EMBEDDED_ALS_ROM_) {
+     // Lei Lei, 02/13/2016
+     com->fprintf(stdout, "reached  Embedded ALS ROM\n");
+     com->fprintf(stdout, "skipped\n");
+     geoState = new DistGeoState(*ioData, &domain);
+     EmbeddedAlternatingLeastSquare<dim> embeddedAlternatingLeastSquare(com, *ioData, domain/*, geoState * not sure why it is needed */);
+     // offline phase, construct the basis
+     embeddedAlternatingLeastSquare.readSnapshotsFilesHelper("mask", false);
+     embeddedAlternatingLeastSquare.readSnapshotsFilesHelper("state", false);
+     com->fprintf(stderr, "... read state file successfully\n");
+     //testing
+     //embeddedAlternatingLeastSquare.testingSnapshotIO();
+     embeddedAlternatingLeastSquare.ReducedOrderBasisConstruction(40);
  }
-   modalTimer->print(this->domain.getStrTimer());
+
+    modalTimer->print(this->domain.getStrTimer());
 
  if (geoState) delete geoState;
 }
