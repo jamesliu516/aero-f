@@ -600,8 +600,6 @@ IF(MPI_FOUND)
   
   IF(NOT USE_SCALAPACK)
     ADD_LIBRARY(fluidlib SHARED Main.C ${CMAKE_CURRENT_BINARY_DIR}/hgidentity.C)
-    SET_TARGET_PROPERTIES(fluidlib PROPERTIES
-                          LINK_FLAGS "-Wl, -rpath=/opt/intel/composer_xe_2013.0.079/mkl/lib")
     SET_TARGET_PROPERTIES(fluidlib 
                           PROPERTIES COMPILE_FLAGS -DCREATE_DSO)
     TARGET_LINK_LIBRARIES(fluidlib FluidBase Parser FortranLib Utils 
@@ -651,8 +649,6 @@ ELSE(NOT USE_SCALAPACK)
   TARGET_LINK_LIBRARIES(fluid FluidBase Parser FortranLib FortranScalapackLib Utils ${EXTRALIBRARIES} ${MPI_LIBRARIES} ${CMAKE_DL_LIBS} -lpthread)
 ENDIF(NOT USE_SCALAPACK)
 
-#SET_TARGET_PROPERTIES(fluid PROPERTIES
-#        LINK_FLAGS "-Wl, -rpath=/opt/intel/composer_xe_2013.0.079/mkl/lib")
 
 SET_TARGET_PROPERTIES(fluid PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${BINDIR}
 	RELEASE_OUTPUT_NAME aerof.opt DEBUG_OUTPUT_NAME aerof.debug)
