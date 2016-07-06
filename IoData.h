@@ -97,6 +97,7 @@ struct InputData {
   //const char *snapRefSolutionFile; //ASCII list of snapRefSolution files
   const char *stateSnapFile;
   const char *stateSnapRefSolution;
+    const char *stateMaskSnapFile; //<! for snapshot with embedded methods, Lei Lei, 02/03/2016
   const char *multiStateSnapRefSolution;
   const char *residualSnapFile;
   const char *krylovSnapFile;
@@ -352,6 +353,8 @@ struct ROMOutputData {
   const char *dFluxNorm;
 
   const char *stateVector;
+    // lei lei, 02/01/2016: added mask vector for embedded Ts
+    const char *stateMaskVector;
   int stateOutputFreqTime;
   int stateOutputFreqNewton;
 
@@ -443,7 +446,11 @@ struct ProblemData {
                 _NONLINEAR_ROM_PREPROCESSING_STEP_2_ = 29 , _NONLINEAR_ROM_POST_ = 30, _POD_CONSTRUCTION_ = 31, 
                 _ROB_INNER_PRODUCT_ = 32, _AERO_ACOUSTIC_ = 33, _SHAPE_OPTIMIZATION_ = 34, _AEROELASTIC_SHAPE_OPTIMIZATION_ = 35,
                 _AEROELASTIC_ANALYSIS_ = 36, _GAM_CONSTRUCTION_ = 37, _ACC_UNSTEADY_NONLINEAR_ROM_ = 38,
-                _STEADY_NONLINEAR_ROM_ = 39, _FORCED_NONLINEAR_ROM_ = 40, _ROM_SHAPE_OPTIMIZATION_ = 41} alltype;
+      _STEADY_NONLINEAR_ROM_ = 39,
+      _FORCED_NONLINEAR_ROM_ = 40,
+      _ROM_SHAPE_OPTIMIZATION_ = 41,
+      _EMBEDDED_ALS_ROM_ = 42 /* Lei Lei, 02/13/2016 */,
+      _EMBEDDED_ALS_ROM_ONLINE_ = 43 /* Lei Lei, 05/15/2016 */ } alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;

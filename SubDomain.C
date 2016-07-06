@@ -5776,6 +5776,36 @@ void SubDomain::readVectorFromFile(const char *prefix, int no, int neq,
 
 //------------------------------------------------------------------------------
 
+template<class Scalar>
+void SubDomain::readVectorFromFile(const char *prefix, int no, Vec<Scalar> &U) {
+    char name[MAXLINE];
+    sprintf(name, "%s%s", prefix, suffix);
+
+    BinFileHandler file(name, "rb");
+
+    BinFileHandler::OffType unit = sizeof(Scalar);
+
+    BinFileHandler::OffType pos = 3 * sizeof(int) + sizeof(double) +
+                                  no * (sizeof(double) + numClusNodes * unit);
+
+    Scalar *data = new Scalar[U.size()];
+
+    int i, count = 0;
+    for (i = 0; i < numNodeRanges; ++i) {
+        file.seek(pos + nodeRanges[i][1] * unit);
+        file.read(data + count, nodeRanges[i][0]);
+        count += nodeRanges[i][0];
+    }
+
+    for (i = 0; i < U.size(); ++i) {
+        U[i] = data[i];
+    }
+
+    delete[] data;
+}
+
+//------------------------------------------------------------------------------
+
 template<class Scalar, int dim>
 void SubDomain::writeVectorToFile(const char *prefix, int no,
 				  SVec<Scalar,dim> &U, Scalar* scale)
@@ -5814,6 +5844,49 @@ void SubDomain::writeVectorToFile(const char *prefix, int no,
 
   if (scale)
     delete [] data;
+
+}
+
+//------------------------------------------------------------------------------
+
+template<class Scalar>
+void SubDomain::writeVectorToFile(const char *prefix, int no,
+                                  Vec<Scalar> &U, Scalar* scale)
+{
+    char name[MAXLINE];
+    sprintf(name, "%s%s", prefix, suffix);
+#ifdef SYNCHRO_WRITE
+    BinFileHandler file(name, "ws+");
+#else
+    BinFileHandler file(name, "w+");
+#endif
+
+    BinFileHandler::OffType unit =  sizeof(Scalar);
+    BinFileHandler::OffType pos = 3*sizeof(int) +
+                                  no*(sizeof(double) + numClusNodes*unit) + sizeof(double);
+
+    Scalar *data;
+    if (scale) {
+        data = new Scalar[U.size()];
+        Scalar* v = data;
+        Scalar* u = U.data();
+        for (int i=0; i<U.size(); ++i)
+            v[i] = (*scale) * u[i];
+    } else {
+        data = U.data();
+    }
+
+    int count = 0;
+    for (int i=0; i<numNodeRanges; ++i) {
+        if (nodeRanges[i][2]) {
+            file.seek(pos + nodeRanges[i][1]*unit);
+            file.write(data + count, nodeRanges[i][0]);
+        }
+        count += nodeRanges[i][0];
+    }
+
+    if (scale)
+        delete [] data;
 
 }
 

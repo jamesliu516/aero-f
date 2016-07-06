@@ -930,6 +930,8 @@ public:
   template<class Scalar, int dim>
   bool readVectorFromFile(const char *, int, double *, DistSVec<Scalar,dim> &, Scalar* = 0);
 
+	template<class Scalar>
+	bool readVectorFromFile(const char *, int, double *, DistVec<Scalar> &, Scalar* = 0); //<! for non-state vector, Lei Lei, 20 Mar 2016
 	//template<int dim>
 	//void readMultiPodBasis(const char *, VecSet< DistSVec<double, dim> > **, int *, int nBasesNeeded = 0, int *whichFiles = NULL); 	//KTC
 
@@ -952,6 +954,9 @@ public:
 
   template<class Scalar, int dim>
   void writeVectorToFile(const char *, int, double, DistSVec<Scalar,dim> &, Scalar* = 0);
+
+	template<class Scalar>
+	void writeVectorToFile(const char *, int, double, DistVec<Scalar> &, Scalar* = 0); //<! for non-state vector, Lei Lei, 03 Feb 2016
 
   template<class Scalar, int dim>
   void scaleSolution(DistSVec<Scalar,dim> &, RefVal*);

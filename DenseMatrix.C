@@ -165,6 +165,14 @@ GenFullM<Scalar>::operator*=(const Scalar c)
 }
 
 template<class Scalar>
+void GenFullM<Scalar>::operator+=(const GenFullM<Scalar> &m)
+{
+    if(this->ncolumn != m.ncolumn || this->nrow != m.nrow) return;
+    for(int i = 0; i < this->ncolumn * this->nrow; ++i)
+        this->v[i] += m[i];
+}
+
+template<class Scalar>
 GenFullM<Scalar>
 GenFullM<Scalar>::operator*(GenFullM &m)
 {

@@ -128,6 +128,7 @@ public:
   void setTimer(Timer *t) { timer = t; }
   void setMaxVerbose(int v) { maxverbose = v; }
   int getMaxVerbose() { return maxverbose; }
+    MPI_Comm getMPIComm() {return comm;} //<! Lei Lei, 24 March 2016, needed for ALS
 
   template <typename Scalar>
     friend class Communication::Window;

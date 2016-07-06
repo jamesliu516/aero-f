@@ -499,6 +499,14 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else
     conservation = 0;
 
+  // for embedded ROMs (only active in embeddedTsDesc), Lei Lei, 02/01/2016
+  if (iod.output.rom.stateMaskVector[0] != 0) {
+    stateMaskVectors = new char[sprom + strlen(iod.output.rom.stateMaskVector)];
+    sprintf(stateMaskVectors, "%s%s", iod.output.rom.prefix, iod.output.rom.stateMaskVector);
+  }
+  else
+    stateMaskVectors = 0;
+
   // for ROMs (only active for implicit time stepping)
   if (iod.output.rom.stateVector[0] != 0) {
     stateVectors = new char[sprom + strlen(iod.output.rom.stateVector)];
@@ -3712,8 +3720,25 @@ void TsOutput<dim>::writeBinaryVectorsToDiskRom(bool lastNewtonIt, int timeStep,
       }
     }
   }
-
 }
 
+/**
+ * output state and mask from a embedded full order model for training a ROM.
+ * This is called from EmbeddedTsDesc::outputToDisk(); the frequency of saving is set in
+ * IoData::RomOutputData.
+ */
+template<int dim>
+void TsOutput<dim>::writeStateMaskVectorsToDiskRom(int timestep, DistSVec<double, dim> &state, DistSVec<char, dim> &mask){
+  if (timestep == 0 || timestep % stateOutputFreqTime == 0) {
+  // use a global variable to increment it
+    int step = *(domain->getTimeIt());
+  if(stateVectors)
+      domain->writeVectorToFile(stateVectors, step, *(domain->getNewtonTag()), state);
+  // saving mask, use overloaded writeVectorToFile function
+  if(stateMaskVectors)
+      domain->writeVectorToFile(stateMaskVectors, step, *(domain->getNewtonTag()), mask);
+    ++(*(domain->getTimeIt()));
+  }
+}
 
 //------------------------------------------------------------------------------

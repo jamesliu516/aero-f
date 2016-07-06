@@ -884,8 +884,14 @@ public:
   template<class Scalar, int dim>
   void readVectorFromFile(const char *, int, int, SVec<Scalar,dim> &, Scalar *);
 
+    template<class Scalar>
+    void readVectorFromFile(const char *, int, Vec<Scalar> &); //<! for non-state vector, Lei Lei, 22 March 2016
+
   template<class Scalar, int dim>
   void writeVectorToFile(const char *, int, SVec<Scalar,dim> &, Scalar *);
+
+    template<class Scalar>
+    void writeVectorToFile(const char *, int, Vec<Scalar> &, Scalar *); //<! for non-state vector, Lei Lei, 03 Feb 2016
 
   template<int dim>
   void assignFreeStreamValues2(SVec<double,dim> &, SVec<double,dim> &,
