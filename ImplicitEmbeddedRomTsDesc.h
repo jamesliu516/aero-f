@@ -44,7 +44,7 @@ public:
     int getMaxItsNewton() { return super::getMaxItsNewtion(); };
     double getEpsNewton() { return super::getMaxItsNewtion(); };
     double getEpsAbsResNewton() { return super::getEpsAbsResNewton(); };
-    double getEpsAbsIncNewton() {return supper::getAbsIncNewton(); };
+    double getEpsAbsIncNewton() {return super::getAbsIncNewton(); };
     FILE* getOutputNewton() { return super::getOutputNewton(); };
     bool getLineSearch() { return super::getLineSearch(); };
     double getContractionLinSearch() {return super::getContractionLinSearch(); };
