@@ -3552,31 +3552,15 @@ int LocalRiemannFluidStructure<dim>::eriemannfs(double rho, double u, double p,
 
   if (!prec) {
     if(ui<u){ // rarefaction
-      /*   double power = 2*gamma/(gamma-1.0);
-	   double a = sqrt(gamma*(p+pref)/rho);
-	   double pbar = p + pref;
-	   pi = pbar*pow(0.5*(gamma-1.0)*(ui-u)/a + 1.0,power)-pref;
-	   rhoi = rho*pow((pi+pref)/(p+pref), 1.0/gamma); */
-      
-// CHF: debug : original code
-/*
-      double power = 2.0*gamma/(gamma-1.0);
+      double power = gamma/(gamma-1.0);
       double a = sqrt(gamma*(p+pref)/rho);
       double pbar = p + pref;
-      double s = 0.5*(gamma-1.0)*(ui-u)/a + 1.0;
-      pi = pbar*pow(s,power)-pref;
-      rhoi = rho*pow((pi+pref)/(p+pref), 1.0/gamma);
-*/
-// debug test - code does not crash w/this code below... from a previous revision
-// seems the pow has changed where the base used to be a guaranteed positive number to something that can be neg.
-// i don't know what effect that has on the riemann solver
-    double power = gamma/(gamma-1.0);
-    double a = sqrt(gamma*(p+pref)/rho);
-    double pbar = p + pref;
-    double dee = 0.5*(gamma-1.0)*(ui-u)/a + 1.0;
-    pi = pbar*pow(dee*dee,power)-pref;
-    rhoi = rho*pow((pi+pref)/(p+pref), 1.0/gamma);
-
+      double dee = 0.5*(gamma-1.0)*(ui-u)/a + 1.0;
+      if(dee < 0) { pi = pc; rhoi = rhoc; }
+      else {
+        pi = pbar*pow(dee,2*power)-pref;
+        rhoi = rho*pow((pi+pref)/(p+pref), 1.0/gamma);
+      }
     }
     else{ // shock
       double temp = ((gamma+1.0)*rho*(ui-u)*(ui-u))/2.0;
