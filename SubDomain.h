@@ -1701,7 +1701,7 @@ public:
                            const std::vector<Vec3D>& locs, double (*sol)[dim],
 			   int* status,int* last,int* nid,
 			   LevelSetStructure* LSS = 0, Vec<GhostPoint<dim>*>* ghostPoints = 0,
-                           VarFcn *varFcn = 0, bool assumeCache = false);
+                           VarFcn *varFcn = 0, bool assumeCache = false, Vec<int> *fluidId = 0);
   
   template<int dim>
   void interpolatePhiSolution(SVec<double,3>& X, SVec<double,dim>& U,

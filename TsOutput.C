@@ -2883,7 +2883,7 @@ void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<do
           if (scalar_file != 0) {
             fprintf(scalar_file,"%d %e ",nodal_output.step+it0, tag);
             for (int k =0 ; k < nodal_output.numNodes; ++k)
-            fprintf(scalar_file,"%e ",nodal_output.results[k]*sscale[i]);
+              fprintf(scalar_file,"%e ",nodal_output.results[k]*sscale[i]);
             fprintf(scalar_file,"\n");
             fclose(scalar_file);
           } else {

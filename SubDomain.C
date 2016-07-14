@@ -9938,7 +9938,7 @@ void SubDomain::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U,
                                     const std::vector<Vec3D>& locs, double (*sol)[dim],
                                     int* status,int* last,int* nid,
                                     LevelSetStructure* LSS, Vec<GhostPoint<dim>*>* ghostPoints,
-                                    VarFcn *varFcn, bool assumeCache) {
+                                    VarFcn *varFcn, bool assumeCache, Vec<int> *fluidId) {
 
   elems.interpolateSolution(X,U,locs,sol,status,last,LSS,ghostPoints,varFcn,
 			    assumeCache);
@@ -9957,6 +9957,16 @@ void SubDomain::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U,
         nid[i] = nn;
       }
     }
+    if(fluidId) {
+      int fid0 = (*fluidId)[E.nodeNum(0)];
+      for(int j = 1; j < E.numNodes(); ++j) {
+        if((*fluidId)[E.nodeNum(j)] != fid0) {
+          for(int k=0; k<5; ++k) sol[i][k] = 0;
+          status[i] = 0;
+          break;
+        }
+      }
+    }
   }
 }
 
@@ -9971,6 +9981,7 @@ void SubDomain::interpolatePhiSolution(SVec<double,3>& X, SVec<double,dim>& U,
 			    (Vec<GhostPoint<dim>*>*)0, NULL,
 			    assumeCache);
   for (int i = 0; i < locs.size(); ++i) {
+    if(!status[i]) continue;
     int eid = last[i],nn;
     Elem& E = elems[eid];
     double mindist = std::numeric_limits<double>::max(),dst;

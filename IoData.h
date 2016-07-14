@@ -140,7 +140,7 @@ struct InputData {
 
 struct Probes {
 
-  const static int MAXNODES = 50;
+  const static int MAXNODES = 3176;
   struct Node { 
     Node() { id = -1; locationX = locationY = locationZ = -1.0e20; subId = localNodeId = -1;
              isLocationBased = false; }
