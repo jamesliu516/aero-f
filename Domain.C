@@ -5707,3 +5707,51 @@ void Domain::setExactBoundaryJacobian(DistSVec<double,dim>& U, DistSVec<double,3
     }
   }
 }
+
+//-------------------------------------------------------------------------------
+/**   Function Domain::computeMaterailMassEnergy
+   *  Mass is the mass vector to save mass of different fluid materials
+   *  size is the numFluidPhases + 1(ghost node)
+   *  U is the conservative state variables
+   *  A is the volume of fluid control volume
+   *  fluidId is the fluid Id vector for mutiphase problem, and NULL for single phase problem
+   */
+template<int dim>
+void Domain::computeMaterialMassEnergy(double *Mass, double *Energy, int size, DistSVec<double,dim> &U, DistVec<double> &A, DistVec<int> *fluidId)
+{
+  double subMass[numLocSub][size];
+  double subEnergy[numLocSub][size];
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub) {
+    for(int i=0; i<size; i++) {
+      subMass[iSub][i] = 0.0;
+      subEnergy[iSub][i] = 0.0;
+    }
+    double *subA = A.subData(iSub);
+    double (*subU)[dim] = U.subData(iSub);
+    int *subId = fluidId ? fluidId->subData(iSub) : 0;
+    bool *subMasterFlag = A.getMasterFlag(iSub);
+
+    for(int i=0; i<A.subSize(iSub); i++) {
+      if(!subMasterFlag[i])
+        continue;
+      int myId = subId ? subId[i] : 0;
+      if(myId>=size) {
+        fprintf(stderr,"ERROR: Detected FluidId = %d. Maximum should be %d (or less). \n", myId, size-1);
+        exit(-1);
+      }
+      //subU[i][0] is the density
+      subMass[iSub][myId] += subA[i]*subU[i][0];
+      subEnergy[iSub][myId] += subA[i]*subU[i][4];
+    }
+  }
+
+  for(int iSub=0; iSub<numLocSub; ++iSub)
+    for(int i=0; i<size; i++) {
+      Mass[i] += subMass[iSub][i];
+      Energy[i] += subEnergy[iSub][i];
+    }
+
+  com->globalSum(size, Mass);
+  com->globalSum(size, Energy);
+}

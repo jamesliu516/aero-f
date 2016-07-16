@@ -478,6 +478,13 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else
     material_volumes = 0;
 
+  if (iod.output.transient.materialMassEnergy[0] != 0) {
+    material_mass_energy = new char[sp + strlen(iod.output.transient.materialMassEnergy)];
+    sprintf(material_mass_energy, "%s%s", iod.output.transient.prefix, iod.output.transient.materialMassEnergy);
+  }
+  else
+    material_mass_energy = 0;
+
   if (iod.output.transient.embeddedsurface[0] != 0) {
     embeddedsurface = new char[sp + strlen(iod.output.transient.embeddedsurface)];
     sprintf(embeddedsurface, "%s%s", iod.output.transient.prefix, iod.output.transient.embeddedsurface); 
@@ -1655,6 +1662,29 @@ void TsOutput<dim>::openAsciiFiles()
     fflush(fpMatVolumes);
   }
 
+  if (material_mass_energy) {
+    if (it0 != 0)
+      fpMaterialMassEnergy = backupAsciiFile(material_mass_energy);
+    if (it0 == 0 || fpMaterialMassEnergy == 0) {
+      fpMaterialMassEnergy = fopen(material_mass_energy, "w");
+      if (!fpMaterialMassEnergy) {
+        fprintf(stderr, "*** Error: could not open \'%s\'\n", material_mass_energy);
+        exit(1);
+      }
+      fprintf(fpMaterialMassEnergy, "# TimeIteration ElapsedTime ");
+      for(int i=0; i<numFluidPhases; i++)
+        fprintf(fpMaterialMassEnergy, "Mass[FluidID==%d] Energy[FluidId==%d]", i,i);
+      fprintf(fpMaterialMassEnergy, "Mass[FluidID==%d(GhostSolid)] Energy[FluidID==%d(GhostSolid)] TotalVolume\n", numFluidPhases, numFluidPhases);
+    }
+    fflush(fpMaterialMassEnergy);
+  }
+
+
+
+
+
+
+
   if (embeddedsurface) {
     if (it0 != 0)
       fpEmbeddedSurface = backupAsciiFile(embeddedsurface);
@@ -2558,6 +2588,65 @@ void TsOutput<dim>::writeMaterialVolumesToDisk(int it, double t, DistVec<double>
   fflush(fpMatVolumes);
 
 }
+
+
+
+//------------------------------------------------------------------------------
+/** Function writeMaterialMassEnergyToDisk
+   *  U is the conservative state variables
+   *  A is the volume of fluid control volume
+   *  fluidId is the fluid Id vector for mutiphase problem, and NULL for single phase problem
+   */
+template<int dim>
+void TsOutput<dim>::writeMaterialMassEnergyToDisk(int it, double t,DistSVec<double,dim> & U,  DistVec<double> &A, DistVec<int> *fluidId)
+{
+  if(!material_mass_energy)
+    return;
+
+  int myLength = numFluidPhases + 1/*ghost*/;
+  double Mass[myLength];
+  double Energy[myLength];
+
+  for(int i=0; i<myLength; i++) {
+    Mass[i] = 0.0;
+    Energy[i] = 0.0;
+  }
+
+  domain->computeMaterialMassEnergy(Mass,Energy, myLength,U, A,fluidId); //computes Mass
+
+  if (com->cpuNum() !=0 ) return;
+
+
+  double massScale   = length*length*length*refVal->density;
+  double energyScale = length*length*length*refVal->energy;
+
+  for(int i=0; i<myLength; i++) {
+    Mass[i] *= massScale; //dimensionalize
+    Energy[i] *= energyScale;
+  }
+
+
+
+  fprintf(fpMaterialMassEnergy, "%d %e ", it, (refVal->time)*t);
+
+  for(int i=0; i<numFluidPhases+1; i++) {
+    fprintf(fpMaterialMassEnergy, "%15.10E %15.10E ", Mass[i], Energy[i]);
+  }
+
+
+
+  double totMass = 0.0;
+  double totEnergy = 0.0;
+  for(int i=0; i<myLength; i++) {
+    totMass += Mass[i];
+    totEnergy += Energy[i];
+  }
+  fprintf(fpMaterialMassEnergy, "%15.10E %15.10E\n", totMass,totEnergy);
+
+  fflush(fpMaterialMassEnergy);
+
+}
+
 
 //------------------------------------------------------------------------------
 

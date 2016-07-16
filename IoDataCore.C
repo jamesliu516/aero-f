@@ -377,6 +377,7 @@ TransientData::TransientData()
   matchpressure = "";
   fluxnorm = "";
   materialVolumes = "";
+  materialMassEnergy = "";
   conservation = "";
   podFile = "";
   romFile = "";
@@ -498,6 +499,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "TavLiftandDrag", this, &TransientData::tavlift);
   new ClassStr<TransientData>(ca, "Residual", this, &TransientData::residuals);
   new ClassStr<TransientData>(ca, "MaterialVolumes", this, &TransientData::materialVolumes);
+  new ClassStr<TransientData>(ca, "MaterialMassEnergy", this, &TransientData::materialMassEnergy);
   new ClassInt<TransientData>(ca, "Frequency", this, &TransientData::frequency);
   new ClassDouble<TransientData>(ca, "TimeInterval", this, &TransientData::frequency_dt);
   new ClassDouble<TransientData>(ca, "Length", this, &TransientData::length);

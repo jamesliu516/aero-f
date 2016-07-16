@@ -246,6 +246,7 @@ struct TransientData {
   const char *hydrodynamiclift;
   const char *residuals;
   const char *materialVolumes;
+  const char *materialMassEnergy;
   const char *conservation;
   const char *podFile;
   const char *robProductFile;
