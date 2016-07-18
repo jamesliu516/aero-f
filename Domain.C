@@ -72,7 +72,7 @@ void Domain::computeTimeStep(double cfl, double dualtimecfl, double viscous, Fem
       //   idtimev[i] = idtimev[i] / volume[i];
       dtime[i] = cfl *volume[i]/(-1.0*idtimei[i] + viscous*idtimev[i]);
       dualtime[i] = dualtimecfl *volume[i]/(-1.0*idtimei[i] + viscous*idtimev[i]);
-      ireynolds[i] = -sprec.getViscousRatio()*idtimev[i] / idtimei[i];
+      ireynolds[i] = abs(-sprec.getViscousRatio()*idtimev[i] / idtimei[i]);
     }
   }
 
@@ -5488,13 +5488,13 @@ void Domain::communicateMesh(std::vector <Scalar> * nodeOrEle, int arraySize,
 			else
 				nodeOrEleArray[iNeighbor] = 0;
 		}
-
 		com->globalSum(totalNodeOrEle,nodeOrEleArray);
 
 		// fill in the array with all global entries
 		nodeOrEle[iArraySize].clear();
+                nodeOrEle[iArraySize].resize(totalNodeOrEle,0.0);
 		for (int iNeighbor = 0; iNeighbor < totalNodeOrEle; ++iNeighbor) 
-			nodeOrEle[iArraySize].push_back(nodeOrEleArray[iNeighbor]);
+			nodeOrEle[iArraySize][iNeighbor]=nodeOrEleArray[iNeighbor];
 
 		delete [] nodeOrEleArray;
 		

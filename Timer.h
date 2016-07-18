@@ -13,15 +13,15 @@ class Timer {
 		setup, run, total, fluid, nodalWeights, nodalGrad, fvTerm, feTerm, fvJac,
 		feJac, vms, dvms, h2Assembly, fluidPrecSetup, fluidKsp, meshMetrics,
 		structUpd, mesh, meshAssembly, meshPrecSetup, meshKsp, podConstr,
-		snapsLinSolv, padeReconstr, correlMatrix, eigSolv, residual, restriction,
+		snapsLinSolv, padeReconstr, correlMatrix, eigSolv, aj, jacEvaluate, jacApply, residual, restriction,
 		solutionIncrement, linearSystemForm, linearSystemSolve, checkConvergence, gramSchmidt, romSol,
 		romConstr, romTimeInteg, comm, localCom, globalCom, interCom, rmaCom, io,
 		binread, binwrite, levelSet, lsNodalWeightsAndGrad, lsFvTerm,
 		lsKsp,lsPrecSetup,lsJac, waitrec, timeStep, intersect, embedPhaseChange,
 		eulerFSI, embedforce, walldistance, lsreinitialization, readSnapshotFile,
 		clustering, pod, distCalcsPrepro, exactUpdatesPrepro, projError, mds, 	
-		approxUpdatesPrepro, surfaceMeshConstruction, surfaceOutput, sampledMeshConstruction, sampledOutput, pseudoInv,
-                gnatOffline, romOffline, NUMTIMINGS
+		approxMetricPrepro, surfaceMeshConstruction, surfaceOutput, sampledMeshConstruction, sampledOutput, pseudoInv,
+                gappyOffline, romOffline, icInterp, NUMTIMINGS
   };
 
   int numTimings;
@@ -63,6 +63,7 @@ public:
   double addMeshMetricsTime(double);
   double addEmbeddedForceTime(double);
   double addStructUpdTime(double);
+  double addICInterpTime(double);
   double addMeshSolutionTime(double);
   double addMeshAssemblyTime(double);
   double addMeshPrecSetupTime(double);
@@ -74,6 +75,9 @@ public:
   double addPadeReconstrTime(double);
   double addCorrelMatrixTime(double);
   double addEigSolvTime(double);
+  double addAJTime(double);
+  double addJacEvaluateTime(double);
+  double addJacApplyTime(double);
   double addResidualTime(double);
   double addRestrictionTime(double);
   double addSolutionIncrementTime(double);
@@ -116,13 +120,13 @@ public:
   double addExactUpdatesPreproTime(double);
   double addProjErrorTime(double);
   double addMDSTime(double);
-  double addApproxUpdatesPreproTime(double);
+  double addApproxMetricPreproTime(double);
   double addSampledMeshConstructionTime(double);
   double addSampledOutputTime(double);
   double addSurfaceMeshConstructionTime(double);
   double addSurfaceOutputTime(double);
   double addPseudoInvTime(double);
-  double addTotalGnatOfflineTime(double);
+  double addTotalGappyOfflineTime(double);
   double addTotalOfflineTime(double);
 
   void print(Timer *, FILE * = stdout);

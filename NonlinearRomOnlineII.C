@@ -17,9 +17,11 @@ extern "C"      {
 }
 
 template<int dim> 
-NonlinearRomOnlineII<dim>::NonlinearRomOnlineII(Communicator* _com, IoData& _ioData, Domain& _domain)  : 
+NonlinearRomOnlineII<dim>::NonlinearRomOnlineII(Communicator* _com, IoData& _ioData, Domain& _domain, std::vector<double>* _weights)  : 
   NonlinearRom<dim>(_com, _ioData, _domain)
 { 
+  if (_weights)
+    this->interpWeightsForMultiIC = *_weights;
 
   // this->ioData->example, this->com->example, this->domain.example
 
@@ -48,10 +50,16 @@ NonlinearRomOnlineII<dim>::~NonlinearRomOnlineII()
 template<int dim>
 void NonlinearRomOnlineII<dim>::readClosestCenterInfoModelII() {
 
+  if (this->nClusters == 1) return;
+
   if (this->ioData->romOnline.distanceComparisons) {
     switch (this->ioData->romOnline.basisUpdates) {
       case (NonlinearRomOnlineData::UPDATES_OFF):
-        this->readDistanceComparisonInfo("noUpdates");
+        if (this->ioData->romOnline.projectSwitchStateOntoAffineSubspace!=NonlinearRomOnlineData::PROJECT_OFF) {
+          this->readDistanceComparisonInfo("project");
+        } else {
+          this->readDistanceComparisonInfo("noUpdates");
+        }
         break;
       case (NonlinearRomOnlineData::UPDATES_SIMPLE):
         this->com->fprintf(stderr, "*** Error: fast distance comparisons are incompatible with simple ROB updates (use Exact)\n");
@@ -1006,7 +1014,7 @@ void NonlinearRomOnlineII<dim>::appendVectorToBasis(DistSVec<double,dim> &vec, i
 //-------------------------------------------------------------------
 
 template<int dim>
-void NonlinearRomOnlineII<dim>::projectSwitchStateOntoAffineSubspace(int iCluster, DistSVec<double, dim> &U) {
+void NonlinearRomOnlineII<dim>::projectSwitchStateOntoAffineSubspace(int iCluster, int prevCluster, DistSVec<double, dim> &U, Vec<double> &UromCurrentROB) {
 
   this->com->fprintf(stdout, " ... projecting switch state onto affine subspace\n");
 
@@ -1017,15 +1025,15 @@ void NonlinearRomOnlineII<dim>::projectSwitchStateOntoAffineSubspace(int iCluste
   
   // result = basis^T * dif  
   int nPodVecs = this->basis->numVectors();
-  Vec<double> tmpReducedVec(nPodVecs);
+  UromCurrentROB.resize(nPodVecs);
   for (int iVec = 0; iVec < nPodVecs; iVec++)
-    tmpReducedVec[iVec] = (*(this->basis))[iVec] * dif;
+    UromCurrentROB[iVec] = (*(this->basis))[iVec] * dif;
 
   // result = basis * result 
   DistSVec<double, dim> projectedDif(this->domain.getNodeDistInfo());
   projectedDif = 0;
   for (int iVec = 0; iVec < nPodVecs; iVec++)
-    projectedDif += tmpReducedVec[iVec] * (*(this->basis))[iVec];
+    projectedDif += UromCurrentROB[iVec] * (*(this->basis))[iVec];
 
   // give the user an idea of how significant the projection is...
   dif = dif - projectedDif; // zero if U-Uref is contained in the basis
@@ -1035,6 +1043,6 @@ void NonlinearRomOnlineII<dim>::projectSwitchStateOntoAffineSubspace(int iCluste
   U = *(this->Uref) + projectedDif;
 
 
-
+  
 }
 

@@ -10,12 +10,17 @@
 #include <ImplicitPGTsDesc.h>
 //#include <ImplicitGalerkinTsDesc.h>
 #include <ImplicitGnatTsDesc.h>
+#include <ImplicitCollocationTsDesc.h>
+#include <ImplicitMetricTsDesc.h>
 #include <ImplicitRomPostproTsDesc.h>
 #include <MultiGridSolver.h>
 #include <MultiGridCoupledTsDesc.h>
 #include <FluidShapeOptimizationHandler.h>
 #include <FluidRomShapeOptimizationHandler.h>  // MZ
 #include <ImplicitEmbeddedRomTsDesc.h>          // Lei Lei
+#include <FluidGnatShapeOptimizationHandler.h>  // MZ
+#include <FluidMetricShapeOptimizationHandler.h>  // MZ
+#include <FluidCollocationShapeOptimizationHandler.h>  // MZ
 
 template<int dim>
 void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain &domain)
@@ -36,22 +41,49 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
       tsSolver.fsisoSolve(ioData);
   }
   else if (ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) { // MZ
+    if (ioData.romOnline.projection == NonlinearRomOnlineData::PETROV_GALERKIN && ioData.romOnline.systemApproximation == NonlinearRomOnlineData::SYSTEM_APPROXIMATION_NONE) {
       FluidRomShapeOptimizationHandler<dim> fsoh(ioData, geoSource, &domain);
       TsSolver<FluidRomShapeOptimizationHandler<dim> > tsSolver(&fsoh);
       tsSolver.fsoSolve(ioData);
+    } else if (ioData.romOnline.projection == NonlinearRomOnlineData::PETROV_GALERKIN && ioData.romOnline.systemApproximation == NonlinearRomOnlineData::GNAT) {
+      FluidGnatShapeOptimizationHandler<dim> fsoh(ioData, geoSource, &domain);
+      TsSolver<FluidGnatShapeOptimizationHandler<dim> > tsSolver(&fsoh);
+      tsSolver.fsoSolve(ioData);
+    } else if (ioData.romOnline.projection == NonlinearRomOnlineData::PETROV_GALERKIN && ioData.romOnline.systemApproximation == NonlinearRomOnlineData::COLLOCATION) {
+      FluidCollocationShapeOptimizationHandler<dim> fsoh(ioData, geoSource, &domain);
+      TsSolver<FluidCollocationShapeOptimizationHandler<dim> > tsSolver(&fsoh);
+      tsSolver.fsoSolve(ioData);
+    } else if (ioData.romOnline.projection == NonlinearRomOnlineData::PETROV_GALERKIN && ioData.romOnline.systemApproximation == NonlinearRomOnlineData::APPROX_METRIC_NL) {
+      FluidMetricShapeOptimizationHandler<dim> fsoh(ioData, geoSource, &domain);
+      TsSolver<FluidMetricShapeOptimizationHandler<dim> > tsSolver(&fsoh);
+      tsSolver.fsoSolve(ioData);
+    } else {
+      com->fprintf(stderr, "*** Error: this system approximation method is not currently supported forROM Shape optimization\n");
+      exit(-1);
+    }
   }
   else if ((ioData.problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_) || 
            (ioData.problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_) ||
            (ioData.problem.alltype == ProblemData::_ACC_UNSTEADY_NONLINEAR_ROM_) ||
            (ioData.problem.alltype == ProblemData::_FORCED_NONLINEAR_ROM_)) {
-    if (ioData.romOnline.projection == 0 && ioData.romOnline.systemApproximation == 0) { 
+    if (ioData.romOnline.projection == 0 && ioData.romOnline.systemApproximation == NonlinearRomOnlineData::SYSTEM_APPROXIMATION_NONE) { 
         ImplicitPGTsDesc<dim> tsDesc(ioData, geoSource, &domain);
         TsSolver<ImplicitPGTsDesc<dim> > tsSolver(&tsDesc);
         tsSolver.solve(ioData);
     }
-			else if (ioData.romOnline.projection == 0 && ioData.romOnline.systemApproximation == 1) {
+    else if (ioData.romOnline.projection == 0 && ioData.romOnline.systemApproximation == NonlinearRomOnlineData::GNAT) {
         ImplicitGnatTsDesc<dim> tsDesc(ioData, geoSource, &domain);
         TsSolver<ImplicitGnatTsDesc<dim> > tsSolver(&tsDesc);
+        tsSolver.solve(ioData);
+    }
+    else if (ioData.romOnline.projection == 0 && ioData.romOnline.systemApproximation == NonlinearRomOnlineData::COLLOCATION) {
+        ImplicitCollocationTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+        TsSolver<ImplicitCollocationTsDesc<dim> > tsSolver(&tsDesc);
+        tsSolver.solve(ioData);
+    }
+    else if (ioData.romOnline.projection == 0 && ioData.romOnline.systemApproximation == NonlinearRomOnlineData::APPROX_METRIC_NL) {
+        ImplicitMetricTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+        TsSolver<ImplicitMetricTsDesc<dim> > tsSolver(&tsDesc);
         tsSolver.solve(ioData);
     }
 			/*else if (ioData.rom.projection == 1 && ioData.rom.systemApproximation == 0) {
@@ -67,7 +99,8 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
       TsSolver<ImplicitEmbeddedRomTsDesc<dim> > tsSolver(&tsDesc);
       tsSolver.solve(ioData);
   }
-  else if (ioData.problem.alltype == ProblemData::_NONLINEAR_ROM_POST_) {
+  else if (ioData.problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_POST_ ||
+           ioData.problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_POST_) {
       ImplicitRomPostproTsDesc <dim> tsDesc(ioData, geoSource, &domain);
       TsSolver<ImplicitRomPostproTsDesc<dim> > tsSolver(&tsDesc);
       tsSolver.solve(ioData);

@@ -187,7 +187,7 @@ void Face::numberEdges(EdgeSet &edges)
     edgeNum(j) = edges.find(nodeNum( edgeEnd(j,0) ), nodeNum( edgeEnd(j,1) ));
 
   if (edges.size() != numEdges) {
-    fprintf(stderr, "*** Error: could not find face egdes\n");
+    fprintf(stderr, "*** Error: could not find face edges\n");
     exit(1);
   }
 

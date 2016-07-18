@@ -1469,36 +1469,48 @@ void FluidShapeOptimizationHandler<dim>::fsoSetUpLinearSolver(IoData &ioData, Di
 {
 
 // Preparing the linear solver
-
+  this->com->fprintf(stderr, "\n\n Entering fsoSetupLinearSolver \n\n");
   fsoRestartBcFluxs(ioData);
 
+  this->com->fprintf(stderr, "\n\n HERE0 \n\n");
   this->geoState->reset(X);
 
+  this->com->fprintf(stderr, "\n\n HERE1 \n\n");
   this->geoState->compute(this->timeState->getData(), this->bcData->getVelocityVector(), X, A);
 
+  this->com->fprintf(stderr, "\n\n HERE2 \n\n");
   this->bcData->update(X);
 
+  this->com->fprintf(stderr, "\n\n HERE3 \n\n");
   this->spaceOp->computeResidual(X, A, U, FluxFD, this->timeState);
 
+  this->com->fprintf(stderr, "\n\n HERE4 \n\n");
   if (ioData.sa.homotopy == SensitivityAnalysis::ON_HOMOTOPY)
     this->timeState->add_dAW_dt(1, *this->geoState, A, U, FluxFD);
 
+  this->com->fprintf(stderr, "\n\n HERE5 \n\n");
   this->spaceOp->applyBCsToResidual(U, FluxFD);
 
+  this->com->fprintf(stderr, "\n\n HERE6 \n\n");
   mvp->evaluate(0, X, A, U, FluxFD);
 
+  this->com->fprintf(stderr, "\n\n HERE7 \n\n");
   DistMat<PrecScalar,dim> *_pc = dynamic_cast<DistMat<PrecScalar,dim> *>(pc);
 
   if (_pc) {
 
+  this->com->fprintf(stderr, "\n\n HERE8 \n\n");
     MatVecProdFD<dim,dim> *mvpfd = dynamic_cast<MatVecProdFD<dim,dim> *>(mvp);
     MatVecProdH2<dim,MatScalar,dim> *mvph2 = dynamic_cast<MatVecProdH2<dim,MatScalar,dim> *>(mvp);
 
+  this->com->fprintf(stderr, "\n\n HERE9 \n\n");
     if (mvpfd || mvph2) 
     {
       this->spaceOp->computeJacobian(X, A, U, *_pc, this->timeState);
+      this->com->fprintf(stderr, "\n\n HERE10 \n\n");
       if (ioData.sa.homotopy == SensitivityAnalysis::ON_HOMOTOPY)
         this->timeState->addToJacobian(A, *_pc, U);
+      this->com->fprintf(stderr, "\n\n HERE11 \n\n");
       this->spaceOp->applyBCsToJacobian(U, *_pc);
     }
 
@@ -1508,6 +1520,8 @@ void FluidShapeOptimizationHandler<dim>::fsoSetUpLinearSolver(IoData &ioData, Di
 
   // Computing flux for compatibility correction of the derivative of the flux   
   this->spaceOp->computeResidual(X, A, U, Flux, this->timeState, false);
+  this->com->fprintf(stderr, "\n\n Exiting fsoSetupLinearSolver \n\n");
+  this->com->fprintf(stderr, "\n\n HERE0 \n\n");
 
 }
 
@@ -1942,27 +1956,34 @@ void FluidShapeOptimizationHandler<dim>::fso_on_sensitivityMesh(bool isSparse, I
 
     while (true) {
 
-      // Reading derivative of the overall deformation
-      bool readOK = domain->readVectorFromFile(this->input->shapederivatives, step, &tag, dXdSb); 
-      if(!readOK) break;
+      if ( ioData.input.shapederivativesType == InputData::WALL) {
+        // Reading derivative of the overall deformation
+        bool readOK = domain->readVectorFromFile(this->input->shapederivatives, step, &tag, dXdSb); 
+        if(!readOK) break;
 
-      // Checking if dXdSb has entries different from zero at the interior of the mesh
-      this->postOp->checkVec(dXdSb);
+        // Checking if dXdSb has entries different from zero at the interior of the mesh
+        this->postOp->checkVec(dXdSb);
 
       if (dXdSb.norm() == 0.0) {
-        this->com->fprintf(stderr, "\n *** WARNING *** No Mesh Perturbation \n\n");
-        if(!ioData.sa.fsiFlag) exit(1);
+          this->com->fprintf(stderr, "\n *** WARNING *** No Mesh Perturbation \n\n");
+          if(!ioData.sa.fsiFlag) exit(1);
+        }
+
+
+        // Updating the mesh
+        dXdS = *this->X;
+        mms->solve(dXdSb, dXdS);
+        dXdS -= *this->X;
+      } else if ( ioData.input.shapederivativesType == InputData::VOLUME) {
+        // Reading derivative of the overall deformation
+        bool readOK = domain->readVectorFromFile(this->input->shapederivatives, step, &tag, dXdS); 
+        if(!readOK) break;
       }
-
-      this->com->fprintf(stderr, "\n ***** Shape variable %d\n", step);
-
-      // Updating the mesh
-      dXdS = *this->X;
-      mms->solve(dXdSb, dXdS);
-      dXdS -= *this->X;
 
       // Check that the mesh perturbation is propagated
       if (dXdS.norm() == 0.0) this->com->fprintf(stderr, "\n !!! WARNING !!! No Mesh Sensitivity Perturbation !!!\n\n");
+
+      this->com->fprintf(stderr, "\n ***** Shape variable %d\n", step);
 
       fsoComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U, false, isSparse);
       fsoComputeSensitivities(isSparse, ioData, "Derivatives with respect to the mesh position:", ioData.sa.sensoutput, *this->X, U);

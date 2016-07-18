@@ -22,8 +22,13 @@ void transMatVecProd (const VecSet< DistSVec<double, dim> > &matrix, const
 
 	int iSub;
 
-	double *totalAllRes = reinterpret_cast<double *>(alloca(sizeof(double) *
-				distInfo.numGlobSub * numVec));
+        bool useStack = ((distInfo.numGlobSub * numVec)<5000) ? true : false;
+        double *totalAllRes;
+        if (useStack) {   
+	  totalAllRes = reinterpret_cast<double *>(alloca(sizeof(double) * distInfo.numGlobSub * numVec));
+        } else {
+          totalAllRes = new double[distInfo.numGlobSub * numVec];
+        }
 
 	for (int iVec = 0; iVec < numVec; ++iVec) {
 
@@ -106,6 +111,8 @@ void transMatVecProd (const VecSet< DistSVec<double, dim> > &matrix, const
 	}
 #endif
 
+        if (!useStack) delete [] totalAllRes;
+
 }
 
 template <int dim>
@@ -124,8 +131,13 @@ void transMatVecProdRestrict(const VecSet< DistSVec<double, dim> > &matrix, cons
 
 	int iSub, i;
 
-	double *totalAllRes = reinterpret_cast<double *>(alloca(sizeof(double) *
-				distInfo.numGlobSub * numVec));
+        bool useStack = ((distInfo.numGlobSub * numVec)<5000) ? true : false;
+        double *totalAllRes;
+        if (useStack) {
+          totalAllRes = reinterpret_cast<double *>(alloca(sizeof(double) * distInfo.numGlobSub * numVec));
+        } else {
+          totalAllRes = new double[distInfo.numGlobSub * numVec];
+        }
 
 	for (int iVec = 0; iVec < numVec; ++iVec) {
 
@@ -209,6 +221,7 @@ void transMatVecProdRestrict(const VecSet< DistSVec<double, dim> > &matrix, cons
 		}
 	}
 #endif
+        if (!useStack) delete [] totalAllRes;
 
 }
 template <int dim>
@@ -226,8 +239,14 @@ void transMatMatProd (const VecSet< DistSVec<double, dim> > &matrix1,
 
 	int iSub;
 
-	double *totalAllRes = reinterpret_cast<double *>(alloca(sizeof(double) *
-				distInfo.numGlobSub * numVec1 * numVec2));
+        bool useStack = ((distInfo.numGlobSub * numVec1 * numVec2)<5000) ? true : false;
+        double *totalAllRes;
+        if (useStack) {
+          totalAllRes = reinterpret_cast<double *>(alloca(sizeof(double) * distInfo.numGlobSub * numVec1 * numVec2));
+        } else {
+          totalAllRes = new double[distInfo.numGlobSub * numVec1 * numVec2];
+        }
+
 
 	for (int iVec1 = 0; iVec1 < numVec1; ++iVec1) {
 		for (int iVec2 = 0; iVec2 < numVec2; ++iVec2) {
@@ -316,7 +335,7 @@ void transMatMatProd (const VecSet< DistSVec<double, dim> > &matrix1,
 		}
 	}
 #endif
-
+        if (!useStack) delete [] totalAllRes;
 }
 
 template <int dim>
@@ -339,8 +358,15 @@ void transMatMatProdRestrict(const VecSet< DistSVec<double, dim> > &matrix1,
 
 	int iSub;
 
-	double *totalAllRes = reinterpret_cast<double *>(alloca(sizeof(double) *
-				numGlobSub * numVec1 * numVec2));
+
+        bool useStack = ((distInfo.numGlobSub * numVec1 * numVec2)<5000) ? true : false;
+        double *totalAllRes;
+        if (useStack) {
+          totalAllRes = reinterpret_cast<double *>(alloca(sizeof(double) * distInfo.numGlobSub * numVec1 * numVec2));
+        } else {
+          totalAllRes = new double[distInfo.numGlobSub * numVec1 * numVec2];
+        }
+
 
 	for (int iVec1 = 0; iVec1 < numVec1; ++iVec1) {
 		for (int iVec2 = 0; iVec2 < numVec2; ++iVec2) {
@@ -431,6 +457,7 @@ void transMatMatProdRestrict(const VecSet< DistSVec<double, dim> > &matrix1,
 		}
 	}
 #endif
+        if (!useStack) delete [] totalAllRes;
 
 }
 #endif

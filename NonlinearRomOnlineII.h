@@ -11,14 +11,15 @@ class NonlinearRomOnlineII : public NonlinearRom<dim> {
 
   public:
 
-  NonlinearRomOnlineII(Communicator *, IoData &, Domain &);
+  NonlinearRomOnlineII(Communicator *_com, IoData &_ioData, Domain &_domain,
+                       std::vector<double>* _weights=NULL);
   ~NonlinearRomOnlineII();
 
   bool updateBasis(int, DistSVec<double, dim> &, Vec<double>* coords = NULL);
   bool updateBasisSimple(int, DistSVec<double, dim> &);
   bool updateBasisFastExact(int, DistSVec<double, dim> &, Vec<double>*);
   bool updateBasisFastApprox(int, DistSVec<double, dim> &);
-  void projectSwitchStateOntoAffineSubspace(int, DistSVec<double, dim> &);
+  void projectSwitchStateOntoAffineSubspace(int, int, DistSVec<double, dim> &, Vec<double> &);
 
   void appendNonStateDataToBasis(int, const char *, bool relProjError = false); 
   void readClusteredOnlineQuantities(int);

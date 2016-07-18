@@ -15,6 +15,8 @@
 #include <Timer.h>
 #include <alloca.h>
 #include <DistExactRiemannSolver.h>
+//#include <RBFInterpND.h>
+//#include <r8lib.h>
 
 extern int interruptCode;
 
@@ -68,13 +70,25 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
        ioData.problem.type[ProblemData::FORCED] ||
        ioData.problem.type[ProblemData::ROLL] ||
        ioData.problem.type[ProblemData::RBM] ||
-        ioData.problem.alltype==ProblemData::_STEADY_)) {
-    geoState->setup1(input->positions, X, A);
-    moveMesh(ioData, geoSource);
+       ioData.problem.alltype==ProblemData::_STEADY_)) {
+    if (strcmp(input->displacements,"")!=0 && strcmp(input->positions,"")==0) {  
+      // read initial displacement of full mesh
+      geoState->setupInitialDisplacement(input->displacements, X, A); 
+      mems = 0;
+    } else {
+      geoState->setup1(input->positions, X, A);
+      moveMesh(ioData, geoSource);
+    }
   } else {
-    char temp[1]; temp[0] = '\0';
-    geoState->setup1(temp, X, A);
-    moveMesh(ioData, geoSource);
+    if (strcmp(input->displacements,"")!=0 && strcmp(input->positions,"")==0) {  
+      // read initial displacement of full mesh
+      geoState->setupInitialDisplacement(input->displacements, X, A);
+      mems = 0;
+    } else {
+      char temp[1]; temp[0] = '\0';
+      geoState->setup1(temp, X, A);
+      moveMesh(ioData, geoSource);
+    }
   }
   bcData = createBcData(ioData);
 
@@ -114,6 +128,9 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   mmh = 0; 
 
   isMultigridTsDesc = false;
+  outputOnlySpatialResidualBool = ioData.output.rom.outputOnlySpatialResidual==ROMOutputData::OUTPUT_ONLY_SPATIAL_RES_ON;
+   
+  interpolatedICWeights.clear();
 }
 
 //------------------------------------------------------------------------------
@@ -379,9 +396,9 @@ void TsDesc<dim>::evaluateFluxAtMultipleSolutions(IoData &iod, char* best_soln)
 {
   com->fprintf(stderr," ... In TsDesc<dim>::evaluateFluxAtMultipleSolutions ...\n");
 
-  FILE *inFP = fopen(input->multisolutions,"r");
+  FILE *inFP = fopen(input->multiSolutions,"r");
   if (!inFP)  {
-    com->fprintf(stderr, "*** Error: No solution data FILES in %s\n", input->multisolutions);
+    com->fprintf(stderr, "*** Error: No solution data FILES in %s\n", input->multiSolutions);
     exit (-1);
   }
   int nData, _n;
@@ -436,6 +453,179 @@ void TsDesc<dim>::evaluateFluxAtMultipleSolutions(IoData &iod, char* best_soln)
     }
   }
 }
+//------------------------------------------------------------------------------
+template<int dim>
+void TsDesc<dim>::formInterpolationWeights(IoData &iod) {
+
+  com->fprintf(stdout, " ... determining the initial condition via interpolation of the solutions from %s\n", iod.input.multiSolutionsParams);
+
+  // read file, store solutions and parameters
+  FILE *paramsFile = fopen(iod.input.multiSolutionsParams,"r");
+  if (!paramsFile)  {
+    com->fprintf(stderr, "*** Error: No solution data FILES in %s\n", iod.input.multiSolutionsParams);
+    exit (-1);
+  }
+  int nData, _n, nParams;
+  _n = fscanf(paramsFile, "%d",&nData);
+  com->fprintf(stdout, " ... forming interpolated initial condition from %d precomputed states\n",nData);
+  _n = fscanf(paramsFile, "%d",&nParams);
+  com->fprintf(stdout, " ... %d-dimensional parameter space\n",nParams);
+  std::vector<std::vector<double> > solutionsParameters;
+  solutionsParameters.resize(nData);
+
+  char solnFile[500];
+  for (int iData=0; iData < nData; ++iData) {
+    // skip solution name
+    _n = fscanf(paramsFile, "%s", solnFile);
+    // read parameters
+    solutionsParameters[iData].resize(nParams);
+    for (int iParam=0; iParam < nParams; ++iParam) {
+      _n = fscanf(paramsFile, "%lf", &(solutionsParameters[iData][iParam]));
+      //com->fprintf(stdout," ... param #%d = %e\n",iParam,solutionsParameters[iData][iParam]);
+    } 
+  }
+  fclose(paramsFile);
+
+  // read parameters for current simulation
+  std::vector<double> parameters;
+  parameters.resize(nParams);
+
+  FILE *inParams = fopen(iod.input.parameters,"r");
+  if (!inParams)  {
+    com->fprintf(stderr, "*** Error: could not open parameter file (%s)\n", iod.input.parameters);
+    exit (-1);
+  }
+  int tmpNParams;
+  _n = fscanf(inParams, "%d",&tmpNParams);
+  if (tmpNParams!=nParams) {
+    com->fprintf(stderr, "*** Error: mismatch in number of parameters (%d vs %d)\n",nParams, tmpNParams);
+    exit(-1);
+  }
+
+  com->fprintf(stdout,"\n");
+  for (int iParam=0; iParam < nParams; ++iParam) {
+    _n = fscanf(inParams, "%lf", &(parameters[iParam]));
+    com->fprintf(stdout," ... current operating point: param #%d = %e\n",iParam,parameters[iParam]);
+  }
+
+  // determine weighting
+  // strategy: use a convex combination of the (primitive) states, with interpolatedICWeights proportional to
+  //           the inverse of the distance btw. training parameters and current operating point
+  com->fprintf(stdout, " ... calculating interpolation weights for initial condition\n");
+  std::vector<double> distances;
+  distances.resize(nData);
+  double distanceExponent = iod.input.parametricDistanceExponent;
+  if (distanceExponent!=1.0) {
+    com->fprintf(stdout, " ... using exponent of %e for all distances\n", distanceExponent);
+  }
+  int maxInterpolatedSolutions = iod.input.maxInterpolatedSolutions;
+  if (maxInterpolatedSolutions>=0) {
+    com->fprintf(stdout, " ... using only the %d nearest solutions for interpolation\n", maxInterpolatedSolutions);
+  }
+
+  int reproductiveOperatingPoint = -1;
+  for (int iData=0; iData<nData; ++iData) {
+    distances[iData] = 0.0;
+    for (int iParam=0; iParam < nParams; ++iParam) {
+      distances[iData] += pow(parameters[iParam] - solutionsParameters[iData][iParam],2.0);
+    }
+    distances[iData] = pow(distances[iData],distanceExponent/2.0);
+    //distances[iData] = pow(distances[iData],0.5); //use squared distances
+    if (distances[iData] <= 1e-10) {
+      if (reproductiveOperatingPoint>=0) {
+        com->fprintf(stderr, "*** ERROR: More than one training solution matches the current operating point... exiting.\n");
+        exit(-1);
+      }
+      reproductiveOperatingPoint = iData;
+    }
+  }
+
+  
+  if (maxInterpolatedSolutions>0 && maxInterpolatedSolutions<nData) {
+    std::vector<double> sortedDistances(distances);
+    std::stable_sort(sortedDistances.begin(), sortedDistances.end());
+    int count = nData;
+    for (int iData=0; iData<nData; ++iData) {
+      if (distances[iData] > sortedDistances[maxInterpolatedSolutions-1]) {
+        --count;
+        distances[iData] = 1e16;
+      }
+    }
+    if (count != maxInterpolatedSolutions)
+      com->fprintf(stderr, "*** Warning: using %d interpolated solutions instead of %d\n", count, maxInterpolatedSolutions);
+  }
+
+  interpolatedICWeights.resize(nData, 0.0);
+
+  if (reproductiveOperatingPoint<0) {  
+    //rbf_interp_nd_test04( ); // can use radial basis functions if necessary
+    double weightSum = 0.0;
+    for (int iData=0; iData<nData; ++iData) {
+      interpolatedICWeights[iData] = 1.0/distances[iData];
+      weightSum += interpolatedICWeights[iData];
+    }
+    for (int iData=0; iData<nData; ++iData) {
+      interpolatedICWeights[iData] = interpolatedICWeights[iData]/weightSum;
+    } 
+  } else {
+    com->fprintf(stdout, " ... using the training solution corresponding to the current operating point...\n");
+    interpolatedICWeights[reproductiveOperatingPoint]=1.0;
+  }
+  for (int iData=0; iData<nData; ++iData) {
+    com->fprintf(stdout, " ... weight[%d]=%e...\n", iData, interpolatedICWeights[iData]);
+  }
+
+  //this->setInterpWeightsForMultiIC(interpolatedICWeights);
+
+ }
+
+//------------------------------------------------------------------------------
+template<int dim>
+void TsDesc<dim>::formInterpolatedInitialCondition(DistSVec<double,dim> *U, IoData &iod)  {
+  // overloaded for ImplicitGnatTsDesc, which needs to handle this a bit differently
+
+  com->fprintf(stdout, " ... entering formInterpolatedIC, reading %s\n", iod.input.multiSolutionsParams);
+  FILE *paramsFile = fopen(iod.input.multiSolutionsParams,"r");
+  if (!paramsFile)  {
+    com->fprintf(stderr, "*** Error: No solution data FILES in %s\n", iod.input.multiSolutionsParams);
+    exit (-1);
+  }
+  int nData, _n, nParams;
+  double tmp;
+  _n = fscanf(paramsFile, "%d", &nData);
+  _n = fscanf(paramsFile, "%d", &nParams);
+  com->fprintf(stdout, " ... reading %d solutions for interpolation (%d params)\n", nData, nParams);
+
+  char solnFile[500];
+  DistSVec<double,dim> Utmp(domain->getNodeDistInfo());
+  *U = 0.0;
+  for (int iData=0; iData < nData; ++iData) {
+    // read solution
+    _n = fscanf(paramsFile, "%s", solnFile);
+    domain->readVectorFromFile(solnFile, 0, 0, Utmp);
+    // add this vector's contribution to U
+    *U += interpolatedICWeights[iData]*Utmp;
+    // skip through parameters
+    for (int iParam=0; iParam < nParams; ++iParam) {
+      _n = fscanf(paramsFile, "%lf", &tmp);
+    }
+  }
+  fclose(paramsFile);
+
+ // DistSVec<double,dim> Vtmp(domain->getNodeDistInfo());
+ // DistSVec<double,dim> V(domain->getNodeDistInfo());
+ // U = weighted sum of solutions in primitive variables (to avoid negative pressure issues)
+ // V = 0.0;
+ // for (int iData=0; iData<nData; ++iData) {
+ //   // add this vector's contribution to U
+ //   _n = fscanf(inFP, "%s", solnFile);
+ //   domain->readVectorFromFile(solnFile, 0, 0, Utmp);
+ //   varFcn->conservativeToPrimitive(Utmp, Vtmp);
+ //   V += interpolatedICWeights[iData]*Vtmp;
+ // }
+ // varFcn->primitiveToConservative(V, *U);
+
+}
 
 //------------------------------------------------------------------------------
 template<int dim>
@@ -444,17 +634,24 @@ void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
   char * name = new char[500];
 
   geoState->setup2(timeState->getData());
-//  com->fprintf(stderr," input->solutions = %s\n",input->solutions);
-//  com->fprintf(stderr," input->multisolutions = %s\n",input->multisolutions);
-  if ( iod.input.solutions[0] == 0 && iod.input.multisolutions[0] != 0){
-//     com->fprintf(stderr," INSIDE IF STATEMENT \n");
-     evaluateFluxAtMultipleSolutions(iod,name);
-  } else {
-//     com->fprintf(stderr," INSIDE ELSE STATEMENT \n");
-     strcpy(name,input->solutions);
+  if (iod.input.solutions[0] == 0 && iod.input.multiSolutionsParams[0] != 0) { 
+    // interpolate stored solutions to find an appropriate initial condition
+    double icInterpTime = timer->getTime();
+    if (interpolatedICWeights.size()==0) formInterpolationWeights(iod); 
+    this->formInterpolatedInitialCondition(U, iod);// modifies U
+    timer->addICInterpTime(icInterpTime);
+    timeState->setup("", *X, *U, *U, iod); // pass modified U instead of Ufarfield, name=NULL ensures this state is used
+  } else if ( iod.input.solutions[0] == 0 && iod.input.multiSolutions[0] != 0 && iod.problem.solveWithMultipleICs) {
+    // U has already been set to the appropriate initial condition (in TsSolver)
+    timeState->setup("", *X, *U, *U, iod);
+  } else { // initial condition will be read from a file
+     if ( iod.input.solutions[0] == 0 && iod.input.multiSolutions[0] != 0){
+       evaluateFluxAtMultipleSolutions(iod,name);
+     } else {
+       strcpy(name,input->solutions);
+     }
+    timeState->setup(name, *X, bcData->getInletBoundaryVector(), *U, iod);
   }
-  timeState->setup(name, *X, bcData->getInletBoundaryVector(), *U, iod);
-  //timeState->setup(input->solutions, *X, bcData->getInletBoundaryVector(), *U, iod);
 
   AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(mmh);
   DeformingMeshMotionHandler* _dmmh = dynamic_cast<DeformingMeshMotionHandler*>(mmh);
@@ -778,6 +975,7 @@ void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double
 
     output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
     output->writeMatchPressureToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, *A, U, timeState);
+    output->writeMatchStateToDisk(ioData, it, 0.0, 0.0, U, *A);
     output->writeFluxNormToDisk(it, 0, 0, t, fluxNorm);
     output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
     output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
@@ -811,6 +1009,7 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
 
   output->writeLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
   output->writeMatchPressureToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, *A, U, timeState);
+  output->writeMatchStateToDisk(ioData, it, t, cpu, U, *A);
   output->writeFluxNormToDisk(it, itSc, itNl, t, fluxNorm);
   output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
   output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
@@ -1310,10 +1509,17 @@ void TsDesc<dim>::computeConvergenceInformation(IoData &ioData, const char* file
 //----------------------------------------------------------------------------
 
 template<int dim>
-void TsDesc<dim>::performPostProForState(DistSVec<double,dim> &outVec)
+void TsDesc<dim>::performPostProForState(DistSVec<double,dim> &outVec, int tmpIt)
 { // public function that performs post processing on a state vector. Used during Nonlinear ROM preprocessing
   bool tmpLastIt = false;
-  int tmpIt = 0;
-  double tempT = 0.0;
-  output->writeBinaryVectorsToDisk(tmpLastIt, tmpIt, tempT, *X, *A, outVec, timeState);
+  output->writeBinaryVectorsToDisk(tmpLastIt, tmpIt, double(tmpIt), *X, *A, outVec, timeState);
 }
+
+//----------------------------------------------------------------------------
+
+template<int dim>
+void TsDesc<dim>::readICFromDisk(char * solnFile, int iData, int nData, DistSVec<double,dim> &U) {
+    com->fprintf(stdout,"\n\n\nInitial condition %d of %d (%s)\n", iData+1, nData, solnFile);
+    domain->readVectorFromFile(solnFile, 0, 0, U);
+}
+

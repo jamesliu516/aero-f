@@ -91,7 +91,15 @@ public:
   void primitiveToConservativeDerivative(DistSVec<double,dim> &V, DistSVec<double,dim> &dV, DistSVec<double,dim> &U, DistSVec<double,dim> &dU, DistVec<int> *tag = 0);
   template<int dim>
   void computeTemperature(DistSVec<double,dim> &V, DistVec<double> &T, DistVec<int> *tag = 0);
-
+  // For weighting the ROM residual...
+  template<int dim>
+  DistSVec<double,dim>* computeScalingVec(IoData &iod, DistSVec<double,dim> &U, DistSVec<double,dim> *F=NULL);
+  template<int dim>
+  DistSVec<double,dim>* computeEnergyWeightVec(IoData &iod, DistSVec<double,dim> &U);
+  template<int dim>
+  DistSVec<double,dim>* computeBalancedWeightVec(IoData &iod, DistSVec<double,dim> &U, DistSVec<double,dim> *F=NULL);
+  double weights[7];
+ 
   /* Non-Distributed Operators */
   template<int dim>
   void conservativeToPrimitive(SVec<double,dim> &U, SVec<double,dim> &V, Vec<int> *tag = 0);
@@ -325,6 +333,9 @@ VarFcn::VarFcn(IoData &iod)
   gravity[2] = iod.eqs.gravity_z;
   gravity_norm = sqrt(gravity[0]*gravity[0]+gravity[1]*gravity[1]+gravity[2]*gravity[2]);
   depth = iod.bc.hydro.depth;
+
+  weights[0] = -1;
+
 }  
   
 //------------------------------------------------------------------------------
@@ -670,5 +681,128 @@ void VarFcn::computeTemperature(DistSVec<double,dim> &V, DistVec<double> &T, Dis
   }
 }
 
+
 //------------------------------------------------------------------------------
+
+template<int dim>
+DistSVec<double,dim>* VarFcn::computeScalingVec(IoData &iod, DistSVec<double,dim> &U, DistSVec<double,dim> *F) {
+ 
+  if (iod.romOnline.residualScaling == NonlinearRomOnlineData::SCALING_BALANCED) {
+    return computeBalancedWeightVec(iod,U,F);
+  } else if (iod.romOnline.residualScaling == NonlinearRomOnlineData::SCALING_ENERGY) { 
+    return computeEnergyWeightVec(iod,U);
+  } else {
+    fprintf(stderr, " *** ERROR unexpected scaling type encountered in VarFcn::computeScalingVec");
+    exit(-1);
+  }
+
+}
+
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+DistSVec<double,dim>* VarFcn::computeEnergyWeightVec(IoData &iod, DistSVec<double,dim> &U) {
+
+  // Computes a weighting vector for the residual that gives all equations an energy interpretation
+  // Useful for ROMs (hopefully), where the weighting of the residual determines the converged solution.
+
+  if (this->getType() != VarFcnBase::PERFECTGAS) {
+    fprintf(stderr, " *** ERROR: computeEnergyWeightVec is only implemented for perfect gas currently");
+    exit(-1);
+  }
+
+  DistSVec<double, dim>* energyWeightVec = new DistSVec<double, dim>(U);
+  DistSVec<double, dim> V(U);
+  this->conservativeToPrimitive(U,V);
+  double density_rv  = iod.ref.rv.density;
+  double velocity_rv = iod.ref.rv.velocity;
+  double pressure_rv = iod.ref.rv.pressure;
+  double momentum_rv = density_rv * velocity_rv;
+  double viscosity_rv = iod.ref.rv.viscosity_mu / iod.ref.rv.density;
+  double gamma = this->getGamma();
+  double eddyLengthScale = iod.romOnline.eddyLengthScale;
+  double Vff = 0.0;
+  if ( iod.bc.inlet.velocity>0 || iod.bc.outlet.velocity>0 ) {
+    double Voutlet = iod.bc.outlet.velocity * iod.ref.rv.velocity;
+    double Vinlet = iod.bc.inlet.velocity * iod.ref.rv.velocity;
+    Vff = (Vinlet>Voutlet) ? Vinlet : Voutlet;
+  } else {
+    double Voutlet2 = pow(iod.bc.outlet.mach,2)*(gamma*iod.bc.outlet.pressure*iod.ref.rv.pressure/(iod.bc.outlet.density*iod.ref.rv.density));
+    double Vinlet2 = pow(iod.bc.inlet.mach,2)*(gamma*iod.bc.inlet.pressure*iod.ref.rv.pressure/(iod.bc.inlet.density*iod.ref.rv.density));
+    double Vff2 = (Vinlet2>Voutlet2) ? Vinlet2 : Voutlet2;
+    Vff = pow(Vff2,0.5);
+  }
+#pragma omp parallel for
+  for (int iSub=0; iSub<U.numLocSub(); ++iSub) {
+    double (*u)[dim] = U.subData(iSub);
+    double (*v)[dim] = V.subData(iSub);
+    double (*ewv)[dim] = energyWeightVec->subData(iSub);
+    for (int i=0; i<U.subSize(iSub); ++i) {
+      double velocitySquared = (v[i][1]*v[i][1] + v[i][2]*v[i][2] + v[i][3]*v[i][3])*velocity_rv*velocity_rv;
+      double energy = (v[i][4]*pressure_rv)/(gamma-1) + (0.5*v[i][0]*density_rv*velocitySquared);
+      double energy_rv = energy/(u[i][4]/v[i][0]/density_rv);
+      ewv[i][0] = density_rv  * energy;
+      ewv[i][1] = 0.25 * momentum_rv * (v[i][1] * velocity_rv);
+      ewv[i][2] = 0.25 * momentum_rv * (v[i][2] * velocity_rv);
+      ewv[i][3] = 0.25 * momentum_rv * (v[i][3] * velocity_rv);
+      ewv[i][4] = energy_rv;
+      if (dim==6) {
+        ewv[i][5] = (u[i][5]>1e-14) ? viscosity_rv*0.5*pow(pow(Vff,3)/(0.09*eddyLengthScale*u[i][5]*viscosity_rv),0.5) : abs(u[i][5]);
+      } else {
+        for (int j=5; j<dim; ++j) { // for the time being just de-emphasize the turbulence equations
+          ewv[i][j] = iod.romOnline.turbulenceWeight;
+        }
+      }
+    }
+  }
+  return energyWeightVec;
+
+}
+//------------------------------------------------------------------------------
+
+template<int dim>
+DistSVec<double,dim>* VarFcn::computeBalancedWeightVec(IoData &iod, DistSVec<double,dim> &U, DistSVec<double,dim> *F) {
+
+  // Computes a weighting vector for the residual that gives all equations equal priority
+  // Useful for ROMs (hopefully), where the weighting of the residual determines the converged solution.
+
+
+  double (*iDimMask)[dim] = new double[U.info().totLen][dim];
+  if (weights[0]==-1) {
+    for (int iDim=0; iDim<dim; ++iDim) {
+      for (int iNode=0; iNode<U.info().totLen; ++iNode) {
+        for (int jDim=0; jDim<dim; ++jDim) {
+          iDimMask[iNode][jDim] = 0.0;
+        }
+        iDimMask[iNode][iDim] = 1.0;
+      }
+      DistSVec<double, dim> iDimMaskedRes(U.info(), iDimMask);
+      iDimMaskedRes *= *F;
+      double norm = iDimMaskedRes.norm();
+      weights[iDim] = (norm>1e-14) ? 1/iDimMaskedRes.norm() : 1.0;
+    }
+  }
+
+  DistSVec<double, dim>* balancedWeightVec = new DistSVec<double, dim>(U.info());
+  for (int iNode=0; iNode<U.info().totLen; ++iNode) {
+    for (int iDim=0; iDim<dim; ++iDim) {
+      balancedWeightVec->v[iNode][iDim] = weights[iDim];
+      iDimMask[iNode][iDim] = weights[iDim];
+    }
+  }
+
+  fprintf(stderr, "balancedWeightVec.norm() = %e\n", balancedWeightVec->norm());
+
+  DistSVec<double, dim> tmp(U.info(), iDimMask);
+  fprintf(stderr, "tmp.norm() = %e\n", tmp.norm());
+
+
+  delete [] iDimMask;
+
+  return balancedWeightVec;
+}
+
+//------------------------------------------------------------------------------
+
 #endif

@@ -223,7 +223,7 @@ ADD_LIBRARY(FluidBase
              GeoData.C 
              GeoSource.C 
              GeoState.C 
-             GnatPreprocessingCore.C
+             GappyPreprocessingCore.C
              HeatTransferHandlerCore.C 
              ImplicitRiemann.C
              InletNodeCore.C 
@@ -281,6 +281,8 @@ ADD_LIBRARY(FluidBase
              KirchhoffIntegrator.C
              TriangulatedInterface.C
 	     LevelSet/MultiGridLevelSetStructure.C
+            # RadialBasisFunction/r8lib.C
+            # RadialBasisFunction/RBFInterpND.C
             )
 
 ADD_LIBRARY(Utils utils/Predicate.C utils/Laguerre.C)
@@ -572,7 +574,11 @@ f77src/roejacwaterdissprim.f
 f77src/roeflux7.f
 f77src/torsionspring.f
 f77src/dgecp.f
-f77src/dgers.f)
+f77src/dgers.f
+f77src/diff.f
+f77src/g1.f
+f77src/h12.f
+f77src/spnnls.f)
 
 SET_TARGET_PROPERTIES(FortranLib
                       PROPERTIES

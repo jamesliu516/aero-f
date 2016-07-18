@@ -9,10 +9,11 @@ class IoData;
 
 struct TsInput {
   char *solutions;
-  char *multisolutions;
+  char *multiSolutions;
   char *positions;
   char *levelsets;
   char *podFile;
+  char *displacements;
 //  char *snapFile;
 //  char *snapRefSolutionFile;
 

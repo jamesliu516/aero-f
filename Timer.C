@@ -346,6 +346,20 @@ double Timer::addStructUpdTime(double t0)
 }
 
 //------------------------------------------------------------------------------
+                                                                                                                             
+double Timer::addICInterpTime(double t0)
+{
+
+  double t = getTime() - t0;
+
+  counter[icInterp]++;
+  data[icInterp] += t;
+
+  return t;
+
+}
+
+//------------------------------------------------------------------------------
 
 double Timer::addFluidSolutionTime(double t0)
 {
@@ -497,6 +511,51 @@ double Timer::addEigSolvTime(double t0)
   return t;
 
 }
+
+//------------------------------------------------------------------------------
+
+double Timer::addAJTime(double t0)
+{
+
+  double t = getTime() - t0;
+
+  counter[aj]++;
+  data[aj] += t;
+
+  return t;
+
+}
+
+
+//------------------------------------------------------------------------------
+
+double Timer::addJacEvaluateTime(double t0)
+{
+
+  double t = getTime() - t0;
+
+  counter[jacEvaluate]++;
+  data[jacEvaluate] += t;
+
+  return t;
+
+}
+
+
+//------------------------------------------------------------------------------
+
+double Timer::addJacApplyTime(double t0)
+{
+
+  double t = getTime() - t0;
+
+  counter[jacApply]++;
+  data[jacApply] += t;
+
+  return t;
+
+}
+
 
 //------------------------------------------------------------------------------
 
@@ -956,10 +1015,10 @@ double Timer::addMDSTime(double t0) {
 
 //------------------------------------------------------------------------------
                 
-double Timer::addApproxUpdatesPreproTime(double t0) {
+double Timer::addApproxMetricPreproTime(double t0) {
                 
   double t = getTime() - t0;
-  data[approxUpdatesPrepro] += t;
+  data[approxMetricPrepro] += t;
 
   return t;
 
@@ -1023,10 +1082,10 @@ double Timer::addPseudoInvTime(double t0) {
 
 //------------------------------------------------------------------------------
                 
-double Timer::addTotalGnatOfflineTime(double t0) {
+double Timer::addTotalGappyOfflineTime(double t0) {
                 
   double t = getTime() - t0;
-  data[gnatOffline] += t;
+  data[gappyOffline] += t;
 
   return t;
 
@@ -1133,9 +1192,13 @@ void Timer::print(Timer *str, FILE *fp)
 	       counter[meshMetrics]);
   if (ioData->problem.alltype == ProblemData::_UNSTEADY_LINEARIZED_AEROELASTIC_)  {
     com->fprintf(fp, "  Structural Update           : %10.2f %10.2f %10.2f %9d\n",
-               tmin[structUpd], tmax[structUpd], tavg[structUpd],
-               counter[structUpd]);
+               tmin[structUpd], tmax[structUpd], tavg[structUpd], counter[structUpd]);
   }
+  if (ioData->input.multiSolutionsParams[0] != 0)  {
+    com->fprintf(fp, "  Interpolated IC             : %10.2f %10.2f %10.2f %9d\n",
+               tmin[icInterp], tmax[icInterp], tavg[icInterp], counter[icInterp]);
+  }
+
   if(ioData->problem.framework == ProblemData::EMBEDDED || ioData->problem.framework == ProblemData::EMBEDDEDALE) {
     if (ioData->eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY) {
       if (ioData->eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
@@ -1153,23 +1216,23 @@ void Timer::print(Timer *str, FILE *fp)
       (ioData->problem.alltype == ProblemData::_ACC_UNSTEADY_NONLINEAR_ROM_ ) ||
       (ioData->problem.alltype == ProblemData::_FORCED_NONLINEAR_ROM_ ))  {
     com->fprintf(fp, "  Residual evaluation         : %10.2f %10.2f %10.2f %9d\n",
-              tmin[residual], tmax[residual], tavg[residual],
-							counter[residual]);
+              tmin[residual], tmax[residual], tavg[residual], counter[residual]);
+    com->fprintf(fp, "  Action of Jacobian on ROB   : %10.2f %10.2f %10.2f %9d\n",
+              tmin[aj], tmax[aj], tavg[aj], counter[aj]);
+    com->fprintf(fp, "    Jacobian evaluation       : %10.2f %10.2f %10.2f %9d\n",
+              tmin[jacEvaluate], tmax[jacEvaluate], tavg[jacEvaluate], counter[jacEvaluate]);
+    com->fprintf(fp, "    Jacobian vector product   : %10.2f %10.2f %10.2f %9d\n",
+              tmin[jacApply], tmax[jacApply], tavg[jacApply], counter[jacApply]);
     com->fprintf(fp, "  Solution increment          : %10.2f %10.2f %10.2f %9d\n",
-              tmin[solutionIncrement], tmax[solutionIncrement], tavg[solutionIncrement],
-							counter[solutionIncrement]);
+              tmin[solutionIncrement], tmax[solutionIncrement], tavg[solutionIncrement], counter[solutionIncrement]);
     com->fprintf(fp, "  Linear system form          : %10.2f %10.2f %10.2f %9d\n",
-              tmin[linearSystemForm], tmax[linearSystemForm], tavg[linearSystemForm],
-							counter[linearSystemForm]);
+              tmin[linearSystemForm], tmax[linearSystemForm], tavg[linearSystemForm], counter[linearSystemForm]);
     com->fprintf(fp, "  Linear system solve         : %10.2f %10.2f %10.2f %9d\n",
-              tmin[linearSystemSolve], tmax[linearSystemSolve], tavg[linearSystemSolve],
-							counter[linearSystemSolve]);
+              tmin[linearSystemSolve], tmax[linearSystemSolve], tavg[linearSystemSolve], counter[linearSystemSolve]);
     com->fprintf(fp, "  Restriction                 : %10.2f %10.2f %10.2f %9d\n",
-              tmin[restriction], tmax[restriction], tavg[restriction],
-							counter[restriction]);
+              tmin[restriction], tmax[restriction], tavg[restriction], counter[restriction]);
     com->fprintf(fp, "  Check convergence           : %10.2f %10.2f %10.2f %9d\n",
-              tmin[checkConvergence], tmax[checkConvergence], tavg[checkConvergence],
-							counter[checkConvergence]);
+              tmin[checkConvergence], tmax[checkConvergence], tavg[checkConvergence], counter[checkConvergence]);
 	}
 
   // Output Mesh solution time (except for Euler FSI)
@@ -1230,10 +1293,10 @@ void Timer::print(Timer *str, FILE *fp)
                tmin[projError], tmax[projError], tavg[projError]);
     com->fprintf(fp, "  Multi-Dimensional Scaling   : %10.2f %10.2f %10.2f         -\n",
                tmin[mds], tmax[mds], tavg[mds]);
-    com->fprintf(fp, "  Offline GNAT Prepro         : %10.2f %10.2f %10.2f         -\n",
-               tmin[gnatOffline], tmax[gnatOffline], tavg[gnatOffline]);
-    com->fprintf(fp, "    Fast Approx Updates Prepro: %10.2f %10.2f %10.2f         -\n",
-               tmin[approxUpdatesPrepro], tmax[approxUpdatesPrepro], tavg[approxUpdatesPrepro]);
+    com->fprintf(fp, "  Offline Gappy Prepro        : %10.2f %10.2f %10.2f         -\n",
+               tmin[gappyOffline], tmax[gappyOffline], tavg[gappyOffline]);
+    com->fprintf(fp, "    Approx Metric Prepro      : %10.2f %10.2f %10.2f         -\n",
+               tmin[approxMetricPrepro], tmax[approxMetricPrepro], tavg[approxMetricPrepro]);
     com->fprintf(fp, "    Sampled Mesh Construction : %10.2f %10.2f %10.2f         -\n",
                tmin[sampledMeshConstruction], tmax[sampledMeshConstruction], tavg[sampledMeshConstruction]);
     com->fprintf(fp, "    Sampled Quantity Output   : %10.2f %10.2f %10.2f         -\n",
@@ -1252,7 +1315,7 @@ void Timer::print(Timer *str, FILE *fp)
     com->fprintf(fp, "  Snapshot Linear Solver      : %10.2f %10.2f %10.2f %9d\n",
                tmin[snapsLinSolv], tmax[snapsLinSolv], tavg[snapsLinSolv], counter[snapsLinSolv]);
     if (ioData->linearizedData.padeReconst == LinearizedData::TRUE) {
-      com->fprintf(fp, "  Pade Reconstruction       : %10.2f %10.2f %10.2f %9d\n",
+    com->fprintf(fp, "  Pade Reconstruction         : %10.2f %10.2f %10.2f %9d\n",
                tmin[padeReconstr], tmax[padeReconstr], tavg[padeReconstr], counter[padeReconstr]);
     }
     com->fprintf(fp, "  Correlation Matrix          : %10.2f %10.2f %10.2f %9d\n",

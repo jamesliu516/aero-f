@@ -942,3 +942,80 @@ void DistGeoState::writeToDisk(char *name)  {
 }
 
 //------------------------------------------------------------------------------
+
+void DistGeoState::setupInitialDisplacement(const char *name, DistSVec<double,3> *X, DistVec<double> *ctrlVol)
+{
+
+  if (!data.use_n) {
+    Xn = X->alias();
+    ctrlVol_n = ctrlVol->alias();
+  } 
+  if (!data.use_nm1) {
+    Xnm1 = Xn->alias();
+    ctrlVol_nm1 = ctrlVol_n->alias();
+  } 
+  if (!data.use_nm2) {
+    Xnm2 = Xnm1->alias();
+    ctrlVol_nm2 = ctrlVol_nm1->alias();
+  } 
+
+  bool read_n = false;
+  bool read_nm1 = false;
+  bool read_nm2 = false;
+
+  DistSVec<double,3> refPosition(domain->getNodeDistInfo());
+
+  // use relative displacements rather than absolute positions.
+  com->printf(2,"Note: Assuming that InitialDisplacement vector uses the same dimensions as the mesh.\n"
+                " ... Non-Dimensionalizing InitialDisplacement vector by %e\n", lscale);
+
+
+  oolscale = (1.0/lscale); // one over lscale
+  domain->getReferenceMeshPosition(refPosition);
+  read_n = domain->readVectorFromFile(name, 0, 0, *Xn, &oolscale);
+  double tmp = Xn->norm();
+  double tmp2 = refPosition.norm();
+  *Xn = *Xn + refPosition;
+  com->printf(2,"... disp = %e, orig = %e, new = %e, diff = %e\n", tmp, tmp2, Xn->norm(), Xn->norm()-tmp2);
+
+  if (data.use_nm1) {
+    read_nm1 = domain->readVectorFromFile(name, 1, 0, *Xnm1, &oolscale);
+    if (read_nm1) {
+      *Xnm1 = *Xnm1+refPosition;
+    } else {
+      *Xnm1 = *Xn ;
+    }
+  }
+  if (data.use_nm2) {
+    read_nm2 = domain->readVectorFromFile(name, 2, 0, *Xnm2, &oolscale);
+    if (read_nm2) {
+      *Xnm2 = *Xnm2+refPosition;
+    } else {
+      *Xnm2 = *Xnm1 ;
+    }
+  } 
+
+  data.config = 0;
+    
+  int ierr = domain->computeControlVolumes(lscale, *Xn, *ctrlVol_n);
+  if (data.use_nm1)
+    ierr = domain->computeControlVolumes(lscale, *Xnm1, *ctrlVol_nm1);
+  if (data.use_nm2)
+    ierr = domain->computeControlVolumes(lscale, *Xnm2, *ctrlVol_nm2);
+
+  *X = *Xn;
+  *ctrlVol = *ctrlVol_n;
+
+  double bbMin[3], bbMax[3];
+  X->min(bbMin); X->max(bbMax);
+
+  com->printf(2, 
+	      "Control volume statistics: min=%.12e, max=%.12e, total=%.12e\n"
+	      "Mesh bounding box: (Xmin,Ymin,Zmin) = (%.3e %.3e %.3e)\n"
+	      "                   (Xmax,Ymax,Zmax) = (%.3e %.3e %.3e)\n",
+	      ctrlVol_n->min(), ctrlVol_n->max(), ctrlVol_n->sum(),
+              bbMin[0], bbMin[1], bbMin[2], bbMax[0], bbMax[1], bbMax[2]);
+
+}
+
+//------------------------------------------------------------------------------

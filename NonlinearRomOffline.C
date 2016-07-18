@@ -66,12 +66,12 @@ void NonlinearRomOfflineSolver<dim>::solve()  {
      modalTimer->addPodConstrTime(t0);
    }
    // perform GNAT preprocessing (probably for snapshot collection method 0)
-   const char *gnatPrefix = ioData->romDatabase.files.gnatPrefix;
+   const char *gappyPrefix = ioData->romDatabase.files.gappyPrefix;
    const char *sampledStateBasisName = ioData->romDatabase.files.sampledStateBasisName;
-   if (strcmp(gnatPrefix,"")!=0 || strcmp(sampledStateBasisName,"")!=0) {
+   if (strcmp(gappyPrefix,"")!=0 || strcmp(sampledStateBasisName,"")!=0) {
      geoState = new DistGeoState(*ioData, &domain);
      geoState->setup1(ioData->input.positions, &Xref, &controlVol);
-     GnatPreprocessing<dim> gappy(com,*ioData,domain,geoState);
+     GappyPreprocessing<dim> gappy(com,*ioData,domain,geoState);
      gappy.buildReducedModel();
    }
    const char *surfacePrefix = ioData->romDatabase.files.surfacePrefix;
@@ -86,19 +86,7 @@ void NonlinearRomOfflineSolver<dim>::solve()  {
  else if (ioData->problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_){
    geoState = new DistGeoState(*ioData, &domain);
    geoState->setup1(ioData->input.positions, &Xref, &controlVol);
-   GnatPreprocessing<dim> gappy(com,*ioData,domain,geoState);
-   gappy.buildReducedModel();
- }
- else if (ioData->problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_STEP_1_){
-   geoState = new DistGeoState(*ioData, &domain);
-   geoState->setup1(tInput->positions, &Xref, &controlVol);
-   GnatPreprocessingStep1<dim> gappy(com,*ioData,domain,geoState);
-   gappy.buildReducedModel();
- }
- else if (ioData->problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_STEP_2_){
-   geoState = new DistGeoState(*ioData, &domain);
-   geoState->setup1(tInput->positions, &Xref, &controlVol);
-   GnatPreprocessingStep2<dim> gappy(com,*ioData,domain,geoState);
+   GappyPreprocessing<dim> gappy(com,*ioData,domain,geoState);
    gappy.buildReducedModel();
  }
  else if (ioData->problem.alltype == ProblemData::_SURFACE_MESH_CONSTRUCTION_){

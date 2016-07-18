@@ -52,6 +52,9 @@ ImplicitTsDesc<dim>::ImplicitTsDesc(IoData &ioData, GeoSource &geoSource, Domain
     kspBinaryOutput = new KspBinaryOutput<DistSVec<double,dim> >(this->domain->getCommunicator(), &ioData, this->domain);
   }
 
+  prevOutputState = NULL; 
+  stateIncrement = NULL;
+
 }
 
 //------------------------------------------------------------------------------
@@ -62,7 +65,8 @@ ImplicitTsDesc<dim>::~ImplicitTsDesc()
   if (tag) { delete tag; tag = 0; }
   if (ns) { delete ns; ns = 0; }
   if (kspBinaryOutput) delete kspBinaryOutput;
-
+  if (prevOutputState) delete prevOutputState;
+  if (stateIncrement) delete stateIncrement;
 }
 
 //------------------------------------------------------------------------------
@@ -235,7 +239,37 @@ template<int dim>
 void ImplicitTsDesc<dim>::writeBinaryVectorsToDiskRom(bool lastNewtonIt, int timeStep, int newtonIt, 
                                                         DistSVec<double,dim> *state, DistSVec<double,dim> *residual)
 {
-  this->output->writeBinaryVectorsToDiskRom(lastNewtonIt, timeStep, newtonIt, state, residual); 
+  if (myIoDataPtr->output.rom.avgStateIncrements) {
+    if (prevOutputState==NULL) {
+      prevOutputState = new DistSVec<double,dim>(this->domain->getNodeDistInfo());
+      stateIncrement = new DistSVec<double,dim>(this->domain->getNodeDistInfo());
+      int status = this->output->writeBinaryVectorsToDiskRom(lastNewtonIt, timeStep, newtonIt, NULL, residual);
+      *prevOutputState = *state;
+    } else {
+      *stateIncrement = *state - *prevOutputState;
+      *stateIncrement *= (1.0 / ((double) myIoDataPtr->output.rom.stateOutputFreqTime));
+      int status = this->output->writeBinaryVectorsToDiskRom(lastNewtonIt, timeStep, newtonIt, stateIncrement, residual);
+      if (status==1 || status==3) { // state vector was written to disk
+        *prevOutputState = *state;
+      }
+    }
+  } else {
+    int status = this->output->writeBinaryVectorsToDiskRom(lastNewtonIt, timeStep, newtonIt, state, residual); 
+  }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void ImplicitTsDesc<dim>::calculateSpatialResidual(DistSVec<double,dim> &Q, DistSVec<double,dim> &spatialRes) {
+
+  if(this->wallRecType==BcsWallData::CONSTANT) {
+    this->spaceOp->computeResidual(*this->X, *this->A, Q, spatialRes, this->timeState);
+  } else {
+    this->spaceOp->computeResidual(this->riemann1, *this->X, *this->A, Q, spatialRes, this->timeState);
+  }
+
+  this->spaceOp->applyBCsToResidual(Q, spatialRes);
 
 }
 
@@ -247,4 +281,5 @@ void ImplicitTsDesc<dim>::incrementNewtonOutputTag()
     ++(*(this->domain->getNewtonTag()));
 
 }
+
 

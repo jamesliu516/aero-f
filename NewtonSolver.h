@@ -128,8 +128,14 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
     if (it == maxIts) break;
 
     rhs = -1.0 * F;
-    
-    probDesc->writeBinaryVectorsToDiskRom(false, timeStep, it, &Q, &F);  // save states and residuals for rom
+
+    if (probDesc->outputOnlySpatialResidual()) {
+      typename ProblemDescriptor::SolVecType spatialRes(probDesc->getVecInfo());
+      probDesc->calculateSpatialResidual(Q,spatialRes);
+      probDesc->writeBinaryVectorsToDiskRom(false, timeStep, it, &Q, &spatialRes);
+    } else {
+      probDesc->writeBinaryVectorsToDiskRom(false, timeStep, it, &Q, &F);
+    }
 
     probDesc->recomputeFunction(Q, rhs);
 
