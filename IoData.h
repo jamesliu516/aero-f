@@ -6,6 +6,7 @@
 #include <map>
 #include "parser/ParseTree.h"
 #include "parser/Dictionary.h"
+//#include "AlternatingLeastSquare/als_io.h" disable temporarily for testing
 
 using std::map;
 
@@ -2558,6 +2559,18 @@ struct BasisUpdatesData {
 
 };
 
+struct EmbeddedAlternatingLeastSquareData {
+    int maxBasisSize;
+    double relativeMinimumEnergy;
+    int maxIteration;
+    enum LeastSquareSolver {QR = 0, SVD = 1} leastSquareSolver;
+
+    EmbeddedAlternatingLeastSquareData();
+    ~EmbeddedAlternatingLeastSquareData() {}
+
+    void setup(const char *, ClassAssigner * = 0);
+};
+
 //------------------------------------------------------------------------------
 
 struct ROBConstructionData {
@@ -2571,6 +2584,8 @@ struct ROBConstructionData {
   ClusteringData clustering;
   BasisUpdatesData basisUpdates;
   RelativeProjectionErrorData relativeProjectionError;
+
+    EmbeddedAlternatingLeastSquareData embeddedALS;
 
   enum StoreAllClusters {STORE_ALL_CLUSTERS_FALSE = 0, STORE_ALL_CLUSTERS_TRUE = 1} storeAllClusters;
 

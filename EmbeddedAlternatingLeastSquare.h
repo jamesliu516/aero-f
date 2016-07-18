@@ -18,6 +18,7 @@ public: // TODO: change back to protected when done testing
     int nSnapShotFiles;
     int numSnapshots; //<! total number of snapshots across all files
     std::vector<int> numMasters; //<! numMasters[i] = #{master nodes} in subdomain i
+    //<! robConstruction, inherented from parent class
     int reducedDimension;
     /**
      * Wrapper to NonlinearRom::readSnapshotsFiles
@@ -39,19 +40,19 @@ public: // TODO: change back to protected when done testing
     /**
      * strips distSVec of slave nodes, put it into a continuous region of memory, pointed by mem
      */
-    void freeSlaves(void *&mem, const VecSet<DistSVec<double, dim> > &X, const int M, const int N);
-    void freeSlaves(void *&mem, const VecSet<DistSVec<char, dim> > &X, const int M, const int N);
+    void freeSlaves(double *&mem, const VecSet<DistSVec<double, dim> > &X, const int M, const int N);
+    void freeSlaves(char *&mem, const VecSet<DistSVec<char, dim> > &X, const int M, const int N);
 
     /**
      * Refills distSVec with mem, a continuous region of memory, put it in X
      */
-    void summonSlaves(void *&mem, VecSet<DistSVec<double, dim> > &X, const int M, const int N);
-    void summonZombies(void *&mem, VecSet<DistSVec<double, dim> > &X, const int M, const int N);
+    void summonSlaves(double *&mem, VecSet<DistSVec<double, dim> > &X, const int M, const int N);
+    void summonZombies(double *&mem, VecSet<DistSVec<double, dim> > &X, const int M, const int N);
 
     /**
      * convert a matrix stored in a continuous region of memory from row-major to column-major
      */
-    void transpose(void* &buff1, void* &buff2, int nrow, int ncol);
+    void transpose(double* &buff1, double* &buff2, int nrow, int ncol);
 
     /**
      * returns the number of master nodes in a vector
@@ -79,6 +80,7 @@ public:
      * Compute the reduced order basis given snapshot and mask.
      * Input: mask, snapshots
      */
+    //TODO: change int dim to double minimum_energy
     void ReducedOrderBasisConstruction(int _dim);
 
     /**
