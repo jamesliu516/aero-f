@@ -1,7 +1,8 @@
        SUBROUTINE ERIEMANNGG(DL,UL,PL,DR,UR,PR,
      &                      PM,UM,RIL,RIR,
      &                      gamL,PREFL,gamR,PREFR,errcod,
-     &                      pcutl,pcutr,rcutl,rcutr)
+     &                      pcutl,pcutr,rcutl,rcutr,
+     &                      TOLPRE,NRITER)
 C     PREFL  p_c (L)
 *     
 *-----------------------------------------------------------------*
@@ -38,8 +39,8 @@ C     Declaration of variables:
 
 C     TOLPRE is precision tolerance for convergence of newton-raphson
 C     iteration and NRITER is max # of newton-raphson iterations
-      TOLPRE = 1.0E-03
-      NRITER = 100
+c     TOLPRE = 1.0E-03
+c     NRITER = 100
 
       PRR = PR + PREFR
       PLL = PL + PREFL

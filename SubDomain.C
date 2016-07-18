@@ -5776,6 +5776,36 @@ void SubDomain::readVectorFromFile(const char *prefix, int no, int neq,
 
 //------------------------------------------------------------------------------
 
+template<class Scalar>
+void SubDomain::readVectorFromFile(const char *prefix, int no, Vec<Scalar> &U) {
+    char name[MAXLINE];
+    sprintf(name, "%s%s", prefix, suffix);
+
+    BinFileHandler file(name, "rb");
+
+    BinFileHandler::OffType unit = sizeof(Scalar);
+
+    BinFileHandler::OffType pos = 3 * sizeof(int) + sizeof(double) +
+                                  no * (sizeof(double) + numClusNodes * unit);
+
+    Scalar *data = new Scalar[U.size()];
+
+    int i, count = 0;
+    for (i = 0; i < numNodeRanges; ++i) {
+        file.seek(pos + nodeRanges[i][1] * unit);
+        file.read(data + count, nodeRanges[i][0]);
+        count += nodeRanges[i][0];
+    }
+
+    for (i = 0; i < U.size(); ++i) {
+        U[i] = data[i];
+    }
+
+    delete[] data;
+}
+
+//------------------------------------------------------------------------------
+
 template<class Scalar, int dim>
 void SubDomain::writeVectorToFile(const char *prefix, int no,
 				  SVec<Scalar,dim> &U, Scalar* scale)
@@ -5814,6 +5844,49 @@ void SubDomain::writeVectorToFile(const char *prefix, int no,
 
   if (scale)
     delete [] data;
+
+}
+
+//------------------------------------------------------------------------------
+
+template<class Scalar>
+void SubDomain::writeVectorToFile(const char *prefix, int no,
+                                  Vec<Scalar> &U, Scalar* scale)
+{
+    char name[MAXLINE];
+    sprintf(name, "%s%s", prefix, suffix);
+#ifdef SYNCHRO_WRITE
+    BinFileHandler file(name, "ws+");
+#else
+    BinFileHandler file(name, "w+");
+#endif
+
+    BinFileHandler::OffType unit =  sizeof(Scalar);
+    BinFileHandler::OffType pos = 3*sizeof(int) +
+                                  no*(sizeof(double) + numClusNodes*unit) + sizeof(double);
+
+    Scalar *data;
+    if (scale) {
+        data = new Scalar[U.size()];
+        Scalar* v = data;
+        Scalar* u = U.data();
+        for (int i=0; i<U.size(); ++i)
+            v[i] = (*scale) * u[i];
+    } else {
+        data = U.data();
+    }
+
+    int count = 0;
+    for (int i=0; i<numNodeRanges; ++i) {
+        if (nodeRanges[i][2]) {
+            file.seek(pos + nodeRanges[i][1]*unit);
+            file.write(data + count, nodeRanges[i][0]);
+        }
+        count += nodeRanges[i][0];
+    }
+
+    if (scale)
+        delete [] data;
 
 }
 
@@ -9865,11 +9938,12 @@ void SubDomain::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U,
                                     const std::vector<Vec3D>& locs, double (*sol)[dim],
                                     int* status,int* last,int* nid,
                                     LevelSetStructure* LSS, Vec<GhostPoint<dim>*>* ghostPoints,
-                                    VarFcn *varFcn, bool assumeCache) {
+                                    VarFcn *varFcn, bool assumeCache, Vec<int> *fluidId) {
 
   elems.interpolateSolution(X,U,locs,sol,status,last,LSS,ghostPoints,varFcn,
 			    assumeCache);
   for (int i = 0; i < locs.size(); ++i) {
+    if(!status[i]) continue;
     int eid = last[i],nn;
     Elem& E = elems[eid];
     double mindist = std::numeric_limits<double>::max(),dst;
@@ -9881,6 +9955,16 @@ void SubDomain::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U,
       if (dst < mindist) {
         mindist = dst;
         nid[i] = nn;
+      }
+    }
+    if(fluidId) {
+      int fid0 = (*fluidId)[E.nodeNum(0)];
+      for(int j = 1; j < E.numNodes(); ++j) {
+        if((*fluidId)[E.nodeNum(j)] != fid0) {
+          for(int k=0; k<5; ++k) sol[i][k] = 0;
+          status[i] = 0;
+          break;
+        }
       }
     }
   }
@@ -9897,6 +9981,7 @@ void SubDomain::interpolatePhiSolution(SVec<double,3>& X, SVec<double,dim>& U,
 			    (Vec<GhostPoint<dim>*>*)0, NULL,
 			    assumeCache);
   for (int i = 0; i < locs.size(); ++i) {
+    if(!status[i]) continue;
     int eid = last[i],nn;
     Elem& E = elems[eid];
     double mindist = std::numeric_limits<double>::max(),dst;

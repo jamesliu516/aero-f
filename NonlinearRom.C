@@ -1160,7 +1160,6 @@ int NonlinearRom<dim>::readSnapshotFiles(const char* snapType, bool preprocess) 
   // Check for snapshot command file
   char *vecFile;
   bool typeIsState = false;
-
   if (strcmp(snapType, "state")==0) {
     vecFile = new char[strlen(ioData->input.prefix) + strlen(ioData->input.stateSnapFile) + 1];
     sprintf(vecFile, "%s%s", ioData->input.prefix, ioData->input.stateSnapFile);

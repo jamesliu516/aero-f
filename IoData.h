@@ -106,6 +106,7 @@ struct InputData {
   const char *optimalPressureDim;
   const char *stateSnapFile;
   const char *stateSnapRefSolution;
+    const char *stateMaskSnapFile; //<! for snapshot with embedded methods, Lei Lei, 02/03/2016
   const char *multiStateSnapRefSolution;
   const char *residualSnapFile;
   const char *krylovSnapFile;
@@ -160,7 +161,7 @@ struct InputData {
 
 struct Probes {
 
-  const static int MAXNODES = 50;
+  const static int MAXNODES = 3176;
   struct Node { 
     Node() { id = -1; locationX = locationY = locationZ = -1.0e20; subId = localNodeId = -1;
              isLocationBased = false; }
@@ -267,6 +268,7 @@ struct TransientData {
   const char *hydrodynamiclift;
   const char *residuals;
   const char *materialVolumes;
+  const char *materialMassEnergy;
   const char *conservation;
   const char *podFile;
   const char *robProductFile;
@@ -374,6 +376,8 @@ struct ROMOutputData {
   const char *dFluxNorm;
 
   const char *stateVector;
+    // lei lei, 02/01/2016: added mask vector for embedded Ts
+    const char *stateMaskVector;
   int stateOutputFreqTime;
   int stateOutputFreqNewton;
   enum AvgStateIncrements {AVG_STATE_INCREMENTS_OFF = 0, AVG_STATE_INCREMENTS_ON = 1} avgStateIncrements;
@@ -466,7 +470,8 @@ struct ProblemData {
                 _SURFACE_MESH_CONSTRUCTION_ = 26, _SAMPLE_MESH_SHAPE_CHANGE_ = 27, _UNSTEADY_NONLINEAR_ROM_POST_ = 28, _POD_CONSTRUCTION_ = 29, 
                 _ROB_INNER_PRODUCT_ = 30, _AERO_ACOUSTIC_ = 31, _SHAPE_OPTIMIZATION_ = 32, _AEROELASTIC_SHAPE_OPTIMIZATION_ = 33,
                 _AEROELASTIC_ANALYSIS_ = 34, _GAM_CONSTRUCTION_ = 35, _ACC_UNSTEADY_NONLINEAR_ROM_ = 36,
-                _STEADY_NONLINEAR_ROM_ = 37, _FORCED_NONLINEAR_ROM_ = 38, _ROM_SHAPE_OPTIMIZATION_ = 39, _STEADY_NONLINEAR_ROM_POST_ = 40} alltype;
+                _STEADY_NONLINEAR_ROM_ = 37, _FORCED_NONLINEAR_ROM_ = 38, _ROM_SHAPE_OPTIMIZATION_ = 39, _STEADY_NONLINEAR_ROM_POST_ = 40,
+                _EMBEDDED_ALS_ROM_ = 41 /* Lei Lei, 02/13/2016 */,_EMBEDDED_ALS_ROM_ONLINE_ = 42 /* Lei Lei, 05/15/2016 */ } alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
@@ -1235,6 +1240,8 @@ struct MultiFluidData {
                         TRIANGULATED = 4} levelSetMethod;
 
   enum RiemannNormal {REAL = 0, MESH = 1, LEGACYMESH = 2 } riemannNormal;
+  double riemannEps;
+  int riemannMaxIts;
 
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1, SAME_AS_PROBLEM = 2} prec;
 
@@ -1889,6 +1896,7 @@ struct DefoMeshMotionData {
   double volStiff;
   enum Mode {Recursive = 1, NonRecursive = 2} mode;
   int numIncrements;
+  enum SlidingSurfaceTreatment {Default = 0, PrescribedAverage = 1} slidingSurfaceTreatment;
 
   BLMeshMotionData blmeshmotion;
   NewtonData<KspData> newton;

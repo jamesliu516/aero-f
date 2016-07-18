@@ -17,6 +17,7 @@
 #include <MultiGridCoupledTsDesc.h>
 #include <FluidShapeOptimizationHandler.h>
 #include <FluidRomShapeOptimizationHandler.h>  // MZ
+#include <ImplicitEmbeddedRomTsDesc.h>          // Lei Lei
 #include <FluidGnatShapeOptimizationHandler.h>  // MZ
 #include <FluidMetricShapeOptimizationHandler.h>  // MZ
 #include <FluidCollocationShapeOptimizationHandler.h>  // MZ
@@ -92,6 +93,11 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
 			}*/
     else
         com->fprintf(stderr, "*** Error: this type of nonlinear ROM simulation is not currently supported\n");
+  }
+      else if(ioData.problem.alltype == ProblemData::_EMBEDDED_ALS_ROM_ONLINE_){
+      ImplicitEmbeddedRomTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+      TsSolver<ImplicitEmbeddedRomTsDesc<dim> > tsSolver(&tsDesc);
+      tsSolver.solve(ioData);
   }
   else if (ioData.problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_POST_ ||
            ioData.problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_POST_) {

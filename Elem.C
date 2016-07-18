@@ -296,8 +296,11 @@ void ElemSet::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U,
  
   int found_all = 1; 
   for (int j = 0; j < locs.size(); ++j) {
-    Elem& E = *elems[last[j]];
-    status[j] = E.interpolateSolution(X, U, locs[j], sol[j], LSS, ghostPoints, varFcn);
+    if(last[j] >= numElems) status[j] = 0;
+    else {
+      Elem& E = *elems[last[j]];
+      status[j] = E.interpolateSolution(X, U, locs[j], sol[j], LSS, ghostPoints, varFcn);
+    }
     if (!status[j]) found_all = 0;
   }
 

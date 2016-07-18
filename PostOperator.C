@@ -1492,9 +1492,9 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
         } else {
           subDomain[iSub]->interpolateSolution(X(iSub), U(iSub), std::vector<Vec3D>(1,locations[i]),
                                                &locU, &stat, &last[i], &nid,NULL,(Vec<GhostPoint<dim>*>*)0, NULL,
-					       true);
+					       true, &fluidId(iSub));
         }
-        if (Phi)
+        if (stat && Phi)
           subDomain[iSub]->interpolatePhiSolution(X(iSub), (*Phi)(iSub), std::vector<Vec3D>(1,locations[i]),
                                                   &phi, &stat,&last[i],&nid,
 						  true);
@@ -1531,9 +1531,9 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
 	  } else {
 	    subDomain[iSub]->interpolateSolution(X(iSub), U(iSub), std::vector<Vec3D>(1,locations[i]),
 						 &locU, &stat, &last[i], &nid,0, (Vec<GhostPoint<dim>*>*)0,0,
-						 false);
+						 false, &fluidId(iSub));
 	  }
-	  if (Phi)
+	  if (stat && Phi)
 	    subDomain[iSub]->interpolatePhiSolution(X(iSub), (*Phi)(iSub), std::vector<Vec3D>(1,locations[i]),
 						    &phi, &stat,&last[i],&nid,
 						    false);
@@ -1552,11 +1552,12 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
 
   com->globalSum(count,results);
   com->globalSum(count,status);
+
   for (int i = 0; i < count; ++i) {
-    if (status[i]<0.1)
-      results[i] = 0.0;
-    else
-      results[i] /= (double)status[i];
+    if (status[i]<=0)
+      results[i] = 0.0; 
+    else if(status[i] != 1)
+      results[i] /= status[i];
   }
   delete [] status;
 }

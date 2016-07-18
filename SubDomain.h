@@ -884,8 +884,14 @@ public:
   template<class Scalar, int dim>
   void readVectorFromFile(const char *, int, int, SVec<Scalar,dim> &, Scalar *);
 
+    template<class Scalar>
+    void readVectorFromFile(const char *, int, Vec<Scalar> &); //<! for non-state vector, Lei Lei, 22 March 2016
+
   template<class Scalar, int dim>
   void writeVectorToFile(const char *, int, SVec<Scalar,dim> &, Scalar *);
+
+    template<class Scalar>
+    void writeVectorToFile(const char *, int, Vec<Scalar> &, Scalar *); //<! for non-state vector, Lei Lei, 03 Feb 2016
 
   template<int dim>
   void assignFreeStreamValues2(SVec<double,dim> &, SVec<double,dim> &,
@@ -1150,11 +1156,14 @@ public:
   void createSlipSurfProjection(int *surfaceOwn, CommPattern<int> &, BCApplier *,
                                 SurfaceData *slipSurfaces[]);
 
-  int* getMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<int> &ntP, MatchNodeSet* matchNodes=0 );
+  int* getMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<int> &ntP, MatchNodeSet* matchNodes=0);
 
-  int* getEmbeddedALEMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<int> &ntP, MatchNodeSet* matchNodes=0 );
+  int* getEmbeddedALEMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<int> &ntP, MatchNodeSet* matchNodes=0,
+                                       DefoMeshMotionData::SlidingSurfaceTreatment slidingSurfaceTreatment=DefoMeshMotionData::Default);
 
   void completeMeshMotionDofType(int* DofType, CommPattern<int> &ntP);
+
+  void completeEmbeddedALEMeshMotionDofType(int* DofType, CommPattern<int> &ntP);
 
   void changeSurfaceType(map<int,SurfaceData*>& surfaceMap, map<int,BoundaryData*>& bcMap);
   void markFaceBelongsToSurface(Vec<int> &faceFlag, CommPattern<int> &ntP);
@@ -1692,7 +1701,7 @@ public:
                            const std::vector<Vec3D>& locs, double (*sol)[dim],
 			   int* status,int* last,int* nid,
 			   LevelSetStructure* LSS = 0, Vec<GhostPoint<dim>*>* ghostPoints = 0,
-                           VarFcn *varFcn = 0, bool assumeCache = false);
+                           VarFcn *varFcn = 0, bool assumeCache = false, Vec<int> *fluidId = 0);
   
   template<int dim>
   void interpolatePhiSolution(SVec<double,3>& X, SVec<double,dim>& U,

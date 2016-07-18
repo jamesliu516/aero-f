@@ -1,0 +1,623 @@
+//
+// Created by lei on 2/3/16.
+//
+#include <EmbeddedAlternatingLeastSquare.h>
+#include <als_lapack.h>
+#include <ParallelRom.h>
+
+template<int dim>
+EmbeddedAlternatingLeastSquare<dim>::EmbeddedAlternatingLeastSquare(Communicator *_com, IoData &_ioData,
+                                                                    Domain &_domain/*, DistGeoState *_geoSource*/) :
+        NonlinearRom<dim>(_com, _ioData, _domain)/*, geoSource(_geoSource)*/ {
+    this->numMasters = countMasters(this->domain.getNodeDistInfo());
+}
+
+template<int dim>
+EmbeddedAlternatingLeastSquare<dim>::~EmbeddedAlternatingLeastSquare() {
+    //delete [] mask;
+}
+
+template<int dim>
+int EmbeddedAlternatingLeastSquare<dim>::readSnapshotsFilesHelper(char *keyword, bool preprocess) {
+    if (strcmp(keyword, "mask") == 0)
+        return readStateMaskFile();
+    else //read section 2.2 of areofNonlinearRom.pdf for required file. done!!
+        return NonlinearRom<dim>::readSnapshotFiles(keyword, preprocess);
+}
+
+//TODO: all snapshots stroed in one file. need to separate them
+template<int dim>
+int EmbeddedAlternatingLeastSquare<dim>::readStateMaskFile() {
+    // get the name of state mask snapshot summary
+    char *filename = new char[strlen(this->ioData->input.prefix) + strlen(this->ioData->input.stateMaskSnapFile) + 1];
+    sprintf(filename, "%s%s", this->ioData->input.prefix, this->ioData->input.stateMaskSnapFile);
+
+    // open summary file
+    FILE *in = fopen(filename, "r");
+    if(!in){
+        this->com->fprintf(stderr, "***Error: NO snapshots FILES in %s\n", filename);
+        exit(-1);
+    }
+
+    // read the first line from summary
+    int nData, _n;
+    _n = fscanf(in, "%d", &nData);
+    this->com->fprintf(stdout, "Reading mask snapshots from %d files \n", nData);
+
+    // scan all lines from summary
+    char** maskFile = new char*[nData];
+    for(int iData = 0; iData < nData; iData++)
+        maskFile[iData] = new char[500];
+    int* startIndex = new int[nData];
+    int* endIndex = new int[nData];
+    int* sampleFrequency = new int[nData];
+
+    for(int iData = 0; iData < nData; iData++){
+        char snapshotFilename[500];
+        int start, end, freq,
+        _n = fscanf(in, "%s %d %d %d", snapshotFilename, &start, &end, &freq);
+        strcpy(maskFile[iData], snapshotFilename);
+        startIndex[iData] = start < 1 ? 0 : start - 1;
+        endIndex[iData] = end < 0 ? 0 : end;
+        sampleFrequency[iData] = freq < 1 ? 1: freq;
+        this->com->fprintf(stdout, " ... Reading snapshots from %s \n", maskFile[iData]);
+    }
+
+    // compute total number of snapshots from all files
+    int numSnapshots = 0;
+    int* numSnaps = new int[nData];
+    for(int iData = 0; iData < nData; iData++){
+        int dummyStep = 0;
+        double dummyTag = 0.0;
+        bool status = this->domain.template readTagFromFile<double, dim>(maskFile[iData], dummyStep, &dummyTag, &(numSnaps[iData]));
+        if(!status){
+            this->com->fprintf(stdout, "*** ERROR: could not read mask from %s \n", maskFile[iData]);
+            exit(-1);
+        }
+        if(endIndex[iData] == 0 || endIndex[iData] > numSnaps[iData])
+            endIndex[iData] = numSnaps[iData];
+        for(int i = startIndex[iData]; i < endIndex[iData]; i++){
+            if(i % sampleFrequency[iData] != 0) continue;
+            numSnapshots++;
+        }
+    }
+    this->com->fprintf(stdout, "%d state mask snapshots found\n", numSnapshots);
+    this->numSnapshots = numSnapshots;
+    //assert(this->numSnapshots == numSnapshots);
+
+    // load the all snapshots into this->mask
+    this->mask = new VecSet< DistSVec<char, dim> >(numSnapshots, this->domain.getNodeDistInfo());
+    DistSVec<char, dim> *stateMask = new DistSVec<char, dim>(this->domain.getNodeDistInfo());
+    int currentIndex = 0;
+    for(int iData = 0; iData < nData; iData++){
+        for(int i = startIndex[iData]; i < endIndex[iData]; i++){
+            if(i % sampleFrequency[iData] != 0) continue;
+            double tag;
+            int status = this->domain.readVectorFromFile(maskFile[iData], i, &tag, *stateMask);
+            (*this->mask)[currentIndex] = *stateMask;
+            currentIndex++;
+        }
+    }
+    assert(currentIndex == numSnapshots);
+
+    //clean up all variables
+    delete [] filename;
+    delete [] maskFile;
+    delete [] numSnaps;
+    delete [] startIndex;
+    delete [] endIndex;
+    delete [] sampleFrequency;
+    return numSnapshots;
+}
+
+
+/**
+ * suppose M is the number of master nodes
+ */
+template<int dim>
+void EmbeddedAlternatingLeastSquare<dim>::freeSlaves(void *&mem, const VecSet<DistSVec<double, dim> > &X, const int M,
+                                                     const int N) {
+    double* ptr = new double[dim * M * N];
+    assert(ptr != NULL);
+    for (int j = 0; j < N; j++) {
+        int i = 0;
+//#pragma omp parallel for
+        for (int iSub = 0; iSub <X[j].numLocSub() ; iSub++) {
+            bool *localMasterFlag = X[j].getMasterFlag(iSub);
+            double (*temp)[dim] = X[j].subData(iSub);
+            for (int iNode = 0; iNode < X[j].subSize(iSub); iNode++) {
+                if (localMasterFlag[iNode]) {
+                    for(int k = 0; k < dim; k++){
+                        ptr[dim * M *j + i * dim + k] = temp[iNode][k];
+                    }
+                    //memcpy(&ptr[dim * M * j + i * dim], &X[j][iSub][iNode], dim * sizeof(double));
+                    i++;
+                }
+            }
+        }
+        //assert(i * dim == M); // should be true
+        if( i != M)
+            this->com->fprintf(stderr, "double array, dim is %d, %d != %d\n", dim, i, M);
+    }
+    mem = (void *) ptr;
+}
+
+
+template<int dim>
+void EmbeddedAlternatingLeastSquare<dim>::freeSlaves(void *&mem, const VecSet<DistSVec<char, dim> > &X, const int M,
+                                                     const int N) {
+    char* ptr = new char[dim * M * N];
+    assert(ptr != NULL);
+    for (int j = 0; j < N; j++) {
+        int i = 0;
+//#pragma omp parallel for
+        for (int iSub = 0; iSub <X[j].numLocSub() ; iSub++) {
+            bool *localMasterFlag = X[j].getMasterFlag(iSub);
+            char (*temp)[dim] = X[j].subData(iSub);
+            for (int iNode = 0; iNode < X[j].subSize(iSub); iNode++) {
+                if (localMasterFlag[iNode]) {
+                    for(int k = 0; k < dim; k++){
+                        ptr[dim * M *j + i * dim + k] = temp[iNode][k];
+                    }
+                    //memcpy(&ptr[dim * M * j + i * dim], &X[j][iSub][iNode], dim * sizeof(double));
+                    i++;
+                }
+            }
+        }
+        //assert(i  == M); // should be true
+        if( i != M)
+            this->com->fprintf(stderr, "char array, dim is %d, %d != %d\n", dim, i, M);
+    }
+    mem = (void *) ptr;
+}
+
+template<int dim>
+void EmbeddedAlternatingLeastSquare<dim>::summonSlaves(void *&mem, VecSet<DistSVec<double, dim> > &X, const int M,
+                                                       const int N) {
+    SubDomain **subDomain = this->domain.getSubDomain();
+    CommPattern<double> *vecPattern = this->domain.getVecPat();
+    DistInfo& distInfo = this->domain.getNodeDistInfo();
+
+    double *ptr = (double *)mem;
+    for (int j = 0; j < N; j++) {
+        int i = 0;
+//#pragma omp parallel for
+        for (int iSub = 0; iSub < X[j].numLocSub(); iSub++) {
+            bool *localMasterFlag = X[j].getMasterFlag(iSub);
+            double (*temp)[dim] = X[j].subData(iSub);
+            for (int iNode = 0; iNode < X[j].subSize(iSub); iNode++) {
+                if (localMasterFlag[iNode]) {
+                    for(int k = 0; k < dim; k++){
+                        temp[iNode][k] = ptr[dim * M * j + i * dim + k];
+                    }
+                    //memcpy(&X[j][iSub][iNode], &ptr[dim * M * j + i * dim], dim * sizeof(double));
+                    i++;
+                }
+            }
+            subDomain[iSub]->sndData(*vecPattern, X[j].subData(iSub));
+        }
+        //assert(i * dim == M); // should be true
+        if(i != M) this->com->fprintf(stderr, "dim is %d, i(%d) != M(%d)", dim, i, M);
+        vecPattern->exchange();
+
+        for (int iSub = 0; iSub < X[j].numLocSub(); iSub++)
+            subDomain[iSub]->addRcvData(*vecPattern, X[j].subData(iSub));
+    }
+}
+
+
+template<int dim>
+void EmbeddedAlternatingLeastSquare<dim>::summonZombies(void *&mem, VecSet<DistSVec<double, dim> > &X, const int M,
+                                                       const int N) {
+    SubDomain **subDomain = this->domain.getSubDomain();
+    CommPattern<double> *vecPattern = this->domain.getVecPat();
+    DistInfo& distInfo = this->domain.getNodeDistInfo();
+
+    double *ptr = (double *)mem;
+    for (int j = 0; j < N; j++) {
+        int i = 0;
+//#pragma omp parallel for
+        for (int iSub = 0; iSub < X[j].numLocSub(); iSub++) {
+            double (*temp)[dim] = X[j].subData(iSub);
+            bool *localMasterFlag = X[j].getMasterFlag(iSub);
+            for (int iNode = 0; iNode < X[j].subSize(iSub); iNode++) {
+                if (localMasterFlag[iNode]) {
+                    for(int k = 0; k < dim; k++){
+                        temp[iNode][k] = ptr[dim * M * j + i * dim + k];
+                    }
+                   // memcpy(&X[j][iSub][iNode], &ptr[dim * M * j + i * dim], dim * sizeof(double));
+                    i++;
+                }
+            }
+        }
+        assert(i * dim == M); // should be true
+    }
+}
+
+//TODO: testing this part by part
+template<int dim>
+void EmbeddedAlternatingLeastSquare<dim>::ReducedOrderBasisConstruction(int _dim) {
+    //read snapshots and mask
+    //assert(numSnapshots == numStateSnapshots);
+    // compute nrow, ncol, dim
+    //todo: determine dim from initial SVD
+    int nrow = 0;
+    for(int i = 0; i < this->numMasters.size(); i++){
+        nrow += this->numMasters[i];
+    }
+    int ncol = this->numSnapshots;
+    int k = _dim;
+    this->reducedDimension = _dim;
+    this->com->fprintf(stderr, "... (M, N) is [%d, %d], reduced dimension is %d\n", nrow, ncol, _dim);
+    // set up X, M
+    VecSet< DistSVec<double, dim> > Snap = *(this->snap);
+    VecSet< DistSVec<char, dim> > Mask = *(this->mask);
+    void* X = NULL;
+    void* M = NULL;
+    freeSlaves(X, Snap, nrow, ncol); // freeSlaves allocates the memory for X
+    freeSlaves(M, Mask, nrow, ncol); // freeSlaves allocates the memory for M
+    // set up Uinit
+    this->com->fprintf(stderr, "... initializing U\n");
+    VecSet< DistSVec<double, dim> >* basisInit = new VecSet< DistSVec<double, dim> >(k, this->domain.getNodeDistInfo());
+    VecSet< DistSVec<double, dim> > basis = *basisInit;
+    ParallelRom<dim> parallelRom(this->domain, this->com, this->domain.getNodeDistInfo());
+    double *singularValues = new double[k];
+    FullM VInitDummy(this->reducedDimension, ncol);
+    this->com->fprintf(stderr, "... calling parallelRom.parallelSVD()\n");
+    parallelRom.parallelSVD(Snap, basis, singularValues, VInitDummy, this->reducedDimension, true);
+    this->com->fprintf(stderr, "... U and V initialized, V dimension is [%d, %d]\n", VInitDummy.numRow(), VInitDummy.numCol());
+    // todo: transpose UInit for use with armadillo
+    void *U = NULL;
+    double * UT_temp = new double[k * nrow * dim];
+    this->com->fprintf(stderr, "... allocating space for U, k * nrow * dim = %d\n", k * nrow * dim);
+    void *UT = (void *)UT_temp;
+    freeSlaves(U, basis, nrow, k); // freeSlaves allocate the memory for U
+    transpose(U, UT, nrow * dim, k); // does not allocate memory
+    this->com->fprintf(stderr, "... U being initialized\n");
+    this->com->barrier();
+    // launch ALS external library
+    int maxIterations = 5;
+    AlternatingLeastSquare ALS((double *)X, (unsigned char *) M, (double *) UT, nrow * dim, ncol, this->reducedDimension, this->com->getMPIComm(), this->com->cpuNum());
+    ALS.run(maxIterations); //todo: use different error criterion
+    // write basis to file using parent class methods
+    this->com->fprintf(stderr, "... ALS finished %d iterations\n", maxIterations);
+    this->com->barrier();
+    transpose(UT, U, k, nrow * dim); // to be written
+    this->com->fprintf(stderr, "... transpose done\n");
+    this->com->barrier();
+    summonSlaves(U, basis, nrow, k); // does not allocate memory
+    outputBasis(basis);
+    //this->com->barrier();
+    this->com->fprintf(stderr, "... cleaning up memories\n");
+    // clean up all allocated memory
+    if(X) delete[] X;
+    if(M) delete[] M;
+    if(U) delete[] U;
+    //if(UT) delete[] UT_temp;
+    if(singularValues) delete[] singularValues;
+    //this->com->barrier();
+    this->com->fprintf(stdout, "... all stuff cleaned\n");
+}
+
+
+template<int dim>
+void EmbeddedAlternatingLeastSquare<dim>::outputBasis(const VecSet<DistSVec<double, dim> >& U) {
+    char *basisPath = NULL;
+    determinePath(this->stateBasisName, 0 /* only one cluster */, basisPath);
+    int reducedDimension = U.numVectors();
+    this->com->fprintf(stdout, "\n writing %d basis from cluster %d to disk\n", reducedDimension, 0);
+    for(int i = 0; i < reducedDimension; i++)
+        this->domain.writeVectorToFile(basisPath, i, double(i), U[i]);
+}
+
+
+template<int dim>
+void EmbeddedAlternatingLeastSquare<dim>::readBasisFiles(VecSet<DistSVec<double, dim> >& U) {
+    char *basisPath = NULL;
+    determinePath(this->stateBasisName, 0 /* only one cluster */, basisPath);
+    int reducedDimension;
+    int dummyStep = 0;
+    double dummyTag = 0.0;
+    bool status = this->domain.template readTagFromFile<double, dim>(basisPath, dummyStep, &dummyTag, &reducedDimension);
+    if(!status){
+        this->com->fprintf(stdout, "*** ERROR: could not read basis from %s \n", basisPath);
+        exit(-1);
+    }
+    U.resize(reducedDimension);
+    this->com->fprintf(stdout, "\n reading %d basis from cluster %d to disk \n", reducedDimension, 0);
+    for(int i = 0; i < reducedDimension; i++) {
+        int status = this->domain.readVectorFromFile(basisPath, i, &dummyTag, U[i]);
+    }
+}
+
+/**
+ *
+ */
+template<int dim>
+void EmbeddedAlternatingLeastSquare<dim>::testingSnapshotIO() {
+    // compute M and N
+    int M = 0;
+    for(int i = 0; i < this->numMasters.size(); i++){
+        M += this->numMasters[i];
+    }
+    int N = this->numSnapshots;
+    this->com->fprintf(stdout, "(M, N) is [%d, %d]\n", M, N);
+    // set up X, Y, mem
+    VecSet< DistSVec<double, dim> > X = *(this->snap);
+    VecSet< DistSVec<double, dim> > *YY = new VecSet< DistSVec<double, dim> >(N, this->domain.getNodeDistInfo());
+    VecSet< DistSVec<double, dim> > Y = *YY;
+    VecSet< DistSVec<double, dim> > *ZZ = new VecSet< DistSVec<double, dim> >(N, this->domain.getNodeDistInfo());
+    VecSet< DistSVec<double, dim> > Z = *ZZ;
+    VecSet< DistSVec<char, dim> > W = *(this->mask);
+    void* mem = NULL;
+    // testing isEqualMatrices() implementation
+    //this->com->fprintf(stdout, "testing equal matrix\n");
+    //bool res = isEqualMatrices(X, X);
+    bool res;
+    this->com->fprintf(stdout, "dim is %d\n", dim);
+    this->com->fprintf(stdout, "testing mask matrix\n");
+    res = isEqualMaskMatrices(W, W);
+    this->com->fprintf(stdout, "testing snapshot matrix\n");
+    res = isEqualStateMatrices(X, X);
+    //this->com->fprintf(stdout, "result of X == X is %d\n", res);
+    freeSlaves(mem, X, M, N);
+    summonSlaves(mem, Y, M, N);
+    summonZombies(mem, Z, M, N);
+    this->com->fprintf(stdout, "testing freeslave() and summonslave()\n");
+    res = isEqualStateMatrices(X, Z);
+    this->com->fprintf(stdout, "result of X == Z is %d\n", res);
+    res = isEqualStateMatrices(X, Y);
+    this->com->fprintf(stdout, "result of X == Y is %d\n", res);
+}
+
+template<int dim>
+void EmbeddedAlternatingLeastSquare<dim>::testingALS(){
+    AlternatingLeastSquare als(25000, 2000, 20, this->com->getMPIComm(), this->com->cpuNum());
+    als.run(4);
+    MPI_Barrier(this->com->getMPIComm());
+    this->com->fprintf(stdout, "testing ALS completed\n");
+}
+
+/**
+ * count the number of master nodes in each subdomain.
+ * results stored in this->numMasters[i].
+ */
+template<int dim>
+std::vector<int> EmbeddedAlternatingLeastSquare<dim>::countMasters(DistInfo &distinfo){
+    vector<int> answer(distinfo.numLocSub, 0);
+//#pragma omp parallel for
+    for(int iSub = 0; iSub < distinfo.numLocSub; iSub++){
+        bool *localMasterFlag = distinfo.getMasterFlag(iSub);
+        for(int iNode = 0; iNode < distinfo.subLen[iSub]; iNode++){
+            answer[iSub] += localMasterFlag[iNode] ? 1 : 0;
+        }
+    }
+    return answer;
+}
+
+template<int dim>
+bool EmbeddedAlternatingLeastSquare<dim>::isEqualStateMatrices(const VecSet<DistSVec<double, dim> > &X,
+                                                          const VecSet<DistSVec<double, dim> > &Y){
+    int N1 = X.numVectors();
+    int N2 = Y.numVectors();
+    int M1 = X[0].len;
+    int M2 = Y[0].len;
+    //dimension mismatch
+    this->com->fprintf(stdout, "X = [%d, %d], Y = [%d, %d]\n", M1, N1, M2, N2);
+    if(M1 != M2 || N1 != N2) return false;
+    //distInfo mismatch
+    this->com->fprintf(stdout, "numLocSub: %d %d\n", X[0].numLocSub(), Y[0].numLocSub());
+    if(X[0].numLocSub() != Y[0].numLocSub()) return false;
+    for(int i = 0; i < X[0].numLocSub(); i++){
+        this->com->fprintf(stdout, "subdomain %d: %d, %d\n", i, X[0].subSize(i), Y[0].subSize(i));
+        if(X[0].subSize(i) != Y[0].subSize(i)) return false;
+    }
+    DistInfo& distinfo = this->domain.getNodeDistInfo();
+//#pragma omp parallel for
+    for(int j = 0; j < N1; j++) {
+        for(int iSub = 0; iSub < distinfo.numLocSub; iSub++){
+            bool* XLocalMasterFlag = X[j].getMasterFlag(iSub);
+            bool* YLocalMasterFlag = Y[j].getMasterFlag(iSub);
+            double (*xtemp)[dim] = X[j].subData(iSub);
+            double (*ytemp)[dim] = Y[j].subData(iSub);
+            for(int iNode = 0; iNode < distinfo.subLen[iSub]; iNode++){
+                /*this->com->fprintf(stdout, "[%d, %d, %d]: master(X, Y) = %d, %d \n",
+                                   j, iSub, iNode,
+                                   XLocalMasterFlag[iNode], YLocalMasterFlag[iNode]);*/
+                for(int k = 0; k < dim; k++){
+                   // this->com->fprintf(stdout, "[%d]: %f, %f", k, xtemp[iNode][k], ytemp[iNode][k]);
+                    if(xtemp[iNode][k] != ytemp[iNode][k]){
+                        this->com->fprintf(stdout, "[%d]: %f, %f\n", k, xtemp[iNode][k], ytemp[iNode][k]);
+                        return false;
+                    }
+                }
+               // this->com->fprintf(stdout, "\n");
+            }
+        }
+    }
+    this->com->fprintf(stdout, "all test passed\n");
+    return true;
+}
+
+template<int dim>
+bool EmbeddedAlternatingLeastSquare<dim>::isEqualMaskMatrices(const VecSet<DistSVec<char, dim> > &X,
+                                                          const VecSet<DistSVec<char, dim> > &Y){
+    int N1 = X.numVectors();
+    int N2 = Y.numVectors();
+    int M1 = X[0].len;
+    int M2 = Y[0].len;
+    //dimension mismatch
+    this->com->fprintf(stdout, "X = [%d, %d], Y = [%d, %d]\n", M1, N1, M2, N2);
+    if(M1 != M2 || N1 != N2) return false;
+    //distInfo mismatch
+    this->com->fprintf(stdout, "numLocSub: %d %d\n", X[0].numLocSub(), Y[0].numLocSub());
+    if(X[0].numLocSub() != Y[0].numLocSub()) return false;
+    for(int i = 0; i < X[0].numLocSub(); i++){
+        this->com->fprintf(stdout, "subdomain %d: %d, %d\n", i, X[0].subSize(i), Y[0].subSize(i));
+        if(X[0].subSize(i) != Y[0].subSize(i)) return false;
+    }
+    DistInfo& distinfo = this->domain.getNodeDistInfo();
+//#pragma omp parallel for
+    for(int j = 0; j < N1; j++) {
+        for(int iSub = 0; iSub < distinfo.numLocSub; iSub++){
+            bool* XLocalMasterFlag = X[j].getMasterFlag(iSub);
+            bool* YLocalMasterFlag = Y[j].getMasterFlag(iSub);
+            char (*xtemp)[dim] = X[j].subData(iSub);
+            char (*ytemp)[dim] = Y[j].subData(iSub);
+            for(int iNode = 0; iNode < distinfo.subLen[iSub]; iNode++){
+                /*this->com->fprintf(stdout, "[%d, %d, %d]: master(X, Y) = %d, %d \n",
+                                   j, iSub, iNode,
+                                   XLocalMasterFlag[iNode], YLocalMasterFlag[iNode]);
+                                   */
+                for(int k = 0; k < dim; k++){
+                    //this->com->fprintf(stdout, "[%d]: %c, %c", k, xtemp[iNode][k], ytemp[iNode][k]);
+                    if(xtemp[iNode][k] != ytemp[iNode][k]){
+                        this->com->fprintf(stdout, "[%d]: %d, %d", k, xtemp[iNode][k] == 0 ? 0 : 1 , ytemp[iNode][k] == 0 ? 0 : 1);
+                        return false;
+                    }
+                }
+                //this->com->fprintf(stdout, "\n");
+            }
+        }
+    }
+    this->com->fprintf(stdout, "all test passed\n");
+    return true;
+}
+
+
+template<int dim>
+void EmbeddedAlternatingLeastSquare<dim>::transpose(void* &buff1, void* &buff2, int nrow, int ncol){
+    double *ptr1 = (double *) buff1;
+    double *ptr2 = (double *) buff2;
+    assert(ptr2 != NULL);
+    for(int j = 0; j < ncol; j++){
+        for(int i = 0; i < nrow; i++){
+            ptr2[i * ncol + j] = ptr1[j * nrow + i];
+        }
+    }
+}
+/*
+//TODO: move this to somewhere?
+template<int dim>
+GenFullM<double> EmbeddedAlternatingLeastSquare<dim>::getRow(VecSet<DistSVec<double, dim> >& X, int numCol, int subVecIndex, int nodeIndex){
+    GenFullM<double> result(dim, numCol);
+    for(int i = 0; i < numCol; i++){
+        result[i] = X[i].subData(subVecIndex)[nodeIndex];
+    }
+    return result;
+}
+
+template<int dim>
+void EmbeddedAlternatingLeastSquare<dim>::setRow(VecSet<DistSVec<double, dim> &X, GenFullM<double> &row, int numCol, int subVecIndex, int nodeIndex){
+    for(int i = 0; i < numCol; ++i){
+        X[i].subData(subVecIndex)[nodeIndex] = row[i]; // not sure if pointer copy or deep copy
+    }
+}
+
+//TODO: move this to somewhere?
+template<int dim>
+GenFullM<double> EmbeddedAlternatingLeastSquare<dim>::kroneckerProduct(double *v, double *u, int m, int n){
+    GenFullM<double> result(m, n);
+    for(int i = 0; i < m; ++i){
+        for(int j = 0; j < n; ++j){
+            result[i][j] = v[i] * u[j];
+        }
+    }
+    return result;
+}
+*/
+
+/*
+//TODO:
+template <int dim>
+int EmbeddedAlternatingLeastSquare<dim>::writeReducedOrderBasisToFile() {
+
+}
+
+//TODO:
+template  <int dim>
+int EmbeddedAlternatingLeastSquare<dim>::AlternatingLeastSquareMethodI(
+        VecSet<DistSVec<double, dim> > &X,
+        VecSet<DistVec<bool> > &M,
+        VecSet<DistSVec<double, dim> > &U,
+        GenFullM &V,
+        int rank,
+        int maxIteration,
+        double lambda ) {
+    int numCol = X.numVectors();
+    int numRow = X[0].size();
+    int it = 0;
+    double error = 1e10;
+    while(it < maxIteration && error > lambda){
+#pragma omp parallel for
+        for(int j = 0; j < numCol; ++j){ // loop over columns
+            GenFullM<double> M(numCol, numCol);
+            GenFullM<double> v(numCol, 1);
+            M = 0;
+            v = 0;
+            DistInfo distInfo = mask[0].info();
+            for(int iSub = 0; isub < numLocSub; ++iSub) { // loop over subdomains
+                bool *localMask = mask[j].subData(iSub);
+                bool *localMasterFlag = X[j].getMasterFlag(iSub);
+                for(int iNode = 0; iNode < distInfo.subLen[iSub]; ++iNode) { // loop over rows
+                    if(!localMasterFlag && localMasterFlag[iNode] && !localMask[iNode]){ // loop over unmasked and master nodes
+                        GenFullM<double> A = getRow(U, numCol, iSub, iNode);
+                        M += A^A; // or M.add(A^A, 0, 0);
+                        v += A^ X[j][iSub][iNode]; // TODO:
+                    }
+                }
+            }
+            M.Factor(1e-9);
+            M.ReSolve(v.data()); // TODO:
+            V[j] = v.data();
+        }
+        // iterate over rows of X to update rows of U
+#pragma omp parallel for
+        for(int iSub = 0; isub < numLocSub; ++iSub){ //loop over subdomains
+            for(int iNode = 0; iNode < distInfo.subLen[iSub]; ++iNode){ //loop over rows
+                GenFullM<double> M(numCol, numCol);
+                GenFullM<double> v(numCol, 3);
+                M = 0;
+                v = 0;
+                for(int j = 0; j < numCol; j++){ //loop over cols
+                    if(!X[j].getMasterFLag(iSub) && X[j].getMasterFlag(iSub)[iNode] && !mask[j].subData(iSub)[iNode]) { // loop over unmasked and master nodes}
+                        M += kroneckerProduct(v, v, numCol, numCol);
+                        X[j].subData(iSub)[iNode]
+                        v += kronecherProduct(v, X[j].subData(iSub)[iNode], numCol, dim);
+
+                    }
+                }
+            }
+            /* equivalent matlab code
+            x = X(i, M(i, :));
+            v = V(:, M(i, :));
+            U(i, :) = ((v * v')\(v * x'))';
+
+
+}
+it++;
+}
+
+return 1;
+}
+*/
+
+/* Lei Lei, 21 March 2016: does not work because NonlinearRom.h does not use this methods.
+#define INSTANTIATION_HELPER(T, d) \
+    template bool EmbeddedAlternatingLeastSquare<d>::isEqualMatrices(const VecSet<DistSVec<T, d> > &, const VecSet<DistSVec<T, d> > &); \
+    template std::vector<int> EmbeddedAlternatingLeastSquare<d>::countMasters(DistInfo &); \
+    template void EmbeddedAlternatingLeastSquare<d>::testingSnapshotIO(); \
+    template void EmbeddedAlternatingLeastSquare<d>::ReducedOrderBasisConstruction(); \
+    template void EmbeddedAlternatingLeastSquare<d>::summonSlaves(const void *&, VecSet<DistSVec<double, dim> > &, const int M, const int N); \
+    template void EmbeddedAlternatingLeastSquare<d>::freeSlaves(void *&, const VecSet<DistSVec<double, dim> > &X, const int M, const int N); \
+    template int EmbeddedAlternatingLeastSquare<d>::readStateMaskFile(); \
+    template int EmbeddedAlternatingLeastSquare<d>::readSnapshotsFilesHelper(char *, bool); \
+    template EmbeddedAlternatingLeastSquare<d>::EmbeddedAlternatingLeastSquare(Communicator *, IoData &, Domain &); \
+    template EmbeddedAlternatingLeastSquare<d>::~EmbeddedAlternatingLeastSquare();
+
+INSTANTIATION_HELPER(double, 1);
+INSTANTIATION_HELPER(double, 2);
+INSTANTIATION_HELPER(double, 5);
+INSTANTIATION_HELPER(double, 6);
+INSTANTIATION_HELPER(double, 7);
+ */

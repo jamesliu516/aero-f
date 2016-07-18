@@ -189,6 +189,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "OptimalPressure", this, &InputData::optimalPressureFile);
   new ClassToken<InputData>(ca, "OptimalPressureDimensionality", this, reinterpret_cast<int InputData::*>(&InputData::optPressureDim), 3, "NonDimensional", 0, "Dimensional", 1,"None",2);
   new ClassStr<InputData>(ca, "StateSnapshotData", this, &InputData::stateSnapFile);
+  new ClassStr<InputData>(ca, "StateMaskSnapshotData", this, &InputData::stateMaskSnapFile); // Lei Lei, March 21 2015,
   new ClassStr<InputData>(ca, "StateSnapshotReferenceSolution", this, &InputData::stateSnapRefSolution);
   new ClassStr<InputData>(ca, "MultipleStateSnapshotReferenceSolutions", this, &InputData::multiStateSnapRefSolution);
   new ClassStr<InputData>(ca, "ResidualSnapshotData", this, &InputData::residualSnapFile);
@@ -420,6 +421,7 @@ TransientData::TransientData()
   matchstate = "";
   fluxnorm = "";
   materialVolumes = "";
+  materialMassEnergy = "";
   conservation = "";
   podFile = "";
   romFile = "";
@@ -542,6 +544,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "TavLiftandDrag", this, &TransientData::tavlift);
   new ClassStr<TransientData>(ca, "Residual", this, &TransientData::residuals);
   new ClassStr<TransientData>(ca, "MaterialVolumes", this, &TransientData::materialVolumes);
+  new ClassStr<TransientData>(ca, "MaterialMassEnergy", this, &TransientData::materialMassEnergy);
   new ClassInt<TransientData>(ca, "Frequency", this, &TransientData::frequency);
   new ClassDouble<TransientData>(ca, "TimeInterval", this, &TransientData::frequency_dt);
   new ClassDouble<TransientData>(ca, "Length", this, &TransientData::length);
@@ -610,6 +613,7 @@ ROMOutputData::ROMOutputData()
   dFluxNorm="";
 
   stateVector = "";
+  stateMaskVector = "";
   stateOutputFreqTime = 1;
   stateOutputFreqNewton = 0;
   avgStateIncrements = AVG_STATE_INCREMENTS_OFF; 
@@ -646,6 +650,8 @@ void ROMOutputData::setup(const char *name, ClassAssigner *father) {
 
   new ClassStr<ROMOutputData>(ca, "FluxNormSensitivity", this, &ROMOutputData::dFluxNorm);
   new ClassStr<ROMOutputData>(ca, "StateVector", this, &ROMOutputData::stateVector);
+  new ClassStr<ROMOutputData>(ca, "StateMaskVector", this,
+                              &ROMOutputData::stateMaskVector); //<! added for embedded frameworl, Lei Lei, 02/10/2016
   new ClassInt<ROMOutputData>(ca, "StateVectorOutputFrequencyTime", this, &ROMOutputData::stateOutputFreqTime);
   new ClassInt<ROMOutputData>(ca, "StateVectorOutputFrequencyNewton", this, &ROMOutputData::stateOutputFreqNewton);
   new ClassToken<ROMOutputData>(ca, "OutputAverageStateVectorIncrements", this,
@@ -805,7 +811,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 5, father);
   new ClassToken<ProblemData>
     (ca, "Type", this,
-     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 41,
+     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 43,
      "Steady", 0, "Unsteady", 1, "AcceleratedUnsteady", 2, "SteadyAeroelastic", 3,
      "UnsteadyAeroelastic", 4, "AcceleratedUnsteadyAeroelastic", 5,
      "SteadyAeroThermal", 6, "UnsteadyAeroThermal", 7, "SteadyAeroThermoElastic", 8,
@@ -815,11 +821,12 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
      "ROM", 18, "ForcedLinearized", 19, "PODInterpolation", 20,
      "NonlinearEigenErrorIndicator", 21, "SparseGridGeneration", 22,
      "1D", 23, "UnsteadyNonlinearROM", 24, "NonlinearROMPreprocessing", 25,
-     "NonlinearROMSurfaceMeshConstruction",26, "SampledMeshShapeChange", 27,
+     "NonlinearROMSurfaceMeshConstruction", 26, "SampledMeshShapeChange", 27,
      "UnsteadyNonlinearROMPostprocessing", 28, "PODConstruction", 29, "ROBInnerProduct", 30,
      "Aeroacoustic", 31, "SteadySensitivityAnalysis", 32, "SteadyAeroelasticSensitivityAnalysis", 33, "EigenAeroelastic", 34, 
      "GAMConstruction", 35, "AcceleratedUnsteadyNonlinearROM", 36,
-     "SteadyNonlinearROM", 37, "ForcedNonlinearROM", 38, "RomShapeOptimization", 39, "SteadyNonlinearROMPostprocessing", 40);
+     "SteadyNonlinearROM", 37, "ForcedNonlinearROM", 38, "RomShapeOptimization", 39, "SteadyNonlinearROMPostprocessing", 40,
+     "EmbeddedALSROM"/*Lei Lei, 02/13/2016*/, 41, "EmbeddedALSonline", 42);
 
   new ClassToken<ProblemData>
     (ca, "Mode", this,
@@ -2279,6 +2286,8 @@ MultiFluidData::MultiFluidData()
   prec = NON_PRECONDITIONED;
 
   riemannNormal = REAL;
+  riemannEps = 0.001;
+  riemannMaxIts = 100;
 }
 
 //------------------------------------------------------------------------------
@@ -2334,6 +2343,10 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
   new ClassToken<MultiFluidData>(ca, "RiemannNormal", this,
                                  reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::riemannNormal),3,
                                  "LevelSet",0,"Fluid",1,"LegacyFluid",2);
+
+  new ClassDouble<MultiFluidData>(ca, "RiemannEps", this, &MultiFluidData::riemannEps);
+  new ClassInt<MultiFluidData>(ca, "RiemannMaxIts", this, &MultiFluidData::riemannMaxIts);
+   
 
   // Low mach preconditioning of the exact Riemann problem.
   // Added by Alex Main (December 2013)
@@ -3320,6 +3333,7 @@ DefoMeshMotionData::DefoMeshMotionData()
 
   mode = NonRecursive;
   numIncrements = 1;
+  slidingSurfaceTreatment = Default;
 
   newton.ksp.type = KspData::CG;
   newton.ksp.epsFormula = KspData::CONSTANT;
@@ -3335,7 +3349,7 @@ DefoMeshMotionData::DefoMeshMotionData()
 void DefoMeshMotionData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 8, father);
+  ClassAssigner *ca = new ClassAssigner(name, 9, father);
 
   new ClassToken<DefoMeshMotionData>
     (ca, "Type", this,
@@ -3354,6 +3368,10 @@ void DefoMeshMotionData::setup(const char *name, ClassAssigner *father)
      reinterpret_cast<int DefoMeshMotionData::*>(&DefoMeshMotionData::mode), 2,
      "Recursive", 1, "NonRecursive", 2);
   new ClassInt<DefoMeshMotionData>(ca, "NumIncrements", this, &DefoMeshMotionData::numIncrements);
+
+  new ClassToken<DefoMeshMotionData>
+    (ca, "SlidingSurfaceTreatment", this,
+     reinterpret_cast<int DefoMeshMotionData::*>(&DefoMeshMotionData::slidingSurfaceTreatment), 2, "Default", 0, "PrescribedAverage", 1);
 
   symmetry.setup("Symmetry", ca);
   newton.setup("Newton", ca);
@@ -5675,13 +5693,15 @@ void IoData::resetInputValues()
   if (problem.alltype == ProblemData::_NONLINEAR_ROM_OFFLINE_ ||
       problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_ ||
       problem.alltype == ProblemData::_SURFACE_MESH_CONSTRUCTION_ || 
-      problem.alltype == ProblemData::_SAMPLE_MESH_SHAPE_CHANGE_)
+      problem.alltype == ProblemData::_SAMPLE_MESH_SHAPE_CHANGE_ ||
+          problem.alltype == ProblemData::_EMBEDDED_ALS_ROM_ /* Lei Lei, 02/17/2016 */)
     problem.type[ProblemData::NLROMOFFLINE] = true;
 
   if (problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_ ||
       problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_ ||
       problem.alltype == ProblemData::_ACC_UNSTEADY_NONLINEAR_ROM_ ||
-      problem.alltype == ProblemData::_FORCED_NONLINEAR_ROM_)
+      problem.alltype == ProblemData::_FORCED_NONLINEAR_ROM_ ||
+          problem.alltype == ProblemData::_EMBEDDED_ALS_ROM_ONLINE_ /* Lei Lei, 05/16/2016 */)
     problem.type[ProblemData::NLROMONLINE] = true;
 
 

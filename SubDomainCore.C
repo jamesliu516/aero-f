@@ -4228,36 +4228,36 @@ int* SubDomain::completeOffWallNode(CommPattern<int> &ntP)
 //------------------------------------------------------------------------------
 // -----------------------------------------------------------
 // HB: create the dofType array using the matchNodeSet, the sliding faces & the nodeType array
-// Note that the order in which the dofType is filled is crucial: its is fisrt to BC_FREE (i.e. all
+// Note that the order in which the dofType is filled is crucial: it is first set to BC_FREE (i.e. all
 // the dofs are assumed to be free to move), and then they are (potentially) constrained if necessary.
 
 int*
-SubDomain::getMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<int> &ntP, MatchNodeSet* matchNodes)  {
-
+SubDomain::getMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<int> &ntP, MatchNodeSet* matchNodes)
+{
   int* DofType = new int[3*nodes.size()];
   int (*dofType)[3] = reinterpret_cast<int (*)[3]>(DofType);
 
   // Step 1. Set all the dofs as BC_FREE
   int nMoving = 0;
-  for (int i=0;i<nodes.size(); i++) {
+  for (int i=0; i<nodes.size(); i++) {
     if(nodeType[i] < BC_INTERNAL)
       nMoving++; // this node is labelled as moving
     for(int l = 0; l < 3; l++)
       dofType[i][l] = BC_FREE;
   }
 
-  // Step 3. Take into account the sliding plane constraints
-  for (int i=0;i<faces.size(); i++) { // Loop over faces
+  // Step 2. Take into account the sliding plane constraints
+  for (int i=0; i<faces.size(); i++) { // Loop over faces
     bool isSliding = false;
     map<int,SurfaceData*>::iterator it = surfaceMap.find(faces[i].getSurfaceID());
-    if(it!=surfaceMap.end()) { // surface has attribut is the input file
+    if(it!=surfaceMap.end()) { // surface has attribute in the input file
       if(it->second->nx != 0.0 || it->second->ny != 0.0 || it->second->nz != 0.0) // it's a sliding surface
         isSliding = true;
   
-  }
-    if(!isSliding) { // -> contraint the nodes according to face "fluid code"
+    }
+    if(!isSliding) { // -> constrain the nodes according to face "fluid code"
       switch(faces[i].getCode()) {
-        case(BC_SYMMETRY): //by default a symmetry plane is fixed ...
+        case(BC_SYMMETRY): // by default a symmetry plane is fixed ...
         case(BC_ISOTHERMAL_WALL_FIXED):
         case(BC_ADIABATIC_WALL_FIXED):
         case(BC_POROUS_WALL_FIXED):
@@ -4275,7 +4275,6 @@ SubDomain::getMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<i
     }
     else  // Sliding is there
     {
-       // fprintf(stderr," Sliding is True \n");  // Debug
       if (it->second->nx != 0.0 ) // it's a sliding surface
         for(int j=0; j<faces[i].numNodes();j++)	 dofType[faces[i][j]][0] = BC_FIXED;
 
@@ -4288,7 +4287,7 @@ SubDomain::getMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<i
   }
 
 
-  // Step 4. Take into account the matched nodes
+  // Step 3. Take into account the matched nodes
   Vec<bool> isMatched(nodes.size());
   isMatched = false;
   if(matchNodes) {
@@ -4316,12 +4315,12 @@ SubDomain::getMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<i
     }
 #endif
 
-  // Step 5. Take into account the mesh motion Dirichlet BCs from the input file (if any)
+  // Step 4. Take into account the mesh motion Dirichlet BCs from the input file (if any)
   if(mmsBCs)
     for(int i=0;i<mmsBCs->size(); i++)
       dofType[(*mmsBCs)[i].nnum][(*mmsBCs)[i].dofnum] = BC_CONSTRAINED;
 
-  // Step 6. Fill communication buffer (to ensure same contraint on the shared nodes/dofs)
+  // Step 6. Fill communication buffer (to ensure same constraint on the shared nodes/dofs)
   for (int iSub = 0; iSub < numNeighb; ++iSub) {
     SubRecInfo<int> nInfo = ntP.getSendBuffer(sndChannel[iSub]);
     int (*buffer)[3] = reinterpret_cast<int (*)[3]>(nInfo.data);
@@ -4336,14 +4335,15 @@ SubDomain::getMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<i
 // -----------------------------------------------------------
 
 int*
-SubDomain::getEmbeddedALEMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<int> &ntP, MatchNodeSet* matchNodes)  {
-
+SubDomain::getEmbeddedALEMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<int> &ntP, MatchNodeSet* matchNodes,
+                                           DefoMeshMotionData::SlidingSurfaceTreatment slidingSurfaceTreatment)
+{
   int* DofType = new int[3*nodes.size()];
   int (*dofType)[3] = reinterpret_cast<int (*)[3]>(DofType);
 
   // Step 1. Set all the dofs as BC_FREE
   int nMoving = 0;
-  for (int i=0;i<nodes.size(); i++) {
+  for (int i=0; i<nodes.size(); i++) {
     if(nodeType[i] < BC_INTERNAL)
       nMoving++; // this node is labelled as moving
     for(int l = 0; l < 3; l++)
@@ -4351,48 +4351,80 @@ SubDomain::getEmbeddedALEMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, Co
   }
 
   // Step 2. Set appropriate fixed bc's 
-  for (int i=0;i<faces.size(); i++) { // Loop over faces
+  for (int i=0; i<faces.size(); i++) { // Loop over faces
     bool isSliding = false;
     map<int,SurfaceData*>::iterator it = surfaceMap.find(faces[i].getSurfaceID());
-    if(it!=surfaceMap.end()) { // surface has attribut is the input file
+    if(it!=surfaceMap.end()) { // surface has attribute in the input file
       if(it->second->nx != 0.0 || it->second->ny != 0.0 || it->second->nz != 0.0) // it's a sliding surface
         isSliding = true;
     }
 
-    switch(faces[i].getCode()) {
-      case(BC_SYMMETRY):
-        if(!isSliding)
+    if(slidingSurfaceTreatment == DefoMeshMotionData::PrescribedAverage) {
+      switch(faces[i].getCode()) {
+        case(BC_SYMMETRY):
+          if(!isSliding)
+            for(int j=0; j<faces[i].numNodes();j++)
+              for(int l=0; l<3; l++) dofType[faces[i][j]][l] = BC_FIXED;
+          else
+            for(int j=0; j<faces[i].numNodes();j++)
+              for(int l=0; l<3; l++) dofType[faces[i][j]][l] = (dofType[faces[i][j]][l] == BC_FIXED) ? BC_FIXED : BC_MATCHEDSLIDE;
+        break;
+        case(BC_ISOTHERMAL_WALL_FIXED):
+        case(BC_ADIABATIC_WALL_FIXED):
+        case(BC_POROUS_WALL_FIXED):
+        case(BC_OUTLET_FIXED):
+        case(BC_INLET_FIXED):
+        case(BC_DIRECTSTATE_OUTLET_FIXED):
+        case(BC_DIRECTSTATE_INLET_FIXED):
+        case(BC_MASSFLOW_OUTLET_FIXED):
+        case(BC_MASSFLOW_INLET_FIXED):
+        case(BC_SLIP_WALL_FIXED):
           for(int j=0; j<faces[i].numNodes();j++)
             for(int l=0; l<3; l++) dofType[faces[i][j]][l] = BC_FIXED;
-	else
-          for(int j=0; j<faces[i].numNodes();j++)
-            for(int l=0; l<3; l++) dofType[faces[i][j]][l] = (dofType[faces[i][j]][l] == BC_FIXED) ? BC_FIXED : BC_MATCHEDSLIDE;
-	break;
-      case(BC_ISOTHERMAL_WALL_FIXED):
-      case(BC_ADIABATIC_WALL_FIXED):
-      case(BC_POROUS_WALL_FIXED):
-      case(BC_OUTLET_FIXED):
-      case(BC_INLET_FIXED):
-      case(BC_DIRECTSTATE_OUTLET_FIXED):
-      case(BC_DIRECTSTATE_INLET_FIXED):
-      case(BC_MASSFLOW_OUTLET_FIXED):
-      case(BC_MASSFLOW_INLET_FIXED):
-      case(BC_SLIP_WALL_FIXED):
-        for(int j=0; j<faces[i].numNodes();j++)
-          for(int l=0; l<3; l++) dofType[faces[i][j]][l] = BC_FIXED;
-        break;
+          break;
+      }
     }
+    else {
+      if(!isSliding) { // -> constrain the nodes according to face "fluid code"
+        switch(faces[i].getCode()) {
+          case(BC_SYMMETRY): // by default a symmetry plane is fixed ...
+          case(BC_ISOTHERMAL_WALL_FIXED):
+          case(BC_ADIABATIC_WALL_FIXED):
+          case(BC_POROUS_WALL_FIXED):
+          case(BC_OUTLET_FIXED):
+          case(BC_INLET_FIXED):
+          case(BC_DIRECTSTATE_OUTLET_FIXED):
+          case(BC_DIRECTSTATE_INLET_FIXED):
+          case(BC_MASSFLOW_OUTLET_FIXED):
+          case(BC_MASSFLOW_INLET_FIXED):
+          case(BC_SLIP_WALL_FIXED):
+          for(int j=0; j<faces[i].numNodes();j++)
+            for(int l=0; l<3; l++) dofType[faces[i][j]][l] = BC_FIXED;
+          break;
+        }
+      }
+      else { // Sliding is there
+        if (it->second->nx != 0.0 ) // it's a sliding surface
+          for(int j=0; j<faces[i].numNodes();j++)  dofType[faces[i][j]][0] = BC_FIXED;
+
+        if (it->second->ny != 0.0) // it's a sliding surface
+          for(int j=0; j<faces[i].numNodes();j++)  dofType[faces[i][j]][1] = BC_FIXED;
+
+        if (it->second->nz != 0.0) // it's a sliding surface
+          for(int j=0; j<faces[i].numNodes();j++)  dofType[faces[i][j]][2] = BC_FIXED;
+      }
+    } 
   }
 
   // Step 3. Take into account the matched nodes
   if(matchNodes) {
-    for(int i=0;i<matchNodes->size();i++) {
+    for(int i=0; i<matchNodes->size();i++) {
       int inode = matchNodes->subMatchNode(i);
       for(int l=0; l<3; l++) dofType[inode][l] = BC_MATCHED;
     }
   }
 
-  // Step 4. Fill communication buffer (to ensure same contraint on the shared nodes/dofs)
+  // Step 4. Fill communication buffer (to ensure same constraint on the shared nodes/dofs)
   for (int iSub = 0; iSub < numNeighb; ++iSub) {
     SubRecInfo<int> nInfo = ntP.getSendBuffer(sndChannel[iSub]);
     int (*buffer)[3] = reinterpret_cast<int (*)[3]>(nInfo.data);
@@ -4418,6 +4450,25 @@ SubDomain::completeMeshMotionDofType(int* DofType, CommPattern<int> &ntP)
       for(int l=0; l<3; l++)
         if(buffer[i][l]!=BC_FREE)
           dofType[(*sharedNodes)[iSub][i]][l] = buffer[i][l];
+  }
+}
+
+//------------------------------------------------------------------------------
+
+void
+SubDomain::completeEmbeddedALEMeshMotionDofType(int* DofType, CommPattern<int> &ntP)
+{
+  int (*dofType)[3] = reinterpret_cast<int (*)[3]>(DofType);
+
+  for (int iSub = 0; iSub < numNeighb; ++iSub) {
+    SubRecInfo<int> nInfo = ntP.recData(rcvChannel[iSub]);
+    int (*buffer)[3] = reinterpret_cast<int (*)[3]>(nInfo.data);
+    for (int i = 0; i < sharedNodes->num(iSub); ++i)
+      for(int l=0; l<3; l++)
+        if(buffer[i][l]!=BC_FREE) {
+          if(buffer[i][l] != BC_MATCHEDSLIDE || dofType[(*sharedNodes)[iSub][i]][l] == BC_FREE)
+            dofType[(*sharedNodes)[iSub][i]][l] = buffer[i][l];
+        }
   }
 }
 

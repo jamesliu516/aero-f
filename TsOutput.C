@@ -499,6 +499,13 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else
     material_volumes = 0;
 
+  if (iod.output.transient.materialMassEnergy[0] != 0) {
+    material_mass_energy = new char[sp + strlen(iod.output.transient.materialMassEnergy)];
+    sprintf(material_mass_energy, "%s%s", iod.output.transient.prefix, iod.output.transient.materialMassEnergy);
+  }
+  else
+    material_mass_energy = 0;
+
   if (iod.output.transient.embeddedsurface[0] != 0) {
     embeddedsurface = new char[sp + strlen(iod.output.transient.embeddedsurface)];
     sprintf(embeddedsurface, "%s%s", iod.output.transient.prefix, iod.output.transient.embeddedsurface); 
@@ -519,6 +526,14 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   }
   else
     conservation = 0;
+
+  // for embedded ROMs (only active in embeddedTsDesc), Lei Lei, 02/01/2016
+  if (iod.output.rom.stateMaskVector[0] != 0) {
+    stateMaskVectors = new char[sprom + strlen(iod.output.rom.stateMaskVector)];
+    sprintf(stateMaskVectors, "%s%s", iod.output.rom.prefix, iod.output.rom.stateMaskVector);
+  }
+  else
+    stateMaskVectors = 0;
 
   // for ROMs (only active for implicit time stepping)
   if (iod.output.rom.stateVector[0] != 0) {
@@ -1685,6 +1700,29 @@ void TsOutput<dim>::openAsciiFiles()
     fflush(fpMatVolumes);
   }
 
+  if (material_mass_energy) {
+    if (it0 != 0)
+      fpMaterialMassEnergy = backupAsciiFile(material_mass_energy);
+    if (it0 == 0 || fpMaterialMassEnergy == 0) {
+      fpMaterialMassEnergy = fopen(material_mass_energy, "w");
+      if (!fpMaterialMassEnergy) {
+        fprintf(stderr, "*** Error: could not open \'%s\'\n", material_mass_energy);
+        exit(1);
+      }
+      fprintf(fpMaterialMassEnergy, "# TimeIteration ElapsedTime ");
+      for(int i=0; i<numFluidPhases; i++)
+        fprintf(fpMaterialMassEnergy, "Mass[FluidID==%d] Energy[FluidId==%d]", i,i);
+      fprintf(fpMaterialMassEnergy, "Mass[FluidID==%d(GhostSolid)] Energy[FluidID==%d(GhostSolid)] TotalVolume\n", numFluidPhases, numFluidPhases);
+    }
+    fflush(fpMaterialMassEnergy);
+  }
+
+
+
+
+
+
+
   if (embeddedsurface) {
     if (it0 != 0)
       fpEmbeddedSurface = backupAsciiFile(embeddedsurface);
@@ -2624,6 +2662,65 @@ void TsOutput<dim>::writeMaterialVolumesToDisk(int it, double t, DistVec<double>
 
 }
 
+
+
+//------------------------------------------------------------------------------
+/** Function writeMaterialMassEnergyToDisk
+   *  U is the conservative state variables
+   *  A is the volume of fluid control volume
+   *  fluidId is the fluid Id vector for mutiphase problem, and NULL for single phase problem
+   */
+template<int dim>
+void TsOutput<dim>::writeMaterialMassEnergyToDisk(int it, double t,DistSVec<double,dim> & U,  DistVec<double> &A, DistVec<int> *fluidId)
+{
+  if(!material_mass_energy)
+    return;
+
+  int myLength = numFluidPhases + 1/*ghost*/;
+  double Mass[myLength];
+  double Energy[myLength];
+
+  for(int i=0; i<myLength; i++) {
+    Mass[i] = 0.0;
+    Energy[i] = 0.0;
+  }
+
+  domain->computeMaterialMassEnergy(Mass,Energy, myLength,U, A,fluidId); //computes Mass
+
+  if (com->cpuNum() !=0 ) return;
+
+
+  double massScale   = length*length*length*refVal->density;
+  double energyScale = length*length*length*refVal->energy;
+
+  for(int i=0; i<myLength; i++) {
+    Mass[i] *= massScale; //dimensionalize
+    Energy[i] *= energyScale;
+  }
+
+
+
+  fprintf(fpMaterialMassEnergy, "%d %e ", it, (refVal->time)*t);
+
+  for(int i=0; i<numFluidPhases+1; i++) {
+    fprintf(fpMaterialMassEnergy, "%15.10E %15.10E ", Mass[i], Energy[i]);
+  }
+
+
+
+  double totMass = 0.0;
+  double totEnergy = 0.0;
+  for(int i=0; i<myLength; i++) {
+    totMass += Mass[i];
+    totEnergy += Energy[i];
+  }
+  fprintf(fpMaterialMassEnergy, "%15.10E %15.10E\n", totMass,totEnergy);
+
+  fflush(fpMaterialMassEnergy);
+
+}
+
+
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -2948,7 +3045,7 @@ void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<do
           if (scalar_file != 0) {
             fprintf(scalar_file,"%d %e ",nodal_output.step+it0, tag);
             for (int k =0 ; k < nodal_output.numNodes; ++k)
-            fprintf(scalar_file,"%e ",nodal_output.results[k]*sscale[i]);
+              fprintf(scalar_file,"%e ",nodal_output.results[k]*sscale[i]);
             fprintf(scalar_file,"\n");
             fclose(scalar_file);
           } else {
@@ -3790,8 +3887,25 @@ int TsOutput<dim>::writeBinaryVectorsToDiskRom(bool lastNewtonIt, int timeStep, 
   }
 
   return status;
-
 }
 
+/**
+ * output state and mask from a embedded full order model for training a ROM.
+ * This is called from EmbeddedTsDesc::outputToDisk(); the frequency of saving is set in
+ * IoData::RomOutputData.
+ */
+template<int dim>
+void TsOutput<dim>::writeStateMaskVectorsToDiskRom(int timestep, DistSVec<double, dim> &state, DistSVec<char, dim> &mask){
+  if (timestep == 0 || timestep % stateOutputFreqTime == 0) {
+  // use a global variable to increment it
+    int step = *(domain->getTimeIt());
+  if(stateVectors)
+      domain->writeVectorToFile(stateVectors, step, *(domain->getNewtonTag()), state);
+  // saving mask, use overloaded writeVectorToFile function
+  if(stateMaskVectors)
+      domain->writeVectorToFile(stateMaskVectors, step, *(domain->getNewtonTag()), mask);
+    ++(*(domain->getTimeIt()));
+  }
+}
 
 //------------------------------------------------------------------------------

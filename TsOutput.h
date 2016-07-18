@@ -88,6 +88,7 @@ private:
   char *generalizedforces;
   char *residuals;
   char *material_volumes;
+  char *material_mass_energy;
   char *conservation;
   char *modeFile;
   char *embeddedsurface;
@@ -95,6 +96,7 @@ private:
   char *embeddedsurfaceCf;
   char *cputiming;
   char *stateVectors;
+    char *stateMaskVectors; //<! for embdded ROM, Lei lei, 02/01/2016
   char *residualVectors;
   double tscale;
   double xscale;
@@ -119,6 +121,7 @@ private:
   FILE *fpMatchState;
   FILE *fpFluxNorm;
   FILE *fpMatVolumes;
+  FILE *fpMaterialMassEnergy;
   FILE *fpConservationErr;
   FILE *fpGnForces;
   FILE *fpStateRom;
@@ -230,6 +233,8 @@ public:
                              DistVec<int> * = 0);
   void writeResidualsToDisk(int, double, double, double);
   void writeMaterialVolumesToDisk(int, double, DistVec<double>&, DistVec<int>* = 0);
+  void writeMaterialMassEnergyToDisk(int, double, DistSVec<double, dim>& ,DistVec<double> & ,  DistVec<int>* = 0);
+
   void writeEmbeddedSurfaceToDisk(bool, int, double, Vec<Vec3D>&, Vec<Vec3D>&);
   void writeCPUTimingToDisk(bool, int, double, Timer*);
   void writeConservationErrors(IoData &iod, int it, double t, int numPhases,
@@ -243,6 +248,9 @@ public:
                                 DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
 
   int writeBinaryVectorsToDiskRom(bool, int, int, DistSVec<double,dim> *, DistSVec<double,dim> *);
+
+    //Lei Lei, 02/01/2016: only called in EmbeddedTsDesc::outputToDisk()
+    void writeStateMaskVectorsToDiskRom(int it, DistSVec<double, dim> &state, DistSVec<char, dim> &mask);
 
   void cleanProbesFile();
   

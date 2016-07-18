@@ -3777,6 +3777,7 @@ bool Domain::readTagFromFile(const char *prefix, int step, double *tag, int *num
     if (step >= *numSteps)  return false;
     return true;
   } else {
+    com->fprintf(stdout, "File [%s] does not exist\n", prefix);
     *numSteps = 0;
     *tag = 0;
     return false;
@@ -3811,7 +3812,39 @@ bool Domain::readVectorFromFile(const char *prefix, int step, double *tag,
 
   timer->addBinaryReadTime(t0);
 
-  com->printf(3, "Read solution %d from \'%s\'\n", step, prefix);
+  com->fprintf(stdout, "Read solution %d from \'%s\'\n", step, prefix);
+
+  return true;
+
+}
+
+
+//------------------------------------------------------------------------------
+
+template<class Scalar>
+bool Domain::readVectorFromFile(const char *prefix, int step, double *tag,
+                                DistVec<Scalar> &U, Scalar* scale)
+{
+  int neq, numSteps;
+  double t = subDomain[0]->template readTagFromFile<Scalar, 1>(prefix, step, &neq, &numSteps);
+  if (tag) *tag = t;
+  com->fprintf(stdout, "from [%s], neq = %d, numSteps = %d, step = %d\n", prefix, neq, numSteps, step);
+  if (neq != 1)
+    com->fprintf(stdout, "*** Warning: mismatch in dim for \'%s\' (%d vs 1)\n", prefix, neq);
+
+  if (step >= numSteps)
+    return false;
+
+//  com->barrier(); //For timing (of i/o) purpose.
+  double t0 = timer->getTime();
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->readVectorFromFile(prefix, step, U(iSub));
+
+  timer->addBinaryReadTime(t0);
+
+  com->fprintf(stdout, "Read solution %d from \'%s\'\n", step, prefix);
 
   return true;
 
@@ -3843,6 +3876,44 @@ void Domain::writeVectorToFile(const char *prefix, int step, double tag,
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->template writeTagToFile<Scalar,dim>(prefix, step, tag);
+
+#ifndef SYNCHRO_WRITE
+  sync();
+#endif
+
+  timer->addBinaryWriteTime(t0);
+
+  com->printf(1, "Wrote solution %d to \'%s\'\n", step, prefix);
+
+}
+
+
+//------------------------------------------------------------------------------
+
+template<class Scalar>
+void Domain::writeVectorToFile(const char *prefix, int step, double tag,
+                               DistVec<Scalar> &U, Scalar* scale)
+{
+
+  int iSub;
+
+  com->barrier(); //For timing (of i/o) purpose.
+  double t0 = timer->getTime();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->template openFileForWriting<Scalar, 1>(prefix, step);
+
+  if (step == 0)
+    com->barrier();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->writeVectorToFile(prefix, step, U(iSub), scale);
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->template writeTagToFile<Scalar, 1>(prefix, step, tag);
 
 #ifndef SYNCHRO_WRITE
   sync();
@@ -5635,4 +5706,52 @@ void Domain::setExactBoundaryJacobian(DistSVec<double,dim>& U, DistSVec<double,3
       }
     }
   }
+}
+
+//-------------------------------------------------------------------------------
+/**   Function Domain::computeMaterailMassEnergy
+   *  Mass is the mass vector to save mass of different fluid materials
+   *  size is the numFluidPhases + 1(ghost node)
+   *  U is the conservative state variables
+   *  A is the volume of fluid control volume
+   *  fluidId is the fluid Id vector for mutiphase problem, and NULL for single phase problem
+   */
+template<int dim>
+void Domain::computeMaterialMassEnergy(double *Mass, double *Energy, int size, DistSVec<double,dim> &U, DistVec<double> &A, DistVec<int> *fluidId)
+{
+  double subMass[numLocSub][size];
+  double subEnergy[numLocSub][size];
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub) {
+    for(int i=0; i<size; i++) {
+      subMass[iSub][i] = 0.0;
+      subEnergy[iSub][i] = 0.0;
+    }
+    double *subA = A.subData(iSub);
+    double (*subU)[dim] = U.subData(iSub);
+    int *subId = fluidId ? fluidId->subData(iSub) : 0;
+    bool *subMasterFlag = A.getMasterFlag(iSub);
+
+    for(int i=0; i<A.subSize(iSub); i++) {
+      if(!subMasterFlag[i])
+        continue;
+      int myId = subId ? subId[i] : 0;
+      if(myId>=size) {
+        fprintf(stderr,"ERROR: Detected FluidId = %d. Maximum should be %d (or less). \n", myId, size-1);
+        exit(-1);
+      }
+      //subU[i][0] is the density
+      subMass[iSub][myId] += subA[i]*subU[i][0];
+      subEnergy[iSub][myId] += subA[i]*subU[i][4];
+    }
+  }
+
+  for(int iSub=0; iSub<numLocSub; ++iSub)
+    for(int i=0; i<size; i++) {
+      Mass[i] += subMass[iSub][i];
+      Energy[i] += subEnergy[iSub][i];
+    }
+
+  com->globalSum(size, Mass);
+  com->globalSum(size, Energy);
 }

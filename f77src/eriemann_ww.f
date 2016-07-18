@@ -2,7 +2,8 @@
      &                      PM,UM,RIL,RIR,
      &                      ALPHAL,BETAL,PREFL,
      &                      ALPHAR,BETAR,PREFR,errcod,
-     &                      pcutl,pcutr,rcutl,rcutr)
+     &                      pcutl,pcutr,rcutl,rcutr,
+     &                      TOLPRE,NRITER)
 *
 *----------------------------------------------------------------------*
 *                                                                      *
@@ -41,8 +42,8 @@ C     Declaration of variables:
       PCUT = MAX(pcutl,pcutr)
 *********************************************************************
       
-      TOLPRE  = 1.E-3
-      NRITER  = 100
+c     TOLPRE  = 1.E-3
+c     NRITER  = 100
 
       IF (PL.LT.0.0 .OR. PR.LT.0.0) WRITE(*,*) 'NEGATIVE PRESSURES',
      &                              DL,UL,PL,DR,UR,PR
