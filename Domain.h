@@ -14,6 +14,7 @@
 typedef std::complex<double> bcomp;
 #include <iostream>
 #include <ErrorHandler.h>
+#include <boost/unordered_map.hpp>
 using std::cout;
 using std::endl;
 
@@ -266,11 +267,11 @@ public:
 
   void getGeometry(GeoSource &, IoData&);
   void makeSampledNodeDistInfo(const std::vector<int> &cpuSample, const std::vector<int> &locSubSample);
-  void makeSampledNodeDistInfo(const std::vector<int> &globalSampleNodesUnion, const std::map<int, int> &globalNodeToCpuMap,
-                               const std::map<int, int> &globalNodeToLocSubDomainsMap);
+  void makeSampledNodeDistInfo(const std::vector<int> &globalSampleNodesUnion, const boost::unordered_map<int, int> &globalNodeToCpuMap,
+                               const boost::unordered_map<int, int> &globalNodeToLocSubDomainsMap);
   void makeOldSampledNodeDistInfo(const std::vector<int> &cpuSample, const std::vector<int> &locSubSample);
-  void makeOldSampledNodeDistInfo(const std::vector<int> &globalSampleNodesUnion, const std::map<int, int> &globalNodeToCpuMap,
-                               const std::map<int, int> &globalNodeToLocSubDomainsMap);
+  void makeOldSampledNodeDistInfo(const std::vector<int> &globalSampleNodesUnion, const boost::unordered_map<int, int> &globalNodeToCpuMap,
+                               const boost::unordered_map<int, int> &globalNodeToLocSubDomainsMap);
   void createRhsPat(int, IoData&);
   void createVecPat(int, IoData * = 0);
   void createPhiVecPat(int, IoData * = 0);

@@ -99,6 +99,8 @@ InputData::InputData()
   multiSolutions = "";
   multiSolutionsParams = "";
   parameters = "";
+  parametricDistanceExponent=1.0;
+  maxInterpolatedSolutions = -1;
   positions = "";
   displacements = "";
   embeddedpositions = "";
@@ -172,6 +174,8 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassToken<InputData>(ca, "UseMultipleSolutionsGappy", this, reinterpret_cast<int InputData::*>(&InputData::useMultiSolutionsGappy), 2, "False", 0, "True", 1);
   new ClassStr<InputData>(ca, "ParametersForMultipleSolutions", this, &InputData::multiSolutionsParams);
   new ClassStr<InputData>(ca, "ParametersForThisSimulation", this, &InputData::parameters);
+  new ClassDouble<InputData>(ca, "ParametricDistanceExponent", this, &InputData::parametricDistanceExponent);
+  new ClassInt<InputData>(ca, "MaxInterpolatedSolutions", this, &InputData::maxInterpolatedSolutions);
   new ClassStr<InputData>(ca, "Position", this, &InputData::positions);
   new ClassStr<InputData>(ca, "InitialDisplacement", this, &InputData::displacements);
   new ClassStr<InputData>(ca, "EmbeddedPosition", this, &InputData::embeddedpositions);
@@ -801,7 +805,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 5, father);
   new ClassToken<ProblemData>
     (ca, "Type", this,
-     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 42,
+     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 41,
      "Steady", 0, "Unsteady", 1, "AcceleratedUnsteady", 2, "SteadyAeroelastic", 3,
      "UnsteadyAeroelastic", 4, "AcceleratedUnsteadyAeroelastic", 5,
      "SteadyAeroThermal", 6, "UnsteadyAeroThermal", 7, "SteadyAeroThermoElastic", 8,
@@ -3861,6 +3865,7 @@ NonlinearRomFilesData::NonlinearRomFilesData()
   sampledJacActionBasisName = "";
   sampledMeshName = "";
   sampledSolutionName = "";
+  sampledMatchStateName = "";
   sampledShapeDerivativeName = "";
   sampledMultiSolutionsName = "";
   sampledRefStateName = "";
@@ -3883,6 +3888,8 @@ NonlinearRomFilesData::NonlinearRomFilesData()
   surfaceStateBasisName = "";
   surfaceRefStateName = "";
   surfaceSolutionName = "";
+  surfaceMatchStateName = "";
+  surfaceInitialDisplacementName = "";
   surfaceShapeDerivativeName = "";
   surfaceWallDistName = "";
   surfaceDisplacementName = "";
@@ -3973,6 +3980,7 @@ void NonlinearRomFilesData::setup(const char *name, ClassAssigner *father)
   new ClassStr<NonlinearRomFilesData>(ca, "SampledResidualBasis", this, &NonlinearRomFilesData::sampledResidualBasisName);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledJacActionBasis", this, &NonlinearRomFilesData::sampledJacActionBasisName);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledSolution", this, &NonlinearRomFilesData::sampledSolutionName);
+  new ClassStr<NonlinearRomFilesData>(ca, "SampledMatchState", this, &NonlinearRomFilesData::sampledMatchStateName);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledShapeDerivative", this, &NonlinearRomFilesData::sampledShapeDerivativeName);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledMultiSolutions", this, &NonlinearRomFilesData::sampledMultiSolutionsName);
   new ClassStr<NonlinearRomFilesData>(ca, "SampledReferenceState", this, &NonlinearRomFilesData::sampledRefStateName);
@@ -3995,6 +4003,8 @@ void NonlinearRomFilesData::setup(const char *name, ClassAssigner *father)
   new ClassStr<NonlinearRomFilesData>(ca, "SurfaceClusterCenters", this, &NonlinearRomFilesData::surfaceCentersName);
   new ClassStr<NonlinearRomFilesData>(ca, "SurfaceStateBasis", this, &NonlinearRomFilesData::surfaceStateBasisName);
   new ClassStr<NonlinearRomFilesData>(ca, "SurfaceSolution", this, &NonlinearRomFilesData::surfaceSolutionName);
+  new ClassStr<NonlinearRomFilesData>(ca, "SurfaceMatchState", this, &NonlinearRomFilesData::surfaceMatchStateName);
+  new ClassStr<NonlinearRomFilesData>(ca, "SurfaceInitialDisplacement", this, &NonlinearRomFilesData::surfaceInitialDisplacementName);
   new ClassStr<NonlinearRomFilesData>(ca, "SurfaceShapeDerivative", this, &NonlinearRomFilesData::surfaceShapeDerivativeName);
   new ClassStr<NonlinearRomFilesData>(ca, "SurfaceWallDistance", this, &NonlinearRomFilesData::surfaceWallDistName);
   new ClassStr<NonlinearRomFilesData>(ca, "SurfaceDisplacement", this, &NonlinearRomFilesData::surfaceDisplacementName);
@@ -4072,7 +4082,7 @@ void NonlinearRomOnlineData::setup(const char *name, ClassAssigner *father)
   new ClassToken<NonlinearRomOnlineData> (ca, "PerformLineSearch", this, reinterpret_cast<int
       NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::lineSearch), 3, "False", 0, "Backtracking", 1, "StrongWolfe", 2);
   new ClassToken<NonlinearRomOnlineData> (ca, "LeastSquaresSolver", this, reinterpret_cast<int
-			NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::lsSolver), 6, "QR", 0, "NormalEquations", 1, "RegularizedNormalEquations", 2, "LevenbergMarquardtSVD", 3, "ProbabilisticSVD", 4, "LSMR", 5);
+			NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::lsSolver), 5, "QR", 0, "NormalEquations", 1, "RegularizedNormalEquations", 2, "LevenbergMarquardtSVD", 3, "ProbabilisticSVD", 4);
   new ClassToken<NonlinearRomOnlineData> (ca, "BasisUpdates", this, reinterpret_cast<int
 			NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::basisUpdates), 4, "Off", 0, "Simple", 1, "Exact", 2, "Approximate", 3);
   new ClassDouble<NonlinearRomOnlineData>(ca, "BasisUpdateTolerance", this, &NonlinearRomOnlineData::basisUpdateTolerance);
@@ -4668,7 +4678,7 @@ void DataCompressionData::setup(const char *name, ClassAssigner *father) {
   new ClassToken<DataCompressionData> (ca, "Type", this, reinterpret_cast<int 
       DataCompressionData::*>(&DataCompressionData::type), 2, "POD", 0, "Balanced POD", 1);
   new ClassToken<DataCompressionData> (ca, "PODMethod", this, reinterpret_cast<int
-			DataCompressionData::*>(&DataCompressionData::podMethod), 2, "ScalapackSVD", 0, "ProbabilisticSVD", 1, "Eig", 2);
+			DataCompressionData::*>(&DataCompressionData::podMethod), 4, "ScalapackSVD", 0, "ProbabilisticSVD", 1, "RSVD", 2, "Eig", 3);
   new ClassInt<DataCompressionData>(ca, "MaxColumnsInRandomMatrix", this, &DataCompressionData::randMatDimension);
   new ClassInt<DataCompressionData>(ca, "NumProbabilisticPowerIterations", this, &DataCompressionData::nPowerIts);
   new ClassInt<DataCompressionData>(ca, "MaxNumStoredVectors", this, &DataCompressionData::maxVecStorage);

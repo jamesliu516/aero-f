@@ -206,9 +206,6 @@ void NonlinearRomDatabaseConstruction<dim>::placeNonStateSnapshotsInClusters(con
     exit (-1);
   }
 
-  delete [] vecFile;
-  vecFile = NULL;
-
   int nData, _n;
   _n = fscanf(inFP, "%d",&nData);
   this->com->fprintf(stdout, "Reading snapshots from %d files \n",nData);
@@ -217,6 +214,9 @@ void NonlinearRomDatabaseConstruction<dim>::placeNonStateSnapshotsInClusters(con
     this->com->fprintf(stderr, "*** Error: incorrect number of files listed in %s (these files must correspond to the state snapshot files)\n", vecFile);
     exit(-1);
   }
+
+  delete [] vecFile;
+  vecFile = NULL;
 
   char** snapFile = new char*[nData];
   for (int iData = 0; iData < nData; ++iData)
@@ -2161,6 +2161,8 @@ void NonlinearRomDatabaseConstruction<dim>::SVD(VecSet< DistSVec<double, dim> >*
     scalapackSVD(snapshots, Utrue, singularValues, Vtrue, computeV);
   } else if (podMethod==DataCompressionData::PROBABILISTIC_SVD) {
     probabilisticSVDWrapper(snapshots, Utrue, singularValues, Vtrue, randMatDimension, nPowerIts, testProbSVD);
+  } else if (podMethod==DataCompressionData::R_SVD) {
+    rSVDWrapper(snapshots, Utrue, singularValues, Vtrue, testProbSVD);
   } else {
     this->com->fprintf(stderr, "*** Error: Unexpected POD method (EVD is not supported for nonlinear ROM prepro)\n");
     exit(-1);
@@ -2197,6 +2199,26 @@ void NonlinearRomDatabaseConstruction<dim>::scalapackSVD(VecSet< DistSVec<double
 
 }
 
+//----------------------------------------------------------------------------------
+
+template<int dim>
+void NonlinearRomDatabaseConstruction<dim>::rSVDWrapper(VecSet< DistSVec<double, dim> >*& snapshots, VecSet< DistSVec<double, dim> > &Utrue,
+    std::vector<double>& singularValues, FullM &Vtrue, bool testSVD) {
+//  wrapper for R-SVD function
+//  Note: moved core functionality to NonlinearRom.C since it proved widely applicable
+
+  int nVecs = snapshots->numVectors();
+
+  Utrue.resize(nVecs);
+  for (int iVec=0; iVec<nVecs; ++iVec) {
+    Utrue[iVec]=(*snapshots)[iVec];
+  } 
+
+  this->rSVD(Utrue, singularValues, Vtrue, testSVD);
+  
+}
+
+
 
 //----------------------------------------------------------------------------------
 
@@ -2220,7 +2242,6 @@ void NonlinearRomDatabaseConstruction<dim>::probabilisticSVDWrapper(VecSet< Dist
 //    [tU,S,V]=svd(B,0); % SVD
 //    U = Q*tU;          % Reconstruction
 
-  std::vector<double> sVals;
   int nVecs = snapshots->numVectors();
 
   Utrue.resize(nVecs);
@@ -2952,13 +2973,9 @@ void NonlinearRomDatabaseConstruction<dim>::localRelProjError() {
     
     if (projError->postProProjectedStates == RelativeProjectionErrorData::POST_PRO_ON ) { //||
        // projError->outputResidualOfProjStates == RelativeProjectionErrorData::CALC_RESIDUALS_ON) {
-  
       TsDesc<dim>* tsDesc = new TsDesc<dim>(*(this->ioData), geoSource, &(this->domain));    
-
       if (projError->postProProjectedStates == RelativeProjectionErrorData::POST_PRO_ON) {
-
         DistSVec<double,dim> outVec(this->domain.getNodeDistInfo());
-
         for (int iSnap=0;iSnap<nTotSnaps;++iSnap) {
           if (projError->subtractRefSol) {
              this->readReferenceState(); 
@@ -2969,7 +2986,7 @@ void NonlinearRomDatabaseConstruction<dim>::localRelProjError() {
           } else {
              outVec = (*projectedSnaps)[iSnap] + *(this->Uref);
           }
-          tsDesc->performPostProForState(outVec);
+          tsDesc->performPostProForState(outVec, iSnap);
         }
       }
 
@@ -3399,37 +3416,116 @@ template<int dim>
 void NonlinearRomDatabaseConstruction<dim>::testProbabilisticSVD(VecSet< DistSVec<double, dim> >*& snapshots, VecSet< DistSVec<double, dim> > &Utrue, std::vector<double>& singularValues, FullM &Vtrue, int podMethod, int randMatDimension, int nPowerIts, bool computeV)  {
 
   int nTotSnaps = snapshots->numVectors();
-  int kStep = 10; 
+  int kStep = 100; 
   int numSteps = 1 + floor((double) nTotSnaps / ((double) kStep));
 
+  // run scalapack
+  this->com->fprintf(stdout,"\nRunning ScaLAPACK SVD\n");
+  double scalapackTime = this->timer->getTime();
+  scalapackSVD(snapshots, Utrue, singularValues, Vtrue, computeV);
+  scalapackTime = this->timer->getTime() - scalapackTime;
+  this->com->fprintf(stdout," ... elapsed time = %es\n",scalapackTime);
+
+  // run R-SVD 
+  this->com->fprintf(stdout,"\nRunning R-SVD\n");
+  VecSet< DistSVec<double, dim> > URSVD(nTotSnaps, this->domain.getNodeDistInfo());
+  FullM* VRSVD = new FullM(nTotSnaps);
+  std::vector<double> singularValuesRSVD;
+  double rTime = this->timer->getTime();
+  rSVDWrapper(snapshots, URSVD, singularValuesRSVD, *VRSVD, false);
+  rTime = this->timer->getTime() - rTime;
+  this->com->fprintf(stdout," ... elapsed time = %es\n",rTime);
+
+  // scalapack SVD errors
+  std::vector<double> avgReconstructionErrorScalapack(numSteps,0.0);
+  std::vector<double> maxReconstructionErrorScalapack(numSteps,0.0);
+
+  // probabilistic SVD errors
   std::vector<double> sValMaxAbsError(numSteps,0.0);
   std::vector<double> sValMaxRelError(numSteps,0.0);
   std::vector<double> avgErrorU(numSteps,0.0);
   std::vector<double> maxErrorU(numSteps,0.0);
-  std::vector<double> avgReconstructionErrorScalapack(numSteps,0.0);
-  std::vector<double> maxReconstructionErrorScalapack(numSteps,0.0);
   std::vector<double> avgReconstructionErrorProb(numSteps,0.0);
   std::vector<double> maxReconstructionErrorProb(numSteps,0.0);
   std::vector<double> probabilisticTime(numSteps,0.0);
 
-  // run scalapack
-  double scalapackTime = this->timer->getTime();
-  scalapackSVD(snapshots, Utrue, singularValues, Vtrue, computeV);
-  scalapackTime = this->timer->getTime() - scalapackTime;
+  // R-SVD errors
+  std::vector<double> sValMaxAbsErrorRSVD(numSteps,0.0);
+  std::vector<double> sValMaxRelErrorRSVD(numSteps,0.0);
+  std::vector<double> avgErrorURSVD(numSteps,0.0);
+  std::vector<double> maxErrorURSVD(numSteps,0.0);
+  std::vector<double> avgReconstructionErrorRSVD(numSteps,0.0);
+  std::vector<double> maxReconstructionErrorRSVD(numSteps,0.0);
 
-  // run probabilistic with variable k and compare to scalapack
+  // first compute R-SVD errors and free up memory
   int k = 1;
   for (int step=0; step<numSteps; ++step) {
     k = min(k,nTotSnaps);
-   this->com->fprintf(stdout, " k=%d\n",k);
+    
+    // compare singular values with scalapack
+    for (int i=0; i<k; ++i) {
+      double dif = abs(singularValuesRSVD[i] -  singularValues[i]);
+      sValMaxAbsErrorRSVD[step] = (dif>sValMaxAbsErrorRSVD[step]) ? dif : sValMaxAbsErrorRSVD[step];
+      dif = (singularValues[i]>1e-14) ? dif / singularValues[i] : 1e6;
+      sValMaxRelErrorRSVD[step] = (dif>sValMaxRelErrorRSVD[step]) ? dif : sValMaxRelErrorRSVD[step];
+    }    
+
+    // compare basis vectors with scalapack
+    DistSVec<double,dim> errorVec( this->domain.getNodeDistInfo() );
+    double errorNorm;
+    for (int i=0; i<k; ++i) {
+      errorVec = URSVD[i] -  Utrue[i];
+      errorNorm = errorVec.norm();
+      avgErrorURSVD[step] += errorNorm/((double)k);
+      maxErrorURSVD[step] = (errorNorm>maxErrorURSVD[step]) ? errorNorm : maxErrorURSVD[step]; 
+    }
+ 
+    // compare reconstruction error to scalapack reconstruction error
+    for (int iVec = 0; iVec < nTotSnaps; ++iVec) {
+      errorVec = (*snapshots)[iVec];
+      for (int jVec = 0; jVec < k; ++jVec)
+        errorVec = errorVec - ((singularValues[jVec] * Vtrue[iVec][jVec]) * Utrue[jVec]);
+      errorNorm = ((((*snapshots)[iVec]).norm()) > 1e-15) ? errorVec.norm()/(((*snapshots)[iVec]).norm()) : 0.0;
+      avgReconstructionErrorScalapack[step] += errorNorm;
+      if (errorNorm > maxReconstructionErrorScalapack[step])
+        maxReconstructionErrorScalapack[step] = errorNorm;
+    }
+    avgReconstructionErrorScalapack[step] /= nTotSnaps;
+   
+    for (int iVec = 0; iVec < nTotSnaps; ++iVec) {
+      errorVec = (*snapshots)[iVec];
+      for (int jVec = 0; jVec < k; ++jVec)
+        errorVec = errorVec - ((singularValuesRSVD[jVec] * (*VRSVD)[iVec][jVec]) * URSVD[jVec]);
+      errorNorm = ((((*snapshots)[iVec]).norm()) > 1e-15) ? errorVec.norm()/(((*snapshots)[iVec]).norm()) : 0.0;
+      avgReconstructionErrorRSVD[step] += errorNorm;
+      if (errorNorm > maxReconstructionErrorRSVD[step])
+        maxReconstructionErrorRSVD[step] = errorNorm;
+    }
+    avgReconstructionErrorRSVD[step] /= nTotSnaps;
+
+    k += kStep;
+  }
+
+  URSVD.resize(0);
+  delete VRSVD;
+  VRSVD = NULL;
+
+  // run probabilistic with variable k and compute errors
+  this->com->fprintf(stdout,"\nRunning Probabilistic SVD\n");
+  k = 1;
+  for (int step=0; step<numSteps; ++step) {
+    k = min(k,nTotSnaps);
+   this->com->fprintf(stdout, " k=%d/%d\n", k, nTotSnaps);
     
     // run probabilistic SVD
     VecSet< DistSVec<double, dim> > Uprob(nTotSnaps, this->domain.getNodeDistInfo());
     FullM Vprob(nTotSnaps);
     std::vector<double> singularValuesProb;
+
     probabilisticTime[step] = this->timer->getTime();
     probabilisticSVDWrapper(snapshots, Uprob, singularValuesProb, Vprob, k, 0, false);
     probabilisticTime[step] = this->timer->getTime() - probabilisticTime[step];
+    this->com->fprintf(stdout," elapsed time = %es\n\n",probabilisticTime[step]);
 
     // compare singular values with scalapack
     for (int i=0; i<k; ++i) {
@@ -3448,19 +3544,8 @@ void NonlinearRomDatabaseConstruction<dim>::testProbabilisticSVD(VecSet< DistSVe
       avgErrorU[step] += errorNorm/((double)k);
       maxErrorU[step] = (errorNorm>maxErrorU[step]) ? errorNorm : maxErrorU[step]; 
     } 
-
+ 
     // compare reconstruction error to scalapack reconstruction error
-    for (int iVec = 0; iVec < nTotSnaps; ++iVec) {
-      errorVec = (*snapshots)[iVec];
-      for (int jVec = 0; jVec < k; ++jVec)
-        errorVec = errorVec - ((singularValues[jVec] * Vtrue[iVec][jVec]) * Utrue[jVec]);
-      errorNorm = ((((*snapshots)[iVec]).norm()) > 1e-15) ? errorVec.norm()/(((*snapshots)[iVec]).norm()) : 0.0;
-      avgReconstructionErrorScalapack[step] += errorNorm;
-      if (errorNorm > maxReconstructionErrorScalapack[step])
-        maxReconstructionErrorScalapack[step] = errorNorm;
-    }
-    avgReconstructionErrorScalapack[step] /= nTotSnaps;
-   
     for (int iVec = 0; iVec < nTotSnaps; ++iVec) {
       errorVec = (*snapshots)[iVec];
       for (int jVec = 0; jVec < k; ++jVec)
@@ -3475,10 +3560,10 @@ void NonlinearRomDatabaseConstruction<dim>::testProbabilisticSVD(VecSet< DistSVe
     k += kStep;
   }
 
-  this->com->fprintf(stdout, " # dim scalapackTime probabilisticTime sValMaxAbsError sValMaxRelError avgErrorU maxErrorU avgReconstructionErrorScalapack maxReconstructionErrorScalapack avgReconstructionErrorProb maxReconstructionErrorProb\n");
+  this->com->fprintf(stdout, " # dim scalapackTime avgReconstructionErrorScalapack maxReconstructionErrorScalapack rTime sValMaxAbsErrorRSVD sValMaxRelErrorRSVD avgErrorURSVD maxErrorURSVD avgReconstructionErrorRSVD maxReconstructionErrorRSVD probabilisticTime sValMaxAbsErrorProb sValMaxRelErrorProb avgErrorUProb maxErrorUProb  avgReconstructionErrorProb maxReconstructionErrorProb\n");
   k = 1;
   for (int step=0; step<numSteps; ++step) {
-    this->com->fprintf(stdout, " %d %e %e %e %e %e %e %e %e %e %e\n", k, scalapackTime, probabilisticTime[step], sValMaxAbsError[step], sValMaxRelError[step], avgErrorU[step], maxErrorU[step], avgReconstructionErrorScalapack[step], maxReconstructionErrorScalapack[step], avgReconstructionErrorProb[step], maxReconstructionErrorProb[step]);
+    this->com->fprintf(stdout, " %d %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e\n", k, scalapackTime, avgReconstructionErrorScalapack[step], maxReconstructionErrorScalapack[step], rTime, sValMaxAbsErrorRSVD[step], sValMaxRelErrorRSVD[step], avgErrorURSVD[step], maxErrorURSVD[step], avgReconstructionErrorRSVD[step], maxReconstructionErrorRSVD[step], probabilisticTime[step], sValMaxAbsError[step], sValMaxRelError[step], avgErrorU[step], maxErrorU[step], avgReconstructionErrorProb[step], maxReconstructionErrorProb[step]);
     k += kStep;
   }
 }

@@ -514,20 +514,45 @@ void TsDesc<dim>::formInterpolationWeights(IoData &iod) {
   com->fprintf(stdout, " ... calculating interpolation weights for initial condition\n");
   std::vector<double> distances;
   distances.resize(nData);
+  double distanceExponent = iod.input.parametricDistanceExponent;
+  if (distanceExponent!=1.0) {
+    com->fprintf(stdout, " ... using exponent of %e for all distances\n", distanceExponent);
+  }
+  int maxInterpolatedSolutions = iod.input.maxInterpolatedSolutions;
+  if (maxInterpolatedSolutions>=0) {
+    com->fprintf(stdout, " ... using only the %d nearest solutions for interpolation\n", maxInterpolatedSolutions);
+  }
+
   int reproductiveOperatingPoint = -1;
   for (int iData=0; iData<nData; ++iData) {
     distances[iData] = 0.0;
     for (int iParam=0; iParam < nParams; ++iParam) {
-      distances[iData] += pow(parameters[iParam] - solutionsParameters[iData][iParam],2);
+      distances[iData] += pow(parameters[iParam] - solutionsParameters[iData][iParam],2.0);
     }
+    distances[iData] = pow(distances[iData],distanceExponent/2.0);
     //distances[iData] = pow(distances[iData],0.5); //use squared distances
-    if (distances[iData] <= 1e-8) {
+    if (distances[iData] <= 1e-10) {
       if (reproductiveOperatingPoint>=0) {
         com->fprintf(stderr, "*** ERROR: More than one training solution matches the current operating point... exiting.\n");
         exit(-1);
       }
       reproductiveOperatingPoint = iData;
     }
+  }
+
+  
+  if (maxInterpolatedSolutions>0 && maxInterpolatedSolutions<nData) {
+    std::vector<double> sortedDistances(distances);
+    std::stable_sort(sortedDistances.begin(), sortedDistances.end());
+    int count = nData;
+    for (int iData=0; iData<nData; ++iData) {
+      if (distances[iData] > sortedDistances[maxInterpolatedSolutions-1]) {
+        --count;
+        distances[iData] = 1e16;
+      }
+    }
+    if (count != maxInterpolatedSolutions)
+      com->fprintf(stderr, "*** Warning: using %d interpolated solutions instead of %d\n", count, maxInterpolatedSolutions);
   }
 
   interpolatedICWeights.resize(nData, 0.0);
@@ -547,7 +572,7 @@ void TsDesc<dim>::formInterpolationWeights(IoData &iod) {
     interpolatedICWeights[reproductiveOperatingPoint]=1.0;
   }
   for (int iData=0; iData<nData; ++iData) {
-    com->fprintf(stderr, " ... weight[%d]=%e...\n", iData, interpolatedICWeights[iData]);
+    com->fprintf(stdout, " ... weight[%d]=%e...\n", iData, interpolatedICWeights[iData]);
   }
 
   //this->setInterpWeightsForMultiIC(interpolatedICWeights);
@@ -559,15 +584,17 @@ template<int dim>
 void TsDesc<dim>::formInterpolatedInitialCondition(DistSVec<double,dim> *U, IoData &iod)  {
   // overloaded for ImplicitGnatTsDesc, which needs to handle this a bit differently
 
+  com->fprintf(stdout, " ... entering formInterpolatedIC, reading %s\n", iod.input.multiSolutionsParams);
   FILE *paramsFile = fopen(iod.input.multiSolutionsParams,"r");
   if (!paramsFile)  {
     com->fprintf(stderr, "*** Error: No solution data FILES in %s\n", iod.input.multiSolutionsParams);
     exit (-1);
   }
-  int nData, _n, nParams, tmp;
-  _n = fscanf(paramsFile, "%d",&nData);
-  _n = fscanf(paramsFile, "%d",&nParams);
-  com->fprintf(stdout, " ... reading %d solutions for interpolation\n",nData);
+  int nData, _n, nParams;
+  double tmp;
+  _n = fscanf(paramsFile, "%d", &nData);
+  _n = fscanf(paramsFile, "%d", &nParams);
+  com->fprintf(stdout, " ... reading %d solutions for interpolation (%d params)\n", nData, nParams);
 
   char solnFile[500];
   DistSVec<double,dim> Utmp(domain->getNodeDistInfo());
@@ -1482,12 +1509,10 @@ void TsDesc<dim>::computeConvergenceInformation(IoData &ioData, const char* file
 //----------------------------------------------------------------------------
 
 template<int dim>
-void TsDesc<dim>::performPostProForState(DistSVec<double,dim> &outVec)
+void TsDesc<dim>::performPostProForState(DistSVec<double,dim> &outVec, int tmpIt)
 { // public function that performs post processing on a state vector. Used during Nonlinear ROM preprocessing
   bool tmpLastIt = false;
-  int tmpIt = 0;
-  double tempT = 0.0;
-  output->writeBinaryVectorsToDisk(tmpLastIt, tmpIt, tempT, *X, *A, outVec, timeState);
+  output->writeBinaryVectorsToDisk(tmpLastIt, tmpIt, double(tmpIt), *X, *A, outVec, timeState);
 }
 
 //----------------------------------------------------------------------------

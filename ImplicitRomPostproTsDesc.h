@@ -30,7 +30,7 @@ public:
   ImplicitRomPostproTsDesc(IoData &, GeoSource &, Domain *);
   void formInterpolatedInitialCondition(DistSVec<double,dim> *U, IoData &iod)  {
     if (this->ioData->romDatabase.files.surfacePrefix[0]==0 && this->ioData->romDatabase.files.surfaceRefStateName[0]==0) {
-      dynamic_cast<TsDesc<dim>*>(this)->formInterpolatedInitialCondition(U, iod);
+      dynamic_cast<TsDesc<dim>*>(this)->TsDesc<dim>::formInterpolatedInitialCondition(U, iod);
     } else {
       this->rom->formInterpolatedInitialCondition(U, iod);
     }

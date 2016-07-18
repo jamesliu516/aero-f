@@ -5417,7 +5417,6 @@ void Domain::communicateMesh(std::vector <Scalar> * nodeOrEle, int arraySize,
 			else
 				nodeOrEleArray[iNeighbor] = 0;
 		}
-
 		com->globalSum(totalNodeOrEle,nodeOrEleArray);
 
 		// fill in the array with all global entries

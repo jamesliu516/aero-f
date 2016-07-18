@@ -767,6 +767,7 @@ DistSVec<double,dim>* VarFcn::computeBalancedWeightVec(IoData &iod, DistSVec<dou
   // Computes a weighting vector for the residual that gives all equations equal priority
   // Useful for ROMs (hopefully), where the weighting of the residual determines the converged solution.
 
+
   double (*iDimMask)[dim] = new double[U.info().totLen][dim];
   if (weights[0]==-1) {
     for (int iDim=0; iDim<dim; ++iDim) {
@@ -782,13 +783,23 @@ DistSVec<double,dim>* VarFcn::computeBalancedWeightVec(IoData &iod, DistSVec<dou
       weights[iDim] = (norm>1e-14) ? 1/iDimMaskedRes.norm() : 1.0;
     }
   }
+
+  DistSVec<double, dim>* balancedWeightVec = new DistSVec<double, dim>(U.info());
   for (int iNode=0; iNode<U.info().totLen; ++iNode) {
     for (int iDim=0; iDim<dim; ++iDim) {
+      balancedWeightVec->v[iNode][iDim] = weights[iDim];
       iDimMask[iNode][iDim] = weights[iDim];
     }
   }
-  DistSVec<double, dim>* balancedWeightVec = new DistSVec<double, dim>(U.info(), iDimMask);
+
+  fprintf(stderr, "balancedWeightVec.norm() = %e\n", balancedWeightVec->norm());
+
+  DistSVec<double, dim> tmp(U.info(), iDimMask);
+  fprintf(stderr, "tmp.norm() = %e\n", tmp.norm());
+
+
   delete [] iDimMask;
+
   return balancedWeightVec;
 }
 

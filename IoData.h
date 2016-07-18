@@ -81,6 +81,8 @@ struct InputData {
   const char *multiSolutions;
   const char *multiSolutionsParams; // ROMs: path to a file listing file paths to solutions (not used) and their corresponding operating point (solutions are assumed to be in the same order as in the multiSolutions file)
   const char *parameters;  // ROMs: operating point for the current simulation (interpolates multiSolutionsParams to find an IC);
+  double parametricDistanceExponent;
+  int maxInterpolatedSolutions;
   const char *positions;
   const char *displacements;
   const char *embeddedpositions;
@@ -2247,7 +2249,8 @@ struct NonlinearRomFilesData {
   const char *sampledJacActionBasisName; //podFileJacHat;
   const char *sampledMeshName;          //mesh;
   const char *sampledSolutionName;      //solution;
-  const char *sampledShapeDerivativeName;      //solution;
+  const char *sampledMatchStateName;      //comparison state;
+  const char *sampledShapeDerivativeName;      
   const char *sampledMultiSolutionsName; // multiple solutions. Can start from one, or an arbitrary linear combination.
   const char *sampledRefStateName;
   const char *sampledWallDistName;      //wallDistanceRed;
@@ -2269,6 +2272,7 @@ struct NonlinearRomFilesData {
   const char *surfaceStateBasisName;
   const char *surfaceRefStateName;
   const char *surfaceSolutionName;
+  const char *surfaceMatchStateName;
   const char *surfaceInitialDisplacementName;
   const char *surfaceShapeDerivativeName;
   const char *surfaceMultiSolutionsName;
@@ -2330,7 +2334,7 @@ struct NonlinearRomOnlineData {
   enum Projection {PETROV_GALERKIN = 0, GALERKIN = 1} projection;
   enum SystemApproximation {SYSTEM_APPROXIMATION_NONE = 0, GNAT = 1, COLLOCATION = 2, APPROX_METRIC_NL = 3} systemApproximation;
   enum LineSearch {LINE_SEARCH_FALSE = 0, LINE_SEARCH_BACKTRACKING = 1, LINE_SEARCH_WOLF = 2} lineSearch;
-  enum LSSolver {QR = 0, NORMAL_EQUATIONS = 1, REGULARIZED_NORMAL_EQUATIONS = 2, LEVENBERG_MARQUARDT_SVD = 3, PROBABILISTIC_SVD = 4, LSMR = 5} lsSolver;
+  enum LSSolver {QR = 0, NORMAL_EQUATIONS = 1, REGULARIZED_NORMAL_EQUATIONS = 2, LEVENBERG_MARQUARDT_SVD = 3, PROBABILISTIC_SVD = 4} lsSolver;
 
   enum ResidualScaling {SCALING_OFF=0, SCALING_BALANCED=1, SCALING_ENERGY=2} residualScaling;
   double turbulenceWeight;
@@ -2456,7 +2460,7 @@ struct DataCompressionData {
 
   enum ComputePOD {COMPUTE_POD_FALSE = 0, COMPUTE_POD_TRUE = 1} computePOD;
   enum Type {POD = 0, BALANCED_POD = 1} type;
-  enum PODMethod {SCALAPACK_SVD = 0, PROBABILISTIC_SVD = 1, Eig = 2} podMethod;
+  enum PODMethod {SCALAPACK_SVD = 0, PROBABILISTIC_SVD = 1, R_SVD = 2,  Eig = 3} podMethod;
   int randMatDimension;
   int nPowerIts;
   enum CompareSVDMethods {COMPARE_SVD_FALSE = 0, COMPARE_SVD_TRUE = 1} compareSVDMethods;
