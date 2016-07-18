@@ -18,6 +18,7 @@ public: // TODO: change back to protected when done testing
     int nSnapShotFiles;
     int numSnapshots; //<! total number of snapshots across all files
     std::vector<int> numMasters; //<! numMasters[i] = #{master nodes} in subdomain i
+    //<! robConstruction, inherented from parent class
     int reducedDimension;
     /**
      * Wrapper to NonlinearRom::readSnapshotsFiles
@@ -79,6 +80,7 @@ public:
      * Compute the reduced order basis given snapshot and mask.
      * Input: mask, snapshots
      */
+    //TODO: change int dim to double minimum_energy
     void ReducedOrderBasisConstruction(int _dim);
 
     /**

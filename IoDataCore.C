@@ -4247,6 +4247,7 @@ void ROBConstructionData::setup(const char *name, ClassAssigner *father)
   krylov.setup("KrylovROB",ca);
 
   relativeProjectionError.setup("RelativeProjectionError",ca);
+  embeddedALS.setup("EmbeddedAlternatingLeastSquare", ca); // Lei Lei, 17 July 2016
 
 }
 
@@ -8121,4 +8122,19 @@ int IoData::checkInputValuesNonlinearRomPostprocessing() {
   return error;
 }
 
+EmbeddedAlternatingLeastSquareData::EmbeddedAlternatingLeastSquareData() {
+  maxBasisSize = 500;
+  relativeMinimumEnergy = 0.95;
+  maxIteration = 20;
+  leastSquareSolver = SVD;
+}
 
+void EmbeddedAlternatingLeastSquareData::setup(const char *name, ClassAssigner *father){
+  ClassAssigner *ca = new ClassAssigner(name, 4, father);
+
+  new ClassInt<EmbeddedAlternatingLeastSquareData>(ca, "MaxBasisSize", this, &EmbeddedAlternatingLeastSquareData::maxBasisSize);
+  new ClassDouble<EmbeddedAlternatingLeastSquareData>(ca, "RelativeMinimumEnergy", this, &EmbeddedAlternatingLeastSquareData::relativeMinimumEnergy);
+  new ClassInt<EmbeddedAlternatingLeastSquareData>(ca, "MaxIteration", this, &EmbeddedAlternatingLeastSquareData::maxIteration);
+  new ClassToken<EmbeddedAlternatingLeastSquareData> (ca, "LeastSquareSolver", this, reinterpret_cast<int EmbeddedAlternatingLeastSquareData::*>(&EmbeddedAlternatingLeastSquareData::leastSquareSolver), 2,
+                                                      "QR", 0, "SVD", 1);
+}
