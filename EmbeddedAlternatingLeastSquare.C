@@ -246,8 +246,8 @@ void EmbeddedAlternatingLeastSquare<dim>::ReducedOrderBasisConstruction(int _dim
         nrow += this->numMasters[i];
     }
     int ncol = this->numSnapshots;
-    int k = _dim;
-    this->reducedDimension = _dim;
+    int k = _dim; //TODO: change it
+    this->reducedDimension = _dim; //TODO: change it
     this->com->fprintf(stderr, "... (M, N) is [%d, %d], reduced dimension is %d\n", nrow, ncol, _dim);
     // set up X, M
     VecSet< DistSVec<double, dim> > Snap = *(this->snap);
@@ -261,9 +261,27 @@ void EmbeddedAlternatingLeastSquare<dim>::ReducedOrderBasisConstruction(int _dim
     VecSet< DistSVec<double, dim> >* basisInit = new VecSet< DistSVec<double, dim> >(k, this->domain.getNodeDistInfo());
     VecSet< DistSVec<double, dim> > basis = *basisInit;
     ParallelRom<dim> parallelRom(this->domain, this->com, this->domain.getNodeDistInfo());
-    double *singularValues = new double[k];
+    double *singularValues = new double[k]; //todo: change definition.
     FullM VInitDummy(this->reducedDimension, ncol);
     this->com->fprintf(stderr, "... calling parallelRom.parallelSVD()\n");
+    /* todo
+     * int maxBasisSize = robConstruction->state.dataCompression.maxBasisSize;
+     * parallelRom.parallelSVD(Snap, basis, singularValues, VInitDUmmy, this->reducedDimension, true);
+     * double singularValuesSum = 0;
+     * double remainingSumEstimate = 0;
+     * for(int i = 0; i < this->reducedDimension; i++){
+     *      double s = singularValues[i];
+     *      remainingSumEstimate = s * s * (ncol - i);
+     *      bool stopped = singularValueSums > minRelEnergy * (remainingSumEstimate + singluarValueSums);
+     *      if (stopped) {
+     *      this->reducedDimension = i;
+     *      break;
+     *      }
+     *      singularValuesSum += s * s;
+     * }
+     *
+     *
+     */
     parallelRom.parallelSVD(Snap, basis, singularValues, VInitDummy, this->reducedDimension, true);
     this->com->fprintf(stderr, "... U and V initialized, V dimension is [%d, %d]\n", VInitDummy.numRow(), VInitDummy.numCol());
     // todo: transpose UInit for use with armadillo
