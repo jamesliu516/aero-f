@@ -16,10 +16,14 @@ public: // TODO: change back to protected when done testing
 
     VecSet<DistSVec<char, dim> > *mask; //<! create by C++ new when needed
     int nSnapShotFiles;
-    int numSnapshots; //<! total number of snapshots across all files
+    int numSnapshots; //<! total number of snapshots across all files, set when read state mask
     std::vector<int> numMasters; //<! numMasters[i] = #{master nodes} in subdomain i
-    //<! robConstruction, inherented from parent class
     int reducedDimension;
+    // IoData parameters, loaded in constructor
+    int maxBasisSize;
+    double relativeMinimumEnergy;
+    int maxIteration;
+
     /**
      * Wrapper to NonlinearRom::readSnapshotsFiles
      * @param keyword determines what snapshots is used.
@@ -70,6 +74,10 @@ public: // TODO: change back to protected when done testing
     void outputBasis(const VecSet<DistSVec<double, dim> > &U);
     void readBasisFiles(VecSet<DistSVec<double, dim> > &U);
 
+    /**
+     * determing the initial rank of SVD by energy criterion
+     */
+    int initialization(VecSet<DistSVec<double, dim> > &basisInit);
 public:
 
     EmbeddedAlternatingLeastSquare(Communicator *, IoData &, Domain &/*, DistGeoState * */);
@@ -81,6 +89,7 @@ public:
      * Input: mask, snapshots
      */
     //TODO: change int dim to double minimum_energy
+    void ReducedOrderBasisConstruction();
     void ReducedOrderBasisConstruction(int _dim);
 
     /**
@@ -88,6 +97,7 @@ public:
      */
     void testingSnapshotIO();
     void testingALS();
+    void testingInitialization();
 };
 
 

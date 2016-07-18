@@ -17,9 +17,11 @@ double *linear_solve_LS(double *A, double *b, int nrow, int ncol);
 double *linear_solve_QR(double *A, double *b, int nrow, int nocl);
 double *linear_solve_SVD(double *A, double *b, int nrow, int ncol);
 
+void char_2_double(unsigned char *X, double *Y, int M, int N);
 int transpose_multiply(double *A, int M, int N, double *result);
 int matrix_multiply(double *A, double *B, int M, int N, int L, double *result);
 int matrix_vector_multiply(double *A, double *x, int M, int N, double *result);
+int matrix_matrix_elementwise_multiply(double *A, double *B, int M, int N, double *result);
 double frobenius_norm(double *X, int M, int N);
 
 void print(double *mat, int nrow, int ncol);

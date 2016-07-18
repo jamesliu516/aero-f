@@ -10,6 +10,17 @@ EmbeddedAlternatingLeastSquare<dim>::EmbeddedAlternatingLeastSquare(Communicator
                                                                     Domain &_domain/*, DistGeoState *_geoSource*/) :
         NonlinearRom<dim>(_com, _ioData, _domain)/*, geoSource(_geoSource)*/ {
     this->numMasters = countMasters(this->domain.getNodeDistInfo());
+    this->com->fprintf(stderr, "testing new I/O:\n");
+    this->com->fprintf(stderr, "maxBasisSize = %d, relativeMinimumEnergy = %f, maxIteration = %d, leastSquareSolver = %d\n",
+                        _ioData.romOffline.rob.embeddedALS.maxBasisSize,
+                        _ioData.romOffline.rob.embeddedALS.relativeMinimumEnergy,
+                        _ioData.romOffline.rob.embeddedALS.maxIteration,
+                        _ioData.romOffline.rob.embeddedALS.leastSquareSolver);
+
+
+    this->maxBasisSize = _ioData.romOffline.rob.embeddedALS.maxBasisSize;
+    this->relativeMinimumEnergy = _ioData.romOffline.rob.embeddedALS.relativeMinimumEnergy;
+    this->maxIteration = _ioData.romOffline.rob.embeddedALS.maxIteration;
 }
 
 template<int dim>
@@ -81,7 +92,7 @@ int EmbeddedAlternatingLeastSquare<dim>::readStateMaskFile() {
             numSnapshots++;
         }
     }
-    this->com->fprintf(stdout, "%d state mask snapshots found\n", numSnapshots);
+    this->com->fprintf(stderr, "%d state mask snapshots found\n", numSnapshots);
     this->numSnapshots = numSnapshots;
     //assert(this->numSnapshots == numSnapshots);
 
@@ -234,6 +245,57 @@ void EmbeddedAlternatingLeastSquare<dim>::summonZombies(double *&mem, VecSet<Dis
     }
 }
 
+
+template<int dim>
+int EmbeddedAlternatingLeastSquare<dim>::initialization(VecSet<DistSVec<double, dim> > &basisInit) {
+    const int n = min(this->maxBasisSize, this->numSnapshots);
+    VecSet<DistSVec<double, dim> >* U = new VecSet<DistSVec<double, dim> >(n, this->domain.getNodeDistInfo());
+    int ncol = this->numSnapshots;
+    FullM V(n, ncol);
+    double* singularValues = new double[this->maxBasisSize];
+    this->com->fprintf(stderr, " ... calling parallelROM SVD, n is %d\n", n);
+    ParallelRom<dim> parallelRom(this->domain, this->com, this->domain.getNodeDistInfo());
+    parallelRom.parallelSVD(*(this->snap), *U, singularValues, V, n, true);
+
+    double singularValuesSum = 0;
+    double remainingSumEstimate = 0;
+    this->reducedDimension = -1;
+    for(int i = 0; i < n; i++){
+        double s = singularValues[i];
+        remainingSumEstimate = s * s * (ncol - i);
+        double percentage = singularValuesSum / (remainingSumEstimate + singularValuesSum);
+        bool stopped = singularValuesSum > this->relativeMinimumEnergy * (remainingSumEstimate + singularValuesSum);
+        this->com->fprintf(stderr, "s = %f, current sum = %f, remaining sum ~= %f, percentage = %f\n", s, singularValuesSum, remainingSumEstimate, percentage);
+        if (stopped) {
+            this->reducedDimension = i;
+            break;
+        }
+        singularValuesSum += s * s;
+    }
+    if(this->reducedDimension < 0) this->reducedDimension = n;
+    this->com->fprintf(stderr, "... reduced dimension is %d, initializing Basis accordingly\n", this->reducedDimension);
+    basisInit.resize(this->reducedDimension);
+    for(int i = 0; i < this->reducedDimension; i++){
+        basisInit[i] = (*U)[i];
+    }
+    delete U;
+    return this->reducedDimension;
+}
+
+/**
+ * When no reduced dimension is provided, use relative minimum energy
+ * to determine reduced dimension.
+ */
+template<int dim>
+void EmbeddedAlternatingLeastSquare<dim>::ReducedOrderBasisConstruction() {
+    int n = min(this->numSnapshots, this->maxBasisSize);
+    VecSet<DistSVec<double, dim> > *basisInitTemp = new VecSet<DistSVec<double, dim> >(n, this->domain.getNodeDistInfo());
+    VecSet<DistSVec<double, dim> > basisInit = *basisInitTemp;
+    int k = initialization(basisInit);
+    delete basisInitTemp;
+    ReducedOrderBasisConstruction(k);
+}
+
 //TODO: testing this part by part
 template<int dim>
 void EmbeddedAlternatingLeastSquare<dim>::ReducedOrderBasisConstruction(int _dim) {
@@ -264,24 +326,6 @@ void EmbeddedAlternatingLeastSquare<dim>::ReducedOrderBasisConstruction(int _dim
     double *singularValues = new double[k]; //todo: change definition.
     FullM VInitDummy(this->reducedDimension, ncol);
     this->com->fprintf(stderr, "... calling parallelRom.parallelSVD()\n");
-    /* todo
-     * int maxBasisSize = robConstruction->state.dataCompression.maxBasisSize;
-     * parallelRom.parallelSVD(Snap, basis, singularValues, VInitDUmmy, this->reducedDimension, true);
-     * double singularValuesSum = 0;
-     * double remainingSumEstimate = 0;
-     * for(int i = 0; i < this->reducedDimension; i++){
-     *      double s = singularValues[i];
-     *      remainingSumEstimate = s * s * (ncol - i);
-     *      bool stopped = singularValueSums > minRelEnergy * (remainingSumEstimate + singluarValueSums);
-     *      if (stopped) {
-     *      this->reducedDimension = i;
-     *      break;
-     *      }
-     *      singularValuesSum += s * s;
-     * }
-     *
-     *
-     */
     parallelRom.parallelSVD(Snap, basis, singularValues, VInitDummy, this->reducedDimension, true);
     this->com->fprintf(stderr, "... U and V initialized, V dimension is [%d, %d]\n", VInitDummy.numRow(), VInitDummy.numCol());
     // todo: transpose UInit for use with armadillo
@@ -293,11 +337,10 @@ void EmbeddedAlternatingLeastSquare<dim>::ReducedOrderBasisConstruction(int _dim
     this->com->fprintf(stderr, "... U being initialized\n");
     this->com->barrier();
     // launch ALS external library
-    int maxIterations = 5;
     AlternatingLeastSquare ALS((double *)X, (unsigned char *) M, (double *) UT, nrow * dim, ncol, this->reducedDimension, this->com->getMPIComm(), this->com->cpuNum());
-    ALS.run(maxIterations); //todo: use different error criterion
+    ALS.run(this->maxIteration); //todo: use different error criterion
     // write basis to file using parent class methods
-    this->com->fprintf(stderr, "... ALS finished %d iterations\n", maxIterations);
+    this->com->fprintf(stderr, "... ALS finished %d iterations\n", this->maxIteration);
     this->com->barrier();
     transpose(UT, U, k, nrow * dim); // to be written
     this->com->fprintf(stderr, "... transpose done\n");
@@ -390,9 +433,18 @@ void EmbeddedAlternatingLeastSquare<dim>::testingSnapshotIO() {
 template<int dim>
 void EmbeddedAlternatingLeastSquare<dim>::testingALS(){
     AlternatingLeastSquare als(25000, 2000, 20, this->com->getMPIComm(), this->com->cpuNum());
-    als.run(4);
+    als.run(8);
     MPI_Barrier(this->com->getMPIComm());
     this->com->fprintf(stdout, "testing ALS completed\n");
+}
+
+template<int dim>
+void EmbeddedAlternatingLeastSquare<dim>::testingInitialization() {
+    int n = min(this->numSnapshots, this->maxBasisSize);
+    VecSet<DistSVec<double, dim> > *basisInitTemp = new VecSet<DistSVec<double, dim> >(n, this->domain.getNodeDistInfo());
+    VecSet<DistSVec<double, dim> > basisInit = *basisInitTemp;
+    int k = initialization(basisInit);
+    this->com->fprintf(stderr, "reduced dimension is %d\n", k);
 }
 
 /**

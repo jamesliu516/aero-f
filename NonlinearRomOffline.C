@@ -52,7 +52,9 @@ void NonlinearRomOfflineSolver<dim>::solve()  {
          com->fprintf(stderr, "... read state file successfully\n");
          //testing
          //embeddedAlternatingLeastSquare.testingSnapshotIO();
-         embeddedAlternatingLeastSquare.ReducedOrderBasisConstruction(40);
+         //embeddedAlternatingLeastSquare.testingInitialization();
+         //embeddedAlternatingLeastSquare.testingALS();
+         embeddedAlternatingLeastSquare.ReducedOrderBasisConstruction();
          // early termination
          modalTimer->print(this->domain.getStrTimer());
          if (geoState) delete geoState;
