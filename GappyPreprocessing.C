@@ -383,7 +383,8 @@ void GappyPreprocessing<dim>::buildReducedModel() {
     }
   
     if (thisCPU == 0) outputTopFile(unionOfSampleNodes);
-  
+
+    outputMatchStateReduced();  
     outputInitialConditionReduced();
     outputMultiSolutionsReduced();
     outputWallDistanceReduced();  // distributed info (parallel)
@@ -890,7 +891,7 @@ void GappyPreprocessing<dim>::computeApproxMetricNonlinearNNLS(int iCluster) {
   double nnlsTime = this->timer->getTime();
 
   // pick lambda
-  double lambdaMin = -6;
+  double lambdaMin = -12;
   double lambdaMax = 4;
   double lambda = lambdaMin + (lambdaMax-lambdaMin)*double(thisCPU)/double(nTotCpus);
 
@@ -1028,11 +1029,10 @@ void GappyPreprocessing<dim>::computeApproxMetricNonlinearNNLS(int iCluster) {
 
   int minValCPU = nTotCpus-1;
   for (int iCPU = nTotCpus-1; iCPU >= 0; iCPU--){
-    if (nonzeros[iCPU]<nVars) break;
-    if (error[iCPU] <= error[minValCPU]) {
+    if ((error[iCPU] <= error[minValCPU]) && (nonzeros[iCPU] > (double(nVars)*0.25))) {
       minValCPU = iCPU;
-    } else {
-      break;
+    //} else {
+    //  break;
     }            
   }
   double minError = error[minValCPU];
@@ -2046,11 +2046,13 @@ void GappyPreprocessing<dim>::greedyIteration(int greedyIt) {
     leastSquaresReconstruction();    // solve the least-squares reconstruction
   }
   totalLSTime = this->timer->getTime() - totalLSTime;
-  com->barrier(); //debugging
   com->fprintf(stdout," ... Total Least Squares Time = %e(s)\n", totalLSTime);
 
+  //double maskErrorTime = this->timer->getTime();
   maskError();
-  com->barrier();
+  //maskErrorTime = this->timer->getTime() - maskErrorTime;
+  //com->fprintf(stdout," ... Total Masking Time = %e(s)\n", maskErrorTime);
+
 
   double totalFillTime = this->timer->getTime();
   for (int iFillNode = 0; iFillNode < nodesToHandle[greedyIt]; ++iFillNode) {  // fill up the appropriate number of nodes
@@ -2061,6 +2063,7 @@ void GappyPreprocessing<dim>::greedyIteration(int greedyIt) {
 
     // loop over nodes, and add to set if it is the maximum
     // subdomains -> nodes
+    double loopTime = this->timer->getTime();
     for (int iSub = 0; iSub < numLocSub; ++iSub) {
 
       // get subdomain info for all RHS
@@ -2072,9 +2075,12 @@ void GappyPreprocessing<dim>::greedyIteration(int greedyIt) {
       subDFindMaxError(iSub, onlyInletOutletBC, myMaxNorm, locSub, locNode, globalNode);
       
     }
-    com->barrier(); //debugging
+    //com->fprintf(stdout," ... ... numLocSub loop = %e(s)\n", this->timer->getTime() - loopTime);
+    //com->barrier(); //debugging
     // find global subdomain number and local node number for node with maximum norm
+    //double fillTime = this->timer->getTime();
     findMaxAndFillPodHat(myMaxNorm, locSub, locNode, globalNode);
+    //com->fprintf(stdout," ... ... fill  = %e(s)\n", this->timer->getTime() - fillTime);
 
     if (onlyInletOutletBC == true)  // only add one 
       onlyInletOutletBC = false;
@@ -2452,7 +2458,7 @@ void GappyPreprocessing<dim>::parallelLSMultiRHSGap(int iPodBasis, double **lsCo
 template<int dim>
 void GappyPreprocessing<dim>::probabilisticLSMultiRHSGap(int iPodBasis, double **lsCoeff) {
 
-  // Solve LS using (very fast) probabilsitic SVD
+  // Solve LS using probabilsitic SVD
   //   System is:  podHat[iPodBasis][1:handledVectors[iPodBasis]] * lsCoeff = error[iPodBasis][1:nRhs[iPodBasis]]
   //   Note that all CPUs need lsCoeff
 
@@ -2538,7 +2544,7 @@ void GappyPreprocessing<dim>::buildRemainingMesh() {
 
   communicateAll();  // all cpus need all nodes/elements for adding neighbors
 
-  if (twoLayers) {
+  if (twoLayers) {// && !surfaceMeshConstruction) {
     com->fprintf(stdout," ... Adding second layer of neighbors ...\n");
     for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
       com->fprintf(stdout," ... Adding neighbors for sample node %d of %d...\n",iSampleNodes+1,nSampleNodes);
@@ -2564,6 +2570,7 @@ void GappyPreprocessing<dim>::buildRemainingMesh() {
   domain.makeUnique(globalNodes, nSampleNodes);
   domain.makeUnique(elements, nSampleNodes);
 
+  com->fprintf(stdout," ... Building remaining BC faces ...\n");
   computeBCFaces(false);  // compute BC faces already in mesh
   communicateBCFaces();
 
@@ -2574,6 +2581,7 @@ void GappyPreprocessing<dim>::buildRemainingMesh() {
     delete [] nodeOffset; 
     nodeOffset = NULL;
   }
+  com->fprintf(stdout," ... Finished building mesh topology ...\n");
 
 } 
 
@@ -2789,11 +2797,11 @@ void GappyPreprocessing<dim>::defineMaps() {
   StaticArray<double, 3> nodesXYZTmp;
   int globalEleNumTmp;
   StaticArray<int, 4> elemToNodeTmp;
-  std::map<int,int>::const_iterator sampleNodeRank; 
+  boost::unordered_map<int,int>::const_iterator sampleNodeRank; 
 
   // first time, establish that no maps have been defined
   for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
-    // define nodesXYZmap
+    // define nodesXYZmap    
     for (int iNeighbor = 0; iNeighbor < int(globalNodes[iSampleNodes].size()); ++iNeighbor) {
       // do not re-define map for sample nodes (already defined as master) 
       globalNodeNumTmp = globalNodes[iSampleNodes][iNeighbor];
@@ -2810,6 +2818,7 @@ void GappyPreprocessing<dim>::defineMaps() {
       globalNodeToLocSubDomainsMap.insert(pair<int, int > (globalNodeNumTmp, locSubDomTemp));
       globalNodeToLocalNodesMap.insert(pair<int, int > (globalNodeNumTmp, localNodesTemp));
       nodesXYZmap.insert(pair<int, StaticArray <double, 3> > (globalNodeNumTmp, nodesXYZTmp));
+
     }
 
     // define elemToNodeMap
@@ -2820,6 +2829,7 @@ void GappyPreprocessing<dim>::defineMaps() {
         elemToNodeTmp[iNodesConn] = elemToNode[iNodesConn][iSampleNodes][iEle];
       elemToNodeMap.insert(pair<int, StaticArray <int, 4> > (globalEleNumTmp, elemToNodeTmp));
     }
+
   }
 
   // no longer need this information (use in the form of maps)
@@ -3122,7 +3132,7 @@ bool GappyPreprocessing<dim>::checkFaceContributesToLift(FaceSet& faces, const i
   map<int,int>::iterator it = surfOutMap.find(faces[iFace].getSurfaceID());
   if(it != surfOutMap.end() && it->second != -2)
     idx = it->second;
-  else if (includeLiftFaces == 2){  // include face if it is on any moving wall (perhaps remove)
+  else if (includeLiftFaces == 2){  // include face if it is on any moving wall (surfaceMeshConstruction)
     if(faces[iFace].getCode() == BC_ISOTHERMAL_WALL_MOVING ||
         faces[iFace].getCode() == BC_ADIABATIC_WALL_MOVING  ||
         faces[iFace].getCode() == BC_SLIP_WALL_MOVING ||
@@ -3167,7 +3177,7 @@ void GappyPreprocessing<dim>::outputTopFile(int iCluster) {
   int globalNodeNum, globalEleNum;
   StaticArray <double, 3> xyzVals;
   StaticArray <int, 4> globalNodesTmp, reducedNodes;
-  std::map<int, int > globalToReducedNodeNumbering;  // one mapping for each island
+  boost::unordered_map<int, int > globalToReducedNodeNumbering;  // one mapping for each island
 
   reducedSampleNodes.resize(nSampleNodes);
 
@@ -3734,7 +3744,7 @@ void GappyPreprocessing<dim>::outputOnlineMatrices(int iCluster) {
 
 template<int dim>
 void GappyPreprocessing<dim>::outputOnlineMatricesGeneral(int iCluster, int numNodes,
-    const std::map<int,int> &sampleNodeMap, const std::vector<int>
+    const boost::unordered_map<int,int> &sampleNodeMap, const std::vector<int>
     &sampleNodeVec) {
 
   double sampledOutputTime = this->timer->getTime();  
@@ -3744,7 +3754,7 @@ void GappyPreprocessing<dim>::outputOnlineMatricesGeneral(int iCluster, int numN
     // create isSampleNodeVec
     std::vector<bool> isSampleNodeVec(numNodes,false);
     std::vector<int> sampleNodeRankVec(numNodes, -1);
-    for(std::map<int,int>::const_iterator it = sampleNodeMap.begin(); it != sampleNodeMap.end(); ++it) {
+    for(boost::unordered_map<int,int>::const_iterator it = sampleNodeMap.begin(); it != sampleNodeMap.end(); ++it) {
       sampleNodeRankVec[it->first] = it->second;
       isSampleNodeVec[it->first] = true;
     }
@@ -3908,8 +3918,67 @@ void GappyPreprocessing<dim>::outputLocalReferenceStateReduced(int iCluster) {
   }
 
 }
+//----------------------------------------------
+
+template<int dim>
+void GappyPreprocessing<dim>::outputMatchStateReduced() {
+
+  if (strcmp(ioData->input.matchStateFile,"")!=0) {
+
+    com->fprintf(stdout," ... Writing comparison state in sample mesh coordinates ...\n");
+  
+    char *sampledSolutionPath = NULL;
+    if (surfaceMeshConstruction) {
+      this->determinePath(this->surfaceMatchStateName, -1, sampledSolutionPath);
+    } else {
+      this->determinePath(this->sampledMatchStateName, -1, sampledSolutionPath);
+    }
+  
+    // read solution
+
+    char *solFile = new char[strlen(ioData->input.prefix) + strlen(ioData->input.matchStateFile) + 1];
+    sprintf(solFile, "%s%s", ioData->input.prefix, ioData->input.matchStateFile);
+    
+    DistSVec<double,dim> *matchState = new DistSVec<double,dim>( domain.getNodeDistInfo() );
+    double tmp;
+    bool status = domain.readVectorFromFile(solFile, 0, &tmp, *matchState);
+
+    if (!status) {
+      com->fprintf(stderr, "*** Error: unable to read vector from file %s\n", solFile);
+      com->barrier();
+      exit(-1);
+    }
+
+    delete [] solFile;
+
+    // output
+    std::string header("Vector MatchState under load for FluidNodesRed");
+    FILE* myOutFile = NULL;
+    if (thisCPU==0) {
+      myOutFile = fopen(sampledSolutionPath, "wt");
+      fprintf(myOutFile,"%s\n", header.c_str());
+      fprintf(myOutFile,"%d\n", nReducedNodes);
+    }
+
+    outputReducedSVec(*matchState,myOutFile,matchState->norm());
+
+    if (thisCPU==0) fclose(myOutFile);
+
+    if (matchState) {
+      delete matchState;
+      matchState = NULL;
+    }
+
+    if (sampledSolutionPath) {
+      delete [] sampledSolutionPath;
+      sampledSolutionPath = NULL;
+    }
+
+  }
+}
 
 //----------------------------------------------
+
 
 template<int dim>
 void GappyPreprocessing<dim>::outputInitialConditionReduced() {
@@ -4713,7 +4782,7 @@ void GappyPreprocessing<dim>::formReducedSampleNodeMap()
     int globalNodeNum = globalNodes[0][j];  // global node numbers on sample mesh have been sorted in increasing order
 
     // determine if a sample node
-    std::map<int, int>::const_iterator sampleNodeMapLoc = globalSampleNodeRankMap.find(globalNodeNum);
+    boost::unordered_map<int, int>::const_iterator sampleNodeMapLoc = globalSampleNodeRankMap.find(globalNodeNum);
     if ( sampleNodeMapLoc != globalSampleNodeRankMap.end()) {
       int globalNodeRank = sampleNodeMapLoc->second;
       reducedSampleNodes[globalNodeRank] = j;  // the globalNodeRank sample node is node j in sample mesh
@@ -4941,7 +5010,7 @@ void GappyPreprocessing<dim>::setUpSampledNodeTargetRegionMask() {
 
   if (nspheres > 0 || nboxes > 0 || ncones > 0) {
     targetRegionMask = new DistVec<double>( domain.getNodeDistInfo() );
-    *targetRegionMask = 0.0;
+    *targetRegionMask = 1e-16;
 
     for (int j=0; j<nspheres; ++j)
       com->fprintf(stdout," ... target sampled mesh region includes the sphere [center: (%g, %g, %g), radius: %g]\n",
@@ -5014,15 +5083,18 @@ void GappyPreprocessing<dim>::maskError() {
 
   if (int(globalSampleNodes.size()) < minLocSampledNodesOnSurfaceInTargetRegion) {
     com->fprintf(stdout," ... only considering surface nodes in target region ...\n");
+    DistVec<double> tempWallMask(domain.getNodeDistInfo());
+    tempWallMask = 1e-16;
+    tempWallMask = tempWallMask + *wallMask;  // findAndFill is dramatically faster if this is nonzero
+    if (targetRegionMask) {
+      tempWallMask = tempWallMask + *targetRegionMask;
+      tempWallMask *= 0.5;
+    }
     for (int iPodBasis = 0; iPodBasis < nPodBasis ; ++iPodBasis) {
       for (int iRhs = 0; iRhs < nRhs[iPodBasis] ; ++iRhs){
-        //com->fprintf(stdout," ... error vec norm = %e\n", error[iPodBasis][iRhs].norm());
-        //com->fprintf(stdout," ... surface mask ...\n");
-        error[iPodBasis][iRhs] *= *wallMask;
-        //com->fprintf(stdout," ... error vec norm = %e\n", error[iPodBasis][iRhs].norm());
-        //com->fprintf(stdout," ... target region mask ...\n");
-        if (targetRegionMask) error[iPodBasis][iRhs] *= *targetRegionMask;
-        //com->fprintf(stdout," ... error vec norm = %e\n\n", error[iPodBasis][iRhs].norm());
+        error[iPodBasis][iRhs] *= tempWallMask;
+        //error[iPodBasis][iRhs] *= *wallMask;
+        //if (targetRegionMask) error[iPodBasis][iRhs] *= *targetRegionMask;
       }
     }
   } else if (int(globalSampleNodes.size()) < minLocSampledNodesInTargetRegion) {

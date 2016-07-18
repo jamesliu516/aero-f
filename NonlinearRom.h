@@ -112,6 +112,7 @@ class NonlinearRom {
   char* sampledJacActionBasisName;
   char* sampledMeshName;
   char* sampledSolutionName;
+  char* sampledMatchStateName;
   char* sampledMultiSolutionsName;
   char* sampledRefStateName;
   char* sampledWallDistName;
@@ -133,6 +134,7 @@ class NonlinearRom {
   char* surfaceStateBasisName;
   char* surfaceRefStateName;
   char* surfaceSolutionName;
+  char* surfaceMatchStateName;
   char* surfaceMultiSolutionsName;
   char* surfaceWallDistName;
   char* surfaceDisplacementName;
@@ -343,8 +345,7 @@ class NonlinearRom {
   void readAllClusteredOnlineQuantities();
   void readAllClusteredOfflineQuantities();
   void readApproxMetricStateLowRankFactor(const char *); // not clustered
-  void readApproxMetricNonlinearLowRankFactor(int iCluster); // clustered
-  void readClusteredNonlinearMetric(int iCluster); // CVX metric
+  void readClusteredNonlinearMetric(int iCluster);
   void readDistanceComparisonInfo(const char*); 
   void writeClusteredBinaryVectors(int iCluster, DistSVec<double,dim> *U1 = NULL, DistSVec<double,dim> *U2 = NULL,
                                    DistSVec<double,dim> *U3 = NULL, char* originalSnapshotFile = NULL, int originalSnapshotNumber = 0);
@@ -374,6 +375,7 @@ class NonlinearRom {
 
   // general
   void qr(VecSet< DistSVec<double, dim> >* Q, std::vector<std::vector<double> >* RT=NULL, bool testQR=false);
+  void rSVD(VecSet< DistSVec<double, dim> >& Utrue, std::vector<double>& singularValues, FullM& Vtrue, bool testSVD=false);
   void probabilisticSVD(VecSet< DistSVec<double, dim> >& Utrue, std::vector<double>& singularValues, FullM& Vtrue, 
                         int k, int nPowerIts, bool testSVD=false);
   void probabilisticLSMultiRHS(VecSet< DistSVec<double, dim> >& LHS, VecSet< DistSVec<double, dim> >& RHS,

@@ -27,6 +27,7 @@ class NonlinearRomDatabaseConstruction : public NonlinearRomOnlineII<dim> {
   void SVD(VecSet< DistSVec<double, dim> >*&, VecSet< DistSVec<double, dim> > &, std::vector<double>& , FullM &, int, int, int, bool computeV=true, bool testProbSVD=false);
   void scalapackSVD(VecSet< DistSVec<double, dim> >*&, VecSet< DistSVec<double, dim> > &, std::vector<double>&, FullM &, bool computeV=true);
   void probabilisticSVDWrapper(VecSet< DistSVec<double, dim> >*&, VecSet< DistSVec<double, dim> > &, std::vector<double>&, FullM &, int, int, bool testSVD=false);
+  void rSVDWrapper(VecSet< DistSVec<double, dim> >*&, VecSet< DistSVec<double, dim> > &, std::vector<double>&, FullM &, bool testSVD=false);
 
   void testProbabilisticSVD(VecSet< DistSVec<double, dim> >*&, VecSet< DistSVec<double, dim> > &, std::vector<double>&, FullM &, int, int, int, bool);
   void initializeClusterCenters();

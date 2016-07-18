@@ -72,18 +72,12 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     char *matchStatePath = new char[strlen(iod.input.prefix) + strlen(matchStateName) + 1];
     sprintf(matchStatePath, "%s%s", iod.input.prefix, matchStateName);
 
-    if ((iod.input.optPressureDim == InputData::NON_DIMENSIONAL) || (iod.input.optPressureDim == InputData::NONE && iod.problem.mode==ProblemData::NON_DIMENSIONAL))
-      optPressureDimensional=false;
-    else
-      optPressureDimensional=true;
-
     if (!Uref) Uref = new DistSVec<double,dim>(domain->getNodeDistInfo());
     com->fprintf(stdout, "\nReading comparison state %s\n", matchStatePath);
     domain->readVectorFromFile(matchStatePath,0,0,*Uref);
 
     delete [] matchStatePath;
   }
-
 
   for (i=0; i<PostFcn::SSIZE; ++i) {
     sscale[i] = 1.0;
@@ -3768,7 +3762,8 @@ int TsOutput<dim>::writeBinaryVectorsToDiskRom(bool lastNewtonIt, int timeStep, 
         if (((stateOutputFreqNewton==0)&&lastNewtonIt) ||  // special case: last newton iteration
             ((timeStep==0) && (newtonIt==0)) ||  // special case: initial condition
             ((stateOutputFreqNewton>0)&&(newtonIt%stateOutputFreqNewton==0))) {
-          // output FOM state 
+          // output FOM state
+          com->fprintf(stdout, "Outputting file with tag %e\n", tag);
           domain->writeVectorToFile(stateVectors, step, tag, *state);
           ++(*(domain->getNewtonStateStep()));
           ++status;

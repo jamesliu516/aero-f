@@ -13,6 +13,7 @@ class Domain;
 #include <algorithm>
 #include <iterator>
 #include <NonlinearRom.h>
+#include <boost/unordered_map.hpp>
 
 template <int dim>
 class VecSetArray {
@@ -130,7 +131,7 @@ protected:
 
 	std::vector<int> cpuSample, locSubSample, locNodeSample;
 	std::vector<int> globalSampleNodes, reducedSampleNodes;
-	std::map<int, int > globalSampleNodeRankMap, reducedSampleNodeRankMap;
+	boost::unordered_map<int, int > globalSampleNodeRankMap, reducedSampleNodeRankMap;
 		//key: node #, value: rank of sample node (position in _SampleNodeSet)
 
 	int nPodBasis;	// # of unique pod bases for residual/jac (either 1 or 2)
@@ -199,12 +200,12 @@ protected:
   std::vector< int > *(bcFaceSurfID [2]);	// codes for the above boundary faces. bcFaceSurfID[iSign][BCtype][iFace] returns the surfaceID of the iFace face corresponding to iSign/BCtype
   std::set<StaticArray <int, 3> > bcFacesInfo;	// {iCPU,iSub,iFace}
 
-  std::map<int, StaticArray <double, 3> > nodesXYZmap;	// key: global node #, values: x, y, z
-  std::map<int, int > globalNodeToCpuMap;	// key: global node #, values: x, y, z
-  std::map<int, int > globalNodeToLocSubDomainsMap;	// key: global node #, values: x, y, z
-  std::map<int, int > globalNodeToLocalNodesMap;	// key: global node #, values: x, y, z
-  std::map <int, StaticArray <int, 4> > elemToNodeMap;	// key: global elem #, values: global node #s
-  std::map <int, std::string > boundaryConditionsMap;	// mapping between BC numbers in BcDef.h and Sower's identification
+  boost::unordered_map<int, StaticArray <double, 3> > nodesXYZmap;	// key: global node #, values: x, y, z
+  boost::unordered_map<int, int > globalNodeToCpuMap;	// key: global node #, values: x, y, z
+  boost::unordered_map<int, int > globalNodeToLocSubDomainsMap;	// key: global node #, values: x, y, z
+  boost::unordered_map<int, int > globalNodeToLocalNodesMap;	// key: global node #, values: x, y, z
+  boost::unordered_map <int, StaticArray <int, 4> > elemToNodeMap;	// key: global elem #, values: global node #s
+  boost::unordered_map <int, std::string > boundaryConditionsMap;	// mapping between BC numbers in BcDef.h and Sower's identification
   //above maps have been defined for vector entries [iSampleNode][0:j]
   int numFullNodes, nReducedNodes;	// number of nodes in full and reduced meshes
   bool outputOnlineMatricesFull, outputOnlineMatricesSample;
@@ -269,12 +270,13 @@ protected:
   virtual void assembleOnlineMatrices();
   void outputOnlineMatrices(int);
   virtual void outputOnlineMatricesGeneral( int iCluster, 
-	int numNodes, const std::map<int,int> &sampleNodeMap, const
+	int numNodes, const boost::unordered_map<int,int> &sampleNodeMap, const
 	std::vector<int> &sampleNodeVec);
   virtual void outputReducedToFullNodes();
   //virtual void outputStateReduced();
   virtual void outputApproxSnapsReduced(int iCluster);
   virtual void outputInitialConditionReduced();
+  virtual void outputMatchStateReduced();
   virtual void outputMultiSolutionsReduced();
   virtual void outputClusterCentersReduced();
   virtual void outputLocalStateBasisReduced(int);
@@ -317,7 +319,7 @@ protected:
   void setSampleNodes(int);
   void formMaskedNonlinearROBs();
   void reinitializeMapsForSampleNodes();
-  //void outputMaskedNonlinearROBs(int, const std::map<int,int> &, const std::vector<int> &);
+  //void outputMaskedNonlinearROBs(int, const boost::unordered_map<int,int> &, const std::vector<int> &);
   //void readMaskedNonlinearROBs( );
   void initializeLeastSquaresPseudoInv(int);
   void formReducedSampleNodeMap();

@@ -434,8 +434,8 @@ void Domain::makeSampledNodeDistInfo(const std::vector<int> &cpuSample, const st
 
 //------------------------------------------------------------------------------
 
-void Domain::makeSampledNodeDistInfo(const std::vector<int> &globalSampleNodesUnion, const std::map<int, int> &globalNodeToCpuMap,
-                                     const std::map<int, int> &globalNodeToLocSubDomainsMap)
+void Domain::makeSampledNodeDistInfo(const std::vector<int> &globalSampleNodesUnion, const boost::unordered_map<int, int> &globalNodeToCpuMap,
+                                     const boost::unordered_map<int, int> &globalNodeToLocSubDomainsMap)
 {
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
@@ -471,8 +471,8 @@ void Domain::makeOldSampledNodeDistInfo(const std::vector<int> &cpuSample, const
 
 //------------------------------------------------------------------------------
 
-void Domain::makeOldSampledNodeDistInfo(const std::vector<int> &globalSampleNodesUnion, const std::map<int, int> &globalNodeToCpuMap,
-                                     const std::map<int, int> &globalNodeToLocSubDomainsMap)
+void Domain::makeOldSampledNodeDistInfo(const std::vector<int> &globalSampleNodesUnion, const boost::unordered_map<int, int> &globalNodeToCpuMap,
+                                     const boost::unordered_map<int, int> &globalNodeToLocSubDomainsMap)
 {
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {

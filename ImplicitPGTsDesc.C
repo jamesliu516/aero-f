@@ -159,7 +159,7 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
   }
 
   double t0 = this->timer->getTime();
-  if (lsSolver==NonlinearRomOnlineData::LSMR) { // Iterative Least Squares Solver
+  /*if (lsSolver==NonlinearRomOnlineData::LSMR) { // Testing out the potential performance of an iterative least squares solver
 
     MatVecProdH2<dim,double,dim>* mvpExact = dynamic_cast<MatVecProdH2<dim,double,dim>*>(this->mvp);
     if (mvpExact==NULL) {
@@ -221,17 +221,16 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
     sleep(5);
     exit(-1);
 
-  } else if (lsSolver==NonlinearRomOnlineData::QR) {  // ScaLAPACK least-squares
+  } else */ 
+    if (lsSolver==NonlinearRomOnlineData::QR) {  // ScaLAPACK least-squares
 
     RefVec<DistSVec<double, dim> > residualRef2(this->F);
     parallelRom->parallelLSMultiRHS(this->AJ,residualRef2,this->nPod,1,lsCoeff);
     double dUromNewtonItNormSquared = 0;
     for (int iPod=0; iPod<this->nPod; ++iPod) {
       this->dUromNewtonIt[iPod] = -lsCoeff[0][iPod];
-      //this->com->fprintf(stdout, " ... dUromNewtonIt[%d] = %e \n", iPod, this->dUromNewtonIt[iPod]);
       dUromNewtonItNormSquared += pow(this->dUromNewtonIt[iPod],2);
     }
-    //this->com->fprintf(stdout, " ... || dUromNewtonIt ||^2 = %1.12e \n", dUromNewtonItNormSquared);
 
   } else if (lsSolver==NonlinearRomOnlineData::PROBABILISTIC_SVD) {
 
@@ -340,6 +339,7 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
     // homotopy on reduced-coordinates for spatial-only problems
     if (this->spatialOnlyWithHomotopy) {
       double homotopyStep = min(this->homotopyStepInitial*pow(this->homotopyStepGrowthRate,totalTimeSteps),this->homotopyStepMax);
+      this->com->fprintf(stdout, " ... homotopy step = %1.12e \n", homotopyStep);
       double invHomotopyStep = 1/homotopyStep;
       Vec<double> dUrom(this->dUromTimeIt);
       dUrom *= invHomotopyStep;

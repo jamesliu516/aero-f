@@ -45,7 +45,7 @@ public:
 
   Timer *timer;
 
-  void performPostProForState(DistSVec<double,dim> &);
+  void performPostProForState(DistSVec<double,dim> &, int);
 
 protected:
   DistExactRiemannSolver<dim> *riemann1;

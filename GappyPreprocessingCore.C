@@ -165,7 +165,7 @@ void GappyPreprocessing<dim>::outputOnlineMatrices(int iCluster);\
 \
 template \
 void GappyPreprocessing<dim>::outputOnlineMatricesGeneral(int iCluster, int numNodes,\
-    const std::map<int,int> &sampleNodeMap, const std::vector<int>\
+    const boost::unordered_map<int,int> &sampleNodeMap, const std::vector<int>\
     &sampleNodeVec);\
 \
 template \
