@@ -115,7 +115,7 @@ int EmbeddedAlternatingLeastSquare<dim>::readStateMaskFile() {
  * suppose M is the number of master nodes
  */
 template<int dim>
-void EmbeddedAlternatingLeastSquare<dim>::freeSlaves(void *&mem, const VecSet<DistSVec<double, dim> > &X, const int M,
+void EmbeddedAlternatingLeastSquare<dim>::freeSlaves(double *&mem, const VecSet<DistSVec<double, dim> > &X, const int M,
                                                      const int N) {
     double* ptr = new double[dim * M * N];
     assert(ptr != NULL);
@@ -139,12 +139,12 @@ void EmbeddedAlternatingLeastSquare<dim>::freeSlaves(void *&mem, const VecSet<Di
         if( i != M)
             this->com->fprintf(stderr, "double array, dim is %d, %d != %d\n", dim, i, M);
     }
-    mem = (void *) ptr;
+    mem = ptr;
 }
 
 
 template<int dim>
-void EmbeddedAlternatingLeastSquare<dim>::freeSlaves(void *&mem, const VecSet<DistSVec<char, dim> > &X, const int M,
+void EmbeddedAlternatingLeastSquare<dim>::freeSlaves(char *&mem, const VecSet<DistSVec<char, dim> > &X, const int M,
                                                      const int N) {
     char* ptr = new char[dim * M * N];
     assert(ptr != NULL);
@@ -168,17 +168,17 @@ void EmbeddedAlternatingLeastSquare<dim>::freeSlaves(void *&mem, const VecSet<Di
         if( i != M)
             this->com->fprintf(stderr, "char array, dim is %d, %d != %d\n", dim, i, M);
     }
-    mem = (void *) ptr;
+    mem = ptr;
 }
 
 template<int dim>
-void EmbeddedAlternatingLeastSquare<dim>::summonSlaves(void *&mem, VecSet<DistSVec<double, dim> > &X, const int M,
+void EmbeddedAlternatingLeastSquare<dim>::summonSlaves(double *&mem, VecSet<DistSVec<double, dim> > &X, const int M,
                                                        const int N) {
     SubDomain **subDomain = this->domain.getSubDomain();
     CommPattern<double> *vecPattern = this->domain.getVecPat();
     DistInfo& distInfo = this->domain.getNodeDistInfo();
 
-    double *ptr = (double *)mem;
+    double *ptr = mem;
     for (int j = 0; j < N; j++) {
         int i = 0;
 //#pragma omp parallel for
@@ -207,13 +207,13 @@ void EmbeddedAlternatingLeastSquare<dim>::summonSlaves(void *&mem, VecSet<DistSV
 
 
 template<int dim>
-void EmbeddedAlternatingLeastSquare<dim>::summonZombies(void *&mem, VecSet<DistSVec<double, dim> > &X, const int M,
+void EmbeddedAlternatingLeastSquare<dim>::summonZombies(double *&mem, VecSet<DistSVec<double, dim> > &X, const int M,
                                                        const int N) {
     SubDomain **subDomain = this->domain.getSubDomain();
     CommPattern<double> *vecPattern = this->domain.getVecPat();
     DistInfo& distInfo = this->domain.getNodeDistInfo();
 
-    double *ptr = (double *)mem;
+    double *ptr = mem;
     for (int j = 0; j < N; j++) {
         int i = 0;
 //#pragma omp parallel for
@@ -246,14 +246,14 @@ void EmbeddedAlternatingLeastSquare<dim>::ReducedOrderBasisConstruction(int _dim
         nrow += this->numMasters[i];
     }
     int ncol = this->numSnapshots;
-    int k = _dim;
-    this->reducedDimension = _dim;
+    int k = _dim; //TODO: change it
+    this->reducedDimension = _dim; //TODO: change it
     this->com->fprintf(stderr, "... (M, N) is [%d, %d], reduced dimension is %d\n", nrow, ncol, _dim);
     // set up X, M
     VecSet< DistSVec<double, dim> > Snap = *(this->snap);
     VecSet< DistSVec<char, dim> > Mask = *(this->mask);
-    void* X = NULL;
-    void* M = NULL;
+    double *X = NULL;
+    char *M = NULL;
     freeSlaves(X, Snap, nrow, ncol); // freeSlaves allocates the memory for X
     freeSlaves(M, Mask, nrow, ncol); // freeSlaves allocates the memory for M
     // set up Uinit
@@ -261,16 +261,33 @@ void EmbeddedAlternatingLeastSquare<dim>::ReducedOrderBasisConstruction(int _dim
     VecSet< DistSVec<double, dim> >* basisInit = new VecSet< DistSVec<double, dim> >(k, this->domain.getNodeDistInfo());
     VecSet< DistSVec<double, dim> > basis = *basisInit;
     ParallelRom<dim> parallelRom(this->domain, this->com, this->domain.getNodeDistInfo());
-    double *singularValues = new double[k];
+    double *singularValues = new double[k]; //todo: change definition.
     FullM VInitDummy(this->reducedDimension, ncol);
     this->com->fprintf(stderr, "... calling parallelRom.parallelSVD()\n");
+    /* todo
+     * int maxBasisSize = robConstruction->state.dataCompression.maxBasisSize;
+     * parallelRom.parallelSVD(Snap, basis, singularValues, VInitDUmmy, this->reducedDimension, true);
+     * double singularValuesSum = 0;
+     * double remainingSumEstimate = 0;
+     * for(int i = 0; i < this->reducedDimension; i++){
+     *      double s = singularValues[i];
+     *      remainingSumEstimate = s * s * (ncol - i);
+     *      bool stopped = singularValueSums > minRelEnergy * (remainingSumEstimate + singluarValueSums);
+     *      if (stopped) {
+     *      this->reducedDimension = i;
+     *      break;
+     *      }
+     *      singularValuesSum += s * s;
+     * }
+     *
+     *
+     */
     parallelRom.parallelSVD(Snap, basis, singularValues, VInitDummy, this->reducedDimension, true);
     this->com->fprintf(stderr, "... U and V initialized, V dimension is [%d, %d]\n", VInitDummy.numRow(), VInitDummy.numCol());
     // todo: transpose UInit for use with armadillo
-    void *U = NULL;
-    double * UT_temp = new double[k * nrow * dim];
+    double *U = NULL;
+    double *UT = new double[k * nrow * dim];
     this->com->fprintf(stderr, "... allocating space for U, k * nrow * dim = %d\n", k * nrow * dim);
-    void *UT = (void *)UT_temp;
     freeSlaves(U, basis, nrow, k); // freeSlaves allocate the memory for U
     transpose(U, UT, nrow * dim, k); // does not allocate memory
     this->com->fprintf(stderr, "... U being initialized\n");
@@ -293,7 +310,7 @@ void EmbeddedAlternatingLeastSquare<dim>::ReducedOrderBasisConstruction(int _dim
     if(X) delete[] X;
     if(M) delete[] M;
     if(U) delete[] U;
-    //if(UT) delete[] UT_temp;
+    if(UT) delete[] UT;
     if(singularValues) delete[] singularValues;
     //this->com->barrier();
     this->com->fprintf(stdout, "... all stuff cleaned\n");
@@ -349,7 +366,7 @@ void EmbeddedAlternatingLeastSquare<dim>::testingSnapshotIO() {
     VecSet< DistSVec<double, dim> > *ZZ = new VecSet< DistSVec<double, dim> >(N, this->domain.getNodeDistInfo());
     VecSet< DistSVec<double, dim> > Z = *ZZ;
     VecSet< DistSVec<char, dim> > W = *(this->mask);
-    void* mem = NULL;
+    double* mem = NULL;
     // testing isEqualMatrices() implementation
     //this->com->fprintf(stdout, "testing equal matrix\n");
     //bool res = isEqualMatrices(X, X);
@@ -486,9 +503,9 @@ bool EmbeddedAlternatingLeastSquare<dim>::isEqualMaskMatrices(const VecSet<DistS
 
 
 template<int dim>
-void EmbeddedAlternatingLeastSquare<dim>::transpose(void* &buff1, void* &buff2, int nrow, int ncol){
-    double *ptr1 = (double *) buff1;
-    double *ptr2 = (double *) buff2;
+void EmbeddedAlternatingLeastSquare<dim>::transpose(double* &buff1, double* &buff2, int nrow, int ncol){
+    double *ptr1 = buff1;
+    double *ptr2 = buff2;
     assert(ptr2 != NULL);
     for(int j = 0; j < ncol; j++){
         for(int i = 0; i < nrow; i++){
@@ -588,7 +605,7 @@ int EmbeddedAlternatingLeastSquare<dim>::AlternatingLeastSquareMethodI(
                     }
                 }
             }
-            /* equivalent matlab code
+            // equivalent matlab code
             x = X(i, M(i, :));
             v = V(:, M(i, :));
             U(i, :) = ((v * v')\(v * x'))';
