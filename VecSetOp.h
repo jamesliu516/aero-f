@@ -338,6 +338,27 @@ void transMatMatProd (const VecSet< DistSVec<double, dim> > &matrix1,
         if (!useStack) delete [] totalAllRes;
 }
 
+//---------------------------------------------------------------
+
+template <int dim>
+void transMatMatSymProd (const VecSet< DistSVec<double, dim> > &matrix, double *targetBuffer){
+  // calculate matrix^T matrix
+
+	int numVec = matrix.numVectors();
+
+  for (int iVec=0; iVec<numVec; ++iVec) {
+    for (int jVec=0; jVec<=iVec; ++jVec) {
+      double res = matrix[iVec]*matrix[jVec];
+      targetBuffer[iVec + numVec*jVec] = res;
+      targetBuffer[jVec + numVec*iVec] = res;
+    }
+  }
+
+}
+
+
+//---------------------------------------------------------------
+
 template <int dim>
 void transMatMatProdRestrict(const VecSet< DistSVec<double, dim> > &matrix1,
 		const VecSet< DistSVec<double, dim> > &matrix2, double *targetBuffer,

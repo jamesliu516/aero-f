@@ -195,7 +195,7 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
 
   } else if (lsSolver==NonlinearRomOnlineData::NORMAL_EQUATIONS)  {    // normal equations
 
-    transMatMatProd(this->AJ,this->AJ,jactmp);  // TODO: make symmetric product
+    transMatMatSymProd(this->AJ,jactmp);  
     for (int iRow = 0; iRow < this->nPod; ++iRow) {
       for (int iCol = 0; iCol < this->nPod; ++iCol) {
         this->jac[iRow][iCol] = jactmp[iRow + iCol * this->nPod];

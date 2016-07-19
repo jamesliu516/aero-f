@@ -4222,9 +4222,6 @@ GappyConstructionData::GappyConstructionData()
   sampledNodesFactor = -1;
   layers = 2;
 
-  farFieldWeight = 1.0;
-  wallWeight = 1.0;
-
   initialCluster = 0; // assume online matrices have been output for all clusters before initialCluster (restart)
 
   includeLiftFaces = NONE_LIFTFACE;
@@ -4326,9 +4323,6 @@ void GappyConstructionData::setup(const char *name, ClassAssigner *father) {
   new ClassInt<GappyConstructionData>(ca, "MinSampledNodes", this, &GappyConstructionData::minSampledNodes); // default: 0
   new ClassDouble<GappyConstructionData>(ca, "SampledNodesFactor", this, &GappyConstructionData::sampledNodesFactor); // default: 2
   new ClassInt<GappyConstructionData>(ca, "NumSampledMeshLayers", this, &GappyConstructionData::layers);	// default: 2
-
-  new ClassDouble<GappyConstructionData>(ca, "FarFieldWeight", this, &GappyConstructionData::farFieldWeight); 
-  new ClassDouble<GappyConstructionData>(ca, "WallWeight", this, &GappyConstructionData::wallWeight);
 
   // optional: undocumented
   new ClassToken<GappyConstructionData> (ca, "ComputeGappyRes", this, reinterpret_cast<int

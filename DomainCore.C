@@ -799,9 +799,8 @@ void Domain::setInletNodes(IoData &ioData)
     inletCountPat->finalize();
   }
 
-  if ( ioData.romOffline.gappy.farFieldWeight != 1.0 || ioData.romOffline.gappy.wallWeight != 1.0  // weighted GNAT prepro
-          || ioData.romOffline.gappy.minFractionOfSampledNodesOnSurfaceInTargetRegion > 0) { // sampled node selection
-    // If weighting the boundaries, create node lists for far field nodes and wall nodes.
+  if (ioData.romOffline.gappy.minFractionOfSampledNodesOnSurfaceInTargetRegion > 0) { // sampled node selection
+    // Create node lists for far field nodes and wall nodes.
     // Note that the far field node list is identical to the inletNodes information, but it was 
     // necessary to duplicate this because when the inletNodes object is defined it triggers the
     // code to use extrapolation at the boundary.  
