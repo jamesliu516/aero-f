@@ -81,7 +81,6 @@ GappyPreprocessing<dim>::GappyPreprocessing(Communicator *_com, IoData &_ioData,
   globalSampleNodesUnionSet.clear();
   globalSampleNodesUnionSetForApproxMetricState.clear();
 
-  ffWeight = gappyIO->farFieldWeight;
   wallWeight = gappyIO->wallWeight;
  
  /* d2wall = NULL;
@@ -106,51 +105,16 @@ GappyPreprocessing<dim>::GappyPreprocessing(Communicator *_com, IoData &_ioData,
 
   wallMask = NULL;
   wallNeighborsMask = NULL;
-  if ( ffWeight != 1.0 || gappyIO->minFractionOfSampledNodesOnSurfaceInTargetRegion > 0) {
+  if (gappyIO->minFractionOfSampledNodesOnSurfaceInTargetRegion > 0) {
     wallMask = new DistVec<double>(domain.getNodeDistInfo());
     wallNeighborsMask = new DistVec<double>(domain.getNodeDistInfo());
     domain.setWallMask(*wallMask, *wallNeighborsMask);
-    if (ffWeight == 1.0) {
-      delete wallNeighborsMask;
-      wallNeighborsMask = NULL;
-      com->fprintf(stdout," ... wallMask norm = %e\n", wallMask->norm());
-    }
+    delete wallNeighborsMask;
+    wallNeighborsMask = NULL;
+    com->fprintf(stdout," ... wallMask norm = %e\n", wallMask->norm());
   }
- 
-  if (ffWeight != 1.0) {
-    farFieldMask = new DistVec<double>(domain.getNodeDistInfo());
-    farFieldNeighborsMask = new DistVec<double>(domain.getNodeDistInfo());
-    weightVec = new DistSVec<double, dim>(domain.getNodeDistInfo());
-    domain.setFarFieldMask(*farFieldMask, *farFieldNeighborsMask);
-    int numLocSub = domain.getNumLocSub();
-#pragma omp parallel for
-    for (int iSub=0; iSub<numLocSub; ++iSub) {
-      double *ffMask = farFieldMask->subData(iSub); // vector with nonzero entries at farfield nodes
-      double *wMask = wallMask->subData(iSub); // vector with nonzero entries at wall nodes
-      double (*weight)[dim] = weightVec->subData(iSub);
-      for (int i=0; i<this->farFieldMask->subSize(iSub); ++i) {
-        if (ffMask[i]>0) {
-          for (int j=0; j<dim; ++j)
-            weight[i][j] = ffWeight;
-        } else if (wMask[i]>0) {
-          for (int j=0; j<dim; ++j)
-            weight[i][j] = wallWeight;
-        } else {
-          for (int j=0; j<dim; ++j)
-             weight[i][j] = 1.0;
-        }
-      }
-    }
-  } else {
-    farFieldMask = NULL;
-    farFieldNeighborsMask = NULL;
-    weightVec = NULL;
-  }
-
 
   podTpod = NULL;
-  RTranspose = NULL;
-  Qmat = NULL;
 
 // bcFaces and bcFaceSurfID are deallocated in the write top file function
   int BC_CODE_EXTREME = max(BC_MAX_CODE, -BC_MIN_CODE)+1;  // there is a zero condition
@@ -174,10 +138,7 @@ GappyPreprocessing<dim>::~GappyPreprocessing()
 {
 
   if (wallMask) delete wallMask;
-  if (farFieldMask) delete farFieldMask;
   if (wallNeighborsMask) delete wallNeighborsMask;
-  if (farFieldNeighborsMask) delete farFieldNeighborsMask;
-  if (weightVec) delete weightVec;
   if (targetRegionMask) delete targetRegionMask;
   if (input) delete input;
   if (postOp) delete postOp;
@@ -465,16 +426,6 @@ void GappyPreprocessing<dim>::buildReducedModel() {
               delete [] podTpod[iVec];
             delete podTpod;
             podTpod = NULL;
-          }
-      
-          if (RTranspose) {
-            for (int iVec=0; iVec<nPod[1]; ++iVec)
-              (*RTranspose)[iVec].clear();
-            (*RTranspose).clear();
-            delete RTranspose;
-            RTranspose = NULL;
-            delete Qmat;
-            Qmat = NULL;
           }
       
         }
@@ -1684,53 +1635,10 @@ void GappyPreprocessing<dim>::setUpBasisBasisProducts() {
 
 // compute pod[1]^Tpod[i] (so you can delete these from memory sooner)
 
-  if (ffWeight!=1.0) { // (need R regardless of whether Phij = Phir)
-    computeQROfWeightedPhiJ();
-  }
-
   if (nPodBasis == 2) {
-    if (ffWeight==1.0) {
-      // pod[1]^T * pod[0]
-      computePodTPod();
-    } else {
-      // compute Q^T * W * pod[0]  (stored as podTpod)
-      com->fprintf(stderr, "*** Error: preprocessing for weighted GNAT with distinct R and J bases is not currently supported... ");
-      com->barrier(); 
-      exit(-1);
-      //computeQTWeightedPod();
-    }
+    // pod[1]^T * pod[0]
+    computePodTPod();
   }
-
-}
-
-//----------------------------------------------
-
-template<int dim>
-void GappyPreprocessing<dim>::computeQROfWeightedPhiJ() {
-
-  // compute tmpVecSet = W * PhiJi
-  if (Qmat) delete Qmat;
-  Qmat = new VecSet< DistSVec<double, dim> >(nPod[1], this->domain.getNodeDistInfo());
-  int numLocSubWeight = weightVec->numLocSub();
-  for (int iVec=0; iVec<nPod[1]; ++iVec) {
-    (*Qmat)[iVec] = pod[1][iVec];
-    if (ffWeight!=1.0) {
-#pragma omp parallel for
-      for (int iSub=0; iSub<numLocSubWeight; ++iSub) {
-        double (*weight)[dim] = weightVec->subData(iSub);
-        double (*v)[dim] = (*Qmat)[iVec].subData(iSub);
-        for (int i=0; i<this->weightVec->subSize(iSub); ++i) {
-          for (int j=0; j<dim; ++j) {
-            v[i][j] = v[i][j] * weight[i][j];
-          }
-        }
-      }
-    }
-  }
-
-  if (!RTranspose) RTranspose = new std::vector<std::vector<double> >;  
-
-  this->qr(Qmat, RTranspose, true);
 
 }
 
@@ -3597,51 +3505,11 @@ void GappyPreprocessing<dim>::assembleOnlineMatrices() {
   int numCols = nSampleNodes * dim;
 
   if (nPodBasis == 1) { 
-    if (ffWeight!=1.0) {
-      onlineMatrices[0] = new double * [numCols] ;
-      for (int i = 0; i < numCols; ++i) {
-        onlineMatrices[0][i] = new double [nPod[0] ] ;
-        for (int iPod = 0; iPod < nPod[0]; ++iPod)
-          onlineMatrices[0][i][iPod] = 0.0;
-      }
-      if (thisCPU == 0) {
-        for (int iPod = 0; iPod < nPod[0]; ++iPod) {
-          for (int jPod = 0; jPod < nPod[0]; ++jPod) {
-            if (jPod>=iPod) {
-              for (int k = 0; k < numCols; ++k) {
-                onlineMatrices[0][k][iPod] += (*RTranspose)[jPod][iPod] * podHatPseudoInv[0][k][jPod];
-              }
-            }
-          }
-        }
-      }
-    } else { 
-      onlineMatrices[0] = podHatPseudoInv[0];  // related to the jacobian
-    }
+    onlineMatrices[0] = podHatPseudoInv[0];  // related to the jacobian
   }
   else {  // nPod[1] != 0 because nPodBasis == 2
     int nPodJac = (nPod[1] == 0) ? nPod[0] : nPod[1];
-    if (ffWeight!=1.0) {
-      onlineMatrices[1] = new double * [numCols] ;
-      for (int i = 0; i < numCols; ++i) {
-        onlineMatrices[1][i] = new double [nPod[1] ] ;
-        for (int iPod = 0; iPod < nPod[1]; ++iPod)
-          onlineMatrices[1][i][iPod] = 0.0;
-      }
-      if (thisCPU == 0) {
-        for (int iPod = 0; iPod < nPod[1]; ++iPod) {
-          for (int jPod = 0; jPod < nPod[1]; ++jPod) {
-            if (jPod>=iPod) {
-              for (int k = 0; k < numCols; ++k) {
-                onlineMatrices[1][k][iPod] += (*RTranspose)[jPod][iPod] * podHatPseudoInv[1][k][jPod];
-              }
-            }
-          }
-        }
-      }
-    } else {
-      onlineMatrices[1] = podHatPseudoInv[1];  // related to the jacobian
-    }
+    onlineMatrices[1] = podHatPseudoInv[1];  // related to the jacobian
 
     onlineMatrices[0] = new double * [numCols] ;
     for (int i = 0; i < numCols; ++i) {

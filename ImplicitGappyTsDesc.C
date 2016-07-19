@@ -72,10 +72,6 @@ void ImplicitGappyTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim>
     *R *= *this->componentwiseScalingVec;
   }
 
-  if (applyWeighting && (this->ioData->romOnline.weightedLeastSquares != NonlinearRomOnlineData::WEIGHTED_LS_FALSE)) {
-    *R *= *(this->weightVec);
-  }
-
   this->timer->addResidualTime(tRes); 
 
   double t0 = this->timer->getTime();
@@ -116,12 +112,6 @@ void ImplicitGappyTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q, bool 
     }
   }
   this->timer->addJacApplyTime(t0);
-
-  if (applyWeighting && (this->ioData->romOnline.weightedLeastSquares != NonlinearRomOnlineData::WEIGHTED_LS_FALSE)) {
-    for (int iVec=0; iVec<this->nPod; ++iVec) {
-      this->AJ[iVec] *= *(this->weightVec);
-    }
-  }
 
   t0 = this->timer->getTime();
   for (int iPod = 0; iPod < this->nPod; iPod++) { // TODO only on local pod

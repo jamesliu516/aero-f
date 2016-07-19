@@ -4058,27 +4058,7 @@ NonlinearRomOnlineData::NonlinearRomOnlineData()
   turbulenceWeight = 1.0;
   eddyLengthScale = 1.0;
 
-  weightedLeastSquares = WEIGHTED_LS_FALSE;
-  weightingExponent = 1.0;
-
-  constantGain = 0.0;
-  proportionalGain = 0.0;
-  integralGain = 0.0;
-  integralLeakGain = 0.0;
-  regThresh = 0.0;
-  ffWeight = 1.0;
-  wallWeight = 1.0;
-  bcWeightGrowthFactor = 1.0;
   levenbergMarquardtWeight = 1.0;
-  ffErrorTol = 0.0;
-  controlNodeID = -1;
-
-  residualsCoordMin=0.0;
-  residualsCoordMax=0.0;
-  residualsCoordRes=100;
-
-  adjustInteriorWeight = ADJUST_INTERIOR_WEIGHT_FALSE;
-  allowBCWeightDecrease = ALLOW_DECREASE_TRUE;
 
   romSpatialOnlyInitialHomotomyStep = -1.0;
   romSpatialOnlyMaxHomotomyStep = 1e16;
@@ -4100,7 +4080,7 @@ void NonlinearRomOnlineData::setup(const char *name, ClassAssigner *father)
   new ClassToken<NonlinearRomOnlineData> (ca, "PerformLineSearch", this, reinterpret_cast<int
       NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::lineSearch), 3, "False", 0, "Backtracking", 1, "StrongWolfe", 2);
   new ClassToken<NonlinearRomOnlineData> (ca, "LeastSquaresSolver", this, reinterpret_cast<int
-			NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::lsSolver), 5, "QR", 0, "NormalEquations", 1, "RegularizedNormalEquations", 2, "LevenbergMarquardtSVD", 3, "ProbabilisticSVD", 4);
+			NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::lsSolver), 4, "QR", 0, "NormalEquations", 1, "LevenbergMarquardtSVD", 2, "ProbabilisticSVD", 3);
   new ClassToken<NonlinearRomOnlineData> (ca, "BasisUpdates", this, reinterpret_cast<int
 			NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::basisUpdates), 4, "Off", 0, "Simple", 1, "Exact", 2, "Approximate", 3);
   new ClassDouble<NonlinearRomOnlineData>(ca, "BasisUpdateTolerance", this, &NonlinearRomOnlineData::basisUpdateTolerance);
@@ -4120,40 +4100,17 @@ void NonlinearRomOnlineData::setup(const char *name, ClassAssigner *father)
 
   new ClassDouble<NonlinearRomOnlineData>(ca, "IncrementCoordsTolerance", this, &NonlinearRomOnlineData::incrementCoordsTol);
 
-
-  new ClassToken<NonlinearRomOnlineData> (ca, "WeightedLeastSquares", this, reinterpret_cast<int
-      NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::weightedLeastSquares), 2, "False", 0, "BoundaryConditions", 1);
-
   new ClassToken<NonlinearRomOnlineData> (ca, "ComponentwiseResidualScaling", this, reinterpret_cast<int
       NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::residualScaling), 3, "Off", 0, "Balanced", 1, "EnergyInterpretation",2);
 
   new ClassDouble<NonlinearRomOnlineData>(ca, "EddyLengthScale", this, &NonlinearRomOnlineData::eddyLengthScale);
   new ClassDouble<NonlinearRomOnlineData>(ca, "TurbulenceWeight", this, &NonlinearRomOnlineData::turbulenceWeight);
-  new ClassDouble<NonlinearRomOnlineData>(ca, "FarFieldWeight", this, &NonlinearRomOnlineData::ffWeight);
-  new ClassDouble<NonlinearRomOnlineData>(ca, "WallWeight", this, &NonlinearRomOnlineData::wallWeight);
-  new ClassDouble<NonlinearRomOnlineData>(ca, "BCWeightGrowthFactor", this, &NonlinearRomOnlineData::bcWeightGrowthFactor);
 
   new ClassDouble<NonlinearRomOnlineData>(ca, "LevenbergMarquardtWeight", this, &NonlinearRomOnlineData::levenbergMarquardtWeight);
-  new ClassDouble<NonlinearRomOnlineData>(ca, "WeightingExponent", this, &NonlinearRomOnlineData::weightingExponent);
-  new ClassDouble<NonlinearRomOnlineData>(ca, "RegularizationConstantGain", this, &NonlinearRomOnlineData::constantGain);
-  new ClassDouble<NonlinearRomOnlineData>(ca, "RegularizationProportionalGain", this, &NonlinearRomOnlineData::proportionalGain);
-  new ClassDouble<NonlinearRomOnlineData>(ca, "RegularizationIntegralGain", this, &NonlinearRomOnlineData::integralGain);
-  new ClassDouble<NonlinearRomOnlineData>(ca, "RegularizationIntegralLeakGain", this, &NonlinearRomOnlineData::integralLeakGain);
-  new ClassDouble<NonlinearRomOnlineData>(ca, "FarFieldErrorTolerance", this, &NonlinearRomOnlineData::ffErrorTol);
-  new ClassDouble<NonlinearRomOnlineData>(ca, "RegularizationThreshold", this, &NonlinearRomOnlineData::regThresh);
-  new ClassInt<NonlinearRomOnlineData>(ca, "ControlNodeID", this, &NonlinearRomOnlineData::controlNodeID);
 
   new ClassDouble<NonlinearRomOnlineData>(ca, "SpatialOnlyInitialHomotopyStep", this, &NonlinearRomOnlineData::romSpatialOnlyInitialHomotomyStep);
   new ClassDouble<NonlinearRomOnlineData>(ca, "SpatialOnlyMaxHomotopyStep", this, &NonlinearRomOnlineData::romSpatialOnlyMaxHomotomyStep);
   new ClassDouble<NonlinearRomOnlineData>(ca, "SpatialOnlyHomotopyStepExpGrowthRate", this, &NonlinearRomOnlineData::romSpatialOnlyHomotomyStepExpGrowthRate);
-  new ClassDouble<NonlinearRomOnlineData>(ca, "ResidualsCoordMin", this, &NonlinearRomOnlineData::residualsCoordMin);
-  new ClassDouble<NonlinearRomOnlineData>(ca, "ResidualsCoordMax", this, &NonlinearRomOnlineData::residualsCoordMax);
-  new ClassInt<NonlinearRomOnlineData>(ca, "ResidualsCoordResolution", this, &NonlinearRomOnlineData::residualsCoordRes);
-
-  new ClassToken<NonlinearRomOnlineData> (ca, "AdjustInteriorWeight", this, reinterpret_cast<int
-      NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::adjustInteriorWeight), 2, "False", 0, "True", 1);
-  new ClassToken<NonlinearRomOnlineData> (ca, "AllowBCWeightDecrease", this, reinterpret_cast<int
-      NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::allowBCWeightDecrease), 2, "False", 0, "True", 1);
 
   krylov.setup("Krylov",ca);
   sensitivity.setup("Sensitivities",ca);

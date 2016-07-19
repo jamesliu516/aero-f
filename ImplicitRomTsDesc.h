@@ -59,29 +59,7 @@ protected:
 
   DistSVec<double, dim>* componentwiseScalingVec; // Intended to fix the scaling of the residual.  Gives energy interpretation to all equations.
 
-  DistSVec<double, dim>* weightVec;       // weighting vector for least squares system
-  DistVec<double>* farFieldMask;          // one for far field nodes, zero otherwise
-  DistVec<double>* farFieldNeighborsMask; // one for neighbors of ff nodes, zero otherwise
-  DistVec<double>* wallMask;              // one for wall nodes, zero otherwise
-  DistVec<double>* wallNeighborsMask;     // one for neighbors of wall nodes, zero otherwise
-  
-  double interiorWeight;
-  double ffWeight;
-  double wallWeight;
-  double bcWeightGrowthFactor;
   double levenbergMarquardtWeight;
-  bool wallUp;
-  bool wallDown;
-  double wallWeightGrowthFactor;
-  bool ffUp;
-  bool ffDown;
-  double ffWeightGrowthFactor;
-
-  int allowBCWeightDecrease;
-  int adjustInteriorWeight;
-
-  double regThresh;
-  double regWeight;
 
   // backtracking line search
   double rho;
@@ -109,14 +87,12 @@ protected:
   double lineSearchBacktrack(DistSVec<double, dim> &, Vec<double> &, int, VecSet<DistSVec<double, dim> > &,double, bool &);
   double zoom(double, double, double, double, double, double, double, double, double, DistSVec<double,dim>,DistSVec<double,dim>, DistSVec<double,dim>, int);
   int checkFailSafe(DistSVec<double,dim>&);
-  void printBCWeightingInfo(bool);
   void resetFixesTag();
   void projectVector(VecSet<DistSVec<double, dim> >&, DistSVec<double, dim> &, Vec<double> &);
   void expandVector(Vec<double> &, DistSVec<double, dim> &);
 
   void loadCluster(int, bool, DistSVec<double, dim> &);
 
-  virtual void updateLeastSquaresWeightingVector();
   virtual void postProStep(DistSVec<double,dim> &, int) {};	// by default, do not do post processing
   virtual bool breakloop1(const bool);
   virtual bool breakloop2(const bool);
@@ -146,9 +122,6 @@ protected:
   bool spatialOnlyWithHomotopy;
 
   void tryAllClusters(DistSVec<double, dim>&, const int totalTimeSteps, int*);
-
-  void printRomResiduals(DistSVec<double, dim> &U);
-  FILE *residualsFile;
 
 protected:
   template<class Scalar, int neq>

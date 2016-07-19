@@ -27,36 +27,10 @@ protected:
 	double *jactmp;
   KspPrec<dim> *pc;
 
-  DistSVec<double, dim>* A_Uinlet;
-  Vec<double>* PhiT_A_Uinlet;
-  Vec<double>* PhiT_A_U;
-  VecSet< Vec<double> >* PhiT_A_Phi;
-  VecSet<DistSVec<double, dim> >* A_Phi;
-  double regWeightConstant;
-  double Kc;
-  double regWeightProportional;
-  double Kp;
-  double regWeightIntegral;
-  double Ki;
-  double Ki_leak;
-  double dKi;
-  double dRegWeightIntegral;
-  double ffError;
-  double ffErrorPrev;
-  double ffErrorTol;
-  double minRes;
-
-  double rhsNormInit;
-
   void setProblemSize(DistSVec<double, dim> &);
 
   double computePGResidualNorm(DistSVec<double,dim> &);
   void setReferenceResidual();
-
-  int controlNodeGlobalID;
-  int controlNodeLocalID;
-  int controlNodeSubDomain;
-  int controlNodeCpuNum;
 
 public:
   bool checkForLastIteration(IoData &, int, double, double, DistSVec<double,dim> &);

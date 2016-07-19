@@ -126,9 +126,6 @@ void ImplicitRomPostproTsDesc<dim>::postProStep(DistSVec<double, dim> &U, int to
       this->timer->addAJTime(tAJ);
     }
 
-    if (this->ioData->romOnline.weightedLeastSquares != NonlinearRomOnlineData::WEIGHTED_LS_FALSE) {
-      ImplicitRomTsDesc<dim>::computeFullResidual(0, U, true);
-    } 
     this->saveNewtonSystemVectorsAction(totalTimeSteps);
   }
 
@@ -142,11 +139,7 @@ void ImplicitRomPostproTsDesc<dim>::postProStep(DistSVec<double, dim> &U, int to
        && !(this->rom->jacActionSnapsFileNameSpecified) // can't output jacAction without the appropriate dUromNewtonIt 
        && ((freq >= 1) && (totalTimeSteps%freq == 0))) {
 
-    if (this->ioData->romOnline.weightedLeastSquares != NonlinearRomOnlineData::WEIGHTED_LS_FALSE) {
-      ImplicitRomTsDesc<dim>::computeFullResidual(1, U, true);
-    } else {
-      ImplicitRomTsDesc<dim>::computeFullResidual(1, U, false);
-    } 
+    ImplicitRomTsDesc<dim>::computeFullResidual(1, U, false);
 
     this->saveNewtonSystemVectorsAction(totalTimeSteps);
   }

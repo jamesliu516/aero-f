@@ -359,13 +359,6 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
       fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l),
                              V[nodeNum(l)], Ub, flux);
 
-     // // introduce weighted farfield residual for ROM simulations (weight=1.0 by default)
-     // if (farfield) {
-     //   for (int k=0; k<dim; ++k){ 
-     //     flux[k] = ffWeight*flux[k];
-     //   }
-     // }
-
       for (int k=0; k<dim; ++k){ 
         fluxes[ nodeNum(l) ][k] += flux[k];
       }
@@ -434,13 +427,6 @@ void Face::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 
       fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l),
                            V[nodeNum(l)], Ub, flux);
-
-      // introduce weighted farfield residual for ROM simulations (weight=1.0 by default)
-      //if (farfield) {
-      //  for (int k=0; k<dim; ++k){
-      //    flux[k] = ffWeight*flux[k];
-      //  }
-      //}
 
       for (int k=0; k<dim; ++k) {
 	fluxes[ nodeNum(l) ][k] += flux[k];
@@ -588,13 +574,6 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
 
 	fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l), 
 			       V[nodeNum(l)], Ub, flux, fluidId[nodeNum(l)]);
-
-  // introduce weighted farfield residual for ROM simulations (weight=1.0 by default)
-  //if (farfield) {
-  //  for (int k=0; k<dim; ++k){
-  //    flux[k] = ffWeight*flux[k];
-  //  }
-  //}
 
 	for (int k=0; k<dim; ++k)
 	  fluxes[ nodeNum(l) ][k] += flux[k];
