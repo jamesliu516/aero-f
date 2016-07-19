@@ -108,7 +108,6 @@ protected:
 	DistGeoState *geoState;
 	DistSVec<double,3> &X;
 
-  double wallWeight;
   DistVec<double>* wallMask;
   DistVec<double>* wallNeighborsMask;
   DistVec<double>* targetRegionMask;

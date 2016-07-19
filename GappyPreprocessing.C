@@ -81,8 +81,6 @@ GappyPreprocessing<dim>::GappyPreprocessing(Communicator *_com, IoData &_ioData,
   globalSampleNodesUnionSet.clear();
   globalSampleNodesUnionSetForApproxMetricState.clear();
 
-  wallWeight = gappyIO->wallWeight;
- 
  /* d2wall = NULL;
   surfaceMask = NULL;
   targetRegionMask = NULL;

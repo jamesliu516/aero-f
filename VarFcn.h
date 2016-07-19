@@ -792,11 +792,7 @@ DistSVec<double,dim>* VarFcn::computeBalancedWeightVec(IoData &iod, DistSVec<dou
     }
   }
 
-  fprintf(stderr, "balancedWeightVec.norm() = %e\n", balancedWeightVec->norm());
-
   DistSVec<double, dim> tmp(U.info(), iDimMask);
-  fprintf(stderr, "tmp.norm() = %e\n", tmp.norm());
-
 
   delete [] iDimMask;
 

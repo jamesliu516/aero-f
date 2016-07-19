@@ -39,7 +39,7 @@ void ImplicitCollocationTsDesc<dim>::solveNewtonSystem(const int &it, double &re
   }
   res = sqrt(res);
  
-  transMatMatProd(*this->AJRestrict,*this->AJRestrict,this->jactmp);
+  transMatMatSymProd(*this->AJRestrict,this->jactmp);
   for (int iRow = 0; iRow < this->nPod; ++iRow) {
     for (int iCol = 0; iCol < this->nPod; ++iCol) { // different from PG
       this->jac[iRow][iCol] = this->jactmp[iRow + iCol * this->pod.numVectors()];
