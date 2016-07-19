@@ -51,9 +51,6 @@ template \
 void GappyPreprocessing<dim>::setUpBasisBasisProducts();\
 \
 template \
-void GappyPreprocessing<dim>::computeQROfWeightedPhiJ();\
-\
-template \
 void GappyPreprocessing<dim>::setUpGreedy(int iCluster);\
 \
 template \

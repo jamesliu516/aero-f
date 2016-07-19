@@ -2342,26 +2342,13 @@ struct NonlinearRomOnlineData {
   enum Projection {PETROV_GALERKIN = 0, GALERKIN = 1} projection;
   enum SystemApproximation {SYSTEM_APPROXIMATION_NONE = 0, GNAT = 1, COLLOCATION = 2, APPROX_METRIC_NL = 3} systemApproximation;
   enum LineSearch {LINE_SEARCH_FALSE = 0, LINE_SEARCH_BACKTRACKING = 1, LINE_SEARCH_WOLF = 2} lineSearch;
-  enum LSSolver {QR = 0, NORMAL_EQUATIONS = 1, REGULARIZED_NORMAL_EQUATIONS = 2, LEVENBERG_MARQUARDT_SVD = 3, PROBABILISTIC_SVD = 4} lsSolver;
+  enum LSSolver {QR = 0, NORMAL_EQUATIONS = 1, LEVENBERG_MARQUARDT_SVD = 2, PROBABILISTIC_SVD = 3} lsSolver;
 
   enum ResidualScaling {SCALING_OFF=0, SCALING_BALANCED=1, SCALING_ENERGY=2} residualScaling;
   double turbulenceWeight;
   double eddyLengthScale;
 
-  enum WeightedLeastSquares {WEIGHTED_LS_FALSE = 0, WEIGHTED_LS_BOCOS = 1 } weightedLeastSquares;
-  double weightingExponent;
-  double ffWeight;
-  double wallWeight;
-  double bcWeightGrowthFactor;
   double levenbergMarquardtWeight;
-
-  double regThresh;
-  double constantGain;
-  double proportionalGain;
-  double integralGain;
-  double integralLeakGain;
-  double ffErrorTol;
-  int controlNodeID; 
 
   int minDimension;
   int maxDimension;
@@ -2371,13 +2358,6 @@ struct NonlinearRomOnlineData {
   int randMatDimension;
 
   double incrementCoordsTol;
-
-  double residualsCoordMin;
-  double residualsCoordMax;
-  int residualsCoordRes;
-
-  enum AdjustInteriorWeight {ADJUST_INTERIOR_WEIGHT_FALSE=0, ADJUST_INTERIOR_WEIGHT_TRUE=1} adjustInteriorWeight;
-  enum AllowBCWeightDecrease {ALLOW_DECREASE_FALSE=0, ALLOW_DECREASE_TRUE=1} allowBCWeightDecrease;
 
   enum BasisUpdates {UPDATES_OFF = 0, UPDATES_SIMPLE = 1, UPDATES_FAST_EXACT = 2, UPDATES_FAST_APPROX = 3} basisUpdates;
   int basisUpdateFreq;

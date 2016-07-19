@@ -33,7 +33,6 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
 
   this->timeState = new DistTimeState<dim>(*ioData, this->spaceOp, this->varFcn, this->domain, this->V);
 
-
   ImplicitData &implicitData = ioData->ts.implicit;
   if (implicitData.mvp == ImplicitData::FD || implicitData.mvp == ImplicitData::H1FD) {
     mvp = new MatVecProdFD<dim,dim>(implicitData, this->timeState, this->geoState, this->spaceOp, this->domain, *ioData);
@@ -101,45 +100,7 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
 
   componentwiseScalingVec = NULL; 
 
-  if (ioData->romOnline.weightedLeastSquares!=NonlinearRomOnlineData::WEIGHTED_LS_FALSE) {
-    weightVec = new DistSVec<double, dim>(this->domain->getNodeDistInfo());
-  } else {
-    weightVec = NULL;
-  }
-
-
-  interiorWeight = 1.0;
-  ffWeight = this->ioData->romOnline.ffWeight;
-  wallWeight = this->ioData->romOnline.wallWeight;
-  bcWeightGrowthFactor = this->ioData->romOnline.bcWeightGrowthFactor;
   levenbergMarquardtWeight = this->ioData->romOnline.levenbergMarquardtWeight;
-  wallUp = false;
-  wallDown = false;
-  wallWeightGrowthFactor = bcWeightGrowthFactor;
-  ffUp = false;
-  ffDown = false;
-  ffWeightGrowthFactor = bcWeightGrowthFactor;
-
- if (ioData->romOnline.weightedLeastSquares==NonlinearRomOnlineData::WEIGHTED_LS_BOCOS) {
-    farFieldMask = new DistVec<double>(this->domain->getNodeDistInfo());
-    farFieldNeighborsMask = new DistVec<double>(this->domain->getNodeDistInfo());
-    this->domain->setFarFieldMask(*farFieldMask, *farFieldNeighborsMask);
-    wallMask = new DistVec<double>(this->domain->getNodeDistInfo());
-    wallNeighborsMask = new DistVec<double>(this->domain->getNodeDistInfo());
-    this->domain->setWallMask(*wallMask, *wallNeighborsMask);
-    updateLeastSquaresWeightingVector();
-  } else {
-    farFieldMask = NULL;
-    farFieldNeighborsMask = NULL;
-    wallMask = NULL;
-    wallNeighborsMask = NULL;
-  }
-
-  allowBCWeightDecrease = this->ioData->romOnline.allowBCWeightDecrease;
-  adjustInteriorWeight = this->ioData->romOnline.adjustInteriorWeight;
-
-  regThresh = this->ioData->romOnline.regThresh;
-  regWeight = 0.0;
 
   Uinit = NULL;
 
@@ -155,16 +116,6 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
 
   tryingAllClusters = false;
 
-  const char *residualsFileName = ioData->output.rom.residualsForCoordRange;
-  if (strcmp(residualsFileName, "") != 0)  {
-    char *residualsPath = new char[strlen(ioData->output.rom.prefix) + strlen(residualsFileName)+1];
-    if (this->com->cpuNum() == 0) sprintf(residualsPath, "%s%s",ioData->output.rom.prefix, residualsFileName);
-    if (this->com->cpuNum() == 0) residualsFile = fopen(residualsPath, "wt");
-    delete [] residualsPath;
-  } else { 
-    residualsFile = NULL;
-  }
-
   checkSolutionInNewton = false;
 
   // reduced coordinate homotopy for Spatial-Only problems
@@ -175,8 +126,7 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
   if ((ioData->ts.implicit.type == ImplicitData::SPATIAL_ONLY) 
       && (homotopyStepInitial > 0) && (homotopyStepInitial <= homotopyStepMax)) {
     if ((ioData->romOnline.systemApproximation == NonlinearRomOnlineData::SYSTEM_APPROXIMATION_NONE) 
-        && ((ioData->romOnline.lsSolver!=NonlinearRomOnlineData::NORMAL_EQUATIONS) 
-             && (ioData->romOnline.lsSolver!=NonlinearRomOnlineData::REGULARIZED_NORMAL_EQUATIONS))) {
+        && (ioData->romOnline.lsSolver!=NonlinearRomOnlineData::NORMAL_EQUATIONS)) {
       this->com->fprintf(stderr, "*** Error:  Spatial-Only ROM homotopy is currently only implemented for the normal equations\n");
       exit (-1); 
     }  
@@ -192,16 +142,9 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
 template<int dim>
 ImplicitRomTsDesc<dim>::~ImplicitRomTsDesc()
 {
-  if (Uinit && residualsFile) printRomResiduals(*Uinit);
-  if (this->com->cpuNum()==0 && residualsFile) fclose(residualsFile);
 
   if (tag) delete tag;
-  if (weightVec) delete weightVec;
   if (componentwiseScalingVec) delete componentwiseScalingVec;
-  if (farFieldMask) delete farFieldMask;
-  if (farFieldNeighborsMask) delete farFieldNeighborsMask;
-  if (wallMask) delete wallMask;
-  if (wallNeighborsMask) delete wallNeighborsMask;
   if (Uinit) delete Uinit;
   if (Uprev) delete Uprev;
 
@@ -232,40 +175,7 @@ KspPrec<neq> *ImplicitRomTsDesc<dim>::createPreconditioner(PcData &pcdata, Domai
 
 }
 
-//------------------------------------------------------------------------------
-template<int dim>
-void ImplicitRomTsDesc<dim>::printRomResiduals(DistSVec<double, dim> &U)  {
-  // calculates the residual corresponding for the initial condition of the simulation plus an
-  // increment in the first basis vector, for a range of increments defined by min (minimum generalized coord value),
-  // max (maximum generalized coord value), and res (number of values between min and max).  
 
-  double min = ioData->romOnline.residualsCoordMin; 
-  double max = ioData->romOnline.residualsCoordMax;
-  double res = ioData->romOnline.residualsCoordRes;
-
-  if ((max-min)<=0.0) return;
-
-  DistSVec<double, dim>* Ueval = new DistSVec<double, dim>(this->domain->getNodeDistInfo());
-  DistSVec<double, dim>* Reval = new DistSVec<double, dim>(this->domain->getNodeDistInfo());
-
-  double delta = (max - min) / res;
-
-  for (int i=0; i<=res; ++i) {
-   double coef = min + i*delta;
-   *Ueval = U + (*rom->basis)[0]*coef;
-   int dummyIt = 0; // assume spatial only
-   computeFullResidual(dummyIt, *Ueval, false, Reval);
-   double unweightedResNormSquared = pow(Reval->norm(),2);
-   computeFullResidual(dummyIt, *Ueval, true, Reval);
-   double weightedResNormSquared = pow(Reval->norm(),2);
-   if (this->com->cpuNum() ==0)
-     this->com->fprintf(residualsFile, "%1.15e %1.15e %1.15e\n", coef, unweightedResNormSquared, weightedResNormSquared); 
-  }
-
-  delete Ueval;
-  delete Reval;
-
-}
 
 //------------------------------------------------------------------------------
 
@@ -427,214 +337,6 @@ void ImplicitRomTsDesc<dim>::loadCluster(int closestCluster, bool clusterSwitch,
 
 }
 
-//-----------------------------------------------------------------------
-
-template<int dim>
-void ImplicitRomTsDesc<dim>::printBCWeightingInfo(bool updateWeights) {
-
-  int numFFNodes = 0;
-  double resNormSquaredFFNodes = 0.0;
-
-  int numFFNeighborNodes = 0;
-  double resNormSquaredFFNeighborNodes = 0.0;
-
-  int numWallNodes = 0;
-  double resNormSquaredWallNodes = 0.0;
-
-  int numWallNeighborNodes = 0;
-  double resNormSquaredWallNeighborNodes = 0.0;
-
-  int numInteriorNodes = 0;
-  double resNormSquaredInteriorNodes = 0.0;
-
-  // weight residual
-  int numLocSub = this->F.numLocSub();
-#pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; ++iSub) {
-    bool *masterFlag = this->domain->getNodeDistInfo().getMasterFlag(iSub);
-    double *ffMask = farFieldMask->subData(iSub); // vector with nonzero entries at farfield nodes
-    double *ffNeighborsMask =  farFieldNeighborsMask->subData(iSub); // vector with nonzero entries at neighbors of farfield nodes
-    double *wMask = wallMask->subData(iSub);   // vector with nonzero entries at wall nodes
-    double *wNeighborsMask =  wallNeighborsMask->subData(iSub); // vector with nonzero entries at neighbors of wall nodes
-    double (*unweightedResidual)[dim] = this->F.subData(iSub);
-    for (int i=0; i<F.subSize(iSub); ++i) {
-      if (!masterFlag[i]) continue;
-      if (ffMask[i]>0) {
-        ++numFFNodes;
-        for (int j=0; j<dim; ++j)
-          resNormSquaredFFNodes += pow(unweightedResidual[i][j],2);
-      } else if (ffNeighborsMask[i]>0) {
-        ++numFFNeighborNodes;
-        for (int j=0; j<dim; ++j)
-          resNormSquaredFFNeighborNodes += pow(unweightedResidual[i][j],2);
-      } else if (wMask[i]>0) {
-        ++numWallNodes;
-        for (int j=0; j<dim; ++j)
-          resNormSquaredWallNodes += pow(unweightedResidual[i][j],2);
-      } else if (wNeighborsMask[i]>0) {
-        ++numWallNeighborNodes;
-        for (int j=0; j<dim; ++j)
-          resNormSquaredWallNeighborNodes += pow(unweightedResidual[i][j],2);
-      } else {
-        ++numInteriorNodes;
-        for (int j=0; j<dim; ++j)
-          resNormSquaredInteriorNodes += pow(unweightedResidual[i][j],2);
-      }
-    }
-  }
-
-  this->com->globalSum(1, &numFFNodes);
-  this->com->globalSum(1, &numFFNeighborNodes);
-  this->com->globalSum(1, &numWallNodes);
-  this->com->globalSum(1, &numWallNeighborNodes);
-  this->com->globalSum(1, &numInteriorNodes);
-  this->com->globalSum(1, &resNormSquaredFFNodes);
-  this->com->globalSum(1, &resNormSquaredFFNeighborNodes);
-  this->com->globalSum(1, &resNormSquaredWallNodes);
-  this->com->globalSum(1, &resNormSquaredWallNeighborNodes);
-  this->com->globalSum(1, &resNormSquaredInteriorNodes);
-
-  if (numFFNodes==0) numFFNodes=1;
-  if (numFFNeighborNodes==0) numFFNeighborNodes=1;
-  if (numWallNodes==0) numWallNodes=1;
-  if (numWallNeighborNodes==0) numWallNeighborNodes=1; 
-
-  this->com->fprintf(stdout, "-----------------------------------------------\n");
-  this->com->fprintf(stdout, "(||R_interior||)^2   = %e\n", resNormSquaredInteriorNodes);
-  this->com->fprintf(stdout, "epsilon_interior = %e\n", interiorWeight);
-  this->com->fprintf(stdout, "(||W_interior*R_interior||)^2 = %e\n", resNormSquaredInteriorNodes*interiorWeight);
-  this->com->fprintf(stdout, "(||R_interior||)^2 / numInteriorNodes = %e\n", resNormSquaredInteriorNodes/((double) numInteriorNodes));
-  this->com->fprintf(stdout, "(||W_interior*R_interior||)^2 / numInteriorNodes = %e\n",  resNormSquaredInteriorNodes*interiorWeight/ ((double) numInteriorNodes));
-  this->com->fprintf(stdout, "-----------------------------------------------\n");
-  this->com->fprintf(stdout, "(||R_ff||)^2 = %e\n", resNormSquaredFFNodes);
-  this->com->fprintf(stdout, "epsilon_ff = %e\n", ffWeight);
-  this->com->fprintf(stdout, "(||W_ff*R_ff||)^2 = %e\n", resNormSquaredFFNodes*ffWeight);
-  this->com->fprintf(stdout, "(||R_ff||)^2 / numFarFieldNodes = %e\n", resNormSquaredFFNodes / ((double) numFFNodes));
-  this->com->fprintf(stdout, "(||W_ff*R_ff||)^2 / numFarFieldNodes = %e\n",  resNormSquaredFFNodes*ffWeight/ ((double) numFFNodes));
-  this->com->fprintf(stdout, "-----------------------------------------------\n");
-  this->com->fprintf(stdout, "(||R_ff_neighbors||)^2 = %e\n", resNormSquaredFFNeighborNodes);
-  this->com->fprintf(stdout, "(||R_ff_neighbors||)^2 / numFarFieldNeighborNodes = %e\n", resNormSquaredFFNeighborNodes / ((double) numFFNeighborNodes));
-  this->com->fprintf(stdout, "-----------------------------------------------\n");
-  this->com->fprintf(stdout, "(||R_wall||)^2 = %e\n", resNormSquaredWallNodes);
-  this->com->fprintf(stdout, "epsilon_wall = %e\n", wallWeight);
-  this->com->fprintf(stdout, "(||W_wall*R_wall||)^2 = %e\n", resNormSquaredWallNodes*wallWeight);
-  this->com->fprintf(stdout, "(||R_wall||)^2 / numWallNodes = %e\n", resNormSquaredWallNodes / ((double) numWallNodes));
-  this->com->fprintf(stdout, "(||W_wall*R_wall||)^2 / numWallNodes = %e\n",  resNormSquaredWallNodes*wallWeight/ ((double) numWallNodes));
-  this->com->fprintf(stdout, "-----------------------------------------------\n");
-  this->com->fprintf(stdout, "(||R_wall_neighbors||)^2 = %e\n", resNormSquaredWallNeighborNodes);
-  this->com->fprintf(stdout, "(||R_wall_neighbors||)^2 / numWallNeighborNodes = %e\n", resNormSquaredWallNeighborNodes / ((double) numWallNeighborNodes));
-  this->com->fprintf(stdout, "-----------------------------------------------\n");
-  this->com->fprintf(stdout, "Ninterior=%d, Nff=%d, Nwall=%d, Ntot=%d\n", numInteriorNodes, numFFNodes, numWallNodes, numInteriorNodes+numFFNodes+numWallNodes);
-  this->com->fprintf(stdout, "TotWeight=%e\n", interiorWeight*(double)numInteriorNodes+(double)numWallNodes*wallWeight+(double)numFFNodes*ffWeight);
-
-  if (updateWeights) {
-
-    double relErrFF = (resNormSquaredFFNodes/((double)numFFNodes) - resNormSquaredFFNeighborNodes/((double)numFFNeighborNodes))/
-                      (resNormSquaredFFNeighborNodes/((double)numFFNeighborNodes));
-
-    double relErrWall = (resNormSquaredWallNodes/((double)numWallNodes) - resNormSquaredWallNeighborNodes/((double)numWallNeighborNodes))/
-                        (resNormSquaredWallNeighborNodes/((double)numWallNeighborNodes));
-
-    relErrFF = abs(relErrFF);
-    relErrWall = abs(relErrWall);
-
-    double totRelError = relErrFF+relErrWall;
-
-    double ffRatio = 10.0;
-    double wallRatio = 10.0;
-
-    ffWeightGrowthFactor = 1.0 + (bcWeightGrowthFactor-1.0)*relErrFF/totRelError;
-    wallWeightGrowthFactor = 1.0 + (bcWeightGrowthFactor-1.0)*relErrWall/totRelError;
-
-    if ((resNormSquaredFFNodes/((double)numFFNodes))/(resNormSquaredFFNeighborNodes/((double)numFFNeighborNodes))>ffRatio && interiorWeight>0.0 
-         && resNormSquaredFFNodes/((double)numFFNodes)>1e-12) {
-      if (ffDown) ffWeightGrowthFactor = (ffWeightGrowthFactor-1.0)/2 + 1.0;
-      ffUp = true;
-      ffDown = false;
-      ffWeight *= ffWeightGrowthFactor;
-    } else if ((resNormSquaredFFNodes/((double)numFFNodes))/(resNormSquaredFFNeighborNodes/((double)numFFNeighborNodes))<=ffRatio && ffWeight>1.0
-               && allowBCWeightDecrease) {
-      if (ffUp) ffWeightGrowthFactor = (ffWeightGrowthFactor-1.0)/2 + 1.0;
-      ffUp = false;
-      ffDown = true;
-      ffWeight /= ffWeightGrowthFactor;
-    }
-
-    if ((resNormSquaredWallNodes/((double)numWallNodes))/(resNormSquaredWallNeighborNodes/((double)numWallNeighborNodes))>wallRatio && interiorWeight>0.0
-        && resNormSquaredWallNodes/((double)numWallNodes)>1e-12) {
-      if (wallDown) wallWeightGrowthFactor = (wallWeightGrowthFactor-1.0)/2 + 1.0;
-      wallUp = true;
-      wallDown = false;
-      wallWeight *= wallWeightGrowthFactor; 
-    } else if ((resNormSquaredWallNodes/((double)numWallNodes))/(resNormSquaredWallNeighborNodes/((double)numWallNeighborNodes))<=wallRatio && wallWeight>1.0 
-                && allowBCWeightDecrease) {
-      if (wallUp) wallWeightGrowthFactor = (wallWeightGrowthFactor-1.0)/2 + 1.0;
-      wallUp = false;
-      wallDown = true;
-      wallWeight /= wallWeightGrowthFactor;
-    }
-
-    ffWeight = (ffWeight<1.0) ? 1.0 : ffWeight;
-    wallWeight = (wallWeight<1.0) ? 1.0 : wallWeight;
-    if (adjustInteriorWeight) {
-      interiorWeight = ((double)numInteriorNodes+(double)numWallNodes*(1.0-wallWeight)+(double)numFFNodes*(1.0-ffWeight))/((double)numInteriorNodes);
-      interiorWeight = (interiorWeight<0) ? 0.0 : interiorWeight;
-    }
-  }
-
-  /*  double relErrFF = (resNormSquaredFFNodes/((double)numFFNodes) - resNormSquaredInteriorNodes/((double)numInteriorNodes))/
-                      (resNormSquaredInteriorNodes/((double)numInteriorNodes));
-
-    double relErrWall = (resNormSquaredWallNodes/((double)numWallNodes)  - resNormSquaredInteriorNodes/((double)numInteriorNodes))/
-                      (resNormSquaredInteriorNodes/((double)numInteriorNodes));
-
-    relErrFF = abs(relErrFF);
-    relErrWall = abs(relErrWall);
-
-    double totRelError = relErrFF+relErrWall;
-
-    ffWeightGrowthFactor = 1.0 + (bcWeightGrowthFactor-1.0)*relErrFF/totRelError;
-    wallWeightGrowthFactor = 1.0 + (bcWeightGrowthFactor-1.0)*relErrWall/totRelError;
- 
-    double ffRatio = 1.0;
-    double wallRatio = 10.0;
-
-    if ((resNormSquaredFFNodes/((double)numFFNodes))/(resNormSquaredInteriorNodes/((double)numInteriorNodes))>ffRatio && interiorWeight>0.0
-         && resNormSquaredFFNodes/((double)numFFNodes)>1e-12) {
-      if (ffDown) ffWeightGrowthFactor = (ffWeightGrowthFactor-1.0)/2 + 1.0;
-      ffUp = true;
-      ffDown = false;
-      ffWeight *= ffWeightGrowthFactor;
-    } else if ((resNormSquaredFFNodes/((double)numFFNodes))/(resNormSquaredInteriorNodes/((double)numInteriorNodes))<=ffRatio && ffWeight>1.0
-               && allowBCWeightDecrease) {
-      if (ffUp) ffWeightGrowthFactor = (ffWeightGrowthFactor-1.0)/2 + 1.0;
-      ffUp = false;
-      ffDown = true;
-      ffWeight /= ffWeightGrowthFactor;
-    }
-
-    if ((resNormSquaredWallNodes/((double)numWallNodes))/(resNormSquaredInteriorNodes/((double)numInteriorNodes))>wallRatio && interiorWeight>0.0
-        && resNormSquaredWallNodes/((double)numWallNodes)>1e-12) {
-      if (wallDown) wallWeightGrowthFactor = (wallWeightGrowthFactor-1.0)/2 + 1.0;
-      wallUp = true;
-      wallDown = false;
-      wallWeight *= wallWeightGrowthFactor;
-    } else if ((resNormSquaredWallNodes/((double)numWallNodes))/(resNormSquaredInteriorNodes/((double)numInteriorNodes))<=wallRatio && wallWeight>1.0
-                && allowBCWeightDecrease) {
-      if (wallUp) wallWeightGrowthFactor = (wallWeightGrowthFactor-1.0)/2 + 1.0;
-      wallUp = false;
-      wallDown = true;
-      wallWeight /= wallWeightGrowthFactor;
-    }
-
-    ffWeight = (ffWeight<1.0) ? 1.0 : ffWeight;
-    wallWeight = (wallWeight<1.0) ? 1.0 : wallWeight;
-    if (adjustInteriorWeight) {
-      interiorWeight = 1.0 - (ffWeight-1.0)*ffRatio*(double)numFFNodes/(double)numInteriorNodes - (wallWeight-1.0)*wallRatio*(double)numWallNodes/(double)numInteriorNodes;
-      interiorWeight = (interiorWeight<0.0) ? 0.0 : interiorWeight;
-    }
-  }*/
-}
 
 //------------------------------------------------------------------------------
 template<int dim>
@@ -665,17 +367,14 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
   if (totalTimeSteps == 1 && this->ioData->romOnline.residualScaling != NonlinearRomOnlineData::SCALING_OFF) {
     computeFullResidual(it, U, true); 
   }
-  // reset the balancing scaling at the start of every timestep for unsteady
+
   if (unsteady && (this->ioData->romOnline.residualScaling == NonlinearRomOnlineData::SCALING_BALANCED)) {  
     this->com->fprintf(stdout, " ... using the initial weighting vector for all timesteps\n");
-   // this->com->fprintf(stdout, "resetting the weighting vector\n");
-   // this->varFcn->weights[0]=-1;
+    // reset the balancing scaling at the start of every timestep for unsteady?
+
+    // this->com->fprintf(stdout, "resetting the weighting vector\n");
+    // this->varFcn->weights[0]=-1;
   }
-
-  // spatial residual scaling (primarily for bocos -- unrelated to the component-wise scaling)
-  updateLeastSquaresWeightingVector(); //only updated at the start of Newton
-
-  //if (totalTimeSteps==1) printRomResiduals(U);
 
   for (it = 0; it < maxItsNewton; it++)  {
 
@@ -685,8 +384,7 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
     computeAJ(it, U, true);	// skipped some times for Broyden
     this->timer->addAJTime(tAJ);
 
-    if ((this->ioData->romOnline.weightedLeastSquares != NonlinearRomOnlineData::WEIGHTED_LS_FALSE)
-        || (this->ioData->romOnline.residualScaling != NonlinearRomOnlineData::SCALING_OFF)) {
+    if (this->ioData->romOnline.residualScaling != NonlinearRomOnlineData::SCALING_OFF) {
       computeFullResidual(it, U, true);
     }
 
@@ -750,11 +448,6 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
     if (breakloopNow) break;
 
   } // end Newton loop
-
-  if (this->ioData->romOnline.weightedLeastSquares == NonlinearRomOnlineData::WEIGHTED_LS_BOCOS) {
-    computeFullResidual(it, U, false);
-    printBCWeightingInfo(true);
-  }
 	
   //savedUnormAccum();
   if (fsIt > 0 && checkFailSafe(U) == 1)
@@ -830,10 +523,6 @@ void ImplicitRomTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> &
     *R *= *componentwiseScalingVec;
   }
 
-  if (applyWeighting && (this->ioData->romOnline.weightedLeastSquares != NonlinearRomOnlineData::WEIGHTED_LS_FALSE)) {
-    *R *= *weightVec;
-  }
-
   this->timer->addResidualTime(tRes);
  
 }
@@ -851,34 +540,6 @@ double ImplicitRomTsDesc<dim>::meritFunction(int it, DistSVec<double, dim> &Q, D
   merit += R.norm();	// merit function = 1/2 * (norm of full-order residual)^2
   merit *= merit;
 //  merit *= 0.5;
-
-  if (this->ioData->romOnline.lsSolver==NonlinearRomOnlineData::REGULARIZED_NORMAL_EQUATIONS) {
-    DistSVec<double, dim>* A_Uerr = new DistSVec<double, dim>(this->domain->getNodeDistInfo());
-    *A_Uerr = 0.0;
-    int numLocSub = A_Uerr->numLocSub();
-#pragma omp parallel for
-    for (int iSub=0; iSub<numLocSub; ++iSub) {
-      double *cv = this->A->subData(iSub); // vector of control volumes
-      double (*auerr)[dim] = A_Uerr->subData(iSub);
-      double (*u)[dim] = newQ.subData(iSub);
-      for (int i=0; i<this->A->subSize(iSub); ++i) {
-        if (cv[i]>regThresh) {
-          for (int j=0; j<dim; ++j)
-            auerr[i][j] = cv[i] * pow(u[i][j] - (this->bcData->getInletConservativeState())[j],2);
-        }
-      }
-    }
-
-    DistSVec<double, dim>* ones = new DistSVec<double, dim>(this->domain->getNodeDistInfo());
-    *ones = 1.0;
-
-    double regTerm = (*A_Uerr)*(*ones);
-    regTerm *= regWeight;
-    merit += regTerm;
-
-    delete ones;
-    delete A_Uerr;
-  }
 
   return merit;
 
@@ -1185,12 +846,6 @@ void ImplicitRomTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q, bool ap
   }
   this->timer->addJacApplyTime(t0);
 
-  // weight AJ
-  if (applyWeighting && (this->ioData->romOnline.weightedLeastSquares != NonlinearRomOnlineData::WEIGHTED_LS_FALSE)) {
-    for (int iVec=0; iVec<nPod; ++iVec) {
-      ((AJ)[iVec]) *= *weightVec;
-    }
-  }
 
 }
 
@@ -1261,41 +916,3 @@ bool ImplicitRomTsDesc<dim>::breakloop2(const bool breakloop) {
 
 //------------------------------------------------------------------------------
 
-template<int dim>
-void ImplicitRomTsDesc<dim>::updateLeastSquaresWeightingVector() {
-
-  // form the weighting vector for the least-squares system
-
-  int numLocSub = this->domain->getNumLocSub();
-
-  switch (this->ioData->romOnline.weightedLeastSquares) {
-    case (NonlinearRomOnlineData::WEIGHTED_LS_FALSE):
-      return;
-      break;
-    case (NonlinearRomOnlineData::WEIGHTED_LS_BOCOS):
-#pragma omp parallel for
-      for (int iSub=0; iSub<numLocSub; ++iSub) {
-        double *ffMask = farFieldMask->subData(iSub); // vector with nonzero entries at farfield nodes
-        double *wMask = wallMask->subData(iSub); // vector with nonzero entries at wall nodes
-        double (*weight)[dim] = weightVec->subData(iSub);
-        for (int i=0; i<weightVec->subSize(iSub); ++i) {
-          if (ffMask[i]>0) {
-            for (int j=0; j<dim; ++j)
-              weight[i][j] = ffWeight;
-          } else if (wMask[i]>0) {
-            for (int j=0; j<dim; ++j)
-              weight[i][j] = wallWeight;
-          } else {
-            for (int j=0; j<dim; ++j)
-               weight[i][j] = interiorWeight;
-          }
-        }
-      }
-      break;
-    default:
-        this->com->fprintf(stderr, "*** Error: Unexpected least-squares weighting method\n");
-        exit(-1);
-      break;
-  }
-
-}
