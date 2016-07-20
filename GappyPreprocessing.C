@@ -906,7 +906,7 @@ void GappyPreprocessing<dim>::computeApproxMetricNonlinearNNLS(int iCluster) {
       com->fprintf(stdout, "... success: NNLS converged\n");
       break;
     case (2):
-      fprintf(stderr, "*** Error: Illegal dimensions passed to NNLS! (CPU %d, nEqns=%d, nVars=%d)\n", thisCPU, nEqns, nVars);
+      fprintf(stderr, "*** Error: Illegal dimensions passed to NNLS! (CPU %d, nEqns=%ld, nVars=%ld)\n", thisCPU, nEqns, nVars);
       sleep(1);
       exit(-1);
       break;
