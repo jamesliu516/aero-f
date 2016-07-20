@@ -1620,7 +1620,7 @@ void NonlinearRom<dim>::outputClusteredSnapshots(const char* snapType)  {
         asciiSnapshotsFile = fopen(sensitivityPath, "wt");
 
         if (!asciiSnapshotsFile) {
-           fprintf(stdout,"***Error: Cannot open snapshot file \"%s\"\n",asciiSnapshotsFile);
+           fprintf(stdout,"***Error: Cannot open snapshot file \"%s\"\n",sensitivityPath);
            exit(-1);
         }
 
@@ -2275,7 +2275,7 @@ void NonlinearRom<dim>::readClusteredBasis(int iCluster, const char* basisType, 
     } else if (feof(singValFile)) {
       break;
     } else {
-      fprintf(stderr, "*** Error: fscanf interrupted by non-EOF error in readClusteredBasis() (file: \"%s\")\n", singValFile);
+      fprintf(stderr, "*** Error: fscanf interrupted by non-EOF error in readClusteredBasis() (file: \"%s\")\n", singValsPath);
       exit(-1);
     }
   }
@@ -2541,7 +2541,7 @@ void NonlinearRom<dim>::readClusteredColumnSumsV(int iCluster, const char* basis
       } else if (feof(basisUpdateFile)) {
         break;
       } else {
-        fprintf(stderr, "*** Error: fscanf interrupted by non-EOF error in readClusteredColumnSumsV() (file: \"%s\")\n", basisUpdateFile);
+        fprintf(stderr, "*** Error: fscanf interrupted by non-EOF error in readClusteredColumnSumsV() (file: \"%s\")\n", basisUpdatePath);
         exit(-1);
       }
     }
