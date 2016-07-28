@@ -6280,7 +6280,7 @@ int IoData::checkInputValues()
 
 
   // input values for NonlinearROMs
-  if (   (problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_) ) {
+  if ( problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_ ) {
     error += checkInputValuesNonlinearRomPreprocessing();
   } else if (   (problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_)
              || (problem.alltype == ProblemData::_ACC_UNSTEADY_NONLINEAR_ROM_)
