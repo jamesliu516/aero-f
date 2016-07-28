@@ -85,7 +85,7 @@ public:
     //TODO: overwrite this to use reduced coordinate ?
     int solveNonlinearSystem(DistSVec<double, dim> &Q, const int totalTimeSteps) { return super::solveNonLinearSystem(Q, totalTimeSteps); };
     ///@}
-    /*
+  
     /* must implement, or compilation error
     void solveNewtonSystem(const int &it, double &res, bool &breakloop,
                            DistSVec<double, dim> &U,
