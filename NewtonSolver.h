@@ -108,6 +108,7 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
     probDesc->computeFunction(it, Q, F);
     res2 = probDesc->recomputeResidual(F, Finlet);
     res = F*F-res2;
+    probDesc->printf(9, "deubgging: it = %d, res2 = %f, res = %f\n", it, res2, res);
     if(res<0.0){
       probDesc->printf(1, "ERROR: negative residual captured in Newton Solver!\n");
       exit(1);
@@ -142,6 +143,7 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
 
     probDesc->solveLinearSystem(it, rhs, dQ);
 
+    probDesc->printf(9, "debugging: maxItsLs = %d, getLineSearch = %d", probDesc->getMaxItsLineSearch(), probDesc->getLineSearch());
    if (probDesc->getLineSearch()) { 
      for (itLS=0; itLS<maxItsLS; ++itLS) {
        if (itLS>0){
@@ -161,6 +163,7 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
        probDesc->computeFunction(it, Q, F);
        res2trial = probDesc->recomputeResidual(F, Finlet);
        restrial = F*F-res2trial;
+       probDesc->printf(9, "debugging: dQ.norm() = %f, res2trial = %f, restrial = %f\n", dQ.norm(), res2trial, restrial);
        if (restrial>=0.0) {
          if (sqrt(restrial) < sqrt(1-2.0*alpha*c1)*res || dQ.norm() <= epsAbsInc)
            break;

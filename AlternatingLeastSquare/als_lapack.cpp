@@ -58,14 +58,16 @@ AlternatingLeastSquare::~AlternatingLeastSquare() {
 
 void AlternatingLeastSquare::display(){
 	//std::cout << processor_name << "with rank " << rank;
-	std::cout << "\n X is \n";
-	print(this->X, this->nrow, this->ncol);
-	std::cout << "M is \n";
-	print(this->M, this->nrow, this->ncol);
-	std::cout << "UT is \n";
-	print(this->UT, this->dim, this->nrow);
-	std::cout << "V is \n";
-	print(this->V, this->dim, this->ncol);
+	if(this->rank == 0){
+		std::cout << "\n X is \n";
+		print(this->X, this->nrow, this->ncol);
+		std::cout << "M is \n";
+		print(this->M, this->nrow, this->ncol);
+		std::cout << "UT is \n";
+		print(this->UT, this->dim, this->nrow);
+		std::cout << "V is \n";
+		print(this->V, this->dim, this->ncol);
+	}
 }
 
 // TODO: implement run() with mpi
@@ -84,10 +86,12 @@ void AlternatingLeastSquare::run(int maxIterations) {
 			//std::cout << i << "-th row of U updated\n";
 		}
 		MPI_Barrier(comm);
-		this->error_trajectory[p] = error();
+		this->error_trajectory[p] = objectiveFunctionValue();
 		if(this->rank == 0) std::cout << "iteration " << p << ", error now is " << this->error_trajectory[p] << std::endl;
 		if (p > 0 && this->error_trajectory[p] > this->error_trajectory[p - 1]) break;
 	}
+	// calculate the projection error at the end.
+	relativeProjectionError();
 }
 
 /*
@@ -104,7 +108,7 @@ void AlternatingLeastSquare::updateRowOfU(double *X, unsigned char *M, double *U
 	int result;
 	result = transpose_multiply(A, dim, n, local_mat_data);
 	result = matrix_vector_multiply(A, b, dim, n, local_vec_data);
-	res = linear_solve_SVD(local_mat_data, local_vec_data, dim, dim);
+	res = linear_solve_QR(local_mat_data, local_vec_data, dim, dim);
 	for(int j = 0; j < dim; j++)
 		UT[dim * i + j] = res[j]; // set(UT, dim, nrow, j, i) = res[j];
 	delete [] res;
@@ -138,7 +142,7 @@ void AlternatingLeastSquare::updateColOfV(double *X, unsigned char *M, double *U
 	std::copy(global_mat_data, global_mat_data + dim * dim, local_mat_data);
 
 	//std::cout << "MPI_Allreduce done \n";
-	double * res = linear_solve_SVD(local_mat_data, local_vec_data, dim, dim);
+	double * res = linear_solve_QR(local_mat_data, local_vec_data, dim, dim);
 	//std::cout << "linear_solve done \n";
 	for(int i = 0; i < dim; i++)
 		V[dim * j + i] = res[i];//set(V, dim, ncol, i, j) = res[i];
@@ -150,7 +154,7 @@ void AlternatingLeastSquare::updateColOfV(double *X, unsigned char *M, double *U
 }
 
 // done: implement mask in error
-double AlternatingLeastSquare::error() {
+double AlternatingLeastSquare::objectiveFunctionValue() {
 	double *temp_error_mat = new double[nrow * ncol];
 	std::copy(X, X + nrow * ncol, temp_error_mat);
 	matrix_multiply(UT, V, dim, nrow, ncol, temp_error_mat);
@@ -162,6 +166,67 @@ double AlternatingLeastSquare::error() {
 	MPI_Allreduce(&local_error, &global_error, 1, MPI_DOUBLE, MPI_SUM, comm);
 	MPI_Barrier(comm);
 	local_error = sqrt(global_error);
-	delete temp_error_mat;
+	delete [] temp_error_mat;
 	return local_error;
+}
+
+//todo : seg fault in the function:
+void AlternatingLeastSquare::relativeProjectionError() {
+	double *temp_matrix = new (std::nothrow) double[nrow * ncol];
+	std::cout << " ... rank is " << this->rank << " , nrow is " << nrow << " , ncol is " << ncol << std::endl;
+	std::copy(X, X + nrow * ncol, temp_matrix);
+	// todo: calculate original col 2-norm first in another function
+	matrix_matrix_elementwise_multiply(temp_matrix, MM, nrow, ncol, error_mat);
+	double *local_col_norm = new double[ncol];
+	double *global_col_norm = new double[ncol];
+	// scatter
+	std::cout << " ... rank is " << this->rank << " , entering for loop" << std::endl;
+	for(int i = 0; i < ncol; i++){
+		local_col_norm[i] = frobenius_norm(error_mat + i * nrow, nrow, 1);
+		local_col_norm[i] = local_col_norm[i] * local_col_norm[i];
+	}
+	std::cout << " ... rank is " << this->rank << " , calling std::fill_n" << std::endl;
+	std::fill_n(global_col_norm, ncol, 0.0);
+	std::cout << " ... rank is " << this->rank << " , entering MPI_Allreduce" << std::endl;
+	MPI_Barrier(comm);
+	MPI_Allreduce(local_col_norm, global_col_norm, ncol, MPI_DOUBLE, MPI_SUM, comm);
+	MPI_Barrier(comm);
+	// gather
+	for(int i = 0; i < ncol; i++)
+		local_col_norm[i] = sqrt(global_col_norm[i]);
+	if(this->rank == 0) std::cout << " ... each col sum is computed." << std::endl;
+	// todo: calculate difference of col 2-norm next
+	std::copy(X, X + nrow * ncol, temp_matrix);
+	std::fill_n(error_mat, nrow * ncol, 0.0);
+	matrix_multiply(UT, V, dim, nrow, ncol, temp_matrix);
+	matrix_matrix_elementwise_multiply(temp_matrix, MM, nrow, ncol, error_mat);
+	double *relLocalProjError = new double[ncol];
+	double *relGlobalProjError = new double[ncol];
+	// scatter
+	for(int i = 0; i < ncol; i++){
+		relLocalProjError[i] = frobenius_norm(error_mat + i * nrow, nrow, 1);
+		relLocalProjError[i] = relLocalProjError[i] * relLocalProjError[i];
+	}
+	std::fill_n(relGlobalProjError, ncol, 0.0);
+	MPI_Barrier(comm);
+	MPI_Allreduce(relLocalProjError, relGlobalProjError, ncol, MPI_DOUBLE, MPI_SUM, comm);
+	MPI_Barrier(comm);
+	// gather
+	for(int i = 0; i < ncol; i++)
+		relLocalProjError[i] = sqrt(relGlobalProjError[i]);
+	if(this->rank == 0) std::cout << "each projected col is computed " << ncol << std::endl;
+	delete [] temp_matrix;
+	// todo: return this vector somehow and let it be written
+	// todo:temporary solution: write it into terminal:
+	if(this->rank == 0){
+		std::cout << "relative projective errors are [" << std::endl;
+		for(int i = 0; i < ncol; i++){
+			std::cout << relLocalProjError[i]/local_col_norm[i] << ", ";
+		}
+		std::cout << "] " << std::endl;
+	}
+	delete [] local_col_norm;
+	delete [] global_col_norm;
+	delete [] relGlobalProjError;
+	delete [] relLocalProjError;
 }

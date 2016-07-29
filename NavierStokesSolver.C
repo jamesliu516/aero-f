@@ -12,6 +12,11 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
   int numBurnableFluids = ProgrammedBurn::countBurnableFluids(ioData);
   if (ioData.problem.framework==ProblemData::EMBEDDED || ioData.problem.framework==ProblemData::EMBEDDEDALE) { //Trigger the embedded framework
     if (ioData.eqs.type == EquationsData::EULER) {
+		//temporary testing for embeddedALSonline
+		if(ioData.problem.alltype == ProblemData::_EMBEDDED_ALS_ROM_ONLINE_){
+			com->fprintf(stderr, "*** Testing Embedded ALS Online ***\n");
+			NavierStokesCoupledSolver<5>::solve(ioData, geoSource, domain);
+		}
       com->fprintf(stderr, "*** Running an Embedded Inviscid %d Phase Fluid-Structure Simulation with %d Level-Set(s) ***\n", ioData.eqs.numPhase, ioData.embed.nLevelset);
       switch(ioData.embed.nLevelset) {
         case 0 : NavierStokesEmbeddedCoupledSolver<5>::solve(ioData, geoSource, domain); break;
