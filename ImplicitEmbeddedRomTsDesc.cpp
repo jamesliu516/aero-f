@@ -9,6 +9,10 @@
 #include <VecSetOp.h>
 #include <RefVector.h>
 
+#ifndef DEBUG
+#define DEBUG 9
+#endif
+
 template<int dim>
 ImplicitEmbeddedRomTsDesc<dim>::ImplicitEmbeddedRomTsDesc(IoData &_ioData,
                                                           GeoSource &geoSource,
@@ -103,7 +107,7 @@ ImplicitEmbeddedRomTsDesc<dim>::~ImplicitEmbeddedRomTsDesc() {
 /* See ImplicitEmbeddedCoupledTsDesc and ImplicitRomTsDesc */
 template<int dim>
 void ImplicitEmbeddedRomTsDesc<dim>::computeJacobian(int it, DistSVec<double, dim> &Q, DistSVec<double, dim> &F) {
-    this->com->fprintf(stdout, " ... compute jacobian\n");
+    this->printf(DEBUG, " debugging: entering function probDesc->computeJacobian()\n");
     MatVecProdH1<dim, double, dim> *approximateJacobian = dynamic_cast<MatVecProdH1<dim, double, dim> *>(this->Jacobian);
     if (approximateJacobian)
         approximateJacobian->clearGhost();
@@ -122,26 +126,26 @@ void ImplicitEmbeddedRomTsDesc<dim>::computeJacobian(int it, DistSVec<double, di
         Jacobian->apply(reducedBasis[i], reducedJacobian[i]);
     }
 
-    this->com->fprintf(stdout, " ... jacobian computed\n");
+    this->printf(DEBUG, " debugging: leaving function probDesc->computejacobian()\n");
 }
 
 template<int dim>
 int ImplicitEmbeddedRomTsDesc<dim>::solveLinearSystem(int it, DistSVec<double, dim> &rhs,
                                                        DistSVec<double, dim> &dQ) {
-    this->com->fprintf(stdout, " ... solve linear system\n");
+    this->printf(DEBUG, " ... solve linear system\n");
     RefVec<DistSVec<double, dim> > rhs_temp(rhs);
     // need this to circumvent function only taking reference
-    this->com->fprintf(stdout, "parameters are (%p, %p, %i, 1, %p)\n", (void *) &reducedJacobian, (void *) &rhs_temp, this->reducedDimension, (void*) &this->result);
+    this->printf(Debug, "parameters are (%p, %p, %i, 1, %p)\n", (void *) &reducedJacobian, (void *) &rhs_temp, this->reducedDimension, (void*) &this->result);
     LeastSquareSolver->parallelLSMultiRHS(this->reducedJacobian, rhs_temp, this->reducedDimension, 1, this->result);
     // TODO: segfault here!!!
-    this->com->fprintf(stdout, " ... least square solver done, %p\n", (void *) &this->reducedNewtonDirection);
+    this->printf(DEBUG, " ... least square solver done, %p\n", (void *) &this->reducedNewtonDirection);
     for(int i = 0; i < this->reducedDimension; i++){
         this->com->fprintf(stdout, " ... %i iteration\n", i);
         this->reducedNewtonDirection[i] = -(this->result)[0][i];
     }
-    this->com->fprintf(stdout, " ... reduced direction computed\n");
+    this->printf(DEBUG, " ... reduced direction computed\n");
     expandVector(this->reducedNewtonDirection, dQ);
-    this->com->fprintf(stdout, " ... linear system solved \n");
+    this->printf(DEBUG, " ... linear system solved \n");
     return it;
 }
 

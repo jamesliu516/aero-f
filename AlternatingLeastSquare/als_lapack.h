@@ -51,7 +51,10 @@ public:
 
     void display();
 
-    double error();
+    /** objective function value */
+    double objectiveFunctionValue();
+
+    void relativeProjectionError();
 };
 
 #endif

@@ -733,6 +733,7 @@ void RestartParametersData::setup(const char *name, ClassAssigner *father)
   6: timings for jacobians and preconditioners
   7: send + receive
   8: #cpus
+  9: debugging purpose
 */
 
 ProblemData::ProblemData()
@@ -805,6 +806,8 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
     (ca, "SolutionMethod", this,
      reinterpret_cast<int ProblemData::*>(&ProblemData::solutionMethod), 2,
      "TimeStepping", 0, "MultiGrid", 1);
+
+  new ClassInt<ProblemData>(ca, "VerboseLevel", this, &ProblemData::verbose);
 }
 
 //------------------------------------------------------------------------------
