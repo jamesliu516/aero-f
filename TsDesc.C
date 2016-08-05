@@ -557,7 +557,7 @@ template<int dim>
 double TsDesc<dim>::computePositionVector(bool *lastIt, int it, double t, DistSVec<double,dim> &U)
 {
   double dt = 0.0;
-
+  //this->com->printf(9, "deubgging: entering computePositionVector()\n");
   if (mmh && mmh->structureSubcycling()) {
     double dtleft = 0.0;
     double dtf = this->computeTimeStep(it+1, &dtleft, U); 
@@ -578,6 +578,7 @@ double TsDesc<dim>::computePositionVector(bool *lastIt, int it, double t, DistSV
 
   if (mmh) {
     double t0 = timer->getTime();
+    //this->com->printf(9, "debuggin: entering mmh->updateStep2()\n");
     mmh->updateStep2(lastIt, it, t, bcData->getVelocityVector(), *Xs);
     timer->addMeshSolutionTime(t0);
   }

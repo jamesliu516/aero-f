@@ -1327,7 +1327,7 @@ double HeavingMeshMotionHandler::update(bool *lastIt, int it, double t,
    // double hsintheta = t + dt;
 
  int numLocSub = domain->getNumLocSub();
-
+ this->com->printf(9, "debugging: inside Heaving Mesh Motion Handler\n");
  #pragma omp parallel for
    for (int iSub=0; iSub<numLocSub; ++iSub) {
 
