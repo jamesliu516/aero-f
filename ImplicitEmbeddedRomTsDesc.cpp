@@ -24,7 +24,8 @@ ImplicitEmbeddedRomTsDesc<dim>::ImplicitEmbeddedRomTsDesc(IoData &_ioData,
         embeddedALS(dom->getCommunicator(), _ioData, *dom)/*,
         residualRef(this->F) */{
     // initialize MatVecProd
-    this->com->fprintf(stdout, "initialize ImplicitEmbeddedRomTsDesc\n");
+    this->printf(DEBUG, " ... initialize ImplicitEmbeddedRomTsDesc\n");
+    this->printf(DEBUG, " ... ioData.forced.type is %d ( 0 == heaving ) \n", _ioData.forced.type);
     ImplicitData &implicitData = _ioData.ts.implicit;
     switch(implicitData.mvp) {
         case ImplicitData::FD: // finite difference
@@ -75,7 +76,7 @@ ImplicitEmbeddedRomTsDesc<dim>::ImplicitEmbeddedRomTsDesc(IoData &_ioData,
     embeddedALS.readBasisFiles(this->reducedBasis);
     int n = this->reducedBasis.numVectors();
     this->com->barrier();
-    this->com->fprintf(stdout, "basis read into memory\n");
+    this->printf(DEBUG, " ... basis read into memory\n");
     // initialize reduced Dimension
     this->reducedDimension = n;
 
@@ -93,7 +94,7 @@ ImplicitEmbeddedRomTsDesc<dim>::ImplicitEmbeddedRomTsDesc(IoData &_ioData,
     result = new double*[1];
     result[0] = new double[this->reducedDimension];
 
-    this->com->fprintf(stdout, "initialization completed\n");
+    this->printf(DEBUG, " ... initialization completed\n");
 }
 
 template<int dim>
@@ -132,20 +133,20 @@ void ImplicitEmbeddedRomTsDesc<dim>::computeJacobian(int it, DistSVec<double, di
 template<int dim>
 int ImplicitEmbeddedRomTsDesc<dim>::solveLinearSystem(int it, DistSVec<double, dim> &rhs,
                                                        DistSVec<double, dim> &dQ) {
-    this->printf(DEBUG, " ... solve linear system\n");
+    this->printf(DEBUG, " entering probDesc->solveLinearSystem()\n");
     RefVec<DistSVec<double, dim> > rhs_temp(rhs);
     // need this to circumvent function only taking reference
-    this->printf(Debug, "parameters are (%p, %p, %i, 1, %p)\n", (void *) &reducedJacobian, (void *) &rhs_temp, this->reducedDimension, (void*) &this->result);
+    this->printf(DEBUG, "parameters are (%p, %p, %i, 1, %p)\n", (void *) &reducedJacobian, (void *) &rhs_temp, this->reducedDimension, (void*) &this->result);
     LeastSquareSolver->parallelLSMultiRHS(this->reducedJacobian, rhs_temp, this->reducedDimension, 1, this->result);
     // TODO: segfault here!!!
     this->printf(DEBUG, " ... least square solver done, %p\n", (void *) &this->reducedNewtonDirection);
     for(int i = 0; i < this->reducedDimension; i++){
-        this->com->fprintf(stdout, " ... %i iteration\n", i);
+        this->com->fprintf(stdout, " ... the %d-th reduced Basis\n", i);
         this->reducedNewtonDirection[i] = -(this->result)[0][i];
     }
-    this->printf(DEBUG, " ... reduced direction computed\n");
+    this->printf(DEBUG, " ... reduced newton search direction\n");
     expandVector(this->reducedNewtonDirection, dQ);
-    this->printf(DEBUG, " ... linear system solved \n");
+    this->printf(DEBUG, " leaving probDesc->solveLinearSystem()\n");
     return it;
 }
 

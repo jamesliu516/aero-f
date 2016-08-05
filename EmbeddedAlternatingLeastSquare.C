@@ -245,7 +245,7 @@ void EmbeddedAlternatingLeastSquare<dim>::summonZombies(double *&mem, VecSet<Dis
     }
 }
 
-
+//todo: save singluar values for multiple runs
 template<int dim>
 int EmbeddedAlternatingLeastSquare<dim>::initialization(VecSet<DistSVec<double, dim> > &basisInit) {
     const int n = min(this->maxBasisSize, this->numSnapshots);
@@ -296,7 +296,7 @@ void EmbeddedAlternatingLeastSquare<dim>::ReducedOrderBasisConstruction() {
     ReducedOrderBasisConstruction(k);
 }
 
-//TODO: testing this part by part
+//TODO: put this as part of NonlinearRomDatabaseConstruction<dim>::SVD()
 template<int dim>
 void EmbeddedAlternatingLeastSquare<dim>::ReducedOrderBasisConstruction(int _dim) {
     //read snapshots and mask

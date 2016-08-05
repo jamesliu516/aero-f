@@ -5487,7 +5487,8 @@ void IoData::resetInputValues()
 
   if (problem.alltype == ProblemData::_FORCED_ ||
       problem.alltype == ProblemData::_FORCED_NONLINEAR_ROM_ ||
-      problem.alltype == ProblemData::_ACC_FORCED_)
+      problem.alltype == ProblemData::_ACC_FORCED_ ||
+          problem.alltype == ProblemData::_EMBEDDED_ALS_ROM_ONLINE_ /* Lei Lei, 29/07/2016 */)
     problem.type[ProblemData::FORCED] = true;
 
   if (problem.alltype == ProblemData::_ROLL_)
