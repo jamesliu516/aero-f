@@ -22,25 +22,28 @@ template<int dim, int neq1, int neq2>
 ImplicitEmbeddedSegTsDesc<dim,neq1,neq2>::
 ImplicitEmbeddedSegTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   ImplicitEmbeddedTsDesc<dim>(ioData, geoSource, dom), embeddedB1(dom->getNodeDistInfo()), embeddeddQ1(dom->getNodeDistInfo()), embeddedB2(dom->getNodeDistInfo()), embeddeddQ2(dom->getNodeDistInfo())
-
 {
+
   ImplicitData &implicitData = ioData.ts.implicit;
 
   spaceOp1 = createSpaceOperator1(ioData, this->spaceOp);
   spaceOp2 = createSpaceOperator2(ioData, this->spaceOp);
   
   // MatVecProd, Prec and Krylov solver for Euler equations
-  if (implicitData.mvp == ImplicitData::FD) {
+  if (implicitData.mvp == ImplicitData::FD) 
+  {
     mvp1 = new MatVecProdFD<dim,neq1>(implicitData,this->timeState, this->geoState,
                                       this->spaceOp,this->domain,ioData);
     mvp2 = new MatVecProdFD<dim,neq2>(implicitData,this->timeState, this->geoState,
                                       this->spaceOp,this->domain,ioData);
   }
-  else if (implicitData.mvp == ImplicitData::H1) {
+  else if(implicitData.mvp == ImplicitData::H1) 
+  {
     mvp1 = new MatVecProdH1<dim,double,neq1>(this->timeState, this->spaceOp1, this->domain,ioData);
     mvp2 = new MatVecProdH1<dim,double,neq2>(this->timeState, this->spaceOp2, this->domain,ioData);
   }
-  else{
+  else
+  {
     this->com->fprintf(stdout, "*** Error: MatVecProdH2 is not available\n");
     exit(1);
   }

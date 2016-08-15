@@ -22,7 +22,9 @@
 //------------------------------------------------------------------------------
 
 template<int dim>
-void ElemSet::computeTimeStep(FemEquationTerm *fet, SVec<double,3> &X, SVec<double,dim> &V, Vec<double> &idtv)
+void ElemSet::computeTimeStep(FemEquationTerm *fet, SVec<double,3> &X, 
+										SVec<double,dim> &V, Vec<double> &idtv, 
+										LevelSetStructure *LSS)
 {
   int *nodeNumber,numberOfNodes;
   double Vmid[dim],oneOnDofs;
@@ -36,6 +38,27 @@ void ElemSet::computeTimeStep(FemEquationTerm *fet, SVec<double,3> &X, SVec<doub
       numberOfNodes = elems[i]->numNodes();
 
       oneOnDofs = 1.0/((double) numberOfNodes);
+
+	  bool isValid = true;
+
+	  if(LSS)
+	  {		  
+		  int numberOfEdges = elems[i]->numEdges();
+		  
+		  for(int j=0; j<numberOfEdges; ++j)
+		  {
+			  int l = elems[i]->edgeNum(j);
+
+			  if(LSS->edgeIntersectsStructure(0, l)) isValid = false;
+
+			  int e1 = nodeNumber[elems[i]->edgeEnd(j, 0)];
+			  int e2 = nodeNumber[elems[i]->edgeEnd(j, 1)];
+
+			  if(!LSS->isActive(0, e1) || !LSS->isActive(0, e2)) isValid = false;
+		  }
+	  }
+
+	  if(!isValid) continue;
 
       for (int k=0; k<dim; ++k) 
 	{
@@ -55,7 +78,7 @@ void ElemSet::computeTimeStep(FemEquationTerm *fet, SVec<double,3> &X, SVec<doub
       for(int j=0;j<numberOfNodes;++j)
 	{
 	  nodeID = nodeNumber[j];
-	  // And we got what we need
+
 	  idtv[nodeID]  += localDt*(nGrad[j][0]*nGrad[j][0] + nGrad[j][1]*nGrad[j][1] + nGrad[j][2]*nGrad[j][2]);
 	}
     }
@@ -66,21 +89,39 @@ template<int dim>
 void ElemSet::computeGalerkinTerm(FemEquationTerm *fet, GeoState &geoState, 
 				  SVec<double,3> &X, SVec<double,dim> &V, 
 				  SVec<double,dim> &R,
-				  Vec<GhostPoint<dim>*> *ghostPoints,LevelSetStructure *LSS)
+											 Vec<GhostPoint<dim>*> *ghostPoints, 
+											 LevelSetStructure *LSS, bool externalSI)
 {
 
   Vec<double> &d2wall = geoState.getDistanceToWall();
 
-	if (sampleMesh) {
-		for (int iElem=0; iElem<numSampledElems; ++iElem) {
+	if(!externalSI)
+	{
+		if (sampleMesh)
+		{
+			for (int iElem=0; iElem<numSampledElems; ++iElem)
 			elems[ (elemsConnectedToSampleNode[iElem]) ]->computeGalerkinTerm(fet, X, d2wall, V, R, ghostPoints,LSS);
 		}
-	}
-	else {
-		for (int iElem=0; iElem<numSampledElems; ++iElem) {
+		else
+		{
+			for (int iElem=0; iElem<numSampledElems; ++iElem)
 			elems[ iElem ]->computeGalerkinTerm(fet, X, d2wall, V, R, ghostPoints,LSS);
 		}
 	}
+	else
+	{
+		if (sampleMesh)
+		{
+			for (int iElem=0; iElem<numSampledElems; ++iElem) 
+				elems[ (elemsConnectedToSampleNode[iElem]) ]->computeGalerkinTerm_e(fet, X, d2wall, V, R, ghostPoints, LSS);
+		}
+		else 
+		{
+			for (int iElem=0; iElem<numSampledElems; ++iElem)
+				elems[ iElem ]->computeGalerkinTerm_e(fet, X, d2wall, V, R, ghostPoints, LSS);
+		}
+	}
+
 }
 
 //------------------------------------------------------------------------------
@@ -173,11 +214,22 @@ void ElemSet::computeVMSLESTerm(VMSLESTerm *vmst,
 template<int dim>
 void ElemSet::computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, SVec<double,3> &X,
 					SVec<double,dim> &V, SVec<double,dim> &R,
-				        Vec<GhostPoint<dim>*> *ghostPoints,LevelSetStructure *LSS)
+													 Vec<GhostPoint<dim>*> *ghostPoints, 
+													 LevelSetStructure *LSS, bool externalSI)
 
 {
+
+	if(!externalSI)
+	{
   for (int i=0; i<numElems; ++i)
     elems[i]->computeSmagorinskyLESTerm(smag, X, V, R, ghostPoints, LSS);
+}
+	else
+	{
+		for(int i=0; i<numElems; ++i)	  
+			elems[i]->computeSmagorinskyLESTerm_e(smag, X, V, R, ghostPoints, LSS);
+	}
+
 }
 
 //------------------------------------------------------------------------------
@@ -185,25 +237,43 @@ void ElemSet::computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, SVec<double,3>
 template<int dim>
 void ElemSet::computeWaleLESTerm(WaleLESTerm *wale, SVec<double,3> &X,
 				SVec<double,dim> &V, SVec<double,dim> &R,
-			        Vec<GhostPoint<dim>*> *ghostPoints,LevelSetStructure *LSS)
+											Vec<GhostPoint<dim>*> *ghostPoints,
+											LevelSetStructure *LSS, bool externalSI)
 
 {
+
+	if(!externalSI)
+	{
   for (int i=0; i<numElems; ++i)
     elems[i]->computeWaleLESTerm(wale, X, V, R, ghostPoints, LSS);
+}
+	else
+	{
+		for(int i=0; i<numElems; ++i)
+			elems[i]->computeWaleLESTerm_e(wale, X, V, R, ghostPoints, LSS);
+	}
+
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim>
 void ElemSet::computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs, 
-                                    SVec<double,3> &X, SVec<double,dim> &V, SVec<double,dim> &R,
-				    Vec<GhostPoint<dim>*> *ghostPoints,LevelSetStructure *LSS)
+                                    SVec<double,3> &X, SVec<double,dim> &V, 
+												SVec<double,dim> &R,	Vec<GhostPoint<dim>*> *ghostPoints, 
+												LevelSetStructure *LSS, bool externalSI)
 
 {
-
+	if(!externalSI)
+	{
  for (int i=0; i<numElems; ++i)
     elems[i]->computeDynamicLESTerm(dles, Cs, X, V, R, ghostPoints, LSS);
-
+	}
+	else
+	{
+		for (int i=0; i<numElems; ++i)
+			elems[i]->computeDynamicLESTerm_e(dles, Cs, X, V, R, ghostPoints, LSS);
+	}
 }
 
 //------------------------------------------------------------------------------
@@ -212,13 +282,22 @@ template<int dim, class Scalar, int neq>
 void ElemSet::computeJacobianGalerkinTerm(FemEquationTerm *fet, GeoState &geoState, 
 					  SVec<double,3> &X, Vec<double> &ctrlVol,
 					  SVec<double,dim> &V, GenMat<Scalar,neq> &A,
-                                          Vec<GhostPoint<dim>*>* ghostPoints,LevelSetStructure *LSS)
+                                          Vec<GhostPoint<dim>*>* ghostPoints, 
+														LevelSetStructure *LSS, bool externalSI)
 {
 
   Vec<double> &d2wall = geoState.getDistanceToWall();
 
+  if(!externalSI)
+  {
   for (int i=0; i<numElems; ++i)
     elems[i]->computeJacobianGalerkinTerm(fet, X, ctrlVol, d2wall, V, A, ghostPoints,LSS);
+  }
+  else
+  {
+	  for (int i=0; i<numElems; ++i)
+	  	  elems[i]->computeJacobianGalerkinTerm_e(fet, X, ctrlVol, d2wall, V, A, ghostPoints, LSS);
+  }
 
 }
 
@@ -229,11 +308,20 @@ void ElemSet::computeTestFilterAvgs(SVec<double,dim> &VCap, SVec<double,16> &Mom
                                    SVec<double,6> &Sij_Test, Vec<double> &modS_Test, 
                                    SVec<double,8> &Eng_Test, SVec<double,3> &X, SVec<double,dim> &V, 
                                    double gam, double R,
-                                   Vec<GhostPoint<dim>*>* ghostPoints,LevelSetStructure *LSS)
+												Vec<GhostPoint<dim>*>* ghostPoints, 
+												LevelSetStructure *LSS, bool externalSI)
 {
 
+	if(!externalSI)
+	{
  for (int i=0; i<numElems; ++i)
    elems[i]->computeP1Avg(VCap, Mom_Test, Sij_Test, modS_Test, Eng_Test, X, V, gam, R, ghostPoints, LSS);
+	}
+	else
+	{
+		for(int i=0; i<numElems; ++i)
+			elems[i]->computeP1Avg_e(VCap, Mom_Test, Sij_Test, modS_Test, Eng_Test, X, V, gam, R, ghostPoints, LSS);
+	}
 
 }
 

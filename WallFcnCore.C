@@ -160,13 +160,13 @@ void WallFcn::computeDerivativeOfFaceValues(double d2wall[3], double *Vwall, dou
 
 //------------------------------------------------------------------------------
 
-double WallFcn::computeFrictionVelocity(Vec3D &t, double delta, double rho, Vec3D &u, double mu)
+double WallFcn::computeFrictionVelocity(double ut, double delta, double rho, double mu)
 {
 
   int maxits = 20;
   double eps = 1.e-6;
 
-  double ut = u * t;
+  //double ut = u * t;
 
   if (ut < 0.0) ut = 0.0; 
 
@@ -206,7 +206,7 @@ double WallFcn::computeFrictionVelocity(Vec3D &t, double delta, double rho, Vec3
   }
 
   if (it == maxits) 
-    fprintf(stderr, "*** Warning: Newton did not converge on utau; t =[%lf %lf %lf]; delta = %lf rho = %lf u = [%lf %lf %lf] mu = %lf; res = %lf \n", t[0],t[1],t[2],delta,rho,u[0],u[1],u[2], mu, res);
+    fprintf(stderr, "*** Warning: Newton did not converge on utau; ut = %lf; delta = %lf rho = %lf; mu = %lf; res = %lf \n", ut, delta, rho, mu, res);
 
   if (utau <= 0.0)
     fprintf(stderr, "*** Warning: utau=%e\n", utau);
@@ -359,7 +359,9 @@ void WallFcn::computeSurfaceTerm(int code, Vec3D &normal, double d2wall[3],
 
   Vec3D t = computeTangentVector(n, du);
 
-  double utau = computeFrictionVelocity(t, delta, rhow, du, muw);
+  double ut = du * t;
+
+  double utau = computeFrictionVelocity(ut, delta, rhow, muw);
 
   double a = - rhow * utau*utau * norm;
 
@@ -409,7 +411,9 @@ void WallFcn::computeDerivativeOfSurfaceTerm(int code, Vec3D &normal, Vec3D &dNo
 
   Vec3D dt = computeDerivativeOfTangentVector(n, dn, du, ddu);
 
-  double utau = computeFrictionVelocity(t, delta, rhow, du, muw);
+  double ut = du * t;
+
+  double utau = computeFrictionVelocity(ut, delta, rhow, muw);
 
   double dutau = computeDerivativeOfFrictionVelocity(t, dt, delta, rhow, drhow, du, ddu, muw, dmuw, dMach);
 
@@ -438,6 +442,27 @@ void WallFcn::computeDerivativeOfSurfaceTerm(int code, Vec3D &normal, Vec3D &dNo
 
 //------------------------------------------------------------------------------
 
+double WallFcn::computedudT(double rho, double T, double du, double dT, 
+								  double d2w, double &dudn, double &dTdn)
+{
+
+	double delta = d2w; // *********
+
+	double mu = viscoFcn->compute_mu(T);
+
+	double utau = computeFrictionVelocity(du, delta, rho, mu);
+
+	dudn = reynolds * rho * utau*utau / mu;
+
+	dTdn = 0.0; // To be done *******
+
+	//double yp = reynolds * utau * delta * rho / mu;
+	//fprintf(stdout, "  %f,%f,%f\n", delta, utau, yp);
+
+	return utau;
+}
+//------------------------------------------------------------------------------
+
 Vec3D WallFcn::computeForce(Vec3D &normal, double d2wall[3], double *Vwall, double *V[3])
 {
 
@@ -453,7 +478,9 @@ Vec3D WallFcn::computeForce(Vec3D &normal, double d2wall[3], double *Vwall, doub
 
   Vec3D t = computeTangentVector(n, du);
 
-  double utau = computeFrictionVelocity(t, delta, rhow, du, muw);
+	double ut = du * t;
+
+	double utau = computeFrictionVelocity(ut, delta, rhow, muw);
 
   Vec3D force = - rhow * utau*utau * norm * t;
 
@@ -491,7 +518,9 @@ Vec3D WallFcn::computeDerivativeOfForce(Vec3D &normal, Vec3D &dNormal, double d2
 
   Vec3D dt = computeDerivativeOfTangentVector(n, dn, du, ddu);
 
-  double utau = computeFrictionVelocity(t, delta, rhow, du, muw);
+  double ut = du * t;
+
+  double utau = computeFrictionVelocity(ut, delta, rhow, muw);
 
   double dutau = computeDerivativeOfFrictionVelocity(t, dt, delta, rhow, drhow, du, ddu, muw, dmuw, dMach);
 
@@ -518,7 +547,9 @@ double WallFcn::computeHeatPower(Vec3D &normal, double d2wall[3], double *Vwall,
 
   Vec3D t = computeTangentVector(n, du);
 
-  double utau = computeFrictionVelocity(t, delta, rhow, du, muw);
+  double ut = du * t;
+
+  double utau = computeFrictionVelocity(ut, delta, rhow, muw);
 
   double Ttau = computeFrictionTemperature(utau, delta, rhow, dT, muw);
 
@@ -558,7 +589,9 @@ double WallFcn::computeDerivativeOfHeatPower(Vec3D &normal, Vec3D &dNormal, doub
 
   Vec3D dt = computeDerivativeOfTangentVector(n, dn, du, ddu);
 
-  double utau = computeFrictionVelocity(t, delta, rhow, du, muw);
+  double ut = du * t;
+
+  double utau = computeFrictionVelocity(ut, delta, rhow, muw);
 
   double dutau = computeDerivativeOfFrictionVelocity(t, dt, delta, rhow, drhow, du, ddu, muw, dmuw, dMach);
 
@@ -589,7 +622,9 @@ double WallFcn::computeInterfaceWork(Vec3D& normal, double d2wall[3], double* Vw
 
   Vec3D t = computeTangentVector(n, du);
 
-  double utau = computeFrictionVelocity(t, delta, rhow, du, muw);
+  double ut = du * t;
+
+  double utau = computeFrictionVelocity(ut, delta, rhow, muw);
 
   double W = - rhow * utau*utau * norm * (uw * t);
 
@@ -614,7 +649,9 @@ double WallFcn::computeDeltaPlus(Vec3D &normal, double d2wall[3], double *Vwall,
 
   Vec3D t = computeTangentVector(n, du);
 
-  double utau = computeFrictionVelocity(t, delta, rhow, du, muw);
+  double ut = du * t;
+
+  double utau = computeFrictionVelocity(ut, delta, rhow, muw);
 
   return reynolds * utau * delta * rhow / muw;
 

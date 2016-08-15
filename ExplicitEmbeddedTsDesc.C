@@ -143,12 +143,6 @@ void ExplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
     *this->Wstarji = 0.0;
   }
 
-  // Ghost-Points Population
-//  if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
-//    {
-//      this->ghostPoints->deletePointers();
-//      this->spaceOp->populateGhostPoints(this->ghostPoints,*this->X,U,this->varFcn,this->distLSS,this->viscSecOrder,this->nodeTag);
-//    }
 }
 //------------------------------------------------------------------------------
 
@@ -207,12 +201,6 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U, double 
     *(this->bcData->getBoundaryStateHH()) -= *hh1;
   }
 
-  // Ghost-Points Population
-//  if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
-//    {
-//      this->ghostPoints->deletePointers();
-//      this->spaceOp->populateGhostPoints(this->ghostPoints,*this->X,U0,this->varFcn,this->distLSS,this->viscSecOrder,this->nodeTag);
-//    }
   computeRKUpdate(U0, k2, 1);
   this->spaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   
@@ -337,12 +325,10 @@ void ExplicitEmbeddedTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& Ulocal,
 //    Only its sign (+ or 0) is used. Wstar is used for two purposes. 1) linear reconstruction at interface; 2) phase-change update
 {
   this->spaceOp->applyBCsToSolutionVector(Ulocal,this->distLSS); //KW: (?)only for Navier-Stokes.
-  //if (this->interfaceAlg)
-  //  this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji, *this->countWstarij, *this->countWstarji, this->distLSS,
-  //                                 this->linRecAtInterface, this->viscSecOrder, this->nodeTag, dU, this->riemann, this->riemannNormal, this->timeState->getTime(), this->intersectAlpha, it, this->ghostPoints);
-  //else
-    this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji, this->distLSS,
-                                   this->linRecAtInterface, this->viscSecOrder, this->nodeTag, dU, this->riemann, this->riemannNormal, it, this->ghostPoints);
+
+  this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji, *this->Wextij,
+											this->distLSS, this->linRecAtInterface, this->viscSecOrder, 
+											this->nodeTag, dU, this->riemann, this->riemannNormal, it, this->ghostPoints);
 
   this->timeState->multiplyByTimeStep(dU);
   

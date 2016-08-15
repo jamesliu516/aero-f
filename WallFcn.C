@@ -95,7 +95,7 @@ void WallFcn::computeJacobianSurfaceTerm(int code, Vec3D &normal, double d2wall[
 
   double dut = du * t;
 
-  double utau = computeFrictionVelocity(t, delta, rhow, du, muw);
+  double utau = computeFrictionVelocity(dut, delta, rhow, muw);
   
   double a = - rhow * utau*utau * norm;
 
@@ -394,7 +394,7 @@ void WallFcn::computeBCsJacobianWallValues(int code, Vec3D &normal, double d2wal
 
   double dut = du * t;
 
-  double utau = computeFrictionVelocity(t, delta, rhow, du, muw);
+  double utau = computeFrictionVelocity(dut, delta, rhow, muw);
   
   for (int k=0; k<3; ++k) {
   

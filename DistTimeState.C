@@ -444,8 +444,8 @@ void DistTimeState<dim>::setupUVolumesInitialConditions(IoData &iod)
         double UU[dim];
         computeInitialState(volIt->second->initialConditions, *fluidIt->second, UU);
 /*        domain->getCommunicator()->fprintf(stdout, "- Initializing volume %d(EOS=%d) with \n", volIt->first, volIt->second->fluidModelID);
-        domain->getCommunicator()->fprintf(stdout, "    non-dimensionalized conservative state vector: (%g %g %g %g %g).\n", UU[0],UU[1],UU[2],UU[3],UU[4]);
-*/
+			 domain->getCommunicator()->fprintf(stdout, "    non-dimensionalized conservative state vector: (%g %g %g %g %g).\n", UU[0],UU[1],UU[2],UU[3],UU[4]);*/
+
         domain->setupUVolumesInitialConditions(volIt->first, UU, *Un);
       }
   }
@@ -543,8 +543,8 @@ void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec
       double UU[dim];
       computeInitialState(planeIt->second->initialConditions, *fluidIt->second, UU);
 /*      domain->getCommunicator()->fprintf(stdout, "- Initializing PlaneData[%d] = (%g %g %g), (%g %g %g) with \n", planeIt->first, planeIt->second->cen_x, planeIt->second->cen_y,planeIt->second->cen_z,planeIt->second->nx,planeIt->second->ny,planeIt->second->nz);
-      domain->getCommunicator()->fprintf(stdout, "    EOS %d and non-dimensionalized conservative state vector: (%g %g %g %g %g).\n",  planeIt->second->fluidModelID, UU[0],UU[1],UU[2],UU[3],UU[4]);
-*/
+		  domain->getCommunicator()->fprintf(stdout, "    EOS %d and non-dimensionalized conservative state vector: (%g %g %g %g %g).\n",  planeIt->second->fluidModelID, UU[0],UU[1],UU[2],UU[3],UU[4]);*/
+
 #pragma omp parallel for
       for (int iSub=0; iSub<numLocSub; ++iSub) {
         SVec<double,dim> &u((*Un)(iSub));
@@ -574,8 +574,8 @@ void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec
       double UU[dim];
       computeInitialState(cylinderIt->second->initialConditions, *fluidIt->second, UU);
 /*      domain->getCommunicator()->fprintf(stdout, "- Initializing PlaneData[%d] = (%g %g %g), (%g %g %g) with \n", planeIt->first, planeIt->second->cen_x, planeIt->second->cen_y,planeIt->second->cen_z,planeIt->second->nx,planeIt->second->ny,planeIt->second->nz);
-      domain->getCommunicator()->fprintf(stdout, "    EOS %d and non-dimensionalized conservative state vector: (%g %g %g %g %g).\n",  planeIt->second->fluidModelID, UU[0],UU[1],UU[2],UU[3],UU[4]);
-*/
+		  domain->getCommunicator()->fprintf(stdout, "    EOS %d and non-dimensionalized conservative state vector: (%g %g %g %g %g).\n",  planeIt->second->fluidModelID, UU[0],UU[1],UU[2],UU[3],UU[4]);*/
+
 #pragma omp parallel for
       for (int iSub=0; iSub<numLocSub; ++iSub) {
         SVec<double,dim> &u((*Un)(iSub));
@@ -612,9 +612,8 @@ void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec
       }
       double UU[dim];
       computeInitialState(sphereIt->second->initialConditions, *fluidIt->second, UU);
-/*      domain->getCommunicator()->fprintf(stdout, "- Initializing SphereData[%d] = (%g %g %g), %g with EOS %d\n", sphereIt->first, sphereIt->second->cen_x, sphereIt->second->cen_y,sphereIt->second->cen_z,sphereIt->second->radius, sphereIt->second->fluidModelID);
-      domain->getCommunicator()->fprintf(stdout, "    and non-dimensionalized conservative state vector: (%g %g %g %g %g).\n", UU[0],UU[1],UU[2],UU[3],UU[4]);
-*/
+/*      domain->getCommunicator()->fprintf(stdout, "- Initializing SphereData[%d] = (%g %g %g), %g with EOS %d\n", sphereIt->first, sphereIt->second->cen_x, sphereIt->second->cen_y,sphereIt->second->cen_z,sphereIt->second->radius, sphereIt->second->fluidModelID);      domain->getCommunicator()->fprintf(stdout, "    and non-dimensionalized conservative state vector: (%g %g %g %g %g).\n", UU[0],UU[1],UU[2],UU[3],UU[4]);*/
+
 
 #pragma omp parallel for
       for (int iSub=0; iSub<numLocSub; ++iSub) {
@@ -647,8 +646,8 @@ void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec
       }
       double UU[dim];
       computeInitialState(prismIt->second->initialConditions, *fluidIt->second, UU);
-      domain->getCommunicator()->fprintf(stdout, "- Initializing PrismData[%d] = (%g %g %g with EOS %d\n", prismIt->first, prismIt->second->cen_x, prismIt->second->cen_y,prismIt->second->cen_z, prismIt->second->fluidModelID);
-      domain->getCommunicator()->fprintf(stderr, "    and non-dimensionalized primitive state vector: (%g %g %g %g %g).\n", UU[0],UU[1],UU[2],UU[3],UU[4]);
+/*      domain->getCommunicator()->fprintf(stdout, "- Initializing PrismData[%d] = (%g %g %g with EOS %d\n", prismIt->first, prismIt->second->cen_x, prismIt->second->cen_y,prismIt->second->cen_z, prismIt->second->fluidModelID);
+		  domain->getCommunicator()->fprintf(stderr, "    and non-dimensionalized primitive state vector: (%g %g %g %g %g).\n", UU[0],UU[1],UU[2],UU[3],UU[4]);*/
 #pragma omp parallel for
       for (int iSub=0; iSub<numLocSub; ++iSub) {
         SVec<double,dim> &u((*Un)(iSub));
@@ -711,8 +710,8 @@ void DistTimeState<dim>::setupUFluidIdInitialConditions(IoData &iod, DistVec<int
       double UU[dim];
       computeInitialState(pointIt->second->initialConditions, *fluidIt->second, UU);
 /*      domain->getCommunicator()->fprintf(stdout, "- Initializing PointData[%d] = (%g %g %g), with EOS %d\n", pointIt->first, pointIt->second->x, pointIt->second->y,pointIt->second->z, pointIt->second->fluidModelID);
-      domain->getCommunicator()->fprintf(stdout, "    and non-dimensionalized conservative state vector: (%g %g %g %g %g).\n", UU[0],UU[1],UU[2],UU[3],UU[4]);
-*/
+		  domain->getCommunicator()->fprintf(stdout, "    and non-dimensionalized conservative state vector: (%g %g %g %g %g).\n", UU[0],UU[1],UU[2],UU[3],UU[4]);*/
+
 #pragma omp parallel for
       for (int iSub=0; iSub<numLocSub; ++iSub) {
         SVec<double,dim> &subUn((*Un)(iSub));
@@ -745,34 +744,50 @@ void DistTimeState<dim>::rstVar(IoData & ioData)
 template<int dim>
 double DistTimeState<dim>::computeTimeStep(double cfl, double dualtimecfl, double* dtLeft, int* numSubCycles,
 					   DistGeoState &geoState, DistSVec<double,3> &X,
-					   DistVec<double> &ctrlVol, DistSVec<double,dim> &U)
+														 DistVec<double> &ctrlVol, DistSVec<double,dim> &U, 
+														 DistLevelSetStructure *distLSS)
+{
+
+	if(distLSS)
+	{
+		varFcn->conservativeToPrimitive(U, *V, distLSS);
+
+		domain->computeTimeStep(cfl, dualtimecfl, viscousCst, fet, varFcn, geoState, X, ctrlVol, 
+										*V, *dt, *idti, *idtv, *dtau, *irey, tprec, sprec, distLSS);
+	}
+	else
 {
   varFcn->conservativeToPrimitive(U, *V);
 
-  domain->computeTimeStep(cfl, dualtimecfl, viscousCst, fet, varFcn, geoState, X, ctrlVol, *V, *dt, *idti, *idtv, *dtau, *irey, tprec, sprec);
+		domain->computeTimeStep(cfl, dualtimecfl, viscousCst, fet, varFcn, geoState, X, ctrlVol, 
+										*V, *dt, *idti, *idtv, *dtau, *irey, tprec, sprec);
+	}
 
   double dt_glob;
   updateDtCoeff();
-  if (data->dt_imposed > 0.0) {
+
+	if(data->dt_imposed > 0.0) 
+	{
     dt_glob = data->dt_imposed;
     allowcflstop = false; 
     dt_glob *= dt_coeff;
   }
-  else {
+	else 
+	{
     dt_glob = dt->min();
     allowdtstop = false;
   }
 
   if (data->typeStartup == ImplicitData::MODIFIED && 
       ((data->typeIntegrator == ImplicitData::THREE_POINT_BDF && !data->exist_nm1) ||
-       (data->typeIntegrator == ImplicitData::FOUR_POINT_BDF && (!data->exist_nm2 || !data->exist_nm1)))) {
-    if (*dtLeft != 0.0 && dt_glob > *dtLeft)
-      dt_glob = *dtLeft / 1000.0;
-    else
-      dt_glob = min(dt_glob,dt_glob*dt_glob);//dt_glob /= 1000.0;
+	    (data->typeIntegrator == ImplicitData::FOUR_POINT_BDF  && (!data->exist_nm2 || !data->exist_nm1)))) 
+	{
+		if(*dtLeft != 0.0 && dt_glob > *dtLeft)  dt_glob = *dtLeft / 1000.0;
+		else dt_glob = min(dt_glob, dt_glob*dt_glob); //dt_glob /= 1000.0;
   }
 
-  if (*dtLeft != 0.0) {
+	if(*dtLeft != 0.0) 
+	{
     *numSubCycles = int(*dtLeft / dt_glob);
     if (*numSubCycles == 0 || (*numSubCycles)*dt_glob != *dtLeft) ++(*numSubCycles);
     dt_glob = *dtLeft / double(*numSubCycles);
@@ -909,23 +924,30 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double dualtimecfl, doubl
 {
   varFcn->conservativeToPrimitive(U, *V, &fluidId);
 
-  domain->computeTimeStep(cfl, dualtimecfl, viscousCst, fet, varFcn, geoState, ctrlVol, *V, *dt, *idti, *idtv, *dtau, tprec, fluidId,
-			  umax);
+	domain->computeTimeStep(cfl, dualtimecfl, viscousCst, fet, varFcn, geoState, ctrlVol, 
+									*V, *dt, *idti, *idtv, *dtau, tprec, fluidId, umax);
                                                                                                          
   double dt_glob;
   updateDtCoeff();
-  if (data->dt_imposed > 0.0){
+  
+  if(data->dt_imposed > 0.0)
+  {
     dt_glob = data->dt_imposed;
     allowcflstop = false; 
     dt_glob *= dt_coeff;
-  }else{
+  }
+  else
+  {
     dt_glob = dt->min();
     allowdtstop = false;
   }
                                                                                                          
-  if (umax && isGFMPAR) {
+  if(umax && isGFMPAR) 
+  {
     double udt = umax->min();
-    if (udt < dt_glob) {
+
+	  if(udt < dt_glob) 
+	  {
       domain->getCommunicator()->fprintf(stdout, "Clamped new dt %lf (old = %lf)\n", udt*refTime, dt_glob*refTime);
       domain->getCommunicator()->fprintf(stdout, "*** Warning: Cfl for this multi-phase algorithm has been clamped to \n");
       domain->getCommunicator()->fprintf(stdout, "             %lf (user specified %lf)\n", udt/dt_glob*cfl, cfl);
@@ -935,14 +957,14 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double dualtimecfl, doubl
 
   if (data->typeStartup == ImplicitData::MODIFIED &&
       ((data->typeIntegrator == ImplicitData::THREE_POINT_BDF && !data->exist_nm1) ||
-       (data->typeIntegrator == ImplicitData::FOUR_POINT_BDF && (!data->exist_nm2 || !data->exist_nm1)))) {
-    if (*dtLeft != 0.0 && dt_glob > *dtLeft)
-      dt_glob = *dtLeft / 1000.0;
-    else
-      dt_glob = min(dt_glob,dt_glob*dt_glob);//dt_glob /= 1000.0;
-      //dt_glob /= 1000.0;
+      (data->typeIntegrator == ImplicitData::FOUR_POINT_BDF && (!data->exist_nm2 || !data->exist_nm1)))) 
+  {
+	  if (*dtLeft != 0.0 && dt_glob > *dtLeft) dt_glob = *dtLeft / 1000.0;
+	  else dt_glob = min(dt_glob,dt_glob*dt_glob);//dt_glob /= 1000.0;
   }
-  if (*dtLeft != 0.0) {
+  
+  if(*dtLeft != 0.0) 
+  {
     *numSubCycles = int(*dtLeft / dt_glob);
     if (*numSubCycles == 0 || (*numSubCycles)*dt_glob != *dtLeft) ++(*numSubCycles);
     dt_glob = *dtLeft / double(*numSubCycles);
@@ -978,23 +1000,26 @@ void DistTimeState<dim>::add_dAW_dt(int it, DistGeoState &geoState,
   if (data->typeIntegrator == ImplicitData::CRANK_NICOLSON && it == 0) *Rn = R;
 
 #pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub) {
-
+	for(int iSub = 0; iSub < numLocSub; ++iSub) 
+	{
     LevelSetStructure *LSS = distLSS ? &((*distLSS)(iSub)) : 0;
 
-    if(tprec.timePreconditioner() && data->typeTimeStep == TsData::LOCAL) {
+		if(tprec.timePreconditioner() && data->typeTimeStep == TsData::LOCAL) 
+		{
       if(varFcn->getType() == VarFcnBase::PERFECTGAS || varFcn->getType() == VarFcnBase::STIFFENEDGAS)
         subTimeState[iSub]->add_GASPrec_dAW_dt(Q.getMasterFlag(iSub), geoState(iSub), ctrlVol(iSub), Q(iSub), R(iSub), gam, pstiff, (*irey)(iSub), tprec, LSS);
 
       else if(varFcn->getType() == VarFcnBase::TAIT)
         subTimeState[iSub]->add_LiquidPrec_dAW_dt(Q.getMasterFlag(iSub), geoState(iSub), ctrlVol(iSub), varFcn, Q(iSub), R(iSub), (*irey)(iSub), tprec, LSS);
 
-      else {
+			else 
+			{
         fprintf(stderr, "*** Error: no time preconditioner for this EOS  *** EXITING\n");
         exit(1);
       }
     }
-    else {
+		else 
+		{
       subTimeState[iSub]->add_dAW_dt(Q.getMasterFlag(iSub), geoState(iSub), ctrlVol(iSub), Q(iSub), R(iSub), LSS);
     }
   }
