@@ -474,7 +474,7 @@ void MatVecProdFD<dim, neq>::applyWeighted(DistSVec<double,neq> &p, DistSVec<dou
   if (!this->isFSI)
     spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
   else
-    spaceOp->computeResidual(*X,*ctrlVol, Qeps, *(this->fsi.Wtemp),*(this->fsi.Wtemp),
+    spaceOp->computeResidual(*X,*ctrlVol, Qeps, *(this->fsi.Wtemp),*(this->fsi.Wtemp),*(this->fsi.Wtemp),
                              this->fsi.LSS, this->fsi.linRecAtInterface, this->fsi.viscSecOrder, *(this->fsi.fluidId),
                              Feps, this->fsi.riemann, this->fsi.Nriemann, 0, this->fsi.ghostPoints);
 
@@ -507,7 +507,7 @@ void MatVecProdFD<dim, neq>::applyWeighted(DistSVec<double,neq> &p, DistSVec<dou
     if (!this->isFSI)
       spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
     else
-      spaceOp->computeResidual(*X,*ctrlVol, Qeps, *(this->fsi.Wtemp),*(this->fsi.Wtemp),
+      spaceOp->computeResidual(*X,*ctrlVol, Qeps, *(this->fsi.Wtemp),*(this->fsi.Wtemp),*(this->fsi.Wtemp),
                                this->fsi.LSS, this->fsi.linRecAtInterface, this->fsi.viscSecOrder, *(this->fsi.fluidId),
                                Feps, this->fsi.riemann, this->fsi.Nriemann, 0, this->fsi.ghostPoints);
 
