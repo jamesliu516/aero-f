@@ -819,7 +819,7 @@ void HigherOrderFSI::interpolateToSI(int l, int n, int Fid, VarFcn *varFun,
 
 	if(Vstar[0] < 1.0e-6 || Vstar[4] < 1.0e-6)
 	{
-		fprintf(stderr, "*: negative density/pressure at Xw=[%f,%f,%f], Xf=[%f,%f,%f]\n", xWall[0], xWall[1], xWall[2]);
+		fprintf(stderr, "*: negative density/pressure at Xw=[%f,%f,%f]\n", xWall[0], xWall[1], xWall[2]);
 		exit(-1);
 	}
 
