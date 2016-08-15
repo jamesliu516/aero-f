@@ -154,9 +154,11 @@ public:
   void writeToDisk(char *);
 
   double computeTimeStep(double, double, double*, int*, DistGeoState &, 
-			 DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &);
+								 DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistLevelSetStructure *distLSS=0);
+
   double computeTimeStep(double, double, double*, int*, DistGeoState &,
-                         DistVec<double> &, DistSVec<double,dim> &, DistVec<int> &, DistVec<double>* = NULL);
+                         DistVec<double> &, DistSVec<double,dim> &, DistVec<int> &, 
+								 DistVec<double>* = NULL);
 
   //computes time step size when time step failed
   double computeTimeStepFailSafe(double* , int*);

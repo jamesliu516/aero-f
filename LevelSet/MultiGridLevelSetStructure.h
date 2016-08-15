@@ -58,6 +58,13 @@ class MultiGridLevelSetStructure : public LevelSetStructure {
 
     bool withCracking() const { return false; }
 
+	 void xWallWithSI(int n, Vec3D &xWall) {exit(-1);}
+	 void vWallWithSI(int n, Vec3D &vWall) {exit(-1);}
+
+	 bool xWallNode(int i, Vec3D &xWall) {exit(-1);}
+	 bool vWallNode(int i, Vec3D &vWall) {exit(-1);}
+	 bool getTwall(double &Tw) {exit(-1);}
+
     bool isNearInterface(double, int) const { return false; }
 
     double isPointOnSurface(Vec3D, int, int, int) { return 0.0; }

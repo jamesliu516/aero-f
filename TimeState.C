@@ -43,8 +43,10 @@ void TimeState<dim>::add_dAW_dt(bool *nodeFlag, GeoState &geoState,
 {
   if (data.typeIntegrator == ImplicitData::SPATIAL_ONLY) return;
 
-  for (int i=0; i<dt.size(); ++i) {
-    if (LSS && !(LSS->isActive(0.0,i))) {
+	for(int i=0; i<dt.size(); ++i) 
+	{
+		if(LSS && !(LSS->isActive(0.0,i))) 
+		{
       // Node i lies in the structure: Do nothing.
       continue;
     }
@@ -53,9 +55,14 @@ void TimeState<dim>::add_dAW_dt(bool *nodeFlag, GeoState &geoState,
     computeTimeFDCoefs(geoState, coefs, ctrlVol, i);
 
     double invDt = 1.0 / dt[i];
-    for (int k=0; k<dim; ++k) {
-      double sum = coefs.c_np1*Q[i][k] + coefs.c_n*Un[i][k] +
-                   coefs.c_nm1*Unm1[i][k] + coefs.c_nm2*Unm2[i][k];
+
+		for(int k=0; k<dim; ++k) 
+		{
+			double sum = coefs.c_np1 *    Q[i][k] 
+				        + coefs.c_n   *   Un[i][k] 
+				        + coefs.c_nm1 * Unm1[i][k] 
+				        + coefs.c_nm2 * Unm2[i][k];
+
       double dAWdt = invDt * sum; 
       if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON)
         R[i][k] = dAWdt + 0.5 * (R[i][k] + Rn[i][k]);
@@ -340,7 +347,9 @@ void TimeState<dim>::add_dAW_dtLS(bool *nodeFlag, GeoState &geoState,
 
 //------------------------------------------------------------------------------
 template<int dim>
-void TimeState<dim>::computeTimeFDCoefs(GeoState &geoState, TimeFDCoefs &coefs, Vec<double> &ctrlVol, int i) { 
+void TimeState<dim>::computeTimeFDCoefs(GeoState &geoState, TimeFDCoefs &coefs, Vec<double> &ctrlVol, int i) 
+{ 
+
   Vec<double>& ctrlVol_n = geoState.getCtrlVol_n();
   Vec<double>& ctrlVol_nm1 = geoState.getCtrlVol_nm1();
   Vec<double>& ctrlVol_nm2 = geoState.getCtrlVol_nm2();
@@ -349,28 +358,39 @@ void TimeState<dim>::computeTimeFDCoefs(GeoState &geoState, TimeFDCoefs &coefs, 
   coefs.c_n   = data.alpha_n * ctrlVol_n[i];
   coefs.c_nm1 = data.alpha_nm1 * ctrlVol_nm1[i];
   coefs.c_nm2 = data.alpha_nm2 * ctrlVol_nm2[i];
-  switch (descriptorCase) {
-    case DESCRIPTOR: {
+
+	switch (descriptorCase) 
+	{
+	   case DESCRIPTOR: 
+		{
       coefs.c_np1 *= ctrlVol[i];
-      break; }
-    case HYBRID:{
+			break; 
+		}
+	   case HYBRID:
+		{
       double invsqrtCtrlVol = 1.0 / sqrt(ctrlVol[i]);
       coefs.c_np1 *= ctrlVol[i] * invsqrtCtrlVol;
       coefs.c_n   *= invsqrtCtrlVol;
       coefs.c_nm1 *= invsqrtCtrlVol;
       coefs.c_nm2 *= invsqrtCtrlVol;
-      break; }
-    case NONDESCRIPTOR: {
+			break; 
+		}
+	   case NONDESCRIPTOR: 
+		{
       double invCtrlVol = 1.0 / ctrlVol[i];
       coefs.c_n   *= invCtrlVol;
       coefs.c_nm1 *= invCtrlVol;
       coefs.c_nm2 *= invCtrlVol;
-      break; }
+			break; 
   }
+}
+
 }
 //------------------------------------------------------------------------------
 template<int dim>
-void TimeState<dim>::computeTimeFDCoefsSpecialBDF(GeoState &geoState, TimeFDCoefs &coefs, Vec<double> &ctrlVol, int i) {
+void TimeState<dim>::computeTimeFDCoefsSpecialBDF(GeoState &geoState, TimeFDCoefs &coefs, Vec<double> &ctrlVol, int i) 
+{
+
   Vec<double>& ctrlVol_n = geoState.getCtrlVol_n();
   Vec<double>& ctrlVol_nm1 = geoState.getCtrlVol_nm1();
   Vec<double>& ctrlVol_nm2 = geoState.getCtrlVol_nm2();
@@ -380,23 +400,30 @@ void TimeState<dim>::computeTimeFDCoefsSpecialBDF(GeoState &geoState, TimeFDCoef
   coefs.c_n   = -2.0 * ctrlVol_n[i];
   coefs.c_nm1 = -1.0 * ctrlVol_nm1[i];
   coefs.c_nm2 = 0.0;
-  switch (descriptorCase) {
-    case DESCRIPTOR: {
+
+	switch (descriptorCase) 
+	{
+	   case DESCRIPTOR: 
+		{
       coefs.c_np1 *= ctrlVol[i];
-      break; }
-    case HYBRID:{
+			break; 
+		}
+  	   case HYBRID:
+		{
       double invsqrtCtrlVol = 1.0 / sqrt(ctrlVol[i]);
       coefs.c_np1 *= ctrlVol[i] * invsqrtCtrlVol;
       coefs.c_n   *= invsqrtCtrlVol;
       coefs.c_nm1 *= invsqrtCtrlVol;
-      break; }
-    case NONDESCRIPTOR: {
+			break; 
+		}
+      case NONDESCRIPTOR: 
+		{
       double invCtrlVol = 1.0 / ctrlVol[i];
       coefs.c_n   *= invCtrlVol;
       coefs.c_nm1 *= invCtrlVol;
-      break; }
+			break; 
   }
-
+  }
 
 }
 //-----------------------------------------------------------------------------

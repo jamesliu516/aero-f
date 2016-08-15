@@ -109,7 +109,7 @@ public:
   template<int dim>
   void computeTimeStep(FemEquationTerm *, VarFcn *, GeoState &,
 		       SVec<double,3> &, SVec<double,dim> &, Vec<double> &,
-                       Vec<double> &, TimeLowMachPrec &);
+                       Vec<double> &, TimeLowMachPrec &, LevelSetStructure* lss=0);
 
   template<int dim>
   void computeTimeStep2(FemEquationTerm *, VarFcn *, GeoState &,
@@ -195,6 +195,18 @@ public:
                               SVec<int,2>&, int, int);
 
   template<int dim>
+	  int computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locToGlobNodeMap,
+											FluxFcn** fluxFcn, RecFcn* recFcn,
+											ElemSet& elems, GeoState& geoState, SVec<double,3>& X,
+											SVec<double,dim>& V, SVec<double,dim>& Vstarij,
+											SVec<double,dim>& Vstarji, SVec<double,dim> &Vext,
+											LevelSetStructure &LSS,
+											Vec<int> &fluidId, int Nriemann,
+											NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
+											SVec<double,dim>& fluxes, int it,
+											SVec<int,2>& tag, int failsafe, int rshift);
+											
+  template<int dim>
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&, int*,
                               FluxFcn**, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&,
                               SVec<double,dim>&, SVec<double,dim>&, SVec<double,dim>&,
@@ -240,6 +252,13 @@ public:
                               SVec<double,dim>&, Vec<double>&, LevelSetStructure &,
                               Vec<int>&, int,
                               GenMat<Scalar,neq>&,Vec<double>& irey);
+
+  template<class Scalar,int dim,int neq>
+  void computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>&,
+													FluxFcn**, GeoState&, SVec<double,3>&,
+													SVec<double,dim>&, Vec<double>&, LevelSetStructure &,
+													Vec<int>&, int,
+													GenMat<Scalar,neq>&);
 
   template<class Scalar,int dim, int dimLS,int neq>
   void computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,int*,
@@ -348,7 +367,8 @@ public:
   int checkReconstructedValues(int i, int j, double *Vi, double *Vj, VarFcn *vf,
 			       int *locToGlobNodeMap, int failsafe, SVec<int,2> &tag,
                                double *originalVi = 0, double *originalVj = 0,
-                               int IDi = 0, int IDj = 0);
+                               int IDi = 0, int IDj = 0, bool iact = true, bool jact = true);
+
   void computeCharacteristicEdgeLength(SVec<double,3> &, double&, double&, double&, int&,
                                        const double, const double, const double,
                                        const double, const double, const double);

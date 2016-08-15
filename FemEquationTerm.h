@@ -60,6 +60,11 @@ public:
 				  double *vw, double *v[4], double *r) = 0;
   virtual void computeJacobianSurfaceTerm(double dp1dxj[4][3], int c, Vec3D &n, double d2w[4], 
 					  double *vw, double *v[4], double *drdu) = 0;
+
+  virtual double computeNormDerivWallFcn(double rho, double T, 
+													double Du1, double DT1,	double d2w, 
+													double &dudn, double &dTdn) = 0;
+
   virtual bool doesFaceTermExist(int code) {
     if (wallFcn)
       return (code == BC_ADIABATIC_WALL_MOVING || 
@@ -77,6 +82,8 @@ public:
   }
 
   virtual bool doesSourceTermExist() { return false; }
+
+  virtual bool withWallFcn() {return false; };
 
 // Included (MB)
   virtual bool computeDerivativeOfVolumeTerm(double dp1dxj[4][3], double ddp1dxj[4][3], double d2w[4], double *v[4],

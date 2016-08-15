@@ -1569,11 +1569,12 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistVec<int
 {
 
   int iSub;
-  //double t0 = timer->getTime();
+
   DistSVec<int,1> *count = new DistSVec<int,1>(getNodeDistInfo());
 
 #pragma omp parallel for
-  for (iSub=0; iSub<numLocSub; ++iSub) { 
+	for(iSub=0; iSub<numLocSub; ++iSub) 
+	{ 
     subDomain[iSub]->computeWeightsLeastSquaresEdgePart(X(iSub), fluidId(iSub), 
 							(*count)(iSub), R(iSub), 
 							distLSS ? &((*distLSS)(iSub)) : 0, 
@@ -1586,13 +1587,24 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistVec<int
   levelPat->exchange();
 
 #pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub) {
+	for(iSub = 0; iSub < numLocSub; ++iSub) 
+	{
     subDomain[iSub]->addRcvData(*weightPat, R.subData(iSub));
     subDomain[iSub]->addRcvData(*levelPat, (*count).subData(iSub));
     subDomain[iSub]->computeWeightsLeastSquaresNodePart((*count)(iSub), R(iSub));
   }
+/*
+#pragma omp parallel for
+  for(iSub = 0; iSub < numLocSub; ++iSub) 
+  {
+	  for(int i=0; i<X(iSub).size(); ++i)
+	  {
+		  Vec3D X_ = X(iSub)[i];
+		  if( fabs(X_[0]-0.1595)<1.0e-4 && fabs(X_[1]-0.06019)<1.0e-4 && fabs(X_[2]-0.0300)<1.0e-4 )
+			  fprintf(stdout, "%f,%f,%f, %d\n", X_[0],X_[1],X_[2], (*count)(iSub)[i][0]);
+	  }
+	  }*/
 
-  //timer->addNodalWeightsTime(t0);
   if (count) delete count;
 }
 

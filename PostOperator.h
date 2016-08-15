@@ -154,9 +154,10 @@ public:
 				double** EmbQs,
 				DistTimeState<dim> *timeState,
 				DistVec<int>& fluidId, 
+										  DistSVec<double,dim>* Wextij,
 				DistSVec<double,dimLS> *Phi, 
 				DistLevelSetStructure *distLSS,
-				DistVec<GhostPoint<dim>*> *ghostPoints);
+										  DistVec<GhostPoint<dim>*> *ghostPoints, bool ExternalSI);
 
   void computeVectorQuantity(PostFcn::VectorType, DistSVec<double,3> &,
 			     DistSVec<double,dim> &, DistSVec<double,3> &);
@@ -171,6 +172,13 @@ public:
                              DistVec<int> &, DistLevelSetStructure *distLSS = 0,
                              DistVec<GhostPoint<dim>*> *ghostPoints = 0);
 
+  void computeVectorQuantity(PostFcn::VectorType type,
+									  DistSVec<double,3> &X,
+									  DistSVec<double,dim> &U,
+									  DistSVec<double,3> &Q,
+									  DistLevelSetStructure *distLSS,
+									  DistVec<int> &fluidId);
+	  
   void computeForceDerivs(DistSVec<double,3> &, DistSVec<double,dim> &,
                           DistSVec<double,dim> &,Vec<double> &,VecSet< DistSVec<double, 3> > &);
 

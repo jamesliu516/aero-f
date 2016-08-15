@@ -137,7 +137,7 @@ void EdgeSet::updateLength(SVec<double,3>& X)
 int EdgeSet::checkReconstructedValues(int i, int j, double *Vi, double *Vj, VarFcn *vf, 
 				int *locToGlobNodeMap, int failsafe, SVec<int,2>& tag,
                                 double *originalVi, double *originalVj,
-                                int IDi, int IDj)
+												  int IDi, int IDj, bool iAct, bool jAct)
 {
 //proceed to checking positivity of certain quantities required in the computation of the fluxes for both nodes of an edge.
 //these quantities are the ones involved in the computation of the sound speed (most often pressure and density but not
@@ -145,16 +145,22 @@ int EdgeSet::checkReconstructedValues(int i, int j, double *Vi, double *Vj, VarF
 
   int ierr = 0;
 
-  if (vf->checkReconstructedValues(Vi, locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1, IDi, IDj, failsafe, IDi)){
+  if(iAct)
+  {
+	  if(vf->checkReconstructedValues(Vi, locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1, IDi, IDj, failsafe, IDi))
+	  {
     ++ierr;
-    if(failsafe)
-      tag[i][0] = 1;
+		  if(failsafe) tag[i][0] = 1;
+	  }
   }
 
-  if (vf->checkReconstructedValues(Vj, locToGlobNodeMap[j]+1, locToGlobNodeMap[i]+1, IDj, IDi, failsafe, IDj)){
+  if(jAct)
+  {
+	  if(vf->checkReconstructedValues(Vj, locToGlobNodeMap[j]+1, locToGlobNodeMap[i]+1, IDj, IDi, failsafe, IDj))
+	  {
     ++ierr;
-    if(failsafe)
-      tag[j][0] = 1;
+		  if(failsafe) tag[j][0] = 1;
+	  }
   }
 
   return ierr;

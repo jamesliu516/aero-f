@@ -1006,9 +1006,11 @@ void FaceTria::computeGalerkinTerm(ElemSet &elems, FemEquationTerm *fet,
   Vec3D n;
   computeNormal(X, n);
 
-  if (fet->doesFaceNeedGradientP1Function())
+	if(fet->doesFaceNeedGradientP1Function()){
     elems[elemNum].computeFaceGalerkinTerm(fet, nodeNum(), code, n, X, d2wall, Vwall, V, R);
-  else {
+	}
+	else 
+	{
     double d2w[3] = {d2wall[nodeNum(0)], d2wall[nodeNum(1)], d2wall[nodeNum(2)]};
     double *v[3] = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)]};
     double r[dim];

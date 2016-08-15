@@ -114,7 +114,14 @@ class GenElemWrapper_dim {
 public:
   virtual 
   void computeGalerkinTerm(FemEquationTerm *, SVec<double,3> &, Vec<double> &,
-			   SVec<double,dim> &, SVec<double,dim> &, Vec<GhostPoint<dim>*> * ghostPoints=0, 
+									SVec<double,dim> &, SVec<double,dim> &, 
+									Vec<GhostPoint<dim>*> * ghostPoints=0, 
+									LevelSetStructure *LSS=0) = 0;
+
+  virtual 
+  void computeGalerkinTerm_e(FemEquationTerm *, SVec<double,3> &, Vec<double> &,
+									  SVec<double,dim> &, SVec<double,dim> &, 
+									  Vec<GhostPoint<dim>*> * ghostPoints=0, 
 			   LevelSetStructure *LSS=0) = 0;
   
   virtual
@@ -133,8 +140,12 @@ public:
   
   virtual
   void computeSmagorinskyLESTerm(SmagorinskyLESTerm *, SVec<double,3> &, SVec<double,dim> &V,
-				 SVec<double,dim> &R, 
-                                 Vec<GhostPoint<dim>*> * ghostPoints=0, 
+											SVec<double,dim> &R,  Vec<GhostPoint<dim>*> * ghostPoints=0, 
+											LevelSetStructure *LSS=0) = 0;
+
+  virtual
+  void computeSmagorinskyLESTerm_e(SmagorinskyLESTerm *, SVec<double,3> &, SVec<double,dim> &V,
+											SVec<double,dim> &R,  Vec<GhostPoint<dim>*> * ghostPoints=0, 
 			         LevelSetStructure *LSS=0) = 0;
 
   virtual
@@ -144,10 +155,22 @@ public:
 			  LevelSetStructure *LSS=0) = 0;
   
   virtual
+  void computeWaleLESTerm_e(WaleLESTerm *, SVec<double,3> &, SVec<double,dim> &V, 
+									 SVec<double,dim> &R, 
+									 Vec<GhostPoint<dim>*> * ghostPoints=0, 
+									 LevelSetStructure *LSS=0) = 0;
+  
+  virtual
   void computeDynamicLESTerm(DynamicLESTerm *, SVec<double,2> &, SVec<double,3> &, 
                              SVec<double,dim> &, SVec<double,dim> &, 
                              Vec<GhostPoint<dim>*> * ghostPoints=0, 
 			     LevelSetStructure *LSS=0) = 0;    
+
+  virtual
+  void computeDynamicLESTerm_e(DynamicLESTerm *, SVec<double,2> &, SVec<double,3> &, 
+										 SVec<double,dim> &, SVec<double,dim> &, 
+										 Vec<GhostPoint<dim>*> * ghostPoints=0, 
+										 LevelSetStructure *LSS=0) = 0;
 
   virtual
   void computeFaceGalerkinTerm(FemEquationTerm *, int [3], int, Vec3D &, 
@@ -160,6 +183,11 @@ public:
                     Vec<GhostPoint<dim>*> * ghostPoints=0, 
 		    LevelSetStructure *LSS=0) = 0;    
   
+  virtual
+  void computeP1Avg_e(SVec<double,dim> &, SVec<double,16> &, SVec<double,6> &, Vec<double> &, 
+							 SVec<double,8> &, SVec<double,3> &, SVec<double,dim> &, double, double,
+							 Vec<GhostPoint<dim>*> * ghostPoints=0, 
+							 LevelSetStructure *LSS=0) = 0;  
 
 // Included (MB)
   virtual
@@ -210,6 +238,12 @@ public:
                                    Vec<GhostPoint<dim>*>*gp=0,LevelSetStructure *LSS=0) = 0;
   
   virtual 
+  void computeJacobianGalerkinTerm_e(FemEquationTerm *, SVec<double,3> &, 
+												 Vec<double> &, Vec<double> &, 
+												 SVec<double,dim> &, GenMat<Scalar,neq> &,
+												 Vec<GhostPoint<dim>*>*gp=0,LevelSetStructure *LSS=0) = 0;
+  
+  virtual 
   void computeFaceJacobianGalerkinTerm(FemEquationTerm *, int [3], int, Vec3D &, 
 				       SVec<double,3> &, Vec<double> &, Vec<double> &, 
 				       double *, SVec<double,dim> &, GenMat<Scalar,neq> &) = 0;
@@ -234,10 +268,21 @@ public:
 
   void computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X, 
 			   Vec<double> &d2wall, SVec<double,dim> &V, 
-			   SVec<double,dim> &R, Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0) {
+									SVec<double,dim> &R, 
+									Vec<GhostPoint<dim>*> *ghostPoints=0, 
+									LevelSetStructure *LSS=0) {
     t->computeGalerkinTerm(fet, X, d2wall, V, R,ghostPoints,LSS);
   }
   
+  void computeGalerkinTerm_e(FemEquationTerm *fet, SVec<double,3> &X, 
+									  Vec<double> &d2wall, SVec<double,dim> &V, 
+									  SVec<double,dim> &R, 
+									  Vec<GhostPoint<dim>*> *ghostPoints=0, 
+									  LevelSetStructure *LSS=0) {
+	  t->computeGalerkinTerm_e(fet, X, d2wall, V, R, ghostPoints, LSS);
+  }
+  
+
   void computeVMSLESTerm(VMSLESTerm *vmst, SVec<double,dim> &VBar,
 			 SVec<double,3> &X, SVec<double,dim> &V,
 			 SVec<double,dim> &Sigma) {
@@ -261,14 +306,29 @@ public:
   
   void computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, SVec<double,3> &X,
 				 SVec<double,dim> &V, SVec<double,dim> &R,
-			         Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0) {
+											Vec<GhostPoint<dim>*> *ghostPoints=0, 
+											LevelSetStructure *LSS=0) {
     t->computeSmagorinskyLESTerm(smag, X, V, R, ghostPoints, LSS);
   }
+
+  void computeSmagorinskyLESTerm_e(SmagorinskyLESTerm *smag, SVec<double,3> &X,
+											  SVec<double,dim> &V, SVec<double,dim> &R,
+											  Vec<GhostPoint<dim>*> *ghostPoints=0, 
+											  LevelSetStructure *LSS=0) {
+	  t->computeSmagorinskyLESTerm_e(smag, X, V, R, ghostPoints, LSS);
+  }
+
 
   void computeWaleLESTerm(WaleLESTerm *wale, SVec<double,3> &X,
 		          SVec<double,dim> &V, SVec<double,dim> &R,
 			  Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0) {
     t->computeWaleLESTerm(wale, X, V, R, ghostPoints, LSS);
+  }  
+
+  void computeWaleLESTerm_e(WaleLESTerm *wale, SVec<double,3> &X,
+									 SVec<double,dim> &V, SVec<double,dim> &R,
+									 Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0) {
+	  t->computeWaleLESTerm_e(wale, X, V, R, ghostPoints, LSS); 
   }  
 
   void computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs, 
@@ -277,6 +337,11 @@ public:
     t->computeDynamicLESTerm(dles, Cs, X, V, R, ghostPoints, LSS);
   }
 
+  void computeDynamicLESTerm_e(DynamicLESTerm *dles, SVec<double,2> &Cs, 
+										 SVec<double,3> &X, SVec<double,dim> &V, SVec<double,dim> &R,
+										 Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0) {
+	  t->computeDynamicLESTerm_e(dles, Cs, X, V, R, ghostPoints, LSS);
+  }
   
   void computeFaceGalerkinTerm(FemEquationTerm *fet, int face[3], int code, Vec3D &n, 
 			       SVec<double,3> &X, Vec<double> &d2wall, double *Vwall, 
@@ -290,6 +355,14 @@ public:
                     SVec<double,dim> &V, double gam, double R,
 	            Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0) {
     t->computeP1Avg(VCap, Mom_Test, Sij_Test, modS_Test, Eng_Test, X, V, gam, R, ghostPoints, LSS);
+  }
+  
+
+  void computeP1Avg_e(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SVec<double,6> &Sij_Test, 
+                    Vec<double> &modS_Test, SVec<double,8> &Eng_Test, SVec<double,3> &X, 
+                    SVec<double,dim> &V, double gam, double R,
+						  Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0) {
+	  t->computeP1Avg_e(VCap, Mom_Test, Sij_Test, modS_Test, Eng_Test, X, V, gam, R, ghostPoints, LSS);
   }
   
 
@@ -354,6 +427,13 @@ public:
 				   SVec<double,dim> &V, GenMat<Scalar,neq> &A,
 				   Vec<GhostPoint<dim>*> *gp=0,LevelSetStructure *LSS=0) {
     t->computeJacobianGalerkinTerm(fet, X, ctrlVol, d2wall, V, A,gp,LSS);
+  }
+  
+  void computeJacobianGalerkinTerm_e(FemEquationTerm *fet, SVec<double,3> &X, 
+												 Vec<double> &ctrlVol, Vec<double> &d2wall, 
+												 SVec<double,dim> &V, GenMat<Scalar,neq> &A,
+												 Vec<GhostPoint<dim>*> *gp=0,LevelSetStructure *LSS=0) {
+	  t->computeJacobianGalerkinTerm_e(fet, X, ctrlVol, d2wall, V, A,gp,LSS);
   }
   
   void computeFaceJacobianGalerkinTerm(FemEquationTerm *fet, int face[3], int code, 
@@ -549,12 +629,25 @@ public:
   template<int dim>
   void computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X, 
 			   Vec<double> &d2wall, SVec<double,dim> &V, 
-			   SVec<double,dim> &R,Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0) {
+									SVec<double,dim> &R, 
+									Vec<GhostPoint<dim>*> *ghostPoints=0, 
+									LevelSetStructure *LSS=0) {
     ElemHelper_dim<dim> h;
     char xx[64];
-    GenElemWrapper_dim<dim> *wrapper=
-      (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+	  GenElemWrapper_dim<dim> *wrapper = (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
     wrapper->computeGalerkinTerm(fet, X, d2wall, V, R,ghostPoints,LSS);
+  }
+  
+  template<int dim>
+	  void computeGalerkinTerm_e(FemEquationTerm *fet, SVec<double,3> &X,
+										  Vec<double> &d2wall, SVec<double,dim> &V, 
+										  SVec<double,dim> &R,
+										  Vec<GhostPoint<dim>*> *ghostPoints=0, 
+										  LevelSetStructure *LSS=0) {
+	  ElemHelper_dim<dim> h;
+	  char xx[64];
+	  GenElemWrapper_dim<dim> *wrapper = (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+	  wrapper->computeGalerkinTerm_e(fet, X, d2wall, V, R,ghostPoints, LSS);
   }
   
   template<int dim>
@@ -596,12 +689,27 @@ public:
   template<int dim>
   void computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, SVec<double,3> &X,
 				 SVec<double,dim> &V, SVec<double,dim> &R, 
-                                 Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0) {
+                                 Vec<GhostPoint<dim>*> *ghostPoints=0, 
+											LevelSetStructure *LSS=0) 
+  {
     ElemHelper_dim<dim> h;
     char xx[64];
     GenElemWrapper_dim<dim> *wrapper=
       (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
     wrapper->computeSmagorinskyLESTerm(smag, X, V, R, ghostPoints, LSS);
+  }
+ 
+  template<int dim>
+  void computeSmagorinskyLESTerm_e(SmagorinskyLESTerm *smag, SVec<double,3> &X,
+											  SVec<double,dim> &V, SVec<double,dim> &R, 
+											  Vec<GhostPoint<dim>*> *ghostPoints=0, 
+											  LevelSetStructure *LSS=0) 
+  {
+	  ElemHelper_dim<dim> h;
+	  char xx[64];
+	  GenElemWrapper_dim<dim> *wrapper=
+		  (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+	  wrapper->computeSmagorinskyLESTerm_e(smag, X, V, R, ghostPoints, LSS);
   }
  
  
@@ -616,6 +724,17 @@ public:
     wrapper->computeWaleLESTerm(wale, X, V, R, ghostPoints, LSS);
   }
  
+	template<int dim>
+		void computeWaleLESTerm_e(WaleLESTerm *wale, SVec<double,3> &X,
+										SVec<double,dim> &V, SVec<double,dim> &R,
+										Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0) {
+		ElemHelper_dim<dim> h;
+		char xx[64];
+		GenElemWrapper_dim<dim> *wrapper=
+			(GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+		wrapper->computeWaleLESTerm_e(wale, X, V, R, ghostPoints, LSS);
+	}
+ 
 
   template<int dim>
   void computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs, 
@@ -626,6 +745,17 @@ public:
     GenElemWrapper_dim<dim> *wrapper=
       (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
     wrapper->computeDynamicLESTerm(dles, Cs, X, V, R, ghostPoints, LSS);
+  }
+  
+  template<int dim>
+  void computeDynamicLESTerm_e(DynamicLESTerm *dles, SVec<double,2> &Cs, 
+										 SVec<double,3> &X, SVec<double,dim> &V, SVec<double,dim> &R,  
+										 Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0) {
+    ElemHelper_dim<dim> h;
+    char xx[64];
+    GenElemWrapper_dim<dim> *wrapper=
+		 (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+    wrapper->computeDynamicLESTerm_e(dles, Cs, X, V, R, ghostPoints, LSS);
   }
   
   template<int dim>
@@ -652,6 +782,18 @@ public:
     wrapper->computeP1Avg(VCap, Mom_Test, Sij_Test, modS_Test, Eng_Test, X, V, gam, R, ghostPoints, LSS);
   }  
 
+  template<int dim>
+  void computeP1Avg_e(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SVec<double,6> &Sij_Test, 
+							 Vec<double> &modS_Test, SVec<double,8> &Eng_Test, SVec<double,3> &X, 
+							 SVec<double,dim> &V, double gam, double R,
+							 Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0) {
+	  ElemHelper_dim<dim> h;
+	  char xx[64];
+	  GenElemWrapper_dim<dim> *wrapper=
+		  (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+	  wrapper->computeP1Avg_e(VCap, Mom_Test, Sij_Test, modS_Test, Eng_Test, X, V, gam, R, ghostPoints, LSS);
+  }  
+
   template<int dim, class Scalar, int neq>
   void computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X, 
 				   Vec<double> &ctrlVol, Vec<double> &d2wall, 
@@ -664,6 +806,18 @@ public:
     wrapper->computeJacobianGalerkinTerm(fet, X, ctrlVol, d2wall, V, A,gp,LSS);
   }
   
+  template<int dim, class Scalar, int neq>
+  void computeJacobianGalerkinTerm_e(FemEquationTerm *fet, SVec<double,3> &X, 
+												 Vec<double> &ctrlVol, Vec<double> &d2wall, 
+												 SVec<double,dim> &V, GenMat<Scalar,neq> &A,
+												 Vec<GhostPoint<dim>*> *gp=0,LevelSetStructure *LSS=0) {
+	  ElemHelper_Scalar_dim_neq<Scalar, dim, neq> h;
+	  char xx[64];
+	  GenElemWrapper_Scalar_dim_neq<Scalar, dim, neq> *wrapper=
+		  (GenElemWrapper_Scalar_dim_neq<Scalar, dim, neq> *)getWrapper_Scalar_dim_neq(&h, 64, xx);
+	  wrapper->computeJacobianGalerkinTerm_e(fet, X, ctrlVol, d2wall, V, A,gp,LSS);
+  }
+
   template<int dim, class Scalar, int neq>
   void computeFaceJacobianGalerkinTerm(FemEquationTerm *fet, int face[3], int code, 
 				       Vec3D &n, SVec<double,3> &X, Vec<double> &ctrlVol,
@@ -779,7 +933,18 @@ public:
   template<int dim>
   void computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X, 
 			   Vec<double> &d2wall, SVec<double,dim> &V, 
-			   SVec<double,dim> &R,Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0) {
+									SVec<double,dim> &R, 
+									Vec<GhostPoint<dim>*> *ghostPoints=0, 
+									LevelSetStructure *LSS=0) {
+    fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
+  }
+
+  template<int dim>
+  void computeGalerkinTerm_e(FemEquationTerm *fet, SVec<double,3> &X, 
+									  Vec<double> &d2wall, SVec<double,dim> &V, 
+									  SVec<double,dim> &R, 
+									  Vec<GhostPoint<dim>*> *ghostPoints=0, 
+									  LevelSetStructure *LSS=0) {
     fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
   }
   
@@ -810,7 +975,16 @@ public:
   template<int dim>
   void computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, SVec<double,3> &X,
 				 SVec<double,dim> &V, SVec<double,dim> &R,
-                                 Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0) {
+                                 Vec<GhostPoint<dim>*> *ghostPoints=0, 
+											LevelSetStructure *LSS=0) {
+    fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
+  }
+ 
+  template<int dim>
+  void computeSmagorinskyLESTerm_e(SmagorinskyLESTerm *smag, SVec<double,3> &X,
+											  SVec<double,dim> &V, SVec<double,dim> &R,
+											  Vec<GhostPoint<dim>*> *ghostPoints=0, 
+											  LevelSetStructure *LSS=0) {
     fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
   }
 
@@ -823,10 +997,24 @@ public:
 
 
   template<int dim>
+  void computeWaleLESTerm_e(WaleLESTerm *wale, SVec<double,3> &X,
+									 SVec<double,dim> &V, SVec<double,dim> &R,
+									 Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0) {
+    fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
+  }
+
+  template<int dim>
   void computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs, 
 			     SVec<double,3> &X, SVec<double,dim> &V, SVec<double,dim> &R,
                              Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0) {
     fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
+  }
+  
+  template<int dim>
+  void computeDynamicLESTerm_e(DynamicLESTerm *dles, SVec<double,2> &Cs, 
+										 SVec<double,3> &X, SVec<double,dim> &V, SVec<double,dim> &R,
+										 Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0) {
+	  fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
   }
   
   template<int dim>
@@ -845,12 +1033,28 @@ public:
     fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
   }
 
+  template<int dim>
+  void computeP1Avg_e(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SVec<double,6> &Sij_Test, 
+							 Vec<double> &modS_Test, SVec<double,8> &Eng_Test, SVec<double,3> &X, 
+							 SVec<double,dim> &V, double gam, double R,
+							 Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0) {
+	  fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
+  }
+
   template<int dim, class Scalar, int neq>
   void computeJacobianGalerkinTerm(FemEquationTerm *, SVec<double,3> &, 
 				   Vec<double> &, Vec<double> &, 
 				   SVec<double,dim> &, GenMat<Scalar,neq> &,
                                    Vec<GhostPoint<dim>*> *gp=0,LevelSetStructure *LSS=0) {
     fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
+  }
+  
+  template<int dim, class Scalar, int neq>
+  void computeJacobianGalerkinTerm_e(FemEquationTerm *, SVec<double,3> &, 
+												 Vec<double> &, Vec<double> &, 
+												 SVec<double,dim> &, GenMat<Scalar,neq> &,
+												 Vec<GhostPoint<dim>*> *gp=0,LevelSetStructure *LSS=0) {
+	  fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
   }
   
   template<int dim, class Scalar, int neq>
@@ -957,17 +1161,20 @@ public:
 
   // compute Viscous Contribution Adam 2010.06.01
   template<int dim>
-    void computeTimeStep(FemEquationTerm *,SVec<double,3> &,SVec<double,dim> &,Vec<double> &);
+	  void computeTimeStep(FemEquationTerm *,SVec<double,3> &,SVec<double,dim> &,Vec<double> &, LevelSetStructure *LSS = 0);
 
   template<int dim>
   void computeGalerkinTerm(FemEquationTerm *, GeoState &, SVec<double,3> &, 
 			   SVec<double,dim> &, SVec<double,dim> &,
-			   Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0);
+									Vec<GhostPoint<dim>*> *ghostPoints=0, 
+									LevelSetStructure *LSS=0, bool externalSI=false);
 
   template<int dim>
-  void computeGalerkinTermRestrict(FemEquationTerm *, GeoState &, SVec<double,3> &, 
-			   SVec<double,dim> &, SVec<double,dim> &, const std::vector<int> &,
-			   Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0);
+  void computeGalerkinTermRestrict(FemEquationTerm *, GeoState &, 
+											  SVec<double,3> &, SVec<double,dim> &, 
+											  SVec<double,dim> &, const std::vector<int> &,
+											  Vec<GhostPoint<dim>*> *ghostPoints=0, 
+											  LevelSetStructure *LSS=0);
   template<int dim>
   void computeVMSLESTerm(VMSLESTerm *, SVec<double,dim> &, SVec<double,3> &, 
 			 SVec<double,dim> &, SVec<double,dim> &);
@@ -984,28 +1191,32 @@ public:
   template<int dim>
   void computeSmagorinskyLESTerm(SmagorinskyLESTerm *, SVec<double,3> &, SVec<double,dim> &,
 				 SVec<double,dim> &,
-			         Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0);
+											Vec<GhostPoint<dim>*> *ghostPoints=0, 
+											LevelSetStructure *LSS=0, bool externalSI = false);
 
   template<int dim>
   void computeWaleLESTerm(WaleLESTerm *, SVec<double,3> &, SVec<double,dim> &,
 		          SVec<double,dim> &,
-			  Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0);
+								  Vec<GhostPoint<dim>*> *ghostPoints=0, 
+								  LevelSetStructure *LSS=0, bool externalSI = false);
 
   template<int dim>
   void computeDynamicLESTerm(DynamicLESTerm *, SVec<double,2> &,
                              SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &,
-			     Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0);
+									  Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0,
+									  bool externalSI = false);
 
   template<int dim>
   void computeTestFilterAvgs(SVec<double,dim> &, SVec<double,16> &, SVec<double,6> &,Vec<double> &,
                              SVec<double,8> &, SVec<double,3> &, SVec<double,dim> &, double, double,
-			     Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0);
+									  Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0, bool externalSI=false);
 
   template<int dim, class Scalar, int neq>
   void computeJacobianGalerkinTerm(FemEquationTerm *fet, GeoState &geoState, 
 				   SVec<double,3> &X, Vec<double> &ctrlVol,
 				   SVec<double,dim> &V, GenMat<Scalar,neq> &A,
-				   Vec<GhostPoint<dim>*>* ghostPoints=0,LevelSetStructure *LSS=0);
+											  Vec<GhostPoint<dim>*>* ghostPoints=0, 
+											  LevelSetStructure *LSS=0, bool externalSI=false);
     
 // Included (MB)
   template<int dim>

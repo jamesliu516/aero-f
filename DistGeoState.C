@@ -148,8 +148,9 @@ DistGeoState::DistGeoState(IoData &ioData, Domain *dom) : data(ioData), domain(d
   for (int iSub=0; iSub<numLocSub; ++iSub) {
     subGeoState[iSub] = 0;
     double* d2w = d2wall->subData(iSub);
-    for (int i=0; i<d2wall->subSize(iSub); ++i)
+    for (int i=0; i<d2wall->subSize(iSub); ++i){
       d2w[i] += ioData.bc.wall.delta;
+  }
   }
 
 }
