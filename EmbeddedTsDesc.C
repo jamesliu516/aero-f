@@ -67,28 +67,32 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
       this->com->fprintf(stderr,"ERROR: force approach not specified correctly! Abort...\n"); 
       exit(-1);
   }
-//  forceApp           = (ioData.embed.forceAlg==EmbeddedFramework::RECONSTRUCTED_SURFACE) ? 3 : 1;
 
   linRecAtInterface  = (ioData.embed.reconstruct==EmbeddedFramework::LINEAR) ? true : false;
   viscSecOrder  = (ioData.embed.viscousinterfaceorder==EmbeddedFramework::SECOND) ? true : false;
   riemannNormal = (int)ioData.embed.riemannNormal;
       
-  if(orderOfAccuracy==1) { //first-order everywhere...
+	//first-order everywhere... //d2d
+	if(orderOfAccuracy == 1) 
+	{
     linRecAtInterface = false; 
     viscSecOrder = false; 
   }
 
-  if (interfaceAlg == 1) {
-
+	if(interfaceAlg == 1 || ioData.embed.surrogateinterface == EmbeddedFramework::EXTERNAL) 
+	{
     dom->createHigherOrderFSI();
 
+		if(ioData.embed.surrogateinterface == EmbeddedFramework::HYBRID) 
+		{
 #pragma omp parallel for
-    for (int iSub = 0; iSub < dom->getNumLocSub(); ++iSub) {
-      V6NodeData (*v6data)[2];
-      v6data = 0;
+			for(int iSub = 0; iSub < dom->getNumLocSub(); ++iSub) 
+			{				
+				V6NodeData (*v6data)[2]; v6data = 0;
+
       dom->getSubDomain()[iSub]->findEdgeTetrahedra((*this->X)(iSub), v6data);
-      dom->getSubDomain()[iSub]->getHigherOrderFSI()->
-	initialize<dim>(dom->getNodeDistInfo().subSize(iSub),
+			 
+				dom->getSubDomain()[iSub]->getHigherOrderFSI()->initialize<dim>(dom->getNodeDistInfo().subSize(iSub),
 			dom->getSubDomain()[iSub]->getElems(),
 			v6data); 
 
@@ -97,6 +101,18 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     }
     
   }
+		else if(ioData.embed.surrogateinterface == EmbeddedFramework::EXTERNAL) 
+		{		 
+			bool hmode = (interfaceAlg == 1) ? true : false;
+
+#pragma omp parallel for
+			for (int iSub = 0; iSub < dom->getNumLocSub(); ++iSub)
+				dom->getSubDomain()[iSub]->getHigherOrderFSI()->initialize<dim>(ioData, this->com, dom->getNodeDistInfo().subSize(iSub),
+																									 dom->getSubDomain()[iSub]->getElems(),
+																									 hmode, viscSecOrder);
+		}
+		
+	}
 
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
 
@@ -108,7 +124,8 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
 //------------- For Fluid-Structure Interaction ---------------
   withCracking = false;
-  if(ioData.problem.type[ProblemData::FORCED] || ioData.problem.type[ProblemData::AERO]) {
+	if(ioData.problem.type[ProblemData::FORCED] || ioData.problem.type[ProblemData::AERO]) 
+	{
     dynNodalTransfer = new DynamicNodalTransfer(ioData, *this->domain->getCommunicator(), *this->domain->getStrCommunicator(),
                                                 this->domain->getTimer());
     withCracking = dynNodalTransfer->cracking(); 
@@ -116,14 +133,16 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     //for updating phase change
     Weights  = new DistVec<double>(this->getVecInfo());
     VWeights = new DistSVec<double,dim>(this->getVecInfo());
-  } else
+	} 
+	else
     dynNodalTransfer = 0;
 
   emmh = 0;
 //-------------------------------------------------------------
 
 #ifdef DO_EMBEDDED
-  switch (ioData.embed.intersectorName) {
+	switch (ioData.embed.intersectorName) 
+	{
     case EmbeddedFramework::FRG :
       if(dynNodalTransfer && dynNodalTransfer->embeddedMeshByFEM()) {
       
@@ -164,7 +183,7 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
       exit(-1);
   }
   wall_computer=new ReinitializeDistanceToWall<1>(ioData, *this->domain);
-  //wall_computer = 0;
+
 #else
   this->com->fprintf(stderr,"ERROR: Embedded framework is NOT compiled! Check your makefile.\n");
   exit(-1);
@@ -214,6 +233,9 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     Wstarji_nm1Copy = 0;
   }
   UCopy = new DistSVec<double,dim>(this->domain->getNodeDistInfo());
+
+	Wextij = new DistSVec<double,dim>(this->domain->getNodeDistInfo());
+	*Wextij = 0.0;
 
   //TODO: should be merged with fluidId in TsDesc
   nodeTag0 = 0;
@@ -345,6 +367,8 @@ EmbeddedTsDesc<dim>::~EmbeddedTsDesc()
 
   if (nodeTagCopy) delete nodeTagCopy;
   if (nodeTag0Copy) delete nodeTag0Copy;
+
+  if(Wextij) delete Wextij;
 }
 
 //------------------------------------------------------------------------------
@@ -357,101 +381,140 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
   // Initialize intersector and compute intersections
   DistVec<int> point_based_id(this->domain->getNodeDistInfo());
 
-  if (ioData.input.fluidId[0] != 0 || ioData.input.restart_file_package[0] != 0) {
+	if(ioData.input.fluidId[0] != 0 || ioData.input.restart_file_package[0] != 0) 
+	{
     FluidSelector f(2, ioData,this->domain);
     nodeTag0 = nodeTag = *f.fluidId;
     distLSS->initialize(this->domain,*this->X, this->geoState->getXn(), ioData, &point_based_id, &nodeTag);
-  } else
+	} 
+	else 
     distLSS->initialize(this->domain,*this->X, this->geoState->getXn(), ioData, &point_based_id);
+
+   //d2d
+	if(ioData.embed.surrogateinterface == EmbeddedFramework::EXTERNAL) 
+	{
+		this->spaceOp->setSIstencil(*this->X, distLSS, this->nodeTag, *U); 
+
+		if(eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
+			this->spaceOp->setFEMstencil(*this->X, distLSS, this->nodeTag, *U);
+	}
 
   // Initialize fluid state vector
   this->timeState->setup(this->input->solutions, *this->X, this->bcData->getInletBoundaryVector(),
                          *U, ioData, &point_based_id); //populate U by i.c. or restart data.
+
+/*////////////////////////// debug
+  int isubd;
+#pragma omp parallel for
+  for (isubd=0; isubd<this->domain->getNumLocSub(); ++isubd) 
+  {
+	  int lnu = (*U)(isubd).size();
+	  for(int k_=0; k_<lnu; ++k_)
+	  {
+		  if( !(*distLSS)(isubd).isActive(0.0, k_) ) (*U)(isubd)[k_][1] = 0.0;
+		  // if( fabs( (*this->X)(isubd)[k_][1] ) <= 0.0105 && 
+		  // 		(*this->X)(isubd)[k_][0] >= 0.1 && 
+		  // 		(*this->X)(isubd)[k_][0] <= 0.97  )
+		  // {
+		  // 	  (*U)(isubd)[k_][1] = 0.0;
+		  // }
+	  } 
+  }
+/////////////////////////// test */
+
   this->spaceOp->applyBCsToTurbSolutionVector(*U,distLSS);
   // Initialize fluid Ids (not on restart)
   if (ioData.input.fluidId[0] == 0 && ioData.input.restart_file_package[0] == 0)
     nodeTag0 = nodeTag = distLSS->getStatus();
   // Initialize the embedded FSI handler
   EmbeddedMeshMotionHandler* _emmh = dynamic_cast<EmbeddedMeshMotionHandler*>(this->emmh);
-  if(_emmh) {
+	if(_emmh) 
+	{
     double *tMax = &(this->data)->maxTime;
     _emmh->setup(tMax); //obtain maxTime from structure
   }
 
   EmbeddedALEMeshMotionHandler* _mmh = dynamic_cast<EmbeddedALEMeshMotionHandler*>(this->mmh);
 
-  if (_mmh)
-    _mmh->setup(*(this->X),this->bcData->getVelocityVector());
+	if(_mmh) _mmh->setup(*(this->X),this->bcData->getVelocityVector());
 
-  if (this->hth)
-    this->hth->setup(&(this->restart)->frequency, &(this->data)->maxTime);
+	if(this->hth) this->hth->setup(&(this->restart)->frequency, &(this->data)->maxTime);
   
   *(this->Xs) = *(this->X);
 
   this->initializeFarfieldCoeffs();
 
   // If 'IncreasePressure' is activated, re-initialize the fluid state
-  if(Pinit>=0.0 && Prate>=0.0 && this->getInitialTime()<tmax) {
+	if(Pinit>=0.0 && Prate>=0.0 && this->getInitialTime()<tmax) 
+	{
     increasingPressure = true;
     this->domain->IncreasePressure(currentPressure(this->getInitialTime()), this->varFcn, *U, nodeTag);
   }
  
   //compute force
-  // construct Wij, Wji from U. Then use them for force calculation.
   DistSVec<double,dim> *Wij = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
   DistSVec<double,dim> *Wji = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
   DistSVec<double,dim> VV(this->getVecInfo());
   *Wij = 0.0;
   *Wji = 0.0;
-  this->varFcn->conservativeToPrimitive(*U,VV,&nodeTag);
+
+   this->varFcn->conservativeToPrimitive(*U, VV, distLSS, &nodeTag);
+
   SubDomain **subD = this->domain->getSubDomain();
 
   int iSub;
 #pragma omp parallel for
-  for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+	for(iSub=0; iSub<this->domain->getNumLocSub(); iSub++) 
+	{
     SVec<double,dim> &subWij = (*Wij)(iSub);
     SVec<double,dim> &subWji = (*Wji)(iSub);
     SVec<double,dim> &subVV = VV(iSub);
     int (*ptr)[2] =  (subD[iSub]->getEdges()).getPtr();
-    if (subWij.size()!=(subD[iSub]->getEdges()).size()) {fprintf(stderr,"WRONG!!!\n"); exit(-1);}
 
-    for (int l=0; l<subWij.size(); l++) {
+		if(subWij.size()!=(subD[iSub]->getEdges()).size()) 
+		{
+			fprintf(stderr,"WRONG!!!\n"); 
+			exit(-1);
+		}
+
+		for(int l=0; l<subWij.size(); l++) 
+		{
       int i = ptr[l][0];
       int j = ptr[l][1];
-      for (int k=0; k<dim; k++) {
+
+			for(int k=0; k<dim; k++) 
+			{
         subWij[l][k] = subVV[i][k];
         subWji[l][k] = subVV[j][k];
       }
     }
   }
 
+	this->spaceOp->computeNodalGrad(*this->X, *this->A, *U, &nodeTag, this->distLSS);
 
   // Ghost-Points Population
   if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
-    {
-//      this->ghostPoints->deletePointers(); // Not needed cause it has already been done in the constructor.
       this->spaceOp->populateGhostPoints(this->ghostPoints,*this->X,*U,this->varFcn,this->distLSS,this->viscSecOrder,this->nodeTag);
-    }
-  // Population of spaceOp->V for the force computation
-  this->spaceOp->conservativeToPrimitive(*U,&this->nodeTag);
 
+  // Population of spaceOp->V for the force computation
+	this->spaceOp->conservativeToPrimitive(*U, this->distLSS, &this->nodeTag);
 
   computeForceLoad(Wij, Wji);
   delete Wij;
   delete Wji;
 
+	FsComputed = true;
 
-  FsComputed = true;
   // Now "accumulate" the force for the embedded structure
-  if(dynNodalTransfer){
+	if(dynNodalTransfer)
+	{
     numStructNodes = dynNodalTransfer->numStNodes();
     SVec<double,3> v(numStructNodes, Fs);
     dynNodalTransfer->updateOutputToStructure(0.0, 0.0, v); //dt=dtLeft=0.0-->They are not used!
   }
 
-  //std::cout << this->bcData->getBoundaryStateHH()->norm() << std::endl;
-  if (this->modifiedGhidaglia)
-    this->timeState->attachHH(*this->bcData->getBoundaryStateHH());
+	if(this->modifiedGhidaglia) this->timeState->attachHH(*this->bcData->getBoundaryStateHH());
+
 }
 
 //------------------------------------------------------------------------------
@@ -461,49 +524,48 @@ double EmbeddedTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
                                              DistSVec<double,dim> &U, double angle)
 {
   if(!FsComputed&&dynNodalTransfer) this->com->fprintf(stderr,"WARNING: FSI force not computed!\n");
-  FsComputed = false; //reset FsComputed at the beginning of a fluid iteration
+
+   //reset FsComputed at the beginning of a fluid iteration
+	FsComputed = false; 
 
   //check if it's in subcycling with iCycle>1.
   if(globIt==it)
     inSubCycling = true;
-  else {
+	else 
+	{
     globIt = it;
     inSubCycling = false;
   }
 
-/*
-  if(wall_computer && !inSubCycling) {
-    this->com->fprintf(stderr, "*** Warning: reinitializing distance to wall...\n");
-    wall_computer->ComputeWallFunction(*this->distLSS,*this->X,*this->geoState); // TODO(jontg): Probably not the best place...
-    this->com->fprintf(stderr, "*** Warning: distance to the wall reinitialization completed!\n");
-  }
-*/
+	this->com->barrier();
 
-  this->com->barrier();
   double t0 = this->timer->getTime();
   this->data->allowstop = this->timeState->allowcflstop; 
   int numSubCycles = 1;
   double dt=0.0;
 
-//  if(TsDesc<dim>::failSafeFlag == false){
-    if(TsDesc<dim>::timeStepCalculation == TsData::CFL || it==1){
+	if(TsDesc<dim>::timeStepCalculation == TsData::CFL || it==1)
+	{
       this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual, angle);
-      if(numFluid==1) {
+		
+      if(numFluid==1) 
+		{
         dt = this->timeState->computeTimeStep(this->data->cfl, this->data->dualtimecfl, dtLeft,
-                                &numSubCycles, *this->geoState, *this->X, *this->A, U);
-      } else {//numFLuid>1
+															  &numSubCycles, *this->geoState, *this->X, *this->A, U, this->distLSS);
+      } 
+		else 
+		{
+         //numFLuid>1
         dt = this->timeState->computeTimeStep(this->data->cfl, this->data->dualtimecfl, dtLeft,
                                 &numSubCycles, *this->geoState, *this->A, U, nodeTag);
       }
     }
-    else { //time step size with error estimation
+	else 
+	{ 
+      //time step size with error estimation
       dt = this->timeState->computeTimeStep(it, dtLeft, &numSubCycles);
    }
  
-//  }
-//  else    //if time step is repeated
-//    dt = this->timeState->computeTimeStepFailSafe(dtLeft, &numSubCycles);
-
   if(TsDesc<dim>::timeStepCalculation == TsData::ERRORESTIMATION && it == 1)
     this->timeState->setDtMin(dt * TsDesc<dim>::data->getCflMinOverCfl0());
 
@@ -517,7 +579,6 @@ double EmbeddedTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
   dtf = dt;
   dtfLeft = *dtLeft + dt;
 
-//  fprintf(stderr,"dt = %e, dtfLeft = %e, dtLeft = %e.\n", dt, dtfLeft, *dtLeft);
   return dt;
 }
 //------------------------------------------------------------------------------
@@ -584,7 +645,7 @@ double EmbeddedTsDesc<dim>::computePositionVector(bool *lastIt, int it, double t
 	double V[5];
 	ExactSolution::AcousticBeam(ioData,x[0],x[1],x[2],-dt, V);
 
-	this->varFcn->primitiveToConservative(V, this->timeState->getUnm1()(iSub)[i], 0);
+	this->varFcn->primitiveToConservative(V, this->timeState->getUnm1()(iSub)[i], 0); //*************************
 	
       }
     }
@@ -602,7 +663,7 @@ double EmbeddedTsDesc<dim>::computePositionVector(bool *lastIt, int it, double t
 	double V[5];
 	ExactSolution::AcousticViscousBeam(ioData,x[0],x[1],x[2],-dt, V);
 
-	this->varFcn->primitiveToConservative(V, this->timeState->getUnm1()(iSub)[i], 0);
+			this->varFcn->primitiveToConservative(V, this->timeState->getUnm1()(iSub)[i], 0); //*************************
 	
       }
     }
@@ -641,10 +702,10 @@ int EmbeddedTsDesc<dim>::checkSolution(DistSVec<double,dim> &U)
       ierr = this->domain->template 
         clipSolution<dim,2>(this->clippingType, this->wallType, this->varFcn, this->bcData->getInletConservativeState(), U);
     else
-      ierr = this->domain->checkSolution(this->varFcn, U); //also check ghost nodes.
+		 ierr = this->domain->checkSolution(this->varFcn, U, this->distLSS); //also check ghost nodes.
   }
   else {
-    ierr = this->domain->checkSolution(this->varFcn, U, nodeTag);
+	  ierr = this->domain->checkSolution(this->varFcn, U, nodeTag, this->distLSS);
   }
 
   return ierr;
@@ -670,7 +731,7 @@ void EmbeddedTsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it
 
   if (it == 0) {
     // First time step: compute GradP before computing forces
-    this->spaceOp->computeGradP(*this->X, *this->A, U);
+	 this->spaceOp->computeGradP(*this->X, *this->A, U, &nodeTag, this->distLSS);  
     this->output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
     this->output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
     this->output->writeMatchPressureToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, *this->A, U, this->timeState, &nodeTag);
@@ -681,7 +742,7 @@ void EmbeddedTsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it
     this->output->writeMaterialVolumesToDisk(it, 0.0, *this->A, &nodeTag);
     this->output->writeCPUTimingToDisk(*lastIt, it, t, this->timer);
     this->output->writeEmbeddedSurfaceToDisk(*lastIt, it, t, distLSS->getStructPosition_n(), distLSS->getStructPosition_0());
-    this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, nodeTag, this->distLSS, ghostPoints);
+    this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, nodeTag, this->Wextij, this->distLSS, ghostPoints);
     this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
   }
 
@@ -714,7 +775,7 @@ void EmbeddedTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int
     this->output->writeEmbeddedSurfaceToDisk(*lastIt, it, t, distLSS->getStructPosition(), distLSS->getStructPosition_0());
   else
     this->output->writeEmbeddedSurfaceToDisk(*lastIt, it, t, distLSS->getStructPosition_n(), distLSS->getStructPosition_0());
-  this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, nodeTag, this->distLSS, ghostPoints); //d2d
+  this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, nodeTag, this->Wextij, this->distLSS, ghostPoints); //d2d
   this->output->writeProbesToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState,nodeTag, this->distLSS, ghostPoints);
   this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
 
@@ -743,7 +804,7 @@ void EmbeddedTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int
 
     if (strcmp(ioData.input.convergence_file,"") != 0) {
       
-      this->varFcn->conservativeToPrimitive(U, *this->V, &nodeTag);
+      this->varFcn->conservativeToPrimitive(U, *this->V, &nodeTag); //*************************
       computeConvergenceInformation(ioData,ioData.input.convergence_file,*this->V);
     }
 
@@ -765,8 +826,6 @@ void EmbeddedTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int
 
       }
 
-
-      //std::cout << "t = " << t << std::endl;
 
       double error[dim];
       double refs[dim] = {ioData.ref.rv.density, ioData.ref.rv.velocity,
@@ -839,13 +898,10 @@ void EmbeddedTsDesc<dim>::resetOutputToStructure(DistSVec<double,dim> &U)
 template<int dim>
 double EmbeddedTsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
 {  
-//  // Ghost-Points Population
-//  if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES) {
-//    this->ghostPoints->deletePointers();
-//    this->spaceOp->populateGhostPoints(this->ghostPoints,*this->X,U,this->varFcn,this->distLSS,this->viscSecOrder,this->nodeTag);
-//  }
 
-  this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, linRecAtInterface,  viscSecOrder, nodeTag, *this->R, this->riemann, riemannNormal, 0, ghostPoints);
+  this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, *Wextij, distLSS, 
+											linRecAtInterface,  viscSecOrder, nodeTag, *this->R, 
+											this->riemann, riemannNormal, 0, ghostPoints);
 
   this->spaceOp->applyBCsToResidual(U, *this->R, distLSS);
 
@@ -889,32 +945,34 @@ void EmbeddedTsDesc<dim>::monitorInitialState(int it, DistSVec<double,dim> &U)
 template<int dim>
 void EmbeddedTsDesc<dim>::computeForceLoad(DistSVec<double,dim> *Wij, DistSVec<double,dim> *Wji)
 {
-  if (!Fs) {fprintf(stderr,"computeForceLoad: Fs not initialized! Cannot compute the load!\n"); return;}
+	
+	if(!Fs)
+	{
+		fprintf(stderr,"computeForceLoad: Fs not initialized! Cannot compute the load!\n"); 
+		return;
+	}
+
   double t0 = this->timer->getTime();
-  if(dynNodalTransfer)
-    numStructNodes = dynNodalTransfer->numStNodes();
 
+	if(dynNodalTransfer) numStructNodes = dynNodalTransfer->numStNodes();
   
-  /*std::cout << "Current time =  " << (currentTime)*ioData.ref.rv.time << std::endl;
-  ExactSolution::FillPrimitive<&ExactSolution::AcousticBeam,
-    dim>(*this->spaceOp->getCurrentPrimitiveVector(),*this->X,
-	    ioData, currentTime + currentTimeStep,
-	    this->varFcn);
-*/
+	if(!increasingPressure || recomputeIntersections) 
+	{
+		for(int i=0; i<numStructNodes; i++)  Fs[i][0] = Fs[i][1] = Fs[i][2] = 0.0;
 
-  //*this->spaceOp->getCurrentPrimitiveVector() *= 0.5;
-
-  if(!increasingPressure || recomputeIntersections) {
-    for (int i=0; i<numStructNodes; i++) 
-      Fs[i][0] = Fs[i][1] = Fs[i][2] = 0.0;
-    this->spaceOp->computeForceLoad(forceApp, orderOfAccuracy, *this->X,*this->A, Fs, numStructNodes, distLSS, *Wij, *Wji, 
+		this->spaceOp->computeForceLoad(forceApp, orderOfAccuracy, *this->X,*this->A, Fs, 
+												  numStructNodes, distLSS, *Wij, *Wji,  this->Wextij,
                                     ghostPoints, this->postOp->getPostFcn(), &nodeTag);
-  } else {
-    if(unifPressure[0]==0) {
+	} 
+	else 
+	{
+		if(unifPressure[0]==0) 
+		{
       this->com->fprintf(stderr,"ERROR: Detected pressure p = %e in Implosion Setup.\n", unifPressure[0]);
       exit(-1);
     }
-    for (int i=0; i<numStructNodes; i++) {
+		for(int i=0; i<numStructNodes; i++) 
+		{
       Fs[i][0] *= unifPressure[1]/unifPressure[0]; 
       Fs[i][1] *= unifPressure[1]/unifPressure[0]; 
       Fs[i][2] *= unifPressure[1]/unifPressure[0]; 
@@ -1088,7 +1146,7 @@ bool EmbeddedTsDesc<dim>::IncreasePressure(int it, double dt, double t, DistSVec
   
   // construct Wij, Wji from U. 
   DistSVec<double,dim> VV(this->getVecInfo());
-  this->varFcn->conservativeToPrimitive(U,VV,&nodeTag);
+  this->varFcn->conservativeToPrimitive(U,VV,&nodeTag); //*************************
   SubDomain **subD = this->domain->getSubDomain();
 
   int iSub;
@@ -1110,7 +1168,7 @@ bool EmbeddedTsDesc<dim>::IncreasePressure(int it, double dt, double t, DistSVec
   }
 
   // Population of spaceOp->V for the force computation
-  this->spaceOp->conservativeToPrimitive(U, &this->nodeTag); // PJSA
+  this->spaceOp->conservativeToPrimitive(U, &this->nodeTag); // PJSA  //*************************
 
   double pnow = currentPressure(t);
   this->com->fprintf(stdout, "about to increase pressure to %e\n", pnow*Pscale);
@@ -1155,13 +1213,15 @@ double EmbeddedTsDesc<dim>::currentPressure(double t)
 template<int dim>
 void EmbeddedTsDesc<dim>::computeDistanceToWall(IoData &ioData)
 { 
-  if (ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY){
+	if(ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY)
+	{
     if (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
-        ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES) {
+         ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES) 
+		{
       double t0 = this->timer->getTime();
-//      this->com->fprintf(stderr, "*** Warning: reinitializing distance to wall...\n");
+
       wall_computer->ComputeWallFunction(*this->distLSS,*this->X,*this->geoState);
-//      this->com->fprintf(stderr, "*** Warning: distance to the wall reinitialization completed!\n");
+
       this->timer->addWallDistanceTime(t0);
 
       this->domain->computeOffWallNode(this->distLSS);

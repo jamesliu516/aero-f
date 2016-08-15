@@ -87,33 +87,34 @@ template<int dim, int neq>
 void MatVecProdFD<dim, neq>::evaluate(int it, DistSVec<double,3> &x, DistVec<double> &cv,
 				 DistSVec<double,dim> &q, DistSVec<double,dim> &f)
 {
+	// ****
   X = &x;
   ctrlVol = &cv;
   Qeps = q;
 
-  if (recFcnCon && !this->isFSI) {
+	if(recFcnCon && !this->isFSI) 
+	{
     spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
 
-    if (timeState) {
-      timeState->add_dAW_dt(it, *geoState, *ctrlVol, Qeps, Feps);
-    }
+		if (timeState) timeState->add_dAW_dt(it, *geoState, *ctrlVol, Qeps, Feps);
 
     spaceOp->applyBCsToResidual(Qeps, Feps);
+  }
+	else Feps = f;
 
-  }
-  else  {
-    Feps = f;
-  }
+	if(timeState && iod->ts.dualtimestepping == TsData::ON) 
+	{
+		timeState->add_dAW_dtau(it, *geoState, *ctrlVol, Qeps, Feps);
 
-  if (timeState && iod->ts.dualtimestepping == TsData::ON) {
-    timeState->add_dAW_dtau(it, *geoState, *ctrlVol, Qeps, Feps);
-    spaceOp->applyBCsToResidual(Qeps, Feps);
-  }
+		spaceOp->applyBCsToResidual(Qeps, Feps);
+	}
 
   Qeps.strip(Q);
   Feps.strip(F);
   
 }
+
+//------------------------------------------------------------------------------
 
 template<int dim, int neq>
 void MatVecProdFD<dim, neq>::evaluateHH(DistVec<double> &hhterm,
@@ -260,17 +261,10 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
 
   Qepstmp.pad(Qeps);
   
-//  // Ghost-Points Population
-//  if(this->isFSI && this->fsi.ghostPoints)
-//    {
-//      this->fsi.ghostPoints->deletePointers();
-//      this->spaceOp->populateGhostPoints(this->fsi.ghostPoints,Qepstmp,this->spaceOp->getVarFcn(),this->fsi.LSS,*this->fsi.fluidId);
-//    }
-
   if (!this->isFSI)
     spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
   else
-    spaceOp->computeResidual(*X,*ctrlVol, Qeps, *(this->fsi.Wtemp),*(this->fsi.Wtemp),
+    spaceOp->computeResidual(*X,*ctrlVol, Qeps, *(this->fsi.Wtemp), *(this->fsi.Wtemp), *(this->fsi.Wtemp),
                              this->fsi.LSS, this->fsi.linRecAtInterface, this->fsi.viscSecOrder, *(this->fsi.fluidId),
                              Feps, this->fsi.riemann, this->fsi.Nriemann, 0, this->fsi.ghostPoints);
 
@@ -299,16 +293,10 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
     
     Qepstmp.pad(Qeps);
   
-//    if(this->isFSI && this->fsi.ghostPoints)
-//    {
-//      this->fsi.ghostPoints->deletePointers();
-//      this->spaceOp->populateGhostPoints(this->fsi.ghostPoints,Qepstmp,this->spaceOp->getVarFcn(),this->fsi.LSS,*this->fsi.fluidId);
-//    }
-//
     if (!this->isFSI)
       spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
     else
-      spaceOp->computeResidual(*X,*ctrlVol, Qeps, *(this->fsi.Wtemp),*(this->fsi.Wtemp),
+      spaceOp->computeResidual(*X,*ctrlVol, Qeps, *(this->fsi.Wtemp),*(this->fsi.Wtemp),*(this->fsi.Wtemp),
                                this->fsi.LSS, this->fsi.linRecAtInterface, this->fsi.viscSecOrder, *(this->fsi.fluidId),
                                Feps, this->fsi.riemann, this->fsi.Nriemann, 0, this->fsi.ghostPoints);
  
@@ -427,9 +415,9 @@ void MatVecProdFD<dim, neq>::applyRestrict(DistSVec<double,neq> &p,
 }
 
 template<int dim, int neq>
-void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedVec<double,neq> & prod) {
-
-
+void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedVec<double,neq> & prod) 
+{
+	// ***
   double eps = computeEpsilon(Q, p.real());
 
 // Included (MB)
@@ -437,14 +425,8 @@ void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedV
 
   Qepstmp.pad(Qeps);
   
-//  // Ghost-Points Population
-//  if(this->isFSI && this->fsi.ghostPoints)
-//    {
-//      this->fsi.ghostPoints->deletePointers();
-//      this->spaceOp->populateGhostPoints(this->fsi.ghostPoints,Qepstmp,this->spaceOp->getVarFcn(),this->fsi.LSS,*this->fsi.fluidId);
-//    }
-
-  if (p.hasHHBoundaryTerm()) {
+	if(p.hasHHBoundaryTerm()) 
+	{
     *hhEps = *hhVal + eps*p.hh();
     *spaceOp->getDistBcData()->getBoundaryStateHH() = *hhEps;
   }
@@ -452,85 +434,78 @@ void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedV
   if (!this->isFSI)
     spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
   else
-    spaceOp->computeResidual(*X,*ctrlVol, Qeps, *(this->fsi.Wtemp),*(this->fsi.Wtemp),
-                             this->fsi.LSS, this->fsi.linRecAtInterface, this->fsi.viscSecOrder, *(this->fsi.fluidId),
-                             Feps, this->fsi.riemann, this->fsi.Nriemann, 0, this->fsi.ghostPoints);
+	  spaceOp->computeResidual(*X, *ctrlVol, Qeps, 
+										*(this->fsi.Wtemp), *(this->fsi.Wtemp), *(this->fsi.Wtemp), this->fsi.LSS, 
+										this->fsi.linRecAtInterface, this->fsi.viscSecOrder, 
+										*(this->fsi.fluidId), Feps, this->fsi.riemann, 
+										this->fsi.Nriemann, 0, this->fsi.ghostPoints);
 
-  if (p.hasHHBoundaryTerm()) {
+	if(p.hasHHBoundaryTerm()) 
+	{
     *hhEps = 0.0;
-    spaceOp->getDomain()->
-      computeHHBoundaryTermResidual(*spaceOp->getDistBcData(),Qeps,*hhEps, spaceOp->getVarFcn());
+
+		spaceOp->getDomain()->computeHHBoundaryTermResidual(*spaceOp->getDistBcData(),Qeps,*hhEps, spaceOp->getVarFcn());
        
-    timeState->add_dAW_dt_HH(-1, *geoState, *ctrlVol,*spaceOp->getDistBcData()->getBoundaryStateHH()
-			     , *hhEps);
+		timeState->add_dAW_dt_HH(-1, *geoState, *ctrlVol,*spaceOp->getDistBcData()->getBoundaryStateHH(), *hhEps);
   }
 
-  if (timeState) {
-    timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
-    if (iod->ts.dualtimestepping == TsData::ON)
-      timeState->add_dAW_dtau(-1, *geoState, *ctrlVol, Qeps, Feps);
+	if(timeState) 
+	{
+		timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps, this->fsi.LSS);
+		if(iod->ts.dualtimestepping == TsData::ON) timeState->add_dAW_dtau(-1, *geoState, *ctrlVol, Qeps, Feps, this->fsi.LSS);
   }
 
-  if (this->isFSI)
-    spaceOp->applyBCsToResidual(Qeps, Feps, this->fsi.LSS);
-  else
-    spaceOp->applyBCsToResidual(Qeps, Feps);
+	if(this->isFSI) spaceOp->applyBCsToResidual(Qeps, Feps, this->fsi.LSS);
+	else            spaceOp->applyBCsToResidual(Qeps, Feps);
 
   Feps.strip(Fepstmp);
 
-  if (fdOrder == 1) {
-
+	if(fdOrder == 1) 
+	{
     prod.real() = (1.0/eps) * (Fepstmp - F);
-    if (p.hasHHBoundaryTerm()) {
+
+		if(p.hasHHBoundaryTerm())
+		{
       *hhEps = (1.0/eps) * (*hhEps - *hhRes);
       prod.setHH(*hhEps);
     }
  
   }
-  else if (fdOrder == 2) {
-
+	else if(fdOrder == 2) 
+	{
     Qepstmp = Q - eps * p.real();
     
     Qepstmp.pad(Qeps);
   
-//    if(this->isFSI && this->fsi.ghostPoints)
-//    {
-//      this->fsi.ghostPoints->deletePointers();
-//      this->spaceOp->populateGhostPoints(this->fsi.ghostPoints,Qepstmp,this->spaceOp->getVarFcn(),this->fsi.LSS,*this->fsi.fluidId);
-//    }
-//
-    if (!this->isFSI)
-      spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
-    else
-      spaceOp->computeResidual(*X,*ctrlVol, Qeps, *(this->fsi.Wtemp),*(this->fsi.Wtemp),
-                               this->fsi.LSS, this->fsi.linRecAtInterface, this->fsi.viscSecOrder, *(this->fsi.fluidId),
+		if(!this->isFSI)	spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
+		else              spaceOp->computeResidual(*X,*ctrlVol, Qeps, *(this->fsi.Wtemp), *(this->fsi.Wtemp),*(this->fsi.Wtemp),
+																 this->fsi.LSS, this->fsi.linRecAtInterface, 
+																 this->fsi.viscSecOrder, *(this->fsi.fluidId),
                                Feps, this->fsi.riemann, this->fsi.Nriemann, 0, this->fsi.ghostPoints);
  
-    if (timeState) {
-      timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
-      if (iod->ts.dualtimestepping == TsData::ON)
-        timeState->add_dAW_dtau(-1, *geoState, *ctrlVol, Qeps, Feps);
+		if(timeState) 
+		{
+			timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps, this->fsi.LSS);
+
+			if (iod->ts.dualtimestepping == TsData::ON) timeState->add_dAW_dtau(-1, *geoState, *ctrlVol, Qeps, Feps, this->fsi.LSS);
     }
 
-    if (p.hasHHBoundaryTerm()) {
-
+		if(p.hasHHBoundaryTerm()) 
+		{
       prod.setHH(*hhEps);
       *hhEps = *hhVal - eps*p.hh();
       *spaceOp->getDistBcData()->getBoundaryStateHH() = *hhEps;
       *hhEps = 0.0;
-      spaceOp->getDomain()->
-        computeHHBoundaryTermResidual(*spaceOp->getDistBcData(),Qeps,*hhEps, spaceOp->getVarFcn());
+			
+			spaceOp->getDomain()->computeHHBoundaryTermResidual(*spaceOp->getDistBcData(),Qeps,*hhEps, spaceOp->getVarFcn());
        
-      timeState->add_dAW_dt_HH(-1, *geoState, *ctrlVol,*spaceOp->getDistBcData()->getBoundaryStateHH()
-  			       , *hhEps);
+			timeState->add_dAW_dt_HH(-1, *geoState, *ctrlVol,*spaceOp->getDistBcData()->getBoundaryStateHH(), *hhEps);
+
       prod.hh() = (0.5/eps)*(prod.hh()-*hhEps);
     }
 
-
-    if (this->isFSI)
-      spaceOp->applyBCsToResidual(Qeps, Feps, this->fsi.LSS);
-    else
-      spaceOp->applyBCsToResidual(Qeps, Feps);
+		if(this->isFSI) spaceOp->applyBCsToResidual(Qeps, Feps, this->fsi.LSS);
+		else            spaceOp->applyBCsToResidual(Qeps, Feps);
 
     Feps.strip(Ftmp);
 

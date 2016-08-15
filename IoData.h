@@ -535,6 +535,7 @@ struct BcsWallData {
 
   double temperature;
   double delta;
+	bool delta_given;
 
   BcsWallData();
   ~BcsWallData() {}
@@ -2788,6 +2789,7 @@ struct EmbeddedFramework {
   enum Reconstruction {CONSTANT = 0, LINEAR = 1} reconstruct;
   enum ViscousInterfaceOrder {FIRST = 0, SECOND = 1} viscousinterfaceorder;
   enum ViscousBoundaryCondition {WEAK = 0, STRONG = 1} viscousboundarycondition;
+  enum SurrogateInterface{HYBRID = 0, EXTERNAL = 1} surrogateinterface;
 
   int testCase; 
  

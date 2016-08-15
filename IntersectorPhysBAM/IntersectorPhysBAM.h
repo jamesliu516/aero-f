@@ -52,6 +52,16 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
   using DistLevelSetStructure::is_occluded;
   using DistLevelSetStructure::edge_intersects;
 
+  using DistLevelSetStructure::edge_SI;
+  using DistLevelSetStructure::xi_SI;
+  using DistLevelSetStructure::eta_SI;
+  using DistLevelSetStructure::nWall_SI;
+  using DistLevelSetStructure::TriID_SI;
+
+  using DistLevelSetStructure::xi_node;
+  using DistLevelSetStructure::eta_node;
+  using DistLevelSetStructure::nWall_node;
+  using DistLevelSetStructure::TriID_node;
   protected:
 
     IoData &iod;
@@ -94,6 +104,13 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     CrackingSurface *cracking; //only a pointer.
 
     double interface_thickness;
+
+	 bool externalSI;
+
+	 bool isoThermalwall;	 
+	 double Twall;
+
+	 bool withViscousTerms;
 
   public:
     DistVec<int> *status0;  //previous node status
@@ -190,6 +207,17 @@ class IntersectorPhysBAM : public LevelSetStructure {
   using LevelSetStructure::is_occluded;
   using LevelSetStructure::edge_intersects;
 
+  using LevelSetStructure::edge_SI;
+  using LevelSetStructure::xi_SI;
+  using LevelSetStructure::eta_SI;
+  using LevelSetStructure::nWall_SI;
+  using LevelSetStructure::TriID_SI;
+
+  using LevelSetStructure::xi_node;
+  using LevelSetStructure::eta_node;
+  using LevelSetStructure::nWall_node;
+  using LevelSetStructure::TriID_node;
+
   public:
     static const int OUTSIDE = -2, UNDECIDED = -1, INSIDE = 0; //INSIDE: inside real fluid, OUTSIDE: not a fluid
     static int OUTSIDECOLOR;
@@ -225,6 +253,9 @@ class IntersectorPhysBAM : public LevelSetStructure {
     int findIntersections(SVec<double,3>& X,Vec<bool>& tId,Communicator&);
     int computeSweptNodes(SVec<double,3>& X, Vec<bool>& tId,Communicator&,const double dt);
 
+	 void reFlagRealNodes(SVec<double,3>& X, Vec<bool> *bk_ISactive = 0); //d2d
+	 void ComputeSIbasedIntersections(int iSub, SVec<double,3>& X, SVec<double,3> &boxMin, SVec<double,3> &boxMax, bool withViscousTerms); //d2d
+
   public:
     IntersectorPhysBAM(SubDomain &, SVec<double, 3> &X, Vec<int> &status0, Vec<ClosestPoint> &closest,
                        Vec<bool>& occluded_node0,DistIntersectorPhysBAM &);
@@ -243,12 +274,25 @@ class IntersectorPhysBAM : public LevelSetStructure {
     bool isNearInterface(double t, int n) const {return closest[n].nearInterface();}
     bool withCracking() const {return distIntersector.cracking ? true : false;}
 
+	 void xWallWithSI(int n, Vec3D &xWall);
+	 void vWallWithSI(int n, Vec3D &vWall);
+	 bool xWallNode(int i, Vec3D &xWall);
+	 bool vWallNode(int i, Vec3D &vWall);
+
+	 bool getTwall(double &Tw)
+	 { 
+		 Tw = distIntersector.Twall; 
+		 return distIntersector.isoThermalwall;
+	 }
+
   private:
     void addToPackage(const int i,const int candidate);
     void findNodeClosestPoint(const int nodeId, Vec3D &x0, ARRAY<int> &cand);
     double project(Vec3D x0, int tria, double& xi1, double& xi2) const;
     double edgeProject(Vec3D x0, Vec3D &xA, Vec3D &xB, double &alpha) const;
     double edgeProject(Vec3D x0, int n1, int n2, double &alpha) const;
+
+	 double piercing(Vec3D x0, int tria, double xi[3]);
 
     void derivativeOFnormal(Vec3D  xA, Vec3D  xB, Vec3D  xC, 
 			    Vec3D dxA, Vec3D dxB, Vec3D dxC, 

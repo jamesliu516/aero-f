@@ -46,6 +46,8 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   fdResiduals = (iod.output.rom.fdResiduals == ROMOutputData::FD_RESIDUALS_ON) ? true : false;
   fdResidualsLimit = (iod.output.rom.fdResidualsLimit == ROMOutputData::FD_RESIDUALS_LIMIT_ON) ? true : false;
 
+  externalSI = (iod.embed.surrogateinterface == EmbeddedFramework::EXTERNAL) ? true : false;
+
   int sp = strlen(iod.output.transient.prefix) + 1;
   int spn = strlen(iod.output.transient.probes.prefix) + 1;
   int sprom = strlen(iod.output.rom.prefix) + 1;
@@ -3048,7 +3050,8 @@ template<int dim>
 void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, DistSVec<double,3> &X,
                                              DistVec<double> &A, DistSVec<double,dim> &U, 
                                              DistTimeState<dim> *timeState,
-                                             DistVec<int> &fluidId, DistLevelSetStructure *distLSS, 
+                                             DistVec<int> &fluidId, DistSVec<double,dim> *Wextij, 
+															DistLevelSetStructure *distLSS, 
 					     DistVec<GhostPoint<dim>*> *ghostPoints)
 {
 
@@ -3091,8 +3094,8 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
 	EmbQs[i][0] = EmbQs[i][1] = EmbQs[i][2] = 0.0;
       }
 
-      postOp->computeEMBScalarQuantity(X, U, A, EmbQs, timeState, fluidId, 
-     			   	       (DistSVec<double,1>*)0, distLSS, ghostPoints);
+      postOp->computeEMBScalarQuantity(X, U, A, EmbQs, timeState, fluidId, Wextij,
+													(DistSVec<double,1>*)0, distLSS, ghostPoints, externalSI);
 
 
       double * cnt = new double[ns];
@@ -3183,7 +3186,10 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
 
         }
         else
-          postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(i), X, U, *Qv, fluidId);
+		  {
+			  //postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(i), X, U, *Qv, fluidId);
+			  postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(i), X, U, *Qv, distLSS, fluidId);
+		  }
         domain->writeVectorToFile(vectors[i], step, tag, *Qv, &(vscale[i]));
       }
     }

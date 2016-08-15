@@ -23,40 +23,78 @@ using std::pair;
 using PHYSBAM_MPI_UTILITIES::masterProcessor;
 using PhysBAM::GLOBAL_SUBD_ID;
 //----------------------------------------------------------------------------
-int FloodFill::floodFillSubDomain(SubDomain& sub,EdgeSet& edges,const Vec<bool>& edgeIntersections,const Vec<bool>& occluded_node, Vec<int>&nodeColors)
+int FloodFill::floodFillSubDomain(SubDomain& sub, 
+											 EdgeSet& edges, 
+											 const Vec<bool>& edgeIntersections, 
+											 const Vec<bool>& occluded_node, 
+											 Vec<int>&nodeColors) 
 {
+
+   // A color of -2 means that this node has no neighbors
+
     int color=0,nColoredNodes=0,seedNode=0;
 
-    // A color of -2 means that this node has no neighbors
     const Connectivity &nToN = *sub.getNodeToNode(); 
-    for(int i=0;i<sub.numNodes();++i){nodeColors[i]=-1;
-        if(occluded_node[i]){nodeColors[i]=-2;++nColoredNodes;}}
+	
+	for(int i=0; i<sub.numNodes(); ++i){
+
+		nodeColors[i]=-1;
+
+		if(occluded_node[i]) {
+			nodeColors[i]=-2;
+			++nColoredNodes;
+		}
+	}
 
     std::queue<int> nodeQueue;
-    while(nColoredNodes<sub.numNodes()){++color;
+	while(nColoredNodes < sub.numNodes()){
+
+		++color;
+
         while(seedNode < sub.numNodes() && nodeColors[seedNode] != -1) ++seedNode;
         nodeQueue.push(seedNode);
 
-        while(!nodeQueue.empty()){++nColoredNodes;
-           int currentNode=nodeQueue.front();nodeQueue.pop();nodeColors[currentNode]=color;
-           for(int i=0;i<nToN.num(currentNode);++i){int neighborNode=nToN[currentNode][i];
+		while(!nodeQueue.empty()){
+
+			++nColoredNodes;
+
+			int currentNode = nodeQueue.front();
+			nodeQueue.pop();
+			nodeColors[currentNode] = color;
+
+			for(int i=0; i<nToN.num(currentNode); ++i){
+
+				int neighborNode = nToN[currentNode][i];
+
                if(currentNode == neighborNode) continue;
                if(nodeColors[neighborNode] == -1 && !edgeIntersections[edges.find(currentNode,neighborNode)]){
-                   nodeColors[neighborNode]=0;nodeQueue.push(neighborNode);}}}}
+					nodeColors[neighborNode] = 0;
+					nodeQueue.push(neighborNode);
+				}
+			}
+
+		}
+
+	}
 
 #if 0 // Debug output
     bool has_bad_nodes=false;
     int colorCount[color+3];
     for(int i=0;i<color+3;++i) colorCount[i]=0;
     fprintf(stderr,"%02d Colored nodes = %d/%d, colors = %d\n",sub.getGlobSubNum(),nColoredNodes,sub.numNodes(),color);
-    for(int i=0;i<sub.numNodes();++i){if(nodeColors[i] == 0 || nodeColors[i] == -1){
-        fprintf(stderr,"There's still a bug!\n");has_bad_nodes=true;continue;}
-        colorCount[nodeColors[i]+2]++;}
+
+	for(int i=0;i<sub.numNodes();++i){
+		if(nodeColors[i] == 0 || nodeColors[i] == -1){
+			fprintf(stderr,"There's still a bug!\n");has_bad_nodes=true;continue;
+		}
+		colorCount[nodeColors[i]+2]++;
+	}
 
     for(int i=0;i<color+3;i++){
         fprintf(stderr,"%02d color %d has %d nodes\n",sub.getGlobSubNum(),i-2,colorCount[i]);
         if(colorCount[i]==1)
-            for(int j=0;j<sub.numNodes();++j) if(nodeColors[j]==i-2)
+			for(int j=0;j<sub.numNodes();++j) 
+				if(nodeColors[j]==i-2)
                 fprintf(stderr,"\t(%02d) color %d is node %d\n",sub.getGlobSubNum(),i-2,j);}
     if(has_bad_nodes) exit(-1);
 #endif
@@ -133,8 +171,10 @@ void FloodFill::generateConnectionsSet(Domain& domain,Communicator& com,DistVec<
 #if 0 // Detailed debug output
     com.barrier();
     if(com.cpuNum()==masterProcessor)
-        for(set<pair<pair<GLOBAL_SUBD_ID,int>,pair<GLOBAL_SUBD_ID,int> > >::const_iterator iter=connections.begin();iter!=connections.end();iter++)
-            com.fprintf(stderr,"CONNECTED: (%d,%d) to (%d,%d)\n",iter->first.first.Value(),iter->first.second,iter->second.first.Value(),iter->second.second);
+		for(set<pair<pair<GLOBAL_SUBD_ID,int>,pair<GLOBAL_SUBD_ID,int> > >::const_iterator iter=connections.begin();
+			 iter!=connections.end(); iter++)
+			com.fprintf(stderr,"CONNECTED: (%d,%d) to (%d,%d)\n", iter->first.first.Value(),iter->first.second,
+							iter->second.first.Value(),iter->second.second);
     com.barrier();
 #endif
 }
@@ -176,12 +216,14 @@ void FloodFill::generateSubDToProcessorMap(Domain& domain,Communicator& com)
 }
 
 //----------------------------------------------------------------------------
-void FloodFill::unionColors(Domain& domain,Communicator& com,const int nLocalSubDomains,const int* localColorCount,
+void FloodFill::unionColors(Domain& domain, Communicator& com,
+									 const int nLocalSubDomains, const int* localColorCount,
          map<pair<GLOBAL_SUBD_ID,int>,int>& localToGlobalColorMap)
 {
     if(nGlobalSubDomains.Value()<0) generateSubDToProcessorMap(domain,com);
 
-    int *colorCount = reinterpret_cast<int*>(alloca(nGlobalSubDomains.Value()*sizeof(int))); // Only filled on the master processor, and valid on local processors.
+    // Only filled on the master processor, and valid on local processors.
+    int *colorCount = reinterpret_cast<int*>(alloca(nGlobalSubDomains.Value()*sizeof(int))); 
     { // Send color counts to the master processor.
         // TODO(jontg): There should be a more efficient way to do this...
         for(int iSub=0;iSub<nLocalSubDomains;++iSub) colorCount[(domain.getSubDomain())[iSub]->getGlobSubNum()]=localColorCount[iSub];

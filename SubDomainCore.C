@@ -90,6 +90,9 @@ SubDomain::SubDomain(int locN, int clusN, int globN, int nClNd, char *clstN,
   higherOrderMF = 0;
   higherOrderFSI = 0;
 
+  geomTol = 1.0e-10;
+  bigNum  = 1.0e16;
+
   int j;
   for(int i=0;i<3;i++)  {
     gradP[i] = new double[locNodes->size()];
@@ -1537,7 +1540,7 @@ void SubDomain::computeDerivativeOfWeightsLeastSquaresEdgePart(SVec<double,3> &X
 
 //------------------------------------------------------------------------------
 // least square gradient involving only nodes of same fluid (multiphase flow)
-//d2d*
+//d2d$
 void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const Vec<int> &fluidId,
                                                    SVec<int,1> &count, SVec<double,6> &R, 
 						   LevelSetStructure *LSS, bool includeSweptNodes)
@@ -1549,17 +1552,25 @@ void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const Vec<
   bool *edgeFlag = edges.getMasterFlag();
   int (*edgePtr)[2] = edges.getPtr();
 
-  for (int l=0; l<edges.size(); ++l) {
-
+	for(int l=0; l<edges.size(); ++l) 
+	{
     if (!edgeFlag[l]) continue;
 
     int i = edgePtr[l][0];
     int j = edgePtr[l][1];
 
-    if(fluidId[i]!=fluidId[j] || (LSS && LSS->edgeIntersectsStructure(0.0,l))) continue;
+		bool validEdge = true;
 
-    if (!includeSweptNodes && LSS && 
-        (LSS->isSwept(0.0,i) || LSS->isSwept(0.0,j)) ) continue;
+		if(fluidId[i] != fluidId[j]) validEdge = false;
+
+		if(LSS)
+		{			
+			if(LSS->edgeWithSI(l) || LSS->edgeIntersectsStructure(0.0, l)) validEdge = false;
+			if(!LSS->isActive(0.0, i) || !LSS->isActive(0.0, j)) validEdge = false;			
+			if(!includeSweptNodes && (LSS->isSwept(0.0, i) || LSS->isSwept(0.0, j))) validEdge = false;
+		}
+
+		if(!validEdge) continue;
 
     count[i][0]++;
     count[j][0]++;
@@ -1577,21 +1588,17 @@ void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const Vec<
     double dydz = dx[1] * dx[2];
 
     R[i][0] += dxdx;
+		R[i][1] += dxdy;
+		R[i][2] += dxdz;
+		R[i][3] += dydy;
+		R[i][4] += dydz;
+		R[i][5] += dzdz;
+		
     R[j][0] += dxdx;
-
-    R[i][1] += dxdy;
     R[j][1] += dxdy;
-
-    R[i][2] += dxdz;
     R[j][2] += dxdz;
-
-    R[i][3] += dydy;
     R[j][3] += dydy;
-
-    R[i][4] += dydz;
     R[j][4] += dydz;
-
-    R[i][5] += dzdz;
     R[j][5] += dzdz;
   }
 }
@@ -1617,9 +1624,18 @@ void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const Vec<
     int i = edgePtr[l][0];
     int j = edgePtr[l][1];
 
-	if (((!LSS)&&(fluidId[i]!=fluidId[j]))||
-		(LSS && !LSS->isActive(0.0,i) && !LSS->isActive(0.0,j)))
-	  continue;
+	 bool checkN = true;
+
+    if(fluidId[i] != fluidId[j]) checkN = false;
+
+	 if(LSS)
+	 {
+		 if(LSS->edgeIntersectsStructure(0.0, l)) checkN = false;
+
+		 if(!LSS->isActive(0.0, i) && !LSS->isActive(0.0, j)) checkN = false;
+	 }
+
+	 if(checkN == false) continue; 
 
     double dx[3];
     dx[0] = X[j][0] - X[i][0];
@@ -1638,7 +1654,7 @@ void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const Vec<
 	double locWeighti = 1.0;
 	double locWeightj = 1.0;
 
-	if (((!LSS)&&(fluidId[i]==fluidId[j]))||(LSS && LSS->isActive(0.0,i) && LSS->isActive(0.0,j) && !LSS->edgeIntersectsStructure(0.0,l))) {
+	 if(checkN == true){
 	  count[i][0]++;
 	  count[j][0]++;
 	  updateRi = true;
@@ -1708,43 +1724,58 @@ void SubDomain::computeWeightsLeastSquaresNodePart(SVec<double,6> &R)
 //------------------------------------------------------------------------------
 void SubDomain::computeWeightsLeastSquaresEdgePartForEmbeddedStruct(LevelSetStructure &LSS, 
 								    SVec<double,3> &X, SVec<int,1> &count, 
-								    SVec<double,10> &R, Vec<int> &init)
+																						  SVec<double,10> &R, Vec<int> &init, bool externalSI)
 {
+
   R = 0.0;
   count = 0;
   bool *edgeFlag = edges.getMasterFlag();
   int (*edgePtr)[2] = edges.getPtr();
-  for (int l=0; l<edges.size(); ++l) {
+
+	for(int l=0; l<edges.size(); ++l) 
+	{
 	if (!edgeFlag[l]) continue;
 	int i = edgePtr[l][0];
 	int j = edgePtr[l][1];
-	if ((i==j)||(LSS.edgeIntersectsStructure(0.0,l))) continue;
-	double dx[3] = {X[j][0]-X[i][0],X[j][1]-X[i][1],X[j][2]-X[i][2]};
+
+		bool validEdge = true;
+
+		if(externalSI && LSS.edgeWithSI(l)) validEdge = false;
+
+		if(LSS.edgeIntersectsStructure(0.0, l)) validEdge = false;
+
+		if(!LSS.isActive(0.0, i) || !LSS.isActive(0.0, j)) validEdge = false;
+		
+		if(!validEdge) continue;
+		
+		double dx[3];
+		dx[0] = X[j][0] - X[i][0];
+		dx[1] = X[j][1] - X[i][1];
+		dx[2] = X[j][2] - X[i][2];
+
 	double dxdx = dx[0]*dx[0];
 	double dydy = dx[1]*dx[1];
 	double dzdz = dx[2]*dx[2];
 	double dxdy = dx[0]*dx[1];
 	double dxdz = dx[0]*dx[2];
 	double dydz = dx[1]*dx[2];
-	double dxcn = dx[0]*1.0;
-	double dycn = dx[1]*1.0;
-	double dzcn = dx[2]*1.0;
-	double cncn = 1.0*1.0;
-	if ((init[i]<1&&LSS.isActive(0.0,i))&&init[j]==1) {
-//    bool toContinue;
-//	toContinue = (((!LSS.isSwept(0.0,j))&&(LSS.isActive(0.0,j)))&&
-//		((LSS.isSwept(0.0,i))&&(LSS.isActive(0.0,i))));
-//	if (toContinue) {
+
+		double dxcn = dx[0];
+		double dycn = dx[1];
+		double dzcn = dx[2];
+		double cncn = 1.0;
+
+		if((init[i]<1 && LSS.isActive(0.0,i)) && init[j]==1) 
+		{
 	  count[i][0]++;
 	  R[i][0] += dxdx;  R[i][1] += dxdy;  R[i][2] += dxdz;  R[i][3] += dxcn;
 	  R[i][4] += dydy;  R[i][5] += dydz;  R[i][6] += dycn;
 	  R[i][7] += dzdz;  R[i][8] += dzcn;
 	  R[i][9] += cncn;
 	}
-	if ((init[j]<1&&LSS.isActive(0.0,j))&&init[i]==1) {
-//	toContinue = (((!LSS.isSwept(0.0,i))&&(LSS.isActive(0.0,i)))&&
-//		((LSS.isSwept(0.0,j))&&(LSS.isActive(0.0,j))));
-//	if (toContinue) {
+
+		if((init[j]<1 && LSS.isActive(0.0,j)) && init[i]==1) 
+		{
 	  count[j][0]++;
 	  R[j][0] += dxdx;  R[j][1] += dxdy;  R[j][2] += dxdz;  R[j][3] -= dxcn;
 	  R[j][4] += dydy;  R[j][5] += dydz;  R[j][6] -= dycn;
@@ -1755,48 +1786,63 @@ void SubDomain::computeWeightsLeastSquaresEdgePartForEmbeddedStruct(LevelSetStru
 }
 
 //------------------------------------------------------------------------------
-void SubDomain::computeWeightsLeastSquaresNodePartForEmbeddedStruct(
-		SVec<int,1> &count, SVec<double,10> &R) {
-  for (int i=0; i<R.size(); ++i) {
-	if (count[i][0]<1) continue;
-	if (count[i][0]>3) {
+void SubDomain::computeWeightsLeastSquaresNodePartForEmbeddedStruct(SVec<int,1> &count, SVec<double,10> &R) 
+{
+
 	  double r11, r12, r13, r14, r22, r23, r24, r33, r34, r44;
 	  double or11, or22, or33;
-      if (!(R[i][0]>0.0)) {
+
+	for(int i=0; i<R.size(); ++i) 
+	{
+		if (count[i][0] < 1) continue;
+
+		if(count[i][0] > 3) 
+		{
+			if(R[i][0] <= 0.0) 
+			{
         r11 = 0.0;  r12 = 0.0;  r13 = 0.0;  r14 = 0.0; 
 		r22 = 0.0;  r23 = 0.0;  r24 = 0.0; 
 		r33 = 0.0;  r34 = 0.0;
 		r44 = 0.0;
       }
-	  else {
+			else 
+			{
 		r11  = sqrt(R[i][0]);
 		or11 = 1.0/r11;
 		r12  = R[i][1]*or11;
 		r13  = R[i][2]*or11;
 		r14  = R[i][3]*or11;
-        if(!(R[i][4]-r12*r12>0.0)) {
+
+				if((R[i][4] - r12*r12) <= 0.0)
+				{
           r11 = 0.0;  r12 = 0.0;  r13 = 0.0;  r14 = 0.0; 
 		  r22 = 0.0;  r23 = 0.0;  r24 = 0.0; 
 		  r33 = 0.0;  r34 = 0.0;
 		  r44 = 0.0;
         }
-		else {
+				else 
+				{
 		  r22  = sqrt(R[i][4]-r12*r12);
 		  or22 = 1.0/r22;
 		  r23  = (R[i][5]-r12*r13)*or22;
 		  r24  = (R[i][6]-r12*r14)*or22;
-		  if (!(R[i][7]-(r13*r13+r23*r23)>0.0)) {
+					
+					if((R[i][7]-(r13*r13 + r23*r23)) <= 0.0)
+					{
             r11 = 0.0;  r12 = 0.0;  r13 = 0.0;  r14 = 0.0; 
 		    r22 = 0.0;  r23 = 0.0;  r24 = 0.0; 
 		    r33 = 0.0;  r34 = 0.0;
 		    r44 = 0.0;
 		  }
-		  else {
+					else 
+					{
 			r33  = sqrt(R[i][7]-(r13*r13+r23*r23));
 			or33 = 1.0/r33;
 			r34  = (R[i][8]-(r13*r14+r23*r24))*or33;
 			r44  = R[i][9]-(r14*r14+r24*r24+r34*r34);
-			if (!(r44>0.0)) {
+
+						if(r44 <= 0.0)
+						{
               r11 = 0.0;  r12 = 0.0;  r13 = 0.0;  r14 = 0.0; 
 		      r22 = 0.0;  r23 = 0.0;  r24 = 0.0; 
 		      r33 = 0.0;  r34 = 0.0;
@@ -1812,7 +1858,8 @@ void SubDomain::computeWeightsLeastSquaresNodePartForEmbeddedStruct(
 	  								  R[i][7] = r33;  R[i][8] = r34;
 	  												  R[i][9] = r44;
 	}
-	else {
+		else 
+		{
 	  R[i][0] = 0.0;  R[i][1] = 0.0;  R[i][2] = 0.0;  R[i][3] = 0.0;
 	 	 			  R[i][4] = 0.0;  R[i][5] = 0.0;  R[i][6] = 0.0;
 	  								  R[i][7] = 0.0;  R[i][8] = 0.0;
@@ -1870,8 +1917,8 @@ void SubDomain::computeWeightsLeastSquaresEdgePartForFF(LevelSetStructure *LSS,
 }
 
 //------------------------------------------------------------------------------
-void SubDomain::computeWeightsLeastSquaresNodePartForFF(
-		SVec<int,1> &count, SVec<double,10> &R) {
+void SubDomain::computeWeightsLeastSquaresNodePartForFF(SVec<int,1> &count, SVec<double,10> &R) {
+
   for (int i=0; i<R.size(); ++i) {
 	if (count[i][0]<1) continue;
 	if (count[i][0]>3) {
@@ -2097,35 +2144,48 @@ void SubDomain::computeDerivativeOfWeightsLeastSquaresNodePart(SVec<double,6> &R
 }
 
 //------------------------------------------------------------------------------
-
+//d2d$
 void SubDomain::computeWeightsLeastSquaresNodePart(SVec<int,1> &count, SVec<double,6> &R)
 {
 
-  for (int i=0; i<R.size(); ++i) {
-     if(count[i][0]>2) { //enough neighbours to get a least square problem
       double r11, or11, r12, r13, r22, r23, r33;
-      if(!(R[i][0]>0.0)){
+
+	for(int i=0; i<R.size(); ++i) 
+	{		
+		if(count[i][0]>3) 
+		{ 
+
+			/* -----------------------------------------------------------------*/
+			if(R[i][0] <= 0.0)
+			{
         r11 = 0.0; r12 = 0.0; r13 = 0.0; r22 = 0.0; r23 = 0.0; r33 = 0.0;
-        //fprintf(stdout, "Warning: gradient = 0.0 - coplanar nodes for node %d\n", locToGlobNodeMap[i]+1);
-      }else{
+			}
+			else
+			{
         r11  = sqrt(R[i][0]);
         or11 = 1.0 / r11;
         r12  = R[i][1] * or11;
         r13  = R[i][2] * or11;
-        if(!(R[i][3] - r12*r12>0.0)){
+
+				if((R[i][3] - r12*r12) <= 0.0)
+				{
           r11 = 0.0; r12 = 0.0; r13 = 0.0; r22 = 0.0; r23 = 0.0; r33 = 0.0;
-          //fprintf(stdout, "*** Warning: gradient = 0.0 - coplanar nodes for node %d\n", locToGlobNodeMap[i]+1);
-        }else{
+				}
+				else
+				{
           r22  = sqrt(R[i][3] - r12*r12);
           r23  = (R[i][4] - r12*r13) / r22;
-          r33 = R[i][5] - (r13*r13 + r23*r23);
-          if(!(r33>0.0)){
+
+					if((R[i][5] - (r13*r13 + r23*r23)) < 0.0)
+					{
             r11 = 0.0; r12 = 0.0; r13 = 0.0; r22 = 0.0; r23 = 0.0; r33 = 0.0;
-            //fprintf(stdout, "*** Warning: gradient = 0.0\n");
-          }else
-            r33  = sqrt(r33);
-        }
-      }
+					}
+					else
+						r33 = sqrt(R[i][5] - (r13*r13 + r23*r23));
+				}
+				
+			}
+			/* -----------------------------------------------------------------*/
 
       R[i][0] = r11;
       R[i][1] = r12;
@@ -2133,13 +2193,9 @@ void SubDomain::computeWeightsLeastSquaresNodePart(SVec<int,1> &count, SVec<doub
       R[i][3] = r22;
       R[i][4] = r23;
       R[i][5] = r33;
-    }else{
-    // not enough neighbours to get a least square problem
-    // this case should rarely happen, most likely at a corner
-    // of the domain (either farfield or structure) where
-    // we have a lot of fluid1 and little of fluid2
-      //fprintf(stdout, "*** Warning: gradient = 0.0 - not enough same-fluid nodes for node %d\n", locToGlobNodeMap[i]+1);
-
+		}
+		else
+		{
       R[i][0] = 0.0;
       R[i][1] = 0.0;
       R[i][2] = 0.0;
@@ -2186,33 +2242,42 @@ void SubDomain::computeWeightsGalerkin(SVec<double,3> &X, const Vec<int> &fluidI
   //d2d
   bool e_flag = false;
 
-  for (int i=0; i<elems.size(); ++i){
-
-    for (int j=0; j<6; j++){
+  for(int i=0; i<elems.size(); ++i)
+  {	  
+	  for(int j=0; j<6; j++)
+	  {
 
       int le = elems[i].edgeNum(j);
       int Nj = elems[i].nodeNum( elems[i].edgeEnd(j,0) );
       int Nk = elems[i].nodeNum( elems[i].edgeEnd(j,1) );
 
-
-      if( ((!LSS) && (fluidId[Nj] != fluidId[Nk])) ||
-            (LSS  && (!LSS->isActive(0.0, Nj) || !LSS->isActive(0.0, Nk))) ||
-   	    (LSS  && LSS->edgeIntersectsStructure(0.0, le)) ){
+		if(!LSS)
+		{
+			if(fluidId[Nj] != fluidId[Nk])
+			{
+	e_flag = true;
+	break;
+      }
+		}
+		else
+		{
+			if( (!LSS->isActive(0.0, Nj) || !LSS->isActive(0.0, Nk)) || LSS->edgeIntersectsStructure(0.0, le) )
+			{
 	e_flag = true;
 	break;
       }
 
-      if (!includeSweptNodes && LSS && 
-	  (LSS->isSwept(0.0,Nj) || LSS->isSwept(0.0,Nk)) ){
-	e_flag = true;
-	break;
-      }
+			if(!includeSweptNodes && (LSS->isSwept(0.0,Nj) || LSS->isSwept(0.0,Nk)))
+			{
+				e_flag = true;
+				break;
+			}
 
+		}
+ 
     }
 
-    if(!e_flag){
-      elems[i].computeWeightsGalerkin(X, wii, wij, wji);
-    }
+    if(!e_flag) elems[i].computeWeightsGalerkin(X, wii, wij, wji);
 
   }
 
@@ -2345,20 +2410,24 @@ void SubDomain::computeLocalAvg(SVec<double,3> &X, Vec<double> &Q, Vec<double> &
 {
   double fourth = 1.0/4.0;
 
-  for (int tetNum=0; tetNum < elems.size(); ++tetNum) {
+	for(int tetNum=0; tetNum < elems.size(); ++tetNum) 
+	{
     double vol = elems[tetNum].computeVolume(X);
     int idx[4] = {elems[tetNum][0], elems[tetNum][1],
                   elems[tetNum][2], elems[tetNum][3]};
     double Qcg = fourth * (Q[idx[0]] + Q[idx[1]] + Q[idx[2]] + Q[idx[3]]);
-    for (int i=0; i<4; ++i)
-      W[idx[i]] += Qcg * vol;
+
+		for(int i=0; i<4; ++i) W[idx[i]] += Qcg * vol;
   }
+
 }
 
 //------------------------------------------------------------------------------
 void SubDomain::applySmoothing(Vec<double> &ctrlVol, Vec<double> &Q)
 {
- for (int i=0; i<nodes.size(); ++i) {
+
+	for(int i=0; i<nodes.size(); ++i) 
+	{
     double coef = 1.0 / (4.0*ctrlVol[i]);
     Q[i] = coef * Q[i];
  }
@@ -2917,6 +2986,8 @@ int checkPiercePoint(Vec3D& a, Vec3D& b, Vec3D& c, Vec3D& d, Vec3D& e, bool adap
         // the factor 1000 is an arbitrary choice, but this factor should be enough
         //if we assume the tetrahedra are "homogeneous" to a certain degree
 
+	double tol = 1.0e-12;
+  
   double (*orient)(double*, double*, double*, double*);
   if (adaptive)
     orient = &orient3d;
@@ -2927,6 +2998,11 @@ int checkPiercePoint(Vec3D& a, Vec3D& b, Vec3D& c, Vec3D& d, Vec3D& e, bool adap
   double vol2 = orient(a, b, c, e);
   double vol3;
 
+	//d2d
+	if(fabs(vol1) <= tol) vol1 = 0.0; 
+	if(fabs(vol2) <= tol) vol2 = 0.0;
+	//d2d
+
   if (vol1 * vol2 > 0.0) return 10;          // [e,d] doesn't cross the plane
   if (vol1 == 0.0 && vol2 == 0.0) return 11; // [e,d] is in the plane
   if (vol1 == 0.0 && vol2 != 0.0) return 12; // d touches the plane
@@ -2935,6 +3011,13 @@ int checkPiercePoint(Vec3D& a, Vec3D& b, Vec3D& c, Vec3D& d, Vec3D& e, bool adap
   vol1 = orient(d, a, b, e);
   vol2 = orient(d, b, c, e);
   vol3 = orient(d, c, a, e);
+
+   //d2d
+	if(fabs(vol1) < tol) vol1 = 0.0;
+	if(fabs(vol2) < tol) vol2 = 0.0;
+	if(fabs(vol3) < tol) vol3 = 0.0;
+   //d2d
+  
   int pierce = checkPiercePointInTriangle(vol1, vol2, vol3);
 
   return pierce;
@@ -5454,6 +5537,28 @@ int* SubDomain::getNeiElemOfNode(int iNode, int depth, int& size )
 }
 
 //--------------------------------------------------------------------------------
+int* SubDomain::getNeiNodeOfNode(int iNode, int& size)
+{
+
+	if(!NodeToNode) NodeToNode = createEdgeBasedConnectivity();
+
+	size = NodeToNode->num(iNode);
+
+	int *list = new int[nodes.size()];
+	
+	for(int i=0; i<size; i++)	list[i] = (*NodeToNode)[iNode][i];
+
+	int *finalList = new int[size];
+
+   for(int i=0; i<size; i++) finalList[i] = list[i];
+
+	delete[] list;
+
+	return finalList;
+	
+}
+
+//--------------------------------------------------------------------------------
 
 void SubDomain::getNodeCoords(int iNode, SVec<double,3> &X, double& x, double& y, double& z)
 {
@@ -5818,12 +5923,15 @@ void SubDomain::addLocalForce(int METHOD, Vec3D nf, double p1, double p2, double
 void SubDomain::sendLocalForce(Vec3D flocal, LevelSetResult& lsRes, double(*Fs)[3])
 {
   if(lsRes.alpha < 0) return;
-  for(LevelSetResult::iterator it = lsRes.begin(); it != lsRes.end(); ++it) {
+
+	for(LevelSetResult::iterator it = lsRes.begin(); it != lsRes.end(); ++it) 
+	{
     int n = it.nodeNum();
     double coef = it.Ni();
-    for(int i = 0; i < 3; ++i)
-      Fs[n][i] += coef*flocal[i];
-  }
+
+		for(int i=0; i<3; ++i) Fs[n][i] += coef*flocal[i];
+	}
+
 }
 
 //-----------------------------------------------------------------------------------------------
@@ -6277,3 +6385,583 @@ Elem* SubDomain::searchPoint(Vec3D Xp, SVec<double,3>& X) {
   return E;
 }
 
+
+// ----------------------------------------
+
+bool SubDomain::getPiercedPoint(Vec3D va, Vec3D vb, Vec3D vc, Vec3D vd, Vec3D ve, double &r, double &t)
+{ 
+
+	r = 0.0; 
+	t = 0.0;
+
+	int pierce = checkPiercePoint(va, vb, vc, vd, ve, true);
+
+	if(pierce >= -3 && pierce <= 3) 
+	{
+		constructPiercePoint(va, vb, vc, vd, ve, 0, &r, &t, true); 
+		return true;
+	}
+	else 
+		return false;
+
+}
+
+// ----------------------------------------
+
+bool SubDomain::getSIstencil(int Ni, int Nj, SVec<double,3> &X, LevelSetStructure &LSS, Vec<int> &fluidId,
+									  Vec3D &normWall, Vec3D &xWall, V6NodeData &SiStencilData)
+{
+
+	double min_dist0 = bigNum;
+	double min_dist1 = bigNum;
+
+	bool Wmode1 = false;
+	bool Wmode0 = false;
+
+	int ele1, ele0, face1, face0;
+	ele1 = ele0 = face1 = face0 = -1;
+
+	double r1, r0, t1, t0;
+	r1 = r0 = t1 = t0 = 0.0;
+
+	Vec3D X_si; 
+	for(int k=0; k<3; ++k) X_si[k] = 0.5*(X[Ni][k] + X[Nj][k]);
+
+	Vec3D dir = X_si - xWall;
+	double norm = sqrt(dir * dir);
+	if(norm != 0.0) dir *= 1.0 / norm;
+
+	Vec3D ve = X_si + 1000.0*dir;
+
+	int N_act = LSS.isActive(0.0, Ni) ? Ni : Nj;
+
+	// Loop over the elements connected to nodes Ni and Nj
+	for(int idN=0; idN<2; ++idN)
+	{
+		int Nnode = (idN == 0) ? Ni : Nj;
+
+		int Esize;
+		int* Elist;
+		Elist = getNeiElemOfNode(Nnode, 1, Esize);
+
+		for(int n=0; n<Esize; ++n)
+		{	
+			int nE = Elist[n];
+
+			// Loop over the faces of the current element
+			for(int tf=0; tf<4; ++tf)
+			{				
+				int n0_ = elems[nE].faceDef(tf,0); int N0 = elems[nE].nodeNum(n0_);
+				int n1_ = elems[nE].faceDef(tf,1); int N1 = elems[nE].nodeNum(n1_);
+				int n2_ = elems[nE].faceDef(tf,2); int N2 = elems[nE].nodeNum(n2_);
+				
+				// Coordinates of the 3 vertices of the current face
+				Vec3D va(X[N0]); Vec3D vb(X[N1]); Vec3D vc(X[N2]);
+
+				double r=0, t=0;
+				bool newPoint = getPiercedPoint(va, vb, vc, X_si, ve, r, t);
+
+				int mode = 0;
+				if(LSS.isActive(0.0, N0) && 
+					LSS.isActive(0.0, N1) && 
+					LSS.isActive(0.0, N2) &&				
+					fluidId[N0] == fluidId[N_act] &&	
+					fluidId[N1] == fluidId[N_act] && 
+					fluidId[N2] == fluidId[N_act]) mode = 1;
+
+				if(newPoint && mode == 1)
+				{
+					/* 
+						--- mode1 ---
+						the line (Xwall - Xsi) pierces a face which
+						has only active nodes; Xp is the true pierced point
+					*/	
+
+					Vec3D Xp;
+					for(int k=0; k<3; ++k)
+				 		Xp[k] = X[N2][k] + r*(X[N0][k] - X[N2][k])+
+						                   t*(X[N1][k] - X[N2][k]);
+
+					Vec3D vDist = Xp - X_si;
+					double dist = sqrt(vDist * vDist);
+					
+					if(dist < min_dist1)
+					{
+						min_dist1 = dist;
+
+						ele1 = nE; face1 = tf;
+
+						r1 = r; t1 = t;
+
+						Wmode1 = true;
+					}
+				}
+				else if(newPoint && mode == 0)
+				{
+					/* 
+						--- mode0 ---
+						the line (Xwall - Xsi) pierces a face which
+						has some inactive nodes; Xp is the active node
+						closest to Xsi
+					*/	
+					
+					Vec3D vDista = va - X_si; double dista = sqrt(vDista * vDista);
+					Vec3D vDistb = vb - X_si; double distb = sqrt(vDistb * vDistb);
+					Vec3D vDistc = vc - X_si; double distc = sqrt(vDistc * vDistc);
+
+					// To exclude nodes with a different fluidId
+					if(fluidId[N0] != fluidId[N_act]) dista = bigNum;
+					if(fluidId[N1] != fluidId[N_act]) distb = bigNum;
+					if(fluidId[N2] != fluidId[N_act]) distc = bigNum;
+               //... or inactive nodes
+					if(!LSS.isActive(0.0, N0)) dista = bigNum;
+					if(!LSS.isActive(0.0, N1)) distb = bigNum;
+					if(!LSS.isActive(0.0, N2)) distc = bigNum;
+
+					double dist = std::min(dista, std::min(distb, distc));
+					
+					if(dist < min_dist0)
+					{						
+						min_dist0 = dist;
+
+						ele0 = nE; face0 = tf;
+
+						if(     fabs(dist - dista) < geomTol) {r0 = 1.0; t0 = 0.0;}
+						else if(fabs(dist - distb) < geomTol) {r0 = 0.0; t0 = 1.0;}
+						else                                  {r0 = 0.0; t0 = 0.0;}
+
+						Wmode0 = true;
+					}
+				}
+			}
+		}
+	}
+
+	if(Wmode1)
+	{
+		SiStencilData.tet  = ele1;
+		SiStencilData.face = face1;
+		SiStencilData.r    = r1;
+		SiStencilData.t    = t1;
+	}
+	else if(Wmode0 && !Wmode1) 
+	{
+		SiStencilData.tet  = ele0;
+		SiStencilData.face = face0;
+		SiStencilData.r    = r0;
+		SiStencilData.t    = t0;
+	}
+	else
+	{
+		SiStencilData.tet  = -1;
+		SiStencilData.face = -1;
+		SiStencilData.r    = -1.0;
+		SiStencilData.t    = -1.0;
+	}
+
+	return Wmode0 || Wmode1;
+
+}
+
+// ----------------------------------------
+
+bool SubDomain::getFEMstencil(int Ni, SVec<double,3> &X, 
+										LevelSetStructure &LSS, Vec<int> &fluidId,
+										Vec3D &normWall, Vec3D &xWall, 
+										V6NodeData &NodeStencilData)
+{
+
+	double min_dist0 = bigNum;
+	double min_dist1 = bigNum;
+
+	bool Wmode1 = false;
+	bool Wmode0 = false;
+
+	int ele1, ele0, face1, face0;
+	ele1 = ele0 = face1 = face0 = -1;
+
+	double r1, r0, t1, t0;
+	r1 = r0 = t1 = t0 = 0.0;
+
+	Vec3D X_i = X[Ni]; 
+
+	Vec3D dir;
+	if(LSS.isOccluded(0.0, Ni))
+		dir = xWall - X_i;
+	else
+		dir = X_i - xWall;
+		
+	double norm = sqrt(dir * dir);
+	if(norm != 0.0) dir *= 1.0 / norm;
+
+	Vec3D ve = X_i + 1000.0*dir;
+
+	int Esize;
+	int* Elist;
+	Elist = getNeiElemOfNode(Ni, 2, Esize);
+
+	for(int n=0; n<Esize; ++n) 
+	{	
+		int nE = Elist[n];
+
+		// Loop over the faces of the current element
+		for(int tf=0; tf<4; ++tf)
+		{				
+			int n0_ = elems[nE].faceDef(tf,0); int N0 = elems[nE].nodeNum(n0_);
+			int n1_ = elems[nE].faceDef(tf,1); int N1 = elems[nE].nodeNum(n1_);
+			int n2_ = elems[nE].faceDef(tf,2); int N2 = elems[nE].nodeNum(n2_);
+				
+			// Coordinates of the 3 vertices of the current face
+			Vec3D va(X[N0]); Vec3D vb(X[N1]); Vec3D vc(X[N2]);
+
+			double r=0, t=0;
+			bool newPoint = getPiercedPoint(va, vb, vc, X_i, ve, r, t);
+
+			int mode = 0;
+			if(LSS.isActive(0.0, N0) && 
+				LSS.isActive(0.0, N1) && 
+				LSS.isActive(0.0, N2) &&				
+				fluidId[N0] == fluidId[Ni] &&	
+				fluidId[N1] == fluidId[Ni] && 
+				fluidId[N2] == fluidId[Ni]) mode = 1;
+
+				if(newPoint && mode == 1)
+				{
+					/* 
+						--- mode1 ---
+						the line (Xwall - Xi) pierces a face which
+						has only active nodes; Xp is the true pierced point
+					*/	
+
+					Vec3D Xp;
+					for(int k=0; k<3; ++k)
+				 		Xp[k] = X[N2][k] + r*(X[N0][k] - X[N2][k])+
+						                   t*(X[N1][k] - X[N2][k]);
+
+					Vec3D vDist = Xp - X_i;
+					double dist = sqrt(vDist * vDist);
+					
+					if(dist < min_dist1)
+					{
+						min_dist1 = dist;
+
+						ele1 = nE; face1 = tf;
+
+						r1 = r; t1 = t;
+
+						Wmode1 = true;
+					}
+				}
+				else if(newPoint && mode == 0)
+				{
+					/* 
+						--- mode0 ---
+						the line (Xwall - Xi) pierces a face which
+						has some inactive nodes; Xp is the active node
+						closest to Xi
+					*/	
+					
+					Vec3D vDista = va - X_i; double dista = sqrt(vDista * vDista);
+					Vec3D vDistb = vb - X_i; double distb = sqrt(vDistb * vDistb);
+					Vec3D vDistc = vc - X_i; double distc = sqrt(vDistc * vDistc);
+
+					// To exclude nodes with a different fluidId...
+					if(fluidId[N0] != fluidId[Ni]) dista = bigNum;
+					if(fluidId[N1] != fluidId[Ni]) distb = bigNum;
+					if(fluidId[N2] != fluidId[Ni]) distc = bigNum;
+               //... or inactive nodes
+					if(!LSS.isActive(0.0, N0)) dista = bigNum;
+					if(!LSS.isActive(0.0, N1)) distb = bigNum;
+					if(!LSS.isActive(0.0, N2)) distc = bigNum;
+
+					double dist = std::min(dista, std::min(distb, distc));
+					
+					if(dist < min_dist0)
+					{						
+						min_dist0 = dist;
+
+						ele0 = nE; face0 = tf;
+
+						if(     fabs(dist - dista) < geomTol) {r0 = 1.0; t0 = 0.0;}
+						else if(fabs(dist - distb) < geomTol) {r0 = 0.0; t0 = 1.0;}
+						else                                  {r0 = 0.0; t0 = 0.0;}
+
+						Wmode0 = true;
+					}
+				}
+			}
+		}
+
+
+	if(Wmode1)
+	{
+		NodeStencilData.tet  = ele1;
+		NodeStencilData.face = face1;
+		NodeStencilData.r    = r1;
+		NodeStencilData.t    = t1;
+	}
+	else if(Wmode0 && !Wmode1) 
+	{
+		NodeStencilData.tet  = ele0;
+		NodeStencilData.face = face0;
+		NodeStencilData.r    = r0;
+		NodeStencilData.t    = t0;
+	}
+	else
+	{
+		NodeStencilData.tet  = -1;
+		NodeStencilData.face = -1;
+		NodeStencilData.r    = -1.0;
+		NodeStencilData.t    = -1.0;
+	}
+
+	return Wmode0 || Wmode1;
+
+}
+
+// ------------------------------------------------------------
+
+bool SubDomain::getFEMstencil2(int Ni, SVec<double,3> &X, 
+										LevelSetStructure &LSS, Vec<int> &fluidId,
+										Vec3D &normWall, Vec3D &xWall, 
+										V6NodeData &NodeStencilData_p, 
+										V6NodeData &NodeStencilData_m)
+{
+
+	NodeStencilData_p.tet  = -1;   	NodeStencilData_m.tet  = -1;
+	NodeStencilData_p.face = -1;	   NodeStencilData_m.face = -1;
+	NodeStencilData_p.r    = -1.0;   NodeStencilData_m.r    = -1.0;
+	NodeStencilData_p.t    = -1.0;   NodeStencilData_m.t    = -1.0;
+
+	double min_dist0_p = bigNum, min_dist0_m = bigNum; 
+	double min_dist1_p = bigNum, min_dist1_m = bigNum;
+
+	bool Wmode1_p = false, Wmode1_m = false;
+	bool Wmode0_p = false, Wmode0_m = false;
+
+	int ele1_p =-1,  ele1_m=-1,  ele0_p=-1,  ele0_m=-1;
+	int face1_p=-1, face1_m=-1, face0_p=-1, face0_m=-1;
+
+	double r1_p=0, r1_m=0, r0_p=0, r0_m=0;
+	double t1_p=0, t1_m=0, t0_p=0, t0_m=0;
+
+	Vec3D X_i = X[Ni];
+
+	Vec3D dir = X_i - xWall;
+		
+	double norm = sqrt(dir * dir);
+
+	if(norm > geomTol) 
+		dir *= 1.0 / norm;
+	else
+	{
+		// X_i and xWall coincide: use nWall as searching direction
+	   norm = sqrt(normWall * normWall);
+		dir = normWall * (1.0/norm);
+	}
+
+	Vec3D ve_p = X_i + 1000.0*dir;
+	Vec3D ve_m = X_i - 1000.0*dir;
+
+	int Esize;
+	int* Elist;
+	Elist = getNeiElemOfNode(Ni, 2, Esize);
+	
+	bool newPoint_p, newPoint_m;
+
+	double r, t, dist;
+
+	for(int n=0; n<Esize; ++n) 
+	{	
+		int nE = Elist[n];
+		
+		// Loop over the faces of the current element
+		for(int tf=0; tf<4; ++tf)
+		{
+			int n0_ = elems[nE].faceDef(tf,0); int N0 = elems[nE].nodeNum(n0_);
+			int n1_ = elems[nE].faceDef(tf,1); int N1 = elems[nE].nodeNum(n1_);
+			int n2_ = elems[nE].faceDef(tf,2); int N2 = elems[nE].nodeNum(n2_);
+			
+			// Coordinates of the 3 vertices of the current face
+			Vec3D va(X[N0]); Vec3D vb(X[N1]); Vec3D vc(X[N2]);
+			
+			double r_p = 0, t_p = 0;
+			newPoint_p = getPiercedPoint(va, vb, vc, X_i, ve_p, r_p, t_p);
+
+			double r_m = 0, t_m = 0;
+			newPoint_m = getPiercedPoint(va, vb, vc, X_i, ve_m, r_m, t_m);	
+
+			if(!newPoint_p && !newPoint_m) continue;
+
+			if(newPoint_p && newPoint_m) 
+			{
+				fprintf(stderr, "   **** Error: points +/- identical\n");
+				exit(-1);
+			}
+
+			int mode = 0;
+			if(LSS.isActive(0.0, N0) &&
+				LSS.isActive(0.0, N1) &&
+				LSS.isActive(0.0, N2) &&
+				fluidId[N0] == fluidId[Ni] &&
+				fluidId[N1] == fluidId[Ni] &&
+				fluidId[N2] == fluidId[Ni]) mode = 1;
+			
+			if(mode == 1)
+			{
+				/*
+				  --- mode1 ---
+				  the line (Xwall - Xi) pierces a face which
+				  has only active nodes; Xp is the true pierced point
+				*/
+
+				if(newPoint_p) {r = r_p; t = t_p;}
+				else           {r = r_m; t = t_m;}
+
+				Vec3D Xp;
+				for(int k=0; k<3; ++k)
+					Xp[k] = X[N2][k] + r*(X[N0][k] - X[N2][k])+
+						                t*(X[N1][k] - X[N2][k]);
+					
+				Vec3D vDist = Xp - X_i;
+				dist = sqrt(vDist * vDist);
+			}
+			else
+			{
+				/* 
+					--- mode0 ---
+					the line (Xwall - Xi) pierces a face which
+					has some inactive nodes; Xp is the active node
+					closest to Xi
+				*/	
+					
+				Vec3D vDista = va - X_i; double dista = sqrt(vDista * vDista);
+				Vec3D vDistb = vb - X_i; double distb = sqrt(vDistb * vDistb);
+				Vec3D vDistc = vc - X_i; double distc = sqrt(vDistc * vDistc);
+
+				// To exclude nodes with a different fluidId...
+				if(fluidId[N0] != fluidId[Ni]) dista = bigNum;
+				if(fluidId[N1] != fluidId[Ni]) distb = bigNum;
+				if(fluidId[N2] != fluidId[Ni]) distc = bigNum;
+				//... or inactive nodes
+				if(!LSS.isActive(0.0, N0)) dista = bigNum;
+				if(!LSS.isActive(0.0, N1)) distb = bigNum;
+				if(!LSS.isActive(0.0, N2)) distc = bigNum;
+				
+				dist = std::min(dista, std::min(distb, distc));
+
+				if(     fabs(dist - dista) < geomTol) {r = 1.0; t = 0.0;}
+				else if(fabs(dist - distb) < geomTol) {r = 0.0; t = 1.0;}
+				else                                  {r = 0.0; t = 0.0;}
+			}
+			
+			if(newPoint_p)
+			{
+				if(mode == 1 && dist < min_dist1_p)
+				{
+					min_dist1_p = dist;
+
+					ele1_p = nE; face1_p = tf; 
+					r1_p = r; t1_p = t;
+
+					Wmode1_p = true;
+				}
+				else if(mode == 0 && dist < min_dist0_p)
+				{
+					min_dist0_p = dist;
+
+					ele0_p = nE; face0_p = tf; 
+					r0_p = r; t0_p = t;
+
+					Wmode0_p = true;
+				}				
+			}
+			else if(newPoint_m)
+			{
+				if(mode == 1 && dist < min_dist1_m)
+				{
+					min_dist1_m = dist;
+
+					ele1_m = nE; face1_m = tf; 
+					r1_m = r; t1_m = t;
+
+					Wmode1_m = true;
+				}
+				else if(mode == 0 && dist < min_dist0_m)
+				{
+					min_dist0_m = dist;
+
+					ele0_m = nE; face0_m = tf; 
+					r0_m = r; t0_m = t;
+
+					Wmode0_m = true;
+				}
+			}
+		}		
+	}
+
+	// ----------------------------- //
+
+	if(Wmode1_p)
+	{
+		NodeStencilData_p.tet  = ele1_p;
+		NodeStencilData_p.face = face1_p;
+		NodeStencilData_p.r    = r1_p;
+		NodeStencilData_p.t    = t1_p;		
+	}
+	else if(Wmode0_p && !Wmode1_p)
+	{
+		NodeStencilData_p.tet  = ele0_p;
+		NodeStencilData_p.face = face0_p;
+		NodeStencilData_p.r    = r0_p;
+		NodeStencilData_p.t    = t0_p;
+	}
+
+	if(Wmode1_m)
+	{
+		NodeStencilData_m.tet  = ele1_m;
+		NodeStencilData_m.face = face1_m;
+		NodeStencilData_m.r    = r1_m;
+		NodeStencilData_m.t    = t1_m;
+	}
+	else if(Wmode0_m && !Wmode1_m)
+	{
+		NodeStencilData_m.tet  = ele0_m;
+		NodeStencilData_m.face = face0_m;
+		NodeStencilData_m.r    = r0_m;
+		NodeStencilData_m.t    = t0_m;
+	}
+ 
+	bool Wmode = (Wmode0_m || Wmode1_m) || (Wmode0_p || Wmode1_p);
+
+	return Wmode;
+
+}
+
+void SubDomain::printPoint(int Ni, SVec<double,3> &X, Vec3D &xWall, V6NodeData & NSdata, 
+									int dir, int mode)
+{
+	int    idxTet  = NSdata.tet;
+	int    idxFace = NSdata.face;
+	double face_r  = NSdata.r;
+	double face_t  = NSdata.t;
+
+	int n0_loc = elems[idxTet].faceDef(idxFace, 0);
+	int n1_loc = elems[idxTet].faceDef(idxFace, 1);
+	int n2_loc = elems[idxTet].faceDef(idxFace, 2);
+
+	int n0 = elems[idxTet].nodeNum(n0_loc);
+	int n1 = elems[idxTet].nodeNum(n1_loc);
+	int n2 = elems[idxTet].nodeNum(n2_loc);
+
+	Vec3D Xf;
+	for(int k=0; k<3; ++k)
+		Xf[k] = X[n2][k] + face_r*(X[n0][k] - X[n2][k])
+			              + face_t*(X[n1][k] - X[n2][k]);
+
+	fprintf(stdout, "%d, %d, %15.6e,%15.6e,%15.6e, %15.6e,%15.6e,%15.6e, %15.6e,%15.6e,%15.6e, ", mode, dir, 
+			  xWall[0], xWall[1], xWall[2],
+			  X[Ni][0],X[Ni][1],X[Ni][2], 
+			  Xf[0],Xf[1],Xf[2]);
+
+}

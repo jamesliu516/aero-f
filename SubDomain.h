@@ -198,6 +198,9 @@ class SubDomain {
 
   LevelSetStructure* triangulatedInterfaceLSS;
 
+  double geomTol;
+  double bigNum;
+  
 public:
   
   HigherOrderMultiFluid* higherOrderMF;
@@ -333,6 +336,19 @@ public:
   void computeDisplacement(SVec<double,3> &, SVec<double,3> &);
   void computeDisplacement(SVec<double,3> &, double* res,int id);
 
+  //d2d
+  bool getPiercedPoint(Vec3D va, Vec3D vb, Vec3D vc, Vec3D vd, Vec3D ve, double &r, double &t);
+  bool getSIstencil(int Ni, int Nj, SVec<double,3> &X, LevelSetStructure &LSS, Vec<int> &fluidId,
+						  Vec3D &normWall, Vec3D &xWall, V6NodeData &SiStencilData);
+  bool getFEMstencil(int Ni, SVec<double,3> &X, LevelSetStructure &LSS, Vec<int> &fluidId,
+							Vec3D &normWall, Vec3D &xWall, V6NodeData &NodeStencilData);
+
+  bool getFEMstencil2(int Ni, SVec<double,3> &X, LevelSetStructure &LSS, 
+							 Vec<int> &fluidId, Vec3D &normWall, Vec3D &xWall, 
+							 V6NodeData &NodeStencilData_p, V6NodeData &NodeStencilData_m);
+
+  void printPoint(int Ni, SVec<double,3> &X, Vec3D &xWall, V6NodeData &NSdata, int dir, int mode);
+
   void assimilateCells(int, int, int*, int**, bool *, int, int *, bool *);
   MacroCellSet** findAgglomerateMesh(int, int, bool *, double);
   void createMacroCellConnectivities(MacroCellSet **, int);
@@ -388,7 +404,7 @@ public:
   template<int dim>
   void computeTimeStep(FemEquationTerm *, VarFcn *, GeoState &, SVec<double,3> &, SVec<double,dim> &, Vec<double> &,
 		       Vec<double> &, Vec<double> &, Vec<double> &,
-                       TimeLowMachPrec &);
+                       TimeLowMachPrec &, LevelSetStructure *LSS=0);
 
   template<int dim>
   void computeTimeStep(FemEquationTerm *, VarFcn *, GeoState &, SVec<double,dim> &, Vec<double> &,
@@ -446,14 +462,15 @@ public:
                 SVec<Scalar,dim> &, SVec<Scalar,dim> &);
 
   template<int dim>
-  void computeMinMaxStencilValues(SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &);
+	  void computeMinMaxStencilValues(SVec<double,dim> &, SVec<double,dim> &, 
+												 SVec<double,dim> &, LevelSetStructure *LSS = 0);
 
   template<int dim>
 //  void computeMultiDimLimiter(RecFcnLtdMultiDim<dim> *, SVec<double,3> &, Vec<double> &,
   void computeMultiDimLimiter(RecLimiter *, SVec<double,3> &, Vec<double> &,
 			      SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &,
 			      SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &,
-			      SVec<double,dim> &);
+										SVec<double,dim> &, LevelSetStructure *LSS = 0);
 
   template<int dim>
   void computePressureSensor(SVec<double,3>&, SVec<double,dim>&, SVec<double,dim>&,
@@ -472,7 +489,8 @@ public:
 
   template<int dim, int dimLS>
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&,
-                              FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
+                              FluxFcn**, RecFcn*, 
+										BcData<dim>&, GeoState&,
                               SVec<double,3>&, SVec<double,dim>&, 
                               Vec<int> &, FluidSelector &,
                               NodalGrad<dim>&, EdgeGrad<dim>*,
@@ -483,9 +501,11 @@ public:
 
   template<int dim, int dimLS>
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&,
-                              FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
+                              FluxFcn**, RecFcn*, 
+										BcData<dim>&, GeoState&,
                               SVec<double,3>&, SVec<double,dim>&,
-                              SVec<double,dim>&, SVec<double,dim>&, LevelSetStructure&, bool,
+                              SVec<double,dim>&, SVec<double,dim>&, 
+										LevelSetStructure&, bool,
                               Vec<int> &, int, FluidSelector &,
                               NodalGrad<dim>&, EdgeGrad<dim>*,
 			      SVec<double,dimLS>& phi,
@@ -493,17 +513,25 @@ public:
 			      EdgeGrad<dimLS>*,
                               SVec<double,dim>&, int, SVec<int,2>&, int, int);
 
+  // embedded structure
   template<int dim>
-  int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&,
-                              FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
-                              SVec<double,3>&, SVec<double,dim>&,
-                              SVec<double,dim>&, SVec<double,dim>&, LevelSetStructure &, bool, Vec<int> &, int,
-                              NodalGrad<dim>&, EdgeGrad<dim>*,
-                              SVec<double,dim>&, int, SVec<int,2>&, int, int);
+  int computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
+                              FluxFcn** fluxFcn, RecFcn* recFcn, 
+										BcData<dim>& bcData, GeoState& geoState,
+                              SVec<double,3>& X, SVec<double,dim>& V,
+                              SVec<double,dim>& Wstarij, SVec<double,dim>& Wstarji, 
+										SVec<double,dim>& Wext, LevelSetStructure &LSS, 
+										bool linRecAtInterface, Vec<int> &fluidId, 
+										int Nriemann,
+                              NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
+                              SVec<double,dim>& fluxes, 
+										int it, SVec<int,2>& tag, 
+										int failsafe, int rshift, bool externalSI=false);
 
   template<int dim>
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&,
-                              FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
+                              FluxFcn**, RecFcn*, 
+										BcData<dim>&, GeoState&,
                               SVec<double,3>&, SVec<double,dim>&,
                               SVec<double,dim>&, SVec<double,dim>&, 
                               Vec<int>&, Vec<int>&, LevelSetStructure &, bool, 
@@ -555,7 +583,7 @@ public:
                                        SVec<double,3>& X, SVec<double,dim>& V,Vec<double>& ctrlVol,
                                        LevelSetStructure &LSS,Vec<int> &fluidId,
                                        int Nriemann,
-                                       GenMat<Scalar,neq>& A,Vec<double>& irey);
+                                       GenMat<Scalar,neq>& A,Vec<double>& irey,  bool externalSI=false);
 
   template<int dim, class Scalar, int neq, int dimLS>
   void computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
@@ -596,8 +624,11 @@ public:
 
   template<int dim>
   void computeGalerkinTerm(FemEquationTerm *, BcData<dim> &, GeoState &,
-			   SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &,
-			   Vec<GhostPoint<dim>*> *ghostPoints=0,LevelSetStructure *LSS=0);
+									SVec<double,3> &, SVec<double,dim> &, 
+									SVec<double,dim> &,
+									Vec<GhostPoint<dim>*> *ghostPoints=0,
+									LevelSetStructure *LSS=0, 
+									bool externalSI=false);
 
   template<int dim>
   void computeVolumicForceTerm(VolumicForceTerm *, Vec<double> &,
@@ -606,12 +637,12 @@ public:
   template<int dim>
   void computeSmagorinskyLESTerm(SmagorinskyLESTerm *, SVec<double,3> &, SVec<double,dim> &,
 				 SVec<double,dim> &, Vec<GhostPoint<dim>*> *ghostPoints=0,
-                                 LevelSetStructure *LSS=0);
+                                 LevelSetStructure *LSS=0, bool externalSI=false);
 
   template<int dim>
   void computeWaleLESTerm(WaleLESTerm *, SVec<double,3> &, SVec<double,dim> &, 
                           SVec<double,dim> &, Vec<GhostPoint<dim>*> *ghostPoints=0,
-                          LevelSetStructure *LSS=0);
+                          LevelSetStructure *LSS=0, bool externalSI=false);
 
   template<int dim>
   void computeMutOMuSmag(SmagorinskyLESTerm *, SVec<double,3> &, SVec<double,dim> &, Vec<double> &);
@@ -633,7 +664,7 @@ public:
   template<int dim>
   void computeTestFilterAvgs(SVec<double,dim> &,  SVec<double,16> &, SVec<double,6> &, Vec<double> &,
                              SVec<double,8> &, SVec<double,3> &, SVec<double,dim> &, double, double, 
-                             Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0);
+                             Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0, bool externalSI=false);
 
   template<int dim>
   void computeCsValues(SVec<double,dim> &,  SVec<double,16> &, SVec<double,6> &, Vec<double> &,
@@ -642,7 +673,8 @@ public:
   template<int dim>
   void computeDynamicLESTerm(DynamicLESTerm *, SVec<double,2> &, SVec<double,3> &, 
                              SVec<double,dim> &, SVec<double,dim> &, 
-                             Vec<GhostPoint<dim>*> *ghostPoints=0,LevelSetStructure *LSS=0);
+                             Vec<GhostPoint<dim>*> *ghostPoints=0,
+									  LevelSetStructure *LSS=0, bool externalSI=false);
 
   template<int dim>
   void computeVMSLES_Step1(VMSLESTerm *, SVec<double,dim> &, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &);
@@ -685,7 +717,8 @@ public:
 				   GeoState &geoState, SVec<double,3> &X,
 				   Vec<double> &ctrlVol, SVec<double,dim> &V,
 				   GenMat<Scalar,neq> &A,
-				   Vec<GhostPoint<dim>*>* ghostPoints=0,LevelSetStructure *LSS=0);
+											  Vec<GhostPoint<dim>*>* ghostPoints=0, 
+											  LevelSetStructure *LSS=0, bool externalSI=false);
 
   template<int dim, class Scalar, int neq>
   void computeJacobianVolumicForceTerm(VolumicForceTerm *, Vec<double> &,
@@ -1024,21 +1057,24 @@ public:
   template<class Scalar, int dim>
   void addRcvData(CommPattern<Scalar> &, Scalar (*)[dim]);
 
+  template<class Scalar, int dim>
+  void RcvData(CommPattern<Scalar> &, Scalar (*)[dim]);
+
   template<int dim>
-  void sndGhostStates(CommPattern<double> &, Vec<GhostPoint<dim>*> &);
+	  void sndGhostStates(CommPattern<double> &, Vec<GhostPoint<dim>*> &, int);
   template<int dim>
   void sndNumGhostStates(CommPattern<int> &, Vec<GhostPoint<dim>*> &);
   template<int dim>
-  void sndGhostWeights(CommPattern<double> &, Vec<GhostPoint<dim>*> &);
+	  void sndGhostWeights(CommPattern<double> &, Vec<GhostPoint<dim>*> &, int);
   template<int dim>
   void sndGhostTags(CommPattern<int> &, Vec<GhostPoint<dim>*> &);
 
   template<int dim>
-  void rcvGhostStates(CommPattern<double> &, Vec<GhostPoint<dim>*> &);
+	  void rcvGhostStates(CommPattern<double> &, Vec<GhostPoint<dim>*> &, int);
   template<int dim>
   void rcvNumGhostStates(CommPattern<int> &, Vec<GhostPoint<dim>*> &, VarFcn *varFcn);
   template<int dim>
-  void rcvGhostWeights(CommPattern<double> &, Vec<GhostPoint<dim>*> &);
+	  void rcvGhostWeights(CommPattern<double> &, Vec<GhostPoint<dim>*> &, int);
   template<int dim>
   void rcvGhostTags(CommPattern<int> &, Vec<GhostPoint<dim>*> &);
 
@@ -1107,10 +1143,10 @@ public:
   void testNormals(Vec<Vec3D> &, Vec<double> &, Vec<Vec3D> &, Vec<double> &);
 
   template<int dim>
-  int checkSolution(VarFcn *, SVec<double,dim> &);
+  int checkSolution(VarFcn *, SVec<double,dim> &, LevelSetStructure *LSS = 0);
 
   template<int dim>
-  int checkSolution(VarFcn *, SVec<double,dim> &, Vec<int> &);
+  int checkSolution(VarFcn *, SVec<double,dim> &, Vec<int> &, LevelSetStructure *LSS = 0);
 
   template<int dim>
   int checkSolution(VarFcn *, Vec<double> &, SVec<double,dim> &, Vec<int> &, Vec<int> &);
@@ -1181,7 +1217,8 @@ public:
 
   template<int dim>
   void computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights,
-                      Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X, Vec<int> &init, Vec<int> &next_init);
+													Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X, 
+													Vec<int> &init, Vec<int> &next_init, bool externalSI=false);
 
   template<int dim>
   void computeWeightsForFluidFluid(SVec<double,dim> &V, SVec<double,dim> &VWeights,
@@ -1189,9 +1226,9 @@ public:
 				   Vec<int>& fluidId);
 
   void computeWeightsLeastSquaresEdgePartForEmbeddedStruct(LevelSetStructure &LSS, 
-					  SVec<double,3> &X, SVec<int,1> &count, SVec<double,10> &R, Vec<int> &init);
-  void computeWeightsLeastSquaresNodePartForEmbeddedStruct(
-		  SVec<int,1> &count, SVec<double,10> &R);
+																			  SVec<double,3> &X, SVec<int,1> &count, SVec<double,10> &R, Vec<int> &init, bool externalSI=false);
+
+  void computeWeightsLeastSquaresNodePartForEmbeddedStruct(SVec<int,1> &count, SVec<double,10> &R);
 
   void computeWeightsLeastSquaresEdgePartForFF(LevelSetStructure *LSS, 
 					       SVec<double,3> &X, SVec<int,1> &count, SVec<double,10> &R, Vec<int> &init,
@@ -1203,7 +1240,7 @@ public:
   void computeWeightsLeastSquaresForEmbeddedStruct(SVec<double,3> &X, SVec<double,10> &R, 
 		  SVec<double,dim> &V, Vec<double> &Weights, SVec<double,dim> &VWeights, 
 						   LevelSetStructure &LSS, Vec<int> &init, Vec<int> &next_init,
-						   NodalGrad<dim>& DX,bool limit,Vec<int>* fluidId);
+																	NodalGrad<dim>& DX,bool limit,Vec<int>* fluidId, bool externalSI=false);
 
   template<int dim>
   void computeWeightsLeastSquaresForFluidFluid(SVec<double,3> &X, SVec<double,10> &R, 
@@ -1219,14 +1256,30 @@ public:
   void extrapolatePhiV(LevelSetStructure &LSS, SVec<double,dimLS> &PhiV);
 
   template<int dim>
-    void populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints,SVec<double,3> &X,SVec<double,dim> &U,NodalGrad<dim, double> &ngrad,VarFcn *varFcn,LevelSetStructure &LSS,bool linRecFSI,Vec<int> &tag);
+    void populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<double,3> &X, SVec<double,dim> &U,
+									  NodalGrad<dim, double> &ngrad, VarFcn *varFcn, LevelSetStructure &LSS, bool linRecFSI, Vec<int> &tag);
+
+  template<int dim>
+    void populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<double,3> &X, SVec<double,dim> &U,
+									  NodalGrad<dim, double> &ngrad, VarFcn *varFcn, LevelSetStructure &LSS, Vec<int> &fluidId,
+									  FemEquationTerm *fet);
+
+  template<int dim>
+	  void checkGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<double,3> &X, 
+							 SVec<double,dim> &U, NodalGrad<dim, double> &ngrad, 
+							 VarFcn *varFcn, LevelSetStructure &LSS, Vec<int> &fluidId);
   
   template<int dim, class Scalar, int neq>
     void populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<double,dim> &U,FluxFcn** fluxFcn,VarFcn *varFcn,LevelSetStructure &LSS,Vec<int> &tag,GenMat<Scalar,neq>& A);
 
+  template<int dim>
+	  void setSIstencil(SVec<double,3> &X, LevelSetStructure &LSS, Vec<int> &fluidId, SVec<double,dim> &U);
 
   template<int dim>
-    void reduceGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints);
+	  void setFEMstencil(SVec<double,3> &X, LevelSetStructure &LSS, Vec<int> &fluidId, SVec<double,dim> &U);
+
+  template<int dim>
+	  void reduceGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<double,3> &X);
 
   template<int dim>
   void computeRiemannWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &Wstarij,
@@ -1610,6 +1663,7 @@ public:
   bool isINodeinITet(Vec3D, int, SVec<double,3>&);
   void  localCoord(Vec3D, int, SVec<double, 3>&, Vec3D&);
   int* getNeiElemOfNode(int, int, int&);
+  int* getNeiNodeOfNode(int, int&);
   void getNodeCoords(int, SVec<double,3> &, double&, double&, double&);
   void updateNodeTag(SVec<double,3>&, LevelSetStructure &, Vec<int>&, Vec<int>&);
 
@@ -1624,6 +1678,13 @@ public:
 				    Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, NodalGrad<dim,double> &ngrad, 
 				    VarFcn *vf, Vec<int>* fid);
 
+  template<int dim>
+  void computeEmbSurfBasedForceLoad_e(IoData &iod, int, int, SVec<double,3>&, double (*)[3], int, int, int (*)[3], Vec<Vec3D>&, 
+												  LevelSetStructure&, double pInfty, SVec<double,dim> &V, 
+												  Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, NodalGrad<dim,double> &ngrad, 
+												  VarFcn *vf, Vec<int>* fid,
+												  int** stNodeDir, double** stX1, double** stX2);
+
   // d2d
   template<int dim,int dimLS>
   void computeEMBNodeScalarQuantity(SVec<double,3> &X, SVec<double,dim> &V,
@@ -1635,6 +1696,35 @@ public:
 				    Vec<GhostPoint<dim>*> *ghostPoints,
 				    NodalGrad<dim, double> &ngrad);
 
+  template<int dim,int dimLS>
+	  void computeEMBNodeScalarQuantity_e(SVec<double,3> &X, SVec<double,dim> &V, 
+													  PostFcn *postFcn, VarFcn *varFcn, 
+													  Vec<int> &fluidId, SVec<double,dim> &Wextij, SVec<double,dimLS>* phi,
+													  double (*Qnty)[3], int sizeQnty, int numStructElems, int (*stElem)[3],
+													  Vec<Vec3D>& Xstruct, LevelSetStructure &LSS,
+													  double pInfty, 
+													  Vec<GhostPoint<dim>*> *ghostPoints,
+													  NodalGrad<dim, double> &ngrad);
+
+  template<int dim>
+  void computeEMBNodeScalarQuantity_step1(SVec<double,3> &X, SVec<double,dim> &V,
+														int numStructElems, int (*stElem)[3],
+														Vec<Vec3D>& Xstruct, LevelSetStructure &LSS,
+														int** stNodeDir, double** stX1, double** stX2,
+														bool rebuildTree=true);
+
+
+  template<int dim>
+  void computeEMBNodeScalarQuantity_step2(SVec<double,3> &X, SVec<double,dim> &V, 
+														PostFcn *postFcn, VarFcn *varFcn, 
+														Vec<int> &fluidId, 
+														double (*Qnty)[3], int sizeQnty, int numStructElems, int (*stElem)[3],
+														Vec<Vec3D>& Xstruct, LevelSetStructure &LSS,
+														double pInfty, 
+														Vec<GhostPoint<dim>*> *ghostPoints,
+														NodalGrad<dim, double> &ngrad,
+														int** stNodeDir, double** stX1, double** stX2);
+  
   template<int dim>
   void computederivativeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int order, SVec<double,3> &X,
 					      double (*dFs)[3], int sizeFs, int numStructElems, int (*stElem)[3], 

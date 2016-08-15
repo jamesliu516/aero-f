@@ -12,6 +12,7 @@
 #include <VarFcnTaitSA.h>
 #include <VarFcnTaitKE.h>
 //#include <RectangularSparseMatrix.h>
+#include <LevelSet/LevelSetStructure.h>
 
 #include <cassert>
 #include <cmath>
@@ -79,6 +80,12 @@ public:
   void conservativeToPrimitive(DistSVec<double,dim> &U, DistSVec<double,dim> &V, DistVec<int> *tag = 0);
   template<int dim>
   void primitiveToConservative(DistSVec<double,dim> &V, DistSVec<double,dim> &U, DistVec<int> *tag = 0);
+
+  template<int dim>
+	  void conservativeToPrimitive(DistSVec<double,dim> &U, DistSVec<double,dim> &V, DistLevelSetStructure *distLSS, DistVec<int> *tag = 0);
+  template<int dim>
+  void primitiveToConservative(DistSVec<double,dim> &V, DistSVec<double,dim> &U, DistLevelSetStructure *distLSS, DistVec<int> *tag = 0);
+
   template<int dim>
   void conservativeToPrimitiveDerivative(DistSVec<double,dim> &U, DistSVec<double,dim> &dU, DistSVec<double,dim> &V, DistSVec<double,dim> &dV, DistVec<int> *tag = 0);
   template<int dim>
@@ -400,25 +407,67 @@ void VarFcn::conservativeToPrimitive(DistSVec<double,dim> &U, DistSVec<double,di
   int numLocSub = U.numLocSub();
  
 #pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; ++iSub) {
+	for(int iSub=0; iSub<numLocSub; ++iSub) 
+	{
     double (*u)[dim] = U.subData(iSub);
     double (*v)[dim] = V.subData(iSub);
-    if(tag){
+
+		if(tag)
+		{
       int    *loctag   = tag->subData(iSub);
-      for (int i=0; i<U.subSize(iSub); ++i) {
+
+			for(int i=0; i<U.subSize(iSub); ++i) 
         varFcn[loctag[i]]->conservativeToPrimitive(u[i], v[i]);
-	/*if (loctag[i] == 0) {
-	  for (int k = 0; k < dim; ++k)
-	    std::cout << u[i][k] << " " << v[i][k] << std::endl;
 	}
-	if (loctag[i] == 0) {
-	  std::cout << std::endl;
-	  }*/
+		else
+		{
+			for (int i=0; i<U.subSize(iSub); ++i)
+				varFcn[0]->conservativeToPrimitive(u[i], v[i]);
+		}
       }
 
-    }else{
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void VarFcn::conservativeToPrimitive(DistSVec<double,dim> &U, DistSVec<double,dim> &V, 
+												 DistLevelSetStructure *distLSS, DistVec<int> *tag)
+{
+
+	int numLocSub = U.numLocSub();
+ 
+#pragma omp parallel for
+	for(int iSub=0; iSub<numLocSub; ++iSub) 
+	{
+		double (*u)[dim] = U.subData(iSub);
+		double (*v)[dim] = V.subData(iSub);
+
+		if(tag)
+		{
+			int *loctag = tag->subData(iSub);
+
       for (int i=0; i<U.subSize(iSub); ++i)
+			{
+				bool isActive = (*distLSS)(iSub).isActive(0.0, i);
+
+				//if(isActive) 
+					varFcn[loctag[i]]->conservativeToPrimitive(u[i], v[i]);
+					//else 
+					//for(int k=0; k<dim; ++k) v[i][k] = -1.0; //u[i][k];
+			}
+		}
+		else
+		{
+			for(int i=0; i<U.subSize(iSub); ++i) 
+			{
+				bool isActive = (*distLSS)(iSub).isActive(0.0, i);
+				
+				//if(isActive)
         varFcn[0]->conservativeToPrimitive(u[i], v[i]);
+					//else 
+					//for(int k=0; k<dim; ++k) v[i][k] = -1.0; //u[i][k];
+			}
     }
   }
 
@@ -461,6 +510,52 @@ void VarFcn::primitiveToConservative(DistSVec<double,dim> &V, DistSVec<double,di
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim>
+void VarFcn::primitiveToConservative(DistSVec<double,dim> &V, DistSVec<double,dim> &U, 
+												 DistLevelSetStructure *distLSS, DistVec<int> *tag)
+{
+
+	int numLocSub = U.numLocSub();
+ 
+#pragma omp parallel for
+	for(int iSub=0; iSub<numLocSub; ++iSub) 
+	{
+		double (*u)[dim] = U.subData(iSub);
+		double (*v)[dim] = V.subData(iSub);
+
+		if(tag)
+		{
+			int *loctag = tag->subData(iSub);
+
+			for(int i=0; i<U.subSize(iSub); ++i) 
+			{
+				bool isActive = (*distLSS)(iSub).isActive(0.0, i);
+
+				if(isActive) 
+					varFcn[loctag[i]]->primitiveToConservative(v[i], u[i]);
+				else 
+					for(int k=0; k<dim; ++k) u[i][k] = v[i][k];
+			}
+		}
+		else
+		{
+			for(int i=0; i<U.subSize(iSub); ++i) 
+			{
+				bool isActive = (*distLSS)(iSub).isActive(0.0, i);
+			
+				if(isActive) 
+					varFcn[0]->primitiveToConservative(v[i], u[i]);
+				else 
+					for(int k=0; k<dim; ++k) u[i][k] = v[i][k];
+			}
+		}
+	}
+
+}
+
+//------------------------------------------------------------------------------
+
 
 template<int dim>
 void VarFcn::conservativeToPrimitiveDerivative(SVec<double,dim> &U, SVec<double,dim> &dU, SVec<double,dim> &V, SVec<double,dim> &dV, Vec<int> *tag)

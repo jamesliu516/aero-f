@@ -153,6 +153,9 @@ SpaceOperator<dim>::SpaceOperator(IoData &ioData, VarFcn *vf, DistBcData<dim> *b
     order = 1;
   else
     order = 2;
+
+  externalSI = (ioData.embed.surrogateinterface == EmbeddedFramework::EXTERNAL) ? true : false;
+  ccc = 0;
 }
 
 //------------------------------------------------------------------------------
@@ -196,6 +199,8 @@ SpaceOperator<dim>::SpaceOperator(const SpaceOperator<dim> &spo, bool typeAlloc)
   descriptorCase = spo.descriptorCase;
 // Included (MB)
   iod = spo.iod;
+
+  externalSI = spo.externalSI;
 
 }
 
@@ -1220,8 +1225,6 @@ void SpaceOperator<dim>::computeDerivativeOfResidual(DistSVec<double,3> &X,
 						     DistSVec<double,dim> &R, DistSVec<double,dim> &dR,
 						     DistTimeState<dim> *timeState){
   
-  //std::cout << "IN SPACE OPT EMB computeDerivativeOfResidual\n";
-  
   dR = 0.0;
 
   varFcn->conservativeToPrimitive(U, *V);
@@ -1480,21 +1483,22 @@ template<int dim>
 void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                                          DistSVec<double,dim> &U, 
 					 DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, 
-					 DistLevelSetStructure *distLSS,
+													  DistSVec<double,dim> &Wext, DistLevelSetStructure *distLSS,
                                          bool linRecAtInterface, bool viscSecOrder, DistVec<int> &fluidId, 
                                          DistSVec<double,dim> &R, 
 					 DistExactRiemannSolver<dim> *riemann, int Nriemann, 
-					 int it,
-                                         DistVec<GhostPoint<dim>*> *ghostPoints, bool compatF3D)
+													  int it, DistVec<GhostPoint<dim>*> *ghostPoints,  bool compatF3D)
 {
   R = 0.0;
-  varFcn->conservativeToPrimitive(U, *V, &fluidId);  
+	Wext = 0.0;
 
-  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0){
+	varFcn->conservativeToPrimitive(U, *V, distLSS, &fluidId);
 
+	if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)
+	{
     double t0 = timer->getTime();
 
-    bool linFSI = linRecAtInterface || viscSecOrder;
+		bool linFSI = linRecAtInterface;
 
     ngrad->compute(geoState->getConfig(), X, ctrlVol, fluidId, *V, linFSI, distLSS);
 
@@ -1508,20 +1512,21 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
   if (egrad)
     egrad->compute(geoState->getConfig(), X);
   
-  if (xpol) //boundary condition using xpol = extrapolation
+	//boundary condition using xpol = extrapolation
+	if (xpol) 
     xpol->compute(geoState->getConfig(),geoState->getInletNodeNorm(), X);
 
   if (smag)
-    domain->computeSmagorinskyLESTerm(smag, X, *V, R, ghostPoints, distLSS);
+		domain->computeSmagorinskyLESTerm(smag, X, *V, R, ghostPoints, distLSS, externalSI);
 
   if (wale)
-     domain->computeWaleLESTerm(wale, X, *V, R, ghostPoints, distLSS);
+		domain->computeWaleLESTerm(wale, X, *V, R, ghostPoints, distLSS, externalSI);
 
   if (dles)
-    dles->compute(ctrlVol, *bcData, X, *V, R, ghostPoints, distLSS);
+		dles->compute(ctrlVol, *bcData, X, *V, R, ghostPoints, distLSS, externalSI);
 
   if (fet) {
-      domain->computeGalerkinTerm(fet,*bcData,*geoState,X,*V,R,ghostPoints,distLSS);
+      domain->computeGalerkinTerm(fet, *bcData, *geoState, X, *V, R, ghostPoints, distLSS, externalSI);
       bcData->computeNodeValue(X);
   }
 
@@ -1529,44 +1534,51 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
     domain->computeVolumicForceTerm(volForce, ctrlVol, *V, R);
 
   if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)
-    ngrad->limit(recFcn, X, ctrlVol, *V);
+		ngrad->limit(recFcn, X, ctrlVol, distLSS, *V);
 
-  domain->computeFiniteVolumeTerm(ctrlVol, 
-				  *riemann, 
-				  fluxFcn, recFcn, *bcData,
-                                  *geoState, X, 
-				  *V, Wstarij, Wstarji, 
+	domain->computeFiniteVolumeTerm(ctrlVol, *riemann, fluxFcn, recFcn, *bcData,
+											  *geoState, X, *V, Wstarij, Wstarji, Wext,
 				  distLSS, linRecAtInterface, fluidId, Nriemann,
-				  *ngrad, egrad, 
-				  R, 
-				  it, failsafe,rshift);
+											  *ngrad, egrad, R, it, failsafe, rshift, externalSI);
 
-  if (compatF3D) {
-    if (descriptorCase != DESCRIPTOR)  {
+  if(compatF3D) 
+  {
+	  if(descriptorCase != DESCRIPTOR)
+	  {
       int numLocSub = R.numLocSub();
       int iSub;
 #pragma omp parallel for
-      for (iSub=0; iSub<numLocSub; ++iSub) {
+		  for (iSub=0; iSub<numLocSub; ++iSub) 
+		  {
 	double *cv = ctrlVol.subData(iSub);
 	double (*r)[dim] = R.subData(iSub);
-	switch (descriptorCase) {
-        case HYBRID: {
-          for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+
+			  switch (descriptorCase) 
+			  {				  
+			     case HYBRID: 
+				  {
+					  for (int i=0; i<ctrlVol.subSize(iSub); ++i) 
+					  {
             double invsqcv = 1.0 / sqrt(cv[i]);
-            for (int j=0; j<dim; ++j) 
-              r[i][j] *= invsqcv;
-          }
-          break; }
-        case NONDESCRIPTOR: {
-          for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+						  for (int j=0; j<dim; ++j) r[i][j] *= invsqcv;
+					  }
+					  break; 
+				  }
+			     case NONDESCRIPTOR: 
+				  {
+					  for (int i=0; i<ctrlVol.subSize(iSub); ++i) 
+					  {
             double invcv = 1.0 / cv[i];
-            for (int j=0; j<dim; ++j) 
-              r[i][j] *= invcv;
-          }
-          break; }	  
-	}
-      }
-    }
+						  for (int j=0; j<dim; ++j) r[i][j] *= invcv;
+					  }
+					  break; 
+				  }
+			  }
+
+		  }
+
+	  }
+
   }
 
 }
@@ -1718,15 +1730,16 @@ double SpaceOperator<dim>::recomputeResidual(DistSVec<double,dim> &F, DistSVec<d
 template<int dim>
 double SpaceOperator<dim>::computeRealFluidResidual(DistSVec<double, dim> &F, DistSVec<double,dim> &Freal,
                                                     DistLevelSetStructure &dLSS)
-{ return domain->computeRealFluidResidual(F, Freal, dLSS); }
+{ 
+	return domain->computeRealFluidResidual(F, Freal, dLSS); 
+}
 
 //------------------------------------------------------------------------------
 
 // TODO(jontg): Remove X
 // TODO(jontg): Fix computeRiemannWeightsForEmbeddedStruct
 template<int dim>
-void SpaceOperator<dim>::
-updateSweptNodes(DistSVec<double,3> &X,DistVec<double> &ctrlVol,
+void SpaceOperator<dim>::updateSweptNodes(DistSVec<double,3> &X,DistVec<double> &ctrlVol,
 		 int phaseChangeChoice, int phaseChangeAlg, 
                  DistSVec<double,dim> &U, DistSVec<double,dim> &V,
                  DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
@@ -1734,14 +1747,23 @@ updateSweptNodes(DistSVec<double,3> &X,DistVec<double> &ctrlVol,
                  DistLevelSetStructure *distLSS, double *vfar,
 		 bool limit, DistVec<int> *fluidId)
 {
-  int iSub, numLocSub = this->domain->getNumLocSub();
-  DistVec<int> init(domain->getNodeDistInfo()),next_init(domain->getNodeDistInfo());
+	//ccc++; 
+	//std::fstream aStream;
+	//aStream.open("rep.txt", std::fstream::out | std::fstream::app);
+
+	int iSub;
+	int numLocSub = this->domain->getNumLocSub();
+
+	DistVec<int>      init(domain->getNodeDistInfo());
+	DistVec<int> next_init(domain->getNodeDistInfo());
+
   SubDomain **subD = this->domain->getSubDomain();
 
   varFcn->conservativeToPrimitive(U, V, fluidId);
   Weights = 0.0; VWeights = 0.0;
 
-  if (dynamic_cast<RecFcnConstant<dim> *>(this->recFcn) == 0){
+	if(dynamic_cast<RecFcnConstant<dim> *>(this->recFcn) == 0)
+	{
     bool linFSI = true;//linRecAtInterface || viscSecOrder;
     double t0 = this->timer->getTime();
     this->ngrad->compute(this->geoState->getConfig(), X, ctrlVol, *fluidId, V, linFSI, distLSS,
@@ -1751,39 +1773,61 @@ updateSweptNodes(DistSVec<double,3> &X,DistVec<double> &ctrlVol,
 
 #pragma omp parallel for
   for(iSub=0;iSub<numLocSub;++iSub)
-    for(int i=0;i<init(iSub).size();++i)
+	{
+		for(int i=0; i<init(iSub).size(); ++i){
         init(iSub)[i] = ((*distLSS)(iSub).isSwept(0.0,i) || !(*distLSS)(iSub).isActive(0.0,i) ? 0 : 1);
+			
+			//if( (*distLSS)(iSub).isSwept(0.0,i) && (*distLSS)(iSub).isActive(0.0,i) ) 
+				//aStream << ccc << " " << i << " " << X(iSub)[i][0] << " " << X(iSub)[i][1] << " " << X(iSub)[i][2] << "\n"; 
+
+		}
+	}
+
   next_init = init;
 
   int iter=0, maxIter=1000000;
   int finished = 0;
-  while(finished == 0 && iter < maxIter){++iter;finished = 1;
-    switch(phaseChangeChoice){
+
+	while(finished == 0 && iter < maxIter)
+	{
+		++iter;  finished = 1;
+
+		switch(phaseChangeChoice)
+		{
     case 0: 
-	  switch (phaseChangeAlg) {
+			switch(phaseChangeAlg) 
+			{
 		case 0:
-		    domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS);
+				domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS, externalSI);
 		  break;
 		case 1:
-		  domain->computeWeightsLeastSquaresForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS,*this->ngrad, limit, fluidId);
-//		    domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS);
+				domain->computeWeightsLeastSquaresForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS, *this->ngrad, limit, fluidId, externalSI);
 		  break;
 	  }
       break;
     case 1: com->fprintf(stderr," *** computeReimannWeights temporarily broken / using regular extrapolation ***\n");
-      domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS);
+			domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, init, next_init, distLSS, externalSI);
       break;
     }
 
 #pragma omp parallel for
-    for(iSub=0;iSub<numLocSub;++iSub) {
+		for(iSub=0; iSub<numLocSub; ++iSub) 
+		{
 	  int* locToGlobNodeMap = subD[iSub]->getNodeMap();
-      for(int i=0;i<init(iSub).size();++i) {
-//		if ((*distLSS)(iSub).isSwept(0.0,i)&&(*distLSS)(iSub).isActive(0.0,i))
-//		  fprintf(stdout,"XY: Node %d needs phase change update:\n",locToGlobNodeMap[i]+1);
-        if(init(iSub)[i]<1 && next_init(iSub)[i]>0) {
+
+			for(int i=0; i<init(iSub).size(); ++i) 
+			{
+				//if((*distLSS)(iSub).isSwept(0.0, i))
+				if(init(iSub)[i]<1 && next_init(iSub)[i]>0)
+				{					
+					//aStream << ccc << " " << locToGlobNodeMap[i]+1 << " " << " " << X(iSub)[i][0]  << " " << X(iSub)[i][1]  << " " <<  X(iSub)[i][2]  << "\n";
+					//std::cout << X(iSub)[i][0]  << " " << X(iSub)[i][1]  << " " <<  X(iSub)[i][2] 
+					//			 << std::boolalpha << (*distLSS)(iSub).isSwept(0.0, i) << " " <<  (*distLSS)(iSub).isActive(0.0, i) << endl;
+
           const double one_over_weight=(double)1.0/Weights(iSub)[i];
-		  switch (phaseChangeAlg) {
+
+					switch (phaseChangeAlg) 
+					{
 			case 0:
           	  for (int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d]*one_over_weight;
 			  break;
@@ -1794,52 +1838,92 @@ updateSweptNodes(DistSVec<double,3> &X,DistVec<double> &ctrlVol,
 				for (int d=0;d<dim;++d) V(iSub)[i][d] = VWeights(iSub)[i][d];
 			  else
 				fprintf(stderr,"Error: LS phase change update failed at node %d.\n", locToGlobNodeMap[i]+1);
-			  //std::cout << "Phase change value: " << std::endl;
-			  //for (int d=0;d<dim;++d) 
-			  //  std::cout << i <<  " " << V(iSub)[i][d] << std::endl;
 			  break;
 		  }
-                  if (this->domain->getSubDomain()[iSub]->getHigherOrderFSI() && limit) {
 
-                    this->domain->getSubDomain()[iSub]->getHigherOrderFSI()->
-                      template setLastPhaseChangeValue<dim>(i, V(iSub)[i]);
-                  }
+					if (this->domain->getSubDomain()[iSub]->getHigherOrderFSI() && limit)
+						this->domain->getSubDomain()[iSub]->getHigherOrderFSI()->template setLastPhaseChangeValue<dim>(i, V(iSub)[i]);
         }
 	  }
     }
 
 #pragma omp parallel for
     for(iSub=0;iSub<numLocSub;++iSub)
+		{
       for(int i=0;i<init(iSub).size();++i)
         if(init(iSub)[i]<1 && next_init(iSub)[i]>0) finished = 0;
+		}
+
     Weights = 0.0; VWeights = 0.0;
     init = next_init;
     com->globalOp(1,&finished,MPI_PROD);
   }
-  if(iter == maxIter) {
+
+	if(iter == maxIter) 
+	{
     fprintf(stderr,"ERROR: abnormal termination in SpaceOperator::updateSweptNodes. Abort...\n");
     exit(-1);
   }
 
 #pragma omp parallel for
-  for(iSub=0;iSub<numLocSub;++iSub){
+	for(iSub=0; iSub<numLocSub; ++iSub)
+	{
     for(int i=0;i<init(iSub).size();++i)
+		{
       if(init(iSub)[i] < 1 || !(*distLSS)(iSub).isActive(0.0,i))
+			{
         for(int d=0; d<dim; d++) V(iSub)[i][d] = vfar[d];
-  }
+				//V(iSub)[i][1] = V(iSub)[i][2] = V(iSub)[i][3] = 0.0;//tmp
+			}
+		}
+	}
+
   varFcn->primitiveToConservative(V, U, fluidId);
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim> 
-void SpaceOperator<dim>::populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints, DistSVec<double,3> &X, DistSVec<double,dim> &U, VarFcn *varFcn,DistLevelSetStructure *distLSS,bool linFSI,DistVec<int> &tag)
+void SpaceOperator<dim>::populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints, 
+															DistSVec<double,3> &X, 
+															DistSVec<double,dim> &U,
+															VarFcn *varFcn, 
+															DistLevelSetStructure *distLSS, 
+															bool linFSI, DistVec<int> &fluidId)
 {
 ghostPoints->deletePointers();
-domain->populateGhostPoints(ghostPoints,X,U,ngrad,varFcn,distLSS,linFSI,tag);
+	
+	domain->populateGhostPoints(ghostPoints, X, U, ngrad, varFcn, distLSS, linFSI, fluidId, externalSI, fet);
+
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim>
+void SpaceOperator<dim>::setSIstencil(DistSVec<double,3> &X, DistLevelSetStructure *distLSS, DistVec<int> &fluidId, DistSVec<double,dim> &U)
+{
+	if(!externalSI) 
+	{
+		fprintf(stderr, "setSIstencil : you're not supposed to be here\n");
+		exit(-1);
+	}
+	domain->setSIstencil(X, distLSS, fluidId, U);
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim> 
+void SpaceOperator<dim>::setFEMstencil(DistSVec<double,3> &X, DistLevelSetStructure *distLSS, DistVec<int> &fluidId, DistSVec<double,dim> &U)
+{
+	if(!externalSI) 
+	{
+		fprintf(stderr, "setFEMstencil : you're not supposed to be here\n");
+		exit(-1);
+	}
+	domain->setFEMstencil(X, distLSS, fluidId, U);
+}
+
+//-------------------------------------------------------------------------
 
 template<int dim>
 template<class Scalar, int neq>
@@ -1975,7 +2059,7 @@ void SpaceOperator<dim>::computeJacobian(DistExactRiemannSolver<dim> *riemann, D
 }
 //------------------------------------------------------------------------------
 
-//d2d emebedded
+//d2d$ Embedded structure
 template<int dim>
 template<class Scalar,int neq>
 void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
@@ -1990,36 +2074,35 @@ void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> 
 {
   
   A = 0.0;
-  varFcn->conservativeToPrimitive(U, *V, &fluidId);  
+
+  	varFcn->conservativeToPrimitive(U, *V, distLSS, &fluidId);
   
   DistVec<double> *irey;
-  if(timeState) {
+	if(timeState)
     irey = timeState->getInvReynolds();
-  }
-  else {
+	else 
+	{
     irey = new DistVec<double>(domain->getNodeDistInfo());
     *irey = 0.0;
   }
 
-  if (fet) {
-    domain->computeJacobianGalerkinTerm(fet,*bcData,*geoState,X,ctrlVol, *V,A,ghostPoints,distLSS);
-    domain->populateGhostJacobian(ghostPoints,U,fluxFcn,varFcn,distLSS,fluidId,A);
-  }
-  //if (fet)
-  //  domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, ctrlVol, *V, A);
+	if (fet) 
+	{
+		domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, ctrlVol, *V, A, ghostPoints, distLSS, externalSI);
+
+		if(!externalSI) domain->populateGhostJacobian(ghostPoints, U, fluxFcn, varFcn, distLSS, fluidId, A);
+	}
   
   domain->computeJacobianFiniteVolumeTerm(ctrlVol, *riemann, fluxFcn, *bcData, *geoState,
-                                          X, *V, distLSS, fluidId, Nriemann, A, *irey);
+														 X, *V, distLSS, fluidId, Nriemann, A, *irey, externalSI);
 
   if (volForce)
     domain->computeJacobianVolumicForceTerm(volForce, ctrlVol, *V, A);
   
   // Delete pointer for consistency
   if (timeState == 0) 
-  {
-    if (irey)
-      delete irey;
-  }
+		if (irey) delete irey;
+
   irey = 0;
 
 }
@@ -2631,15 +2714,55 @@ void SpaceOperator<dim>::printVariable(DistSVec<double,dim> &U){
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SpaceOperator<dim>::computeGradP(DistSVec<double,3> &X, DistVec<double> &ctrlVol, DistSVec<double,dim> &U)
+void SpaceOperator<dim>::computeNodalGrad(DistSVec<double,3> &X, DistVec<double> &ctrlVol, 
+														DistSVec<double,dim> &U, DistVec<int> *fluidId, 
+														DistLevelSetStructure *distLSS)
+
 {
 
+	if(distLSS)
+		varFcn->conservativeToPrimitive(U, *V, distLSS, fluidId);
+	else
   varFcn->conservativeToPrimitive(U, *V);
 
-  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)  {
+	if(dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)  
+	{
     double t0 = timer->getTime();
+
+		if(distLSS)
+			ngrad->compute(geoState->getConfig(), X, ctrlVol, *fluidId, *V, true, distLSS);
+		else
     ngrad->compute(geoState->getConfig(), X, ctrlVol, *V);
     timer->addNodalGradTime(t0);
+
+		ngrad->limit(recFcn, X, ctrlVol, *V);
+	}
+
+}
+//------------------------------------------------------------------------------
+
+template<int dim>
+void SpaceOperator<dim>::computeGradP(DistSVec<double,3> &X, DistVec<double> &ctrlVol, 
+												  DistSVec<double,dim> &U, DistVec<int> *fluidId, 
+												  DistLevelSetStructure *distLSS)
+{
+
+	if(distLSS)
+		varFcn->conservativeToPrimitive(U, *V, distLSS, fluidId);
+	else
+		varFcn->conservativeToPrimitive(U, *V);
+
+	if(dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)  
+	{
+		double t0 = timer->getTime();
+
+		if(distLSS)
+			ngrad->compute(geoState->getConfig(), X, ctrlVol, *fluidId, *V, true, distLSS);
+		else
+			ngrad->compute(geoState->getConfig(), X, ctrlVol, *V); 
+
+		timer->addNodalGradTime(t0);
+
     ngrad->limit(recFcn, X, ctrlVol, *V);
   }
 
@@ -2780,6 +2903,7 @@ void SpaceOperator<dim>::computeForceLoad(int forceApp, int orderOfAccuracy, Dis
 					  DistVec<double> &ctrlVol, double (*Fs)[3], int sizeFs, 
 					  DistLevelSetStructure *distLSS,
 					  DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, 
+														DistSVec<double,dim> *Wextij, 
 					  DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn,
 					  DistVec<int>* fid)
 {
@@ -2797,10 +2921,10 @@ void SpaceOperator<dim>::computeForceLoad(int forceApp, int orderOfAccuracy, Dis
 
     case 2: // Embedded Surface
       ngrad->compute(geoState->getConfig(), X, ctrlVol,distLSS->getStatus(), *V, true, distLSS);
-      domain->computeEmbSurfBasedForceLoad(*iod, 
-					   forceApp, orderOfAccuracy, X, Fs, sizeFs,
-					   distLSS, pinternal, Wstarij, Wstarji, 
-					   *V, ghostPoints, postFcn, ngrad, varFcn, fid);
+		
+		domain->computeEmbSurfBasedForceLoad(*iod,forceApp, orderOfAccuracy, X, Fs, sizeFs,
+														 distLSS, pinternal, Wstarij, Wstarji, Wextij,
+														 *V, ghostPoints, postFcn, ngrad, varFcn, fid, externalSI);
       break;
 
     case 3: // Reconstructed Surface
@@ -3301,7 +3425,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeJacobian(DistSVec<double,3> &X, 
                                          DistTimeState<dim>* timeState)
 {
 
-  //fprintf(stdout, "going through computeJacobian for two-phase flows\n");
+
 #ifdef DOUBLE_CHECK
   this->varFcn->conservativeToPrimitive(U, *(this->V), fluidSelector.fluidId);
 #endif

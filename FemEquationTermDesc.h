@@ -39,6 +39,10 @@ public:
                                  SVec<double,3> &, int [4], int);
   void computeSurfaceTerm(int, Vec3D &, double [3], 
                           double *, double *[3], double *);
+
+  double computeNormDerivWallFcn(double rho, double T, double Du1, double DT1, 
+										 double d2w, double &dudn, double &dTdn);
+
   void computeJacobianSurfaceTerm(int, Vec3D &, double [3], double *, double *[3], double *);
   void computeSurfaceTerm(double [4][3], int, Vec3D &, double [4], 
                           double *, double *[4], double *);
@@ -88,6 +92,13 @@ public:
   
   void computeTransportCoefficientsPublic(const double T, double &mu, 
                                           double &lambda, double &kappa);
+
+  bool withWallFcn() 
+  { 
+	  if(wallFcn) return true;
+	  else        return false;
+  };
+
 };
 
 //------------------------------------------------------------------------------
@@ -132,6 +143,10 @@ public:
   void computeJacobianSurfaceTerm(int, Vec3D &, double [3], double *, double *[3], double *);
   void computeSurfaceTerm(double [4][3], int, Vec3D &, double [4], 
                           double *, double *[4], double *);
+
+  double computeNormDerivWallFcn(double rho, double T, double Du1, double DT1,
+										 double d2w, double &dudn, double &dTdn);
+
   void computeJacobianSurfaceTerm(double [4][3], int, Vec3D &, double [4], 
                                   double *, double *[4], double *);
   bool doesSourceTermExist() { return true; }
@@ -156,8 +171,7 @@ public:
   void rstVar(IoData &ioData, Communicator *com) 
   { 
     rstVarNS(ioData, com); 
-    if (wallFcn) 
-      wallFcn->rstVar(ioData, com);
+	  if (wallFcn)  wallFcn->rstVar(ioData, com);
     rstVarSA(ioData);
   }
   
@@ -173,6 +187,11 @@ public:
    double *, double *, double *, double *, double
    );
   
+  bool withWallFcn() 
+  { 
+	  if(wallFcn) return true;
+	  else        return false;
+  };
   
 };
 
@@ -212,6 +231,10 @@ public:
                                  SVec<double,3> &, int [4], int);
   void computeSurfaceTerm(int, Vec3D &, double [3], 
                           double *, double *[3], double *);
+
+  double computeNormDerivWallFcn(double rho, double T, double Du1, double DT1,
+										 double d2w, double &dudn, double &dTdn);
+
   void computeJacobianSurfaceTerm(int, Vec3D &, double [3], double *, double *[3], double *);
   void computeSurfaceTerm(double [4][3], int, Vec3D &, double [4], 
                           double *, double *[4], double *);
@@ -269,6 +292,12 @@ public:
    double *, double *, double *, double *, double
    );
   
+  bool withWallFcn() 
+  { 
+	  if(wallFcn) return true;
+	  else        return false;
+  };
+   
 };
 
 //------------------------------------------------------------------------------
@@ -318,6 +347,13 @@ public:
   void computeSurfaceTerm(double dp1dxj[4][3], int c, Vec3D &n, double d2w[4], 
                           double *vw, double *v[4], double *r) {
     fprintf(stderr, "*** Error: computeSurfaceTerm should not be called\n");
+    exit(1);
+  }
+  
+  double computeNormDerivWallFcn(double rho, double T, double Du1, double DT1,
+										 double d2w, double &dudn, double &dTdn)
+  {
+    fprintf(stderr, "*** Error: computeNormDerivWallFcn should not be called\n");
     exit(1);
   }
   
@@ -381,6 +417,12 @@ public:
    double *, double *, double *, double *, double
    );
   
+  bool withWallFcn() 
+  { 
+	  if(wallFcn) return true;
+	  else        return false;
+  };
+  
 };
 
 //------------------------------------------------------------------------------
@@ -429,6 +471,13 @@ public:
   void computeSurfaceTerm(double dp1dxj[4][3], int c, Vec3D &n, double d2w[4], 
                           double *vw, double *v[4], double *r) {
     fprintf(stderr, "*** Error: computeSurfaceTerm should not be called\n");
+    exit(1);
+  }
+  
+  double computeNormDerivWallFcn(double rho, double T, double Du1, double DT1,
+										 double d2w, double &dudn, double &dTdn)
+  {
+    fprintf(stderr, "*** Error: computeNormDerivWallFcn should not be called\n");
     exit(1);
   }
   
@@ -489,6 +538,12 @@ public:
    double *, double *, double *, double *, double
    );
   
+  bool withWallFcn() 
+  { 
+	  if(wallFcn) return true;
+	  else        return false;
+  };
+  
 };
 
 //------------------------------------------------------------------------------
@@ -537,6 +592,14 @@ public:
     fprintf(stderr, "*** Error: computeSurfaceTerm should not be called\n");
     exit(1);
   }
+
+  double computeNormDerivWallFcn(double rho, double T, double Du1, double DT1,
+										 double d2w, double &dudn, double &dTdn)
+  {
+    fprintf(stderr, "*** Error: computeNormDerivWallFcn should not be called\n");
+    exit(1);
+  }
+
   void computeJacobianSurfaceTerm(double dp1dxj[4][3], int c, Vec3D &n, double d2w[4], 
                                   double *vw, double *v[4], double *drdu) {
     fprintf(stderr, "*** Error: computeJacobianSurfaceTerm should not be called\n");
@@ -603,6 +666,12 @@ public:
     exit(1);
   }
   
+  bool withWallFcn() 
+  { 
+	  if(wallFcn) return true;
+	  else        return false;
+  };
+
 };
 
 //------------------------------------------------------------------------------
@@ -653,6 +722,13 @@ public:
   void computeJacobianSurfaceTerm(double dp1dxj[4][3], int c, Vec3D &n, double d2w[4], 
                                   double *vw, double *v[4], double *drdu) {
     fprintf(stderr, "*** Error: computeJacobianSurfaceTerm should not be called\n");
+    exit(1);
+  }
+  
+  double computeNormDerivWallFcn(double rho, double T, double Du1, double DT1,
+										 double d2w, double &dudn, double &dTdn)
+  {
+    fprintf(stderr, "*** Error: computeNormDerivWallFcn should not be called\n");
     exit(1);
   }
   
@@ -718,6 +794,11 @@ public:
     exit(1);
   }
   
+  bool withWallFcn() 
+  { 
+	  if(wallFcn) return true;
+	  else        return false;
+  };
   
 };
 
@@ -768,6 +849,9 @@ public:
     exit(1);
   }
   
+  double computeNormDerivWallFcn(double rho, double T, double Du1, double DT1,
+										 double d2w, double &dudn, double &dTdn);
+  
   // Included (MB)
   bool computeDerivativeOfVolumeTerm
   (
@@ -817,6 +901,11 @@ public:
    double *, double *, double *, double *, double
    );
   
+  bool withWallFcn() 
+  { 
+	  if(wallFcn) return true;
+	  else        return false;
+  };
   
 };
 
@@ -896,6 +985,13 @@ public:
     exit(1);
   }
   
+  double computeNormDerivWallFcn(double rho, double T, double Du1, double DT1,
+										 double d2w, double &dudn, double &dTdn)
+  {
+    fprintf(stderr, "*** Error: computeNormDerivWallFcn should not be called\n");
+    exit(1);
+  }
+  
   void computeDerivativeOfSurfaceTerm
   (
    double dp1dxj[4][3], double ddp1dxj[4][3], int c, Vec3D &n, Vec3D &dn, 
@@ -929,6 +1025,12 @@ public:
    double *, double *, double *, double *, double
    );
   
+  bool withWallFcn() 
+  { 
+	  if(wallFcn) return true;
+	  else        return false;
+  };
+
 };
 
 //------------------------------------------------------------------------------
@@ -1007,6 +1109,12 @@ public:
     exit(1);
   }
   
+  double computeNormDerivWallFcn(double rho, double T, double Du1, double DT1,
+										 double d2w, double &dudn, double &dTdn)
+  {
+	  fprintf(stderr, "*** Error: computeNormDerivWallFcn should not be called\n");
+	  exit(1);
+  }
   
   void computeDerivativeOfSurfaceTerm
   (
@@ -1045,6 +1153,12 @@ public:
     exit(1);
   }
   
+  bool withWallFcn() 
+  { 
+	  if(wallFcn) return true;
+	  else        return false;
+  };
+
 };
 
 //------------------------------------------------------------------------------

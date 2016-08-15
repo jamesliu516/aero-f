@@ -239,10 +239,11 @@ void Face::computeTimeStep(VarFcn *varFcn, Vec<Vec3D> &normals, Vec<double> &nor
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Face::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, Vec<Vec3D> &normals, 
-			   Vec<double> &normalVel, SVec<double,3> &X, SVec<double,dim> &V, 
+ void Face::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, 
+									 Vec<Vec3D> &normals, Vec<double> &normalVel, 
+									 SVec<double,3> &X, SVec<double,dim> &V, 
 			   Vec<double> &idti, Vec<double> &idtv,
-			   TimeLowMachPrec &tprec)
+									 TimeLowMachPrec &tprec, LevelSetStructure *LSS)
 {
   Vec3D normal = getNormal(normals);
   double S = sqrt(normal * normal);
@@ -253,7 +254,27 @@ void Face::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, Vec<Vec3D> &nor
 
   NOT_CORRECTED("Divide by numNodes? Or take surface into account ?");
 
-  for (int l=0; l<numNodes(); ++l) {
+	 bool isValid = true;
+
+	 if(LSS)
+	 { 		 
+		 for(int k=0; k<numNodes(); ++k)
+		 {
+			 int e = edgeNum(k);
+
+			 int i = nodeNum(edgeEnd(k,0));
+			 int j = nodeNum(edgeEnd(k,1));
+
+			 if(LSS->edgeIntersectsStructure(0, e)) isValid = false;
+
+			 if(!LSS->isActive(0,i) || !LSS->isActive(0,j)) isValid = false;
+		 }
+	 }
+
+	 if(!isValid) return;
+
+	 for(int l=0; l<numNodes(); ++l) 
+	 {
     Vec3D u = varFcn->getVelocity(V[ nodeNum(l) ]);
     double a = varFcn->computeSoundSpeed(V[ nodeNum(l) ]);
     double un = u * n - ndot;
@@ -547,7 +568,7 @@ void Face::computeDerivativeOperatorsOfFiniteVolumeTerm(int faceNum, FluxFcn **f
 }
 
 //------------------------------------------------------------------------------
-                                                                                                      
+ //d2d embedded
 template<int dim>
 inline
 void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
@@ -588,13 +609,6 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
 
 	fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l), 
 			       V[nodeNum(l)], Ub, flux, fluidId[nodeNum(l)]);
-
-  // introduce weighted farfield residual for ROM simulations (weight=1.0 by default)
-  //if (farfield) {
-  //  for (int k=0; k<dim; ++k){
-  //    flux[k] = ffWeight*flux[k];
-  //  }
-  //}
 
 	for (int k=0; k<dim; ++k)
 	  fluxes[ nodeNum(l) ][k] += flux[k];
@@ -1149,14 +1163,14 @@ void FaceSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
 template<int dim>
 void FaceSet::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &geoState, 
 			      SVec<double,3> &X, SVec<double,dim> &V, Vec<double> &idti,
-			      Vec<double> &idtv, TimeLowMachPrec &tprec)
+										Vec<double> &idtv, TimeLowMachPrec &tprec, LevelSetStructure *LSS)
 {
   
   Vec<Vec3D> &n = geoState.getFaceNormal();
   Vec<double> &ndot = geoState.getFaceNormalVel();
 
   for (int i=0; i<numFaces; ++i)
-    faces[i]->computeTimeStep(fet, varFcn, n, ndot, X, V, idti, idtv, tprec);
+	  faces[i]->computeTimeStep(fet, varFcn, n, ndot, X, V, idti, idtv, tprec, LSS);
 
 }
 

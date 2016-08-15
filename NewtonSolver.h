@@ -91,14 +91,17 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
   double alpha;
   int maxItsLS;
 
-  if (probDesc->getLineSearch()) {
+	if(probDesc->getLineSearch()) 
+	{
    rho = probDesc->getContractionLineSearch();
    c1 = probDesc->getSufficientDecreaseLineSearch();
    maxItsLS = probDesc->getMaxItsLineSearch(); 
   }
   int it, itLS;
   bool converged = false;
-  for (it=0; finalRes||it<maxIts; ++it) {
+
+	for(it=0; finalRes || it<maxIts; ++it) 
+	{
 
     *(probDesc->getNewtonIt()) = it;
     *(probDesc->getNumResidualsOutputCurrentNewtonIt()) = 0;
@@ -108,7 +111,9 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
     probDesc->computeFunction(it, Q, F);
     res2 = probDesc->recomputeResidual(F, Finlet);
     res = F*F-res2;
-    if(res<0.0){
+
+		if(res < 0.0)
+		{
       probDesc->printf(1, "ERROR: negative residual captured in Newton Solver!\n");
       exit(1);
     }
@@ -117,7 +122,8 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
     //res = sqrt(F*F-res2);
     res = sqrt(res);
 
-    if (it == 0) {
+		if(it == 0) 
+		{
       target = eps*res; 
       res0 = res;
     }
@@ -129,7 +135,8 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
 
     rhs = -1.0 * F;
     
-    probDesc->writeBinaryVectorsToDiskRom(false, timeStep, it, &Q, &F);  // save states and residuals for rom
+		// save states and residuals for rom
+		probDesc->writeBinaryVectorsToDiskRom(false, timeStep, it, &Q, &F); 
 
     probDesc->recomputeFunction(Q, rhs);
 
@@ -142,14 +149,15 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
 
     probDesc->solveLinearSystem(it, rhs, dQ);
 
-   if (probDesc->getLineSearch()) { 
-     for (itLS=0; itLS<maxItsLS; ++itLS) {
-       if (itLS>0){
+		if(probDesc->getLineSearch()) 
+		{ 
+			for(itLS=0; itLS<maxItsLS; ++itLS) 
+			{
+				if(itLS > 0)
+				{
          alpha *= rho; 
-         if (itLS==1)
-           dQ *= (rho-1);
-         else
-           dQ *= rho;
+					if(itLS==1)	dQ *= (rho-1);
+					else dQ *= rho;
        }
        else 
          alpha = 1.0;
@@ -161,7 +169,9 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
        probDesc->computeFunction(it, Q, F);
        res2trial = probDesc->recomputeResidual(F, Finlet);
        restrial = F*F-res2trial;
-       if (restrial>=0.0) {
+
+				if(restrial>=0.0) 
+				{
          if (sqrt(restrial) < sqrt(1-2.0*alpha*c1)*res || dQ.norm() <= epsAbsInc)
            break;
        }
@@ -169,7 +179,8 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
          probDesc->printf(1, "*** Warning: Line Search reached %d its ***\n", maxItsLS);
      }
    }
-   else { 
+		else 
+		{ 
 // Included (MB)
       probDesc->fixSolution(Q, dQ);
       rhs = Q;
@@ -178,8 +189,10 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
     probDesc->incrementNewtonOutputTag();
 
     // verify that the solution is physical
-    if (probDesc->checkSolution(Q)) {
-      if (probDesc->getTsParams()->checksol) {
+		if(probDesc->checkSolution(Q)) 
+		{
+			if(probDesc->getTsParams()->checksol) 
+			{
         //probDesc->getErrorHandler()->localErrors[ErrorHandler::REDO_TIMESTEP] += 1;
         probDesc->checkFailSafe(Q);
         Q = rhs;
@@ -187,13 +200,15 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
         ++fsIt;
         return -10; // signal re-compute CFL number
       }
-      else if (probDesc->checkFailSafe(Q) && fsIt < 5) {
+			else if(probDesc->checkFailSafe(Q) && fsIt < 5) 
+			{
         probDesc->printf(1, "*** Warning: Newton solver redoing iteration %d\n", it+1);
         Q = rhs;
         --it;
         ++fsIt;
       }
-      else{
+			else
+			{
         probDesc->printf(1, "Newton solver failed\n");
         return -3;
       }
@@ -201,10 +216,10 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
 
   } // for (it=0; it<maxIts; ++it)
 
-  if (fsIt > 0 && probDesc->checkFailSafe(Q) == 1)
-    probDesc->resetFixesTag();
+	if(fsIt > 0 && probDesc->checkFailSafe(Q) == 1)	probDesc->resetFixesTag();
 
-  if (!converged && maxIts != 1) {
+	if(!converged && maxIts != 1) 
+	{
     probDesc->printf(1, "*** Warning: Newton solver reached %d its", maxIts);
     probDesc->printf(1, " (Residual: initial=%.2e, reached=%.2e, target=%.2e)\n", res0, res, target);    
   }

@@ -62,6 +62,8 @@ private:
   bool fdResiduals;
   bool fdResidualsLimit;
 
+  bool externalSI;
+
   double sscale[PostFcn::SSIZE];
   double vscale[PostFcn::SSIZE];
   double avsscale[PostFcn::AVSSIZE];
@@ -253,14 +255,16 @@ public:
   template<int dimLS>
     void writeProbesToDisk(bool, int, double, DistSVec<double,3> &,
                            DistVec<double> &, DistSVec<double,dim> &,
-                           DistTimeState<dim> *, DistVec<int> &,DistSVec<double,dimLS>* = NULL,
+                           DistTimeState<dim> *, DistVec<int> &,
+									DistSVec<double,dimLS>* = NULL,
                            DistLevelSetStructure *distLSS = 0,
                            DistVec<GhostPoint<dim>*> *ghostPoints = 0);
   
   // d2d
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &,
                                 DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *,
-                                DistVec<int> &, DistLevelSetStructure *distLSS = 0,
+                                DistVec<int> &, DistSVec<double,dim> *Wextij,
+										  DistLevelSetStructure *distLSS = 0,
 				DistVec<GhostPoint<dim>*> *ghostPoints = 0);
 
   void writeProbesToDisk(bool lastIt, int it, double t, DistSVec<double,3> &X,

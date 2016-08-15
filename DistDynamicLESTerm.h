@@ -37,7 +37,9 @@ class DistDynamicLESTerm {
 
   void compute(DistVec<double> &, DistBcData<dim> &bcData, DistSVec<double,3> &, 
                DistSVec<double,dim> &, DistSVec<double,dim> &,
-               DistVec<GhostPoint<dim>*> *ghostPoints=0, DistLevelSetStructure *LSS=0);
+               DistVec<GhostPoint<dim>*> *ghostPoints=0, 
+					DistLevelSetStructure *LSS=0, bool externalSI=false);
+
   void computeMutOMu(DistVec<double> &, DistBcData<dim> &bcData, DistSVec<double,3> &, 
                      DistSVec<double,dim> &, DistVec<double> &);
   void computeCsValue(DistVec<double> &, DistBcData<dim> &, DistSVec<double,3> &,

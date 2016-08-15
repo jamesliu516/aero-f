@@ -26,17 +26,17 @@ ImplicitEmbeddedCoupledTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom)
   ImplicitData &implicitData = ioData.ts.implicit;
   
   // MatVecProd, Prec and Krylov solver for Euler equations
-  if (implicitData.mvp == ImplicitData::FD){
-
+	if (implicitData.mvp == ImplicitData::FD)
+	{
     mvp = new MatVecProdFD<dim,dim>(implicitData,this->timeState, this->geoState,
 				    this->spaceOp,this->domain,ioData);
-
-  } else if (implicitData.mvp == ImplicitData::H1){
-
+	} 
+	else if(implicitData.mvp == ImplicitData::H1)
+	{
     mvp = new MatVecProdH1<dim,double,dim>(this->timeState, this->spaceOp, this->domain, ioData);
-
-  } else if (implicitData.mvp == ImplicitData::H2){
-
+	} 
+	else if(implicitData.mvp == ImplicitData::H2)
+	{
     mvp = new MatVecProdH2<dim,double,dim>(ioData, this->varFcn, this->timeState, 
 					      this->spaceOp, this->domain, this->geoState);
 
@@ -60,8 +60,7 @@ ImplicitEmbeddedCoupledTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom)
 
   mvp->AttachStructure(fsi);
   
-  if (this->modifiedGhidaglia)
-    mvp->attachHH(this->embeddedU);
+	if (this->modifiedGhidaglia) mvp->attachHH(this->embeddedU);
   
 }
 
@@ -83,9 +82,7 @@ void ImplicitEmbeddedCoupledTsDesc<dim>::computeJacobian(int it, DistSVec<double
 {
 
   MatVecProdH1<dim,double,dim> *mvph1 = dynamic_cast<MatVecProdH1<dim,double,dim> *>(mvp);
-  if (mvph1)  {
-    mvph1->clearGhost(); 
-  }
+	if (mvph1) mvph1->clearGhost(); 
 
   if (this->modifiedGhidaglia)
     mvp->evaluateHH(*this->hhResidual, *this->bcData->getBoundaryStateHH());
@@ -151,13 +148,14 @@ void ImplicitEmbeddedCoupledTsDesc<dim>::setOperators(DistSVec<double,dim> &Q)
   
   DistMat<double,dim> *_pc = dynamic_cast<DistMat<double,dim> *>(pc);
   
-  if (_pc) {
-    
+	if(_pc) 
+	{    
     MatVecProdFD<dim,dim>           *mvpfd = dynamic_cast<MatVecProdFD<dim,dim> *>(mvp);
     MatVecProdH1<dim,double,dim>    *mvph1 = dynamic_cast<MatVecProdH1<dim,double,dim> *>(mvp);
     MatVecProdH2<dim,MatScalar,dim> *mvph2 = dynamic_cast<MatVecProdH2<dim,double,dim> *>(mvp);
 
-    if (mvpfd || mvph2) {
+		if(mvpfd || mvph2) 
+		{
 
       this->spaceOp->computeJacobian(*this->X, *this->A, Q, 
 				     this->distLSS, this->nodeTag, this->riemann,
@@ -168,14 +166,13 @@ void ImplicitEmbeddedCoupledTsDesc<dim>::setOperators(DistSVec<double,dim> &Q)
       this->spaceOp->applyBCsToJacobian(Q, *_pc, this->distLSS);
 
     }
-    else if (mvph1) {
+		else if(mvph1) 
+		{
       JacobiPrec<double,dim> *jac = dynamic_cast<JacobiPrec<double,dim> *>(pc);
       IluPrec<double,dim>    *ilu = dynamic_cast<IluPrec<double,dim> *>(pc);
       
-      if (jac)
-	jac->getData(*mvph1);
-      else if (ilu)
-	ilu->getData(*mvph1);
+			if(jac)      jac->getData(*mvph1);
+			else if(ilu) ilu->getData(*mvph1);
     }
     
   }
@@ -192,7 +189,8 @@ void ImplicitEmbeddedCoupledTsDesc<dim>::setOperators(DistSVec<double,dim> &Q)
 
 //------------------------------------------------------------------------------
 template<int dim>
-int ImplicitEmbeddedCoupledTsDesc<dim>::solveLinearSystem(int it, DistSVec<double,dim> &b,
+int ImplicitEmbeddedCoupledTsDesc<dim>::solveLinearSystem(int it, 
+																			 DistSVec<double,dim> &b,
 				                   DistSVec<double,dim> &dQ)
 {
 
@@ -203,8 +201,7 @@ int ImplicitEmbeddedCoupledTsDesc<dim>::solveLinearSystem(int it, DistSVec<doubl
   this->embeddedB = 0.0;
   this->embeddedB.real() = b;
   
-  if (this->modifiedGhidaglia)
-    this->embeddedB.hh() = -1.0*(*this->hhResidual);
+	if (this->modifiedGhidaglia) this->embeddedB.hh() = -1.0*(*this->hhResidual);
   
   ksp->setup(it, this->maxItsNewton, this->embeddedB);
   
@@ -214,7 +211,9 @@ int ImplicitEmbeddedCoupledTsDesc<dim>::solveLinearSystem(int it, DistSVec<doubl
 
   dQ = this->embeddeddQ.real();
   this->embeddedU.ghost() += this->embeddeddQ.ghost();
-  if (this->modifiedGhidaglia) {
+
+	if (this->modifiedGhidaglia) 
+	{
     this->embeddedU.hh() += this->embeddeddQ.hh();
 
     *this->bcData->getBoundaryStateHH() = this->embeddedU.hh();
