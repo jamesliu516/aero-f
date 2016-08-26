@@ -2564,6 +2564,7 @@ struct EmbeddedAlternatingLeastSquareData {
     double relativeMinimumEnergy;
     int maxIteration;
     enum LeastSquareSolver {QR = 0, SVD = 1} leastSquareSolver;
+    StateSnapshotsData stateSnapshotsData;
 
     EmbeddedAlternatingLeastSquareData();
     ~EmbeddedAlternatingLeastSquareData() {}

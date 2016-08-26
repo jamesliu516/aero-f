@@ -804,6 +804,7 @@ public:
 
   DistSVec<Scalar,dim> &operator=(const Scalar);
   DistSVec<Scalar,dim> &operator*=(const Scalar);
+    DistSVec<Scalar, dim> &operator/=(const Scalar);
   DistSVec<Scalar,dim> &operator/=(const DistVec<Scalar> &);
   DistSVec<Scalar,dim> &operator*=(const DistVec<Scalar> &);
   DistSVec<Scalar,dim> operator* (const Scalar);
@@ -1177,6 +1178,26 @@ DistSVec<Scalar,dim>::operator*=(const Scalar y)
   return *this;
 
 }
+
+template<class Scalar, int dim>
+inline
+DistSVec<Scalar, dim> &
+DistSVec<Scalar, dim>::operator/=(const Scalar y)
+{
+  Scalar *vv = reinterpret_cast<Scalar *>(this->v);
+
+#pragma omp parallel for
+  for(int iSub = 0; iSub < distInfo.numLocThreads; ++iSub) {
+
+    int locOffset = dim * distInfo.subOffsetReg[iSub];
+    int locLen = dim * distInfo.subLenReg[iSub];
+
+    for (int i = 0; i < locLen; ++i) vv[locOffset + i] /= y;
+  }
+
+  return *this;
+
+};
 
 //------------------------------------------------------------------------------
 
