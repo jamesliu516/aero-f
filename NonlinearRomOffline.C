@@ -47,14 +47,15 @@ void NonlinearRomOfflineSolver<dim>::solve()  {
          geoState = new DistGeoState(*ioData, &domain);
          EmbeddedAlternatingLeastSquare<dim> embeddedAlternatingLeastSquare(com, *ioData, domain/*, geoState * not sure why it is needed */);
          // offline phase, construct the basis
-         embeddedAlternatingLeastSquare.readSnapshotsFilesHelper("mask", false);
-         embeddedAlternatingLeastSquare.readSnapshotsFilesHelper("state", false);
-         com->fprintf(stderr, "... read state file successfully\n");
+         //embeddedAlternatingLeastSquare.readSnapshotsFilesHelper("mask");
+         //embeddedAlternatingLeastSquare.readSnapshotsFilesHelper("state");
+         //com->fprintf(stderr, "... read state file successfully\n");
          //testing
          //embeddedAlternatingLeastSquare.testingSnapshotIO();
          //embeddedAlternatingLeastSquare.testingInitialization();
          //embeddedAlternatingLeastSquare.testingALS();
-         embeddedAlternatingLeastSquare.ReducedOrderBasisConstruction();
+         //embeddedAlternatingLeastSquare.ReducedOrderBasisConstruction();
+         embeddedAlternatingLeastSquare.constructDatabase();
          // early termination
          modalTimer->print(this->domain.getStrTimer());
          if (geoState) delete geoState;

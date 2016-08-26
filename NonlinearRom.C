@@ -1708,6 +1708,7 @@ void NonlinearRom<dim>::readClusterCenters(const char* centersType) {
   } else if (strcmp(centersType,"sampledCenters")==0) {
       determinePath(sampledCentersName, -1, clustCentersPath);
   } else {
+      com->fprintf(stderr, "\n not a recognized options. Try 'centers' or 'sampledCenters' instead\n");
       exit (-1);
   }
 
