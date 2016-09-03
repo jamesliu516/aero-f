@@ -6137,7 +6137,7 @@ void IoData::resetInputValues()
 	  }
 	  
 	  if(embed.intersectorName == EmbeddedFramework::FRG)
-		  embed.intersectorName == EmbeddedFramework::PHYSBAM;
+		  embed.intersectorName = EmbeddedFramework::PHYSBAM;
 
   }
 
