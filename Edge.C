@@ -103,13 +103,13 @@ void EdgeSet::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &ge
 
     int i = ptr[l][0];
     int j = ptr[l][1];
-
+/*
 		if(lss)
 		{
 			if(lss->edgeIntersectsStructure(0,l)) continue;
 			if(!lss->isActive(0.0,i) || !lss->isActive(0.0,j)) continue;
 		}
-
+*/
     double S = sqrt(normal[l] * normal[l]);
     double invS = 1.0 / S;
 
