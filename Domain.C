@@ -78,7 +78,8 @@ void Domain::computeTimeStep(double cfl, double dualtimecfl, double viscous, Fem
 
     for (int i = 0; i < ctrlVol.subSize(iSub); ++i) 
 	 {
-		 if( distLSS && !((*distLSS)(iSub).isActive(0.0,i)) )
+/*
+		 if( distLSS && !((*distLSS)(iSub).isActive(0.0,i)))
 		 {
 			 dtime[i] = cfl*volume[i];
 			 dualtime[i] = dualtimecfl *volume[i];
@@ -86,11 +87,14 @@ void Domain::computeTimeStep(double cfl, double dualtimecfl, double viscous, Fem
 		 }
 		 else
 		 {
+*/
       //   idtimev[i] = idtimev[i] / volume[i];
       dtime[i] = cfl *volume[i]/(-1.0*idtimei[i] + viscous*idtimev[i]);
       dualtime[i] = dualtimecfl *volume[i]/(-1.0*idtimei[i] + viscous*idtimev[i]);
       ireynolds[i] = abs(-sprec.getViscousRatio()*idtimev[i] / idtimei[i]);
+/*
     }
+*/
   }
   }
 
