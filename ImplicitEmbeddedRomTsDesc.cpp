@@ -21,7 +21,8 @@ ImplicitEmbeddedRomTsDesc<dim>::ImplicitEmbeddedRomTsDesc(IoData &_ioData,
         reducedJacobian(0, dom->getNodeDistInfo()),
         reducedBasis(0, dom->getNodeDistInfo()),
         reducedNewtonDirection(0),
-        embeddedALS(dom->getCommunicator(), _ioData, *dom)/*,
+        embeddedALS(dom->getCommunicator(), _ioData, *dom),
+        referenceState(dom->getNodeDistInfo())/*,
         residualRef(this->F) */{
     // initialize MatVecProd
     this->printf(DEBUG, " ... initialize ImplicitEmbeddedRomTsDesc\n");
@@ -77,6 +78,9 @@ ImplicitEmbeddedRomTsDesc<dim>::ImplicitEmbeddedRomTsDesc(IoData &_ioData,
     int n = this->reducedBasis.numVectors();
     this->com->barrier();
     this->printf(DEBUG, " ... basis read into memory\n");
+    // load reference state from file;
+    embeddedALS.readReferenceStateFiles(this->referenceState);
+    this->printf(DEBUG, " ... reference state read into memory\n");
     // initialize reduced Dimension
     this->reducedDimension = n;
 
@@ -169,4 +173,28 @@ void ImplicitEmbeddedRomTsDesc<dim>::projectVector(VecSet<DistSVec<double, dim> 
     transMatVecProd(mat, vec, temp); // temp = transpose(mat) * vec;
     for (int i = 0; i < this->reducedDimension; i++)
         buffer[i] = temp;
+}
+
+/*
+ * see NonlinearRomOnlineII::projectSwitchStateOntoAffineSubspace()
+ */
+template<int dim>
+void ImplicitEmbeddedRomTsDesc<dim>::projectStateOntoROB(DistSVec<double, dim> &U) {
+    DistSVec<double, dim> V(this->domain->getNodeDistInfo());
+
+    V = U - this->referenceState;
+    int n = this->reducedDimension;
+    Vec<double> q(n);
+    for(int i = 0; i < n; i++)
+        q[i] = (*(this->reducedBasis))[i] * V;
+
+    DistSVec<double, dim> Vdiff(this->domain->getNodeDistInfo());
+    Vdiff = 0;
+
+    for(int i = 0; i < n; i++)
+        Vdiff += q[i] * (*(this->reducedBasis))[i];
+
+    V = V - Vdiff;
+    this->com->printf(DEBUG, " ... || original - projected ||_2 / || original ||_2 = %e\n", V.norm() / U.norm());
+    U = this->referenceState + Vdiff;
 }

@@ -489,6 +489,19 @@ void EmbeddedAlternatingLeastSquare<dim>::readBasisFiles(VecSet<DistSVec<double,
     }
 }
 
+
+template<int dim>
+void EmbeddedAlternatingLeastSquare<dim>::readReferenceStateFiles(DistSVec<double, dim>& U) {
+    char *refStatePath = NULL;
+    determinePath(this->refStateName, 0 /* only one cluster */, refStatePath);
+    double dummyTag = 0.0;
+    int status = this->domain.readVectorFromFile(refStatePath, 0, &dummyTag, U);
+    if(!status){
+        this->com->fprintf(stdout, "*** ERROR: could not read reference state from %s \n", refStatePath);
+        exit(-1);
+    }
+}
+
 /**
  *
  */
