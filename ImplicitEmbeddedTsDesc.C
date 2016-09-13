@@ -267,7 +267,8 @@ int ImplicitEmbeddedTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U, i
   Ubc = U;
 
   int its = 0;
-  its = commonPart(U); //failure gives negative values 
+  its = commonPart(U); //failure gives negative values
+  projectStateOntoROB(U);
   if(its<0)  //failSafe
     return its;
 

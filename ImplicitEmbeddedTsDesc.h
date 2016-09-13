@@ -86,6 +86,11 @@ public:
 
   virtual int solveLinearSystem(int it, DistSVec<double,dim> &b,
 			DistSVec<double,dim> &dQ) = 0;
+    /**
+     * only used in subclass ImplicitEmbeddedRomTsDesc
+     * similiar in function to projectSwitchStateOntoAffineSubspace
+     */
+    void projectStateOntoROB(DistSVec<double, dim> &U) {}
 
   int getMaxItsNewton() const { return maxItsNewton; }
   double getEpsNewton() const { return epsNewton; }

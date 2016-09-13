@@ -72,7 +72,12 @@ public: // TODO: change back to protected when done testing
     bool isEqualMaskMatrices(const VecSet<DistSVec<char, dim> > &X,
                          const VecSet<DistSVec<char, dim> > &Y);
     void outputBasis(const VecSet<DistSVec<double, dim> > &U);
+    /**
+     * read rob matrix, Phi, and reference state U_ref repsectively and return them in paramter
+     * used in both offline and online phase:
+     */
     void readBasisFiles(VecSet<DistSVec<double, dim> > &U);
+    void readReferenceStateFiles(DistSVec<double, dim> &U);
 
     /**
      * determing the initial rank of SVD by energy criterion

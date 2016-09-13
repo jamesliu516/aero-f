@@ -26,9 +26,11 @@ private:
 
     int reducedDimension;
     VecSet<DistSVec<double, dim> > reducedBasis;
+    DistSVec<double, dim> referenceState;
     double **result; //<! scrachpad for scalapack to store result, fixed size from initialization
 
     // internal methods
+    void projectStateOntoROB(DistSVec<double, dim> &U);
     void expandVector(Vec<double>& p, DistSVec<double, dim>& dQ);
     void projectVector(VecSet<DistSVec<double, dim> > &mat, DistSVec<double,dim> &vec, Vec<double> &buffer);
 
