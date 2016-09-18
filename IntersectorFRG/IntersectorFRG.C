@@ -97,6 +97,8 @@ public: //for debug only
   void checkEdgeForTester(Vec3D xt, int trId, int ip1, int ip2, int p3, double trDist, int &nn1, int &nn2,
                           double &mindist, int &myMode, int &bestTriangle, const double eps) const;
 
+	double piercing(Vec3D x0, int tria, double xi[3]);
+
 public:
   ClosestTriangle(int (*triNodes)[3], Vec3D *structX, Vec3D *sN, set<int> *n2n, set<int> *n2e);
   void start(Vec3D x);
@@ -582,10 +584,110 @@ void ClosestTriangle::checkEdgeForTester(Vec3D xt, int trId, int ip1, int ip2, i
 
 //----------------------------------------------------------------------------
 
-DistIntersectorFRG::DistIntersectorFRG(IoData &iodata, Communicator *comm, int nNodes,
-                                               double *xyz, int nElems, int (*abc)[3])
-    : DistLevelSetStructure(),iod(iodata)
+double ClosestTriangle::piercing(Vec3D x0, int tria, double xi[3])
 {
+
+   const double tol = 1.0e-12;
+	
+	double dist;
+
+	dist = std::abs( project(x0, tria, xi[0], xi[1]) );
+
+	xi[2] = 1.0 - xi[0] - xi[1];
+
+	if(xi[0] >= tol && xi[1] >= tol && xi[2] >= tol)
+	{		
+		return dist;
+	} 
+	else
+	{
+		dist = 1.0e16;
+
+		for(int i=0; i<3; ++i)
+		{
+			if(xi[i] < tol)
+			{
+				int p1 = triNodes[tria][(i+1)%3];
+				int p2 = triNodes[tria][(i+2)%3];
+				
+				double alpha;
+				double d2l = std::abs(edgeProject(x0, p1, p2, alpha));
+
+				if(alpha >= tol && alpha <= 1.0 + tol) 
+				{
+					if(dist > d2l) 
+					{
+						dist        = d2l; 
+						xi[i]       = 0.0; 
+						xi[(i+1)%3] = 1.0-alpha; 
+						xi[(i+2)%3] = alpha;
+					}
+				} 
+				else 
+				{
+					if(alpha < tol) 
+					{
+						double d2p = (x0 - structX[p1]).norm();
+
+						if(dist > d2p) 
+						{
+							dist        = d2p; 
+							xi[i]       = 0.0;
+							xi[(i+2)%3] = 0.0; 
+							xi[(i+1)%3] = 1.0;
+						}
+					}
+
+					if(alpha > 1.0+tol) 
+					{
+						double d2p = (x0 - structX[p2]).norm();
+
+						if(dist > d2p) 
+						{
+							dist        = d2p; 
+							xi[i]       = 0.0;
+							xi[(i+1)%3] = 0.0; 
+							xi[(i+2)%3] = 1.0;
+						}
+					}
+				}
+			}
+		}
+
+		return dist;
+	}
+
+}
+
+//----------------------------------------------------------------------------
+
+DistIntersectorFRG::DistIntersectorFRG(IoData &iodata, 
+													Communicator *comm, 
+													int nNodes,	double *xyz, 
+													int nElems, int (*abc)[3]) : DistLevelSetStructure(),iod(iodata)
+{
+
+  externalSI = (iod.embed.surrogateinterface == EmbeddedFramework::EXTERNAL) ? true : false;
+
+  if(externalSI) comm->fprintf(stdout, " +++ Using external-based surrogate interface +++ \n");
+
+  withViscousTerms = false;
+  if(iod.eqs.type == EquationsData::NAVIER_STOKES)
+  {
+	  withViscousTerms = true;
+
+	  if(iod.bc.wall.type == BcsWallData::ISOTHERMAL) 
+	  {
+		  isoThermalwall = true;
+		  Twall = iod.bc.wall.temperature;
+	  }
+	  else
+	  {
+		  isoThermalwall = false;
+		  Twall = -1.0; // dummy
+	  }
+  }
+
   this->numFluid = iod.eqs.numPhase;
   twoPhase = false;
 
@@ -599,14 +701,16 @@ DistIntersectorFRG::DistIntersectorFRG(IoData &iodata, Communicator *comm, int n
   struct_mesh        = new char[sp + strlen(iod.input.embeddedSurface)];
   sprintf(struct_mesh,"%s%s", iod.input.prefix, iod.input.embeddedSurface);
 
-  if (iod.input.restart_file_package[0] == 0) {
+  if (iod.input.restart_file_package[0] == 0) 
+  {
     struct_restart_pos = new char[sp + strlen(iod.input.embeddedpositions)];
     if(iod.input.embeddedpositions[0] != 0)
       sprintf(struct_restart_pos,"%s%s", iod.input.prefix, iod.input.embeddedpositions);
     else //no restart position file provided
       strcpy(struct_restart_pos,""); 
-
-  } else {
+  } 
+  else 
+  {
     struct_restart_pos = new char[256];
     char dummy[256], tmp[256];
     sprintf(tmp,"%s%s", iod.input.prefix, iod.input.restart_file_package);
@@ -623,8 +727,7 @@ DistIntersectorFRG::DistIntersectorFRG(IoData &iodata, Communicator *comm, int n
   }
   
   //nodal or facet normal?
-  interpolatedNormal = (iod.embed.structNormal==EmbeddedFramework::NODE_BASED) ? 
-                        true : false;
+  interpolatedNormal = (iod.embed.structNormal==EmbeddedFramework::NODE_BASED) ?  true : false;
 
   with_sensitivity = false;
 
@@ -1380,6 +1483,19 @@ DistIntersectorFRG::initialize(Domain *d, DistSVec<double,3> &X, DistSVec<double
   is_active = new DistVec<bool>(domain->getNodeDistInfo());
   is_occluded = new DistVec<bool>(domain->getNodeDistInfo());
   edge_intersects = new DistVec<bool>(domain->getEdgeDistInfo());
+
+  edge_SI  = new DistVec<bool>(domain->getEdgeDistInfo());
+
+     xi_SI = new DistVec<double>(domain->getEdgeDistInfo());
+    eta_SI = new DistVec<double>(domain->getEdgeDistInfo());
+  TriID_SI = new DistVec<int>(domain->getEdgeDistInfo());
+  nWall_SI = new DistVec<Vec3D>(domain->getEdgeDistInfo());
+
+     xi_node = new DistVec<double>(domain->getNodeDistInfo());
+    eta_node = new DistVec<double>(domain->getNodeDistInfo());
+  TriID_node = new DistVec<int>(domain->getNodeDistInfo());
+  nWall_node = new DistVec<Vec3D>(domain->getNodeDistInfo());
+
   poly = new DistVec<bool>(domain->getNodeDistInfo());
   findPoly();
 
@@ -1399,14 +1515,54 @@ DistIntersectorFRG::initialize(Domain *d, DistSVec<double,3> &X, DistSVec<double
     *status = *oldStatus;
  
 #pragma omp parallel for
-  for(int iSub = 0; iSub < numLocSub; ++iSub) {
+  for(int iSub = 0; iSub < numLocSub; ++iSub) 
+  {
     intersector[iSub]->findIntersections(X(iSub), false);
     for(int i = 0; i < (*is_active)(iSub).size(); ++i)
+	  {
       (*is_active)(iSub)[i] = intersector[iSub]->testIsActive(0.0, i);
   }
+  }
 
-//  for(int iSub=0; iSub<numLocSub; iSub++)
-//    intersector[iSub]->printFirstLayer(*(domain->getSubDomain()[iSub]), X(iSub), 1); 
+  
+
+  ///////////////////////////////////////////////////////
+  if(externalSI)
+  {
+	  DistVec<int>  intISactive(domain->getNodeDistInfo());
+	  DistVec<bool> ISactive_bk(domain->getNodeDistInfo());
+
+#pragma omp parallel for
+	  for(int iSub = 0; iSub < numLocSub; ++iSub)
+	  {
+		  for(int i=0; i<X(iSub).size(); ++i) 
+			  ISactive_bk(iSub)[i] = (*is_active)(iSub)[i];
+		  
+		  intersector[iSub]->reFlagRealNodes(X(iSub), ISactive_bk(iSub));
+
+		  for(int i=0; i<X(iSub).size(); ++i)
+		  {
+			  intISactive(iSub)[i] = (*is_active)(iSub)[i] ? 1 : 0;
+			  (*TriID_node)(iSub)[i] = -1;
+		  }
+	  }
+
+	  operMin<int> minOp;
+	  domain->assemble(domain->getLevelPat(), intISactive, minOp);
+
+#pragma omp parallel for
+	  for(int iSub = 0; iSub < numLocSub; ++iSub)
+		   for(int i=0; i<X(iSub).size(); ++i)
+				(*is_active)(iSub)[i] = (intISactive(iSub)[i] == 1) ? true : false;
+
+#pragma omp parallel for
+ 	  for(int iSub = 0; iSub < numLocSub; ++iSub)
+ 		  intersector[iSub]->ComputeSIbasedIntersections(iSub, X(iSub), (*boxMin)(iSub), (*boxMax)(iSub), withViscousTerms);
+	  
+  }
+  ///////////////////////////////////////////////////////
+
+
 }
 
 //----------------------------------------------------------------------------
@@ -1638,6 +1794,409 @@ void DistIntersectorFRG::findInAndOut()
   }
 }
 */
+//----------------------------------------------------------------------------
+
+void IntersectorFRG::reFlagRealNodes(SVec<double,3>& X, Vec<bool> &ISactive_bk)
+{
+
+	int (*ptr)[2] = edges.getPtr();
+
+	bool i_less_j;
+
+	for(int l=0; l<edges.size(); l++) 
+	{
+		if(edge_intersects[l])
+		{
+			int i = ptr[l][0];
+			int j = ptr[l][1];
+
+			bool isOK1 = false;
+			if( (fabs(X[i][0] - 0.2127) < 1.0e-3 && fabs(X[i][1] + 0.01017) < 1.0e-4 /* && fabs(X[i][2] - 0.05) < 1.0e-4*/)  ||
+				 (fabs(X[j][0] - 0.2127) < 1.0e-3 && fabs(X[j][1] + 0.01017) < 1.0e-4 /* && fabs(X[j][2] - 0.05) < 1.0e-4*/) ) isOK1 = true;
+			bool isOK2 = false;
+			if( (fabs(X[i][0] - 0.2127) < 1.0e-3 && fabs(X[i][1] + 0.02034) < 1.0e-4 /* && fabs(X[i][2] - 0.05) < 1.0e-4*/)  ||
+				 (fabs(X[j][0] - 0.2127) < 1.0e-3 && fabs(X[j][1] + 0.02034) < 1.0e-4 /* && fabs(X[j][2] - 0.05) < 1.0e-4*/) ) isOK2 = true;
+
+		   IntersectionResult<double>& Res_ij = CrossingEdgeRes[l];
+			IntersectionResult<double>& Res_ji = ReverseCrossingEdgeRes[l];
+
+			IntersectionResult<double> Res;
+			
+			if(ISactive_bk[i]) 
+				i_less_j = true;
+			else
+				i_less_j = false;
+
+			double alpha_1, alpha_2;
+			
+			if(Res_ij.triangleID > 0 && Res_ji.triangleID > 0 && Res_ij.triangleID == Res_ji.triangleID) 
+			{
+				Res = Res_ij;
+				alpha_1 = i_less_j ? Res.alpha : 1.0 - Res.alpha;
+			}  
+			else if(Res_ij.triangleID > 0 && Res_ji.triangleID > 0 && Res_ij.triangleID != Res_ji.triangleID) 
+			{
+				Res = i_less_j ? Res_ij : Res_ji;
+				alpha_1 = Res.alpha;
+			}
+			else if(Res_ij.triangleID > 0 && Res_ji.triangleID < 0) 
+			{
+				Res = Res_ij;
+				alpha_1 = i_less_j ? Res.alpha : 1.0 - Res.alpha;
+			}
+			else if(Res_ij.triangleID<0 && Res_ji.triangleID>0) 
+			{
+				Res = Res_ji;
+				alpha_1 = i_less_j ? 1.0 - Res.alpha : Res.alpha;
+			}
+
+			alpha_2 = 1.0 - alpha_1;
+		
+			if(alpha_1 > 0.5 && is_active[i]) is_active[i] = false;
+			if(alpha_2 > 0.5 && is_active[j]) is_active[j] = false;
+		}
+
+	}
+
+}
+
+//----------------------------------------------------------------------------
+void IntersectorFRG::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X,  
+																 SVec<double,3> &boxMin, SVec<double,3> &boxMax, 
+																 bool withViscousTerms)
+{	
+
+	double l1, l2, l1_i, l1_j, l2_i, l2_j, lambda[3];
+
+	int Tri_, Tri_i, Tri_j;
+
+	Vec3D *structX = (distIntersector.getStructPosition()).data();
+
+	int (*triNodes)[3] = distIntersector.stElem;
+
+	int ntri = distIntersector.getNumStructElems();
+
+	MyTriangle *myTris = new MyTriangle[ntri];
+
+	for(int i = 0; i < ntri; ++i)
+      myTris[i] = MyTriangle(i, distIntersector.getStructPosition(), triNodes[i]);
+
+	KDTree<MyTriangle> structureTree(ntri, myTris);
+
+	ClosestTriangle closestTriangle(triNodes, structX, distIntersector.triNorms, distIntersector.node2node, distIntersector.node2elem);
+
+	int nMaxCand_i = 500, nMaxCand_j = 500;
+
+	MyTriangle *candidates_i = new MyTriangle[nMaxCand_i];
+	MyTriangle *candidates_j = new MyTriangle[nMaxCand_j];
+
+	int (*ptr)[2] = edges.getPtr();
+
+	for(int l=0; l<edges.size(); l++)
+	{
+		int i = ptr[l][0];
+		int j = ptr[l][1];
+
+		edge_SI[l] = false;
+	  
+		if(!is_active[i] || !is_active[j])
+		{
+			if(is_active[i] == is_active[j]) continue;
+
+			Vec3D X_ij;
+			for(int k=0; k<3; ++k) X_ij[k] = 0.5*(X[j][k] + X[i][k]);
+
+			edge_SI[l] = true;
+
+			int nFound_i = structureTree.findCandidatesInBox(boxMin[i], boxMax[i], candidates_i, nMaxCand_i);
+
+			if(nFound_i > nMaxCand_i) 
+			{
+				nMaxCand_i = nFound_i;
+
+				delete [] candidates_i;
+
+				candidates_i = new MyTriangle[nMaxCand_i];
+
+				structureTree.findCandidatesInBox(boxMin[i], boxMax[i], candidates_i, nMaxCand_i);
+			}
+
+			int nFound_j = structureTree.findCandidatesInBox(boxMin[j], boxMax[j], candidates_j, nMaxCand_j);
+
+			if(nFound_j > nMaxCand_j) 
+			{
+				nMaxCand_j = nFound_j;
+
+				delete [] candidates_j;
+
+				candidates_j = new MyTriangle[nMaxCand_j];
+
+				structureTree.findCandidatesInBox(boxMin[j], boxMax[j], candidates_j, nMaxCand_j);
+			}
+
+			int trId;
+			double dist_si, dist_i, dist_j, xi[3];
+			
+			double min_dist_si = 1.0e16;
+			double min_dist_i  = 1.0e16;
+			double min_dist_j  = 1.0e16;
+
+			Tri_ =-1;
+			l1 = l2 = -1.0;
+
+			Tri_i = Tri_j =-1;
+			l1_i = l1_j = l2_i = l2_j = -1.0;
+
+			if(nFound_i > 0)
+			{
+				for(int l = 0; l < nFound_i; ++l) 
+				{
+					int trId = candidates_i[l].trId();
+
+					dist_si = closestTriangle.piercing(X_ij, trId, lambda);
+
+					if(dist_si < min_dist_si) 
+					{
+						min_dist_si = dist_si;
+
+						Tri_ = trId;
+						l1   = lambda[0];
+						l2   = lambda[1];
+					}
+
+				}
+			}
+
+			if(nFound_j > 0)
+			{
+				for(int l = 0; l < nFound_j; ++l) 
+				{
+					int trId = candidates_j[l].trId();
+
+					dist_si = closestTriangle.piercing(X_ij, trId, lambda);
+
+					if(dist_si < min_dist_si)
+					{
+						min_dist_si = dist_si;
+
+						Tri_ = trId;
+						l1   = lambda[0];
+						l2   = lambda[1];
+					}
+
+				}
+			}
+
+			Vec3D d2, d3, nn;
+
+			for(int id=0; id<3; ++id)
+			{
+				d2[id] = structX[triNodes[Tri_][1]][id] - structX[triNodes[Tri_][0]][id];
+				d3[id] = structX[triNodes[Tri_][2]][id] - structX[triNodes[Tri_][0]][id];
+			}
+
+			nn = d2^d3;
+
+			double norm = sqrt(nn * nn);
+			if(norm != 0.0) nn *= (1.0 / norm);
+			
+			   xi_SI[l] = l1;
+		     eta_SI[l] = l2;
+			nWall_SI[l] = nn;
+			TriID_SI[l] = Tri_;
+
+			/*
+			PhysBAMInterface<double>& physbam_interface=*distIntersector.physInterface;
+
+			ARRAY<int> candidates_i;
+			VECTOR<double,3> min_corner_i(boxMin[i][0],boxMin[i][1],boxMin[i][2]);
+			VECTOR<double,3> max_corner_i(boxMax[i][0],boxMax[i][1],boxMax[i][2]);		
+			bool t_i = physbam_interface.HasCloseTriangle(locIndex+1, VECTOR<double,3>(X[i][0],X[i][1],X[i][2]), 
+																		 min_corner_i, max_corner_i, &shrunk_index, &occluded, &candidates_i);
+																		 
+
+
+			ARRAY<int> candidates_j;
+			VECTOR<double,3>min_corner_j(boxMin[j][0],boxMin[j][1],boxMin[j][2]);
+			VECTOR<double,3>max_corner_j(boxMax[j][0],boxMax[j][1],boxMax[j][2]);
+			bool t_j= physbam_interface.HasCloseTriangle(locIndex+1, VECTOR<double,3>(X[i][0],X[i][1],X[i][2]), 
+																		min_corner_j, max_corner_j, &shrunk_index, &occluded, &candidates_j);
+
+			int trId;		
+			double dist_si, dist_i, dist_j, xi[3];
+			
+			double min_dist_si = 1.0e16;
+			double min_dist_i  = 1.0e16;
+			double min_dist_j  = 1.0e16;
+
+			Tri_ =-1;
+			l1 = l2 = -1.0;
+
+			Tri_i = Tri_j =-1;
+			l1_i = l1_j = l2_i = l2_j = -1.0;
+			
+			if(t_i) 
+			{
+				for(int iArray=1; iArray <= candidates_i.Size(); iArray++) 
+				{					
+					trId = candidates_i(iArray) - 1;
+			
+					dist_si = piercing(X_ij, trId, lambda);
+
+					if(dist_si < min_dist_si) 
+					{
+						min_dist_si = dist_si;
+
+						Tri_ = trId;
+						l1   = lambda[0];
+						l2   = lambda[1];
+					}
+
+					if(withViscousTerms && !is_active[i])
+					{
+						dist_i = piercing(X[i], trId, lambda);
+
+						if(dist_i < min_dist_i)
+						{
+							min_dist_i = dist_i;
+
+							Tri_i = trId;
+							l1_i  = lambda[0];
+							l2_i  = lambda[1];
+						}
+					}
+					
+				}
+			}
+
+			if(t_j) 
+			{		  
+				for(int iArray=1; iArray <= candidates_j.Size(); iArray++) 
+				{
+					trId = candidates_j(iArray) - 1;
+
+					dist_si = piercing(X_ij, trId, lambda);
+
+					if(dist_si < min_dist_si) 
+					{
+						min_dist_si = dist_si;
+
+						Tri_ = trId;
+						l1   = lambda[0];
+						l2   = lambda[1];
+					}
+
+					if(withViscousTerms && !is_active[j])
+					{
+						dist_j = piercing(X[j], trId, lambda);
+
+						if(dist_j < min_dist_j)
+						{
+							min_dist_j = dist_j;
+
+							Tri_j = trId;
+							l1_j  = lambda[0];
+							l2_j  = lambda[1];
+						}
+					}
+
+				}
+			}
+			
+			Vec3D d2, d3, nn;
+
+			for(int id=0; id<3; ++id)
+			{
+				d2[id] = structX[triNodes[Tri_][1]][id] - structX[triNodes[Tri_][0]][id];
+				d3[id] = structX[triNodes[Tri_][2]][id] - structX[triNodes[Tri_][0]][id];
+			}
+
+			nn = d2^d3;
+
+			double norm = sqrt(nn * nn);
+			if(norm != 0.0) nn *= (1.0 / norm);
+			
+			   xi_SI[l] = l1;
+		     eta_SI[l] = l2;
+			nWall_SI[l] = nn;
+			TriID_SI[l] = Tri_;
+
+			if(withViscousTerms && !is_active[i])
+			{
+				for(int id=0; id<3; ++id)
+				{
+					d2[id] = structX[triNodes[Tri_i][1]][id] - structX[triNodes[Tri_i][0]][id];
+					d3[id] = structX[triNodes[Tri_i][2]][id] - structX[triNodes[Tri_i][0]][id];
+				}
+
+				nn = d2^d3;
+				
+				double norm = sqrt(nn * nn);
+				if(norm != 0.0) nn *= 1.0 / norm;
+
+				   xi_node[i] = l1_i;
+ 				  eta_node[i] = l2_i;
+ 				nWall_node[i] = nn;
+				TriID_node[i] = Tri_i;
+			}
+
+			if(withViscousTerms && !is_active[j])
+			{
+				for(int id=0; id<3; ++id)
+				{
+					d2[id] = structX[triNodes[Tri_j][1]][id] - structX[triNodes[Tri_j][0]][id];
+					d3[id] = structX[triNodes[Tri_j][2]][id] - structX[triNodes[Tri_j][0]][id];
+				}
+
+				nn = d2^d3;
+				
+				double norm = sqrt(nn * nn);
+				if(norm != 0.0) nn *= 1.0 / norm;
+
+				   xi_node[j] = l1_j;
+ 				  eta_node[j] = l2_j;
+ 				nWall_node[j] = nn;
+				TriID_node[j] = Tri_j;
+			}
+		*/		
+		}
+
+	}
+
+/* --------- debug --------- */
+#if 0
+	for (int l=0; l<edges.size(); l++)
+	{
+		int i = ptr[l][0]; int j = ptr[l][1];
+
+		if(edge_SI[l])
+		{			
+			if( (!is_active[i] && !is_active[j]) ||  
+				 ( is_active[i] &&  is_active[j]) )
+			{		
+				std::cout << "error SI edge and " << std::boolalpha << is_active[i] << " " << is_active[j] << " " << edge_intersects[l] << endl;
+				std::cout << i << " Xi = " << X[i][0]<<" "<<X[i][1]<<" "<<X[i][2] 
+							 << " " << j << " Xj = " << X[j][0]<<" "<<X[j][1]<<" "<<X[j][2] <<endl;
+				exit(-1);
+			}
+		}
+		else
+		{
+			if( is_active[i] != is_active[j] )
+			{	
+				std::cout << "error  edge without SI and " << std::boolalpha << is_active[i] << " " << is_active[j] 
+							 << " " << edge_intersects[l] << endl;
+				std::cout << i << " Xi = " << X[i][0]<<" "<<X[i][1]<<" "<<X[i][2] << " " 
+							 << j << " Xj = " << X[j][0]<<" "<<X[j][1]<<" "<<X[j][2] <<endl;
+				exit(-1);
+			}
+		}
+
+	}
+#endif
+
+}
+
 //----------------------------------------------------------------------------
 
 void IntersectorFRG::printFirstLayer(SubDomain& sub, SVec<double,3>&X, int TYPE)
@@ -2054,7 +2613,14 @@ IntersectorFRG::IntersectorFRG(SubDomain &sub, SVec<double,3> &X,
                                Vec<int> &stat0, DistIntersectorFRG &distInt) :
     LevelSetStructure((*distInt.status)(sub.getLocSubNum()),(*distInt.distance)(sub.getLocSubNum()),
                       (*distInt.is_swept)(sub.getLocSubNum()),(*distInt.is_active)(sub.getLocSubNum()),
-                      (*distInt.is_occluded)(sub.getLocSubNum()),(*distInt.edge_intersects)(sub.getLocSubNum())),
+                      (*distInt.is_occluded)(sub.getLocSubNum()),(*distInt.edge_intersects)(sub.getLocSubNum()),
+							 (*distInt.edge_SI)(sub.getLocSubNum()),
+							 (*distInt.xi_SI)(sub.getLocSubNum()),(*distInt.eta_SI)(sub.getLocSubNum()),
+		                (*distInt.nWall_SI)(sub.getLocSubNum()),
+							 (*distInt.TriID_SI)(sub.getLocSubNum()),
+							 (*distInt.xi_node)(sub.getLocSubNum()),(*distInt.eta_node)(sub.getLocSubNum()),
+		                (*distInt.nWall_node)(sub.getLocSubNum()),
+							 (*distInt.TriID_node)(sub.getLocSubNum()) ),
     subD(&sub), distIntersector(distInt), status0(stat0),
     edges(sub.getEdges()), globIndex(sub.getGlobSubNum()), nodeToSubD(*sub.getNodeToSubD())
 {
@@ -2079,6 +2645,8 @@ IntersectorFRG::IntersectorFRG(SubDomain &sub, SVec<double,3> &X,
   is_active = false;
   is_occluded = false;
   edge_intersects = false;
+  edge_SI = false;
+
 }
 
 //----------------------------------------------------------------------------
@@ -2114,6 +2682,7 @@ void IntersectorFRG::reset(const bool retry)
   is_swept = false;
   is_active = false;
   edge_intersects = false;
+  edge_SI = false;
 }
 
 //----------------------------------------------------------------------------
@@ -2784,3 +3353,84 @@ DistIntersectorFRG::updateXb(double epsilon){
 }
 
 //----------------------------------------------------------------------------
+
+void IntersectorFRG::xWallWithSI(int n, Vec3D &xWall)
+{
+
+	double l1 =  xi_SI[n];
+	double l2 = eta_SI[n];
+
+	int tria  = TriID_SI[n];
+
+	Vec3D X0 = distIntersector.Xs[distIntersector.stElem[tria][0]];
+	Vec3D X1 = distIntersector.Xs[distIntersector.stElem[tria][1]];
+	Vec3D X2 = distIntersector.Xs[distIntersector.stElem[tria][2]];
+
+	for(int k=0; k<3; ++k) 
+		xWall[k] = X2[k] + l1*(X0[k] - X2[k]) + l2*(X1[k] - X2[k]);
+
+}
+
+//----------------------------------------------------------------------------
+
+void IntersectorFRG::vWallWithSI(int n, Vec3D &vWall)
+{
+  
+	double l1 =  xi_SI[n];
+	double l2 = eta_SI[n];
+
+	int tria  = TriID_SI[n];
+
+	Vec3D v0 = distIntersector.Xsdot[distIntersector.stElem[tria][0]];
+	Vec3D v1 = distIntersector.Xsdot[distIntersector.stElem[tria][1]];
+	Vec3D v2 = distIntersector.Xsdot[distIntersector.stElem[tria][2]];
+
+	for(int k=0; k<3; ++k) 
+		vWall[k] = v2[k] + l1*(v0[k] - v2[k]) + l2*(v1[k] - v2[k]);
+
+}
+
+//----------------------------------------------------------------------------
+
+bool IntersectorFRG::xWallNode(int i, Vec3D &xWall)
+{
+
+	double l1 =  xi_node[i];
+	double l2 = eta_node[i];
+
+	int tria  = TriID_node[i];
+
+	if(tria < 0) return false;
+	
+	Vec3D X0 = distIntersector.Xs[distIntersector.stElem[tria][0]];
+	Vec3D X1 = distIntersector.Xs[distIntersector.stElem[tria][1]];
+	Vec3D X2 = distIntersector.Xs[distIntersector.stElem[tria][2]];
+
+	for(int k=0; k<3; ++k) 
+		xWall[k] = X2[k] + l1*(X0[k] - X2[k]) + l2*(X1[k] - X2[k]);
+
+	return true;
+
+}
+
+//----------------------------------------------------------------------------
+
+bool IntersectorFRG::vWallNode(int i, Vec3D &vWall)
+{
+  
+	double l1 =  xi_node[i];
+	double l2 = eta_node[i];
+
+	int tria  = TriID_node[i];
+
+	if(tria < 0) return false;
+
+	Vec3D v0 = distIntersector.Xsdot[distIntersector.stElem[tria][0]];
+	Vec3D v1 = distIntersector.Xsdot[distIntersector.stElem[tria][1]];
+	Vec3D v2 = distIntersector.Xsdot[distIntersector.stElem[tria][2]];
+
+	for(int k=0; k<3; ++k) 
+		vWall[k] = v2[k] + l1*(v0[k] - v2[k]) + l2*(v1[k] - v2[k]);
+
+	return true;
+}

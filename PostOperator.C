@@ -1378,9 +1378,10 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
 						 double** EmbQs,
 						 DistTimeState<dim> *timeState,
 						 DistVec<int>& fluidId, 
+																 DistSVec<double,dim>* Wextij,
 						 DistSVec<double,dimLS> *Phi, 
 						 DistLevelSetStructure *distLSS,
-						 DistVec<GhostPoint<dim>*> *ghostPoints)
+																 DistVec<GhostPoint<dim>*> *ghostPoints, bool externalSI)
 {
 
   int iSub;
@@ -1394,37 +1395,123 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
   int   (*stElem)[3]  = distLSS->getStructElems();
   Vec<Vec3D>& Xstruct = distLSS->getStructPosition();
 
-  typedef double my_array[3];
-  my_array **subEmbQ = new my_array * [numLocSub];
-  for(int i=0; i<numLocSub; ++i) subEmbQ[i] = new my_array[numStructNodes];
+	typedef double subArray[3];
+	subArray **subEmbQ = new subArray * [numLocSub];
+	for(int i=0; i<numLocSub; ++i) subEmbQ[i] = new subArray[numStructNodes];
 
   Vec<GhostPoint<dim>*> *gp = 0;
 
-#pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; iSub++) {
+	int**  StNodeDir;
 
-    for (int is=0; is<numStructNodes; is++) {
+	double** StX1;
+	double** StX2;
+
+	double* tmp1;
+	double* tmp2;
+
+	if(externalSI)
+	{
+		StNodeDir = new int*    [numStructElems];
+		StX1      = new double* [numStructElems];
+		StX2      = new double* [numStructElems];
+
+		for(int i=0; i<numStructElems; ++i)
+		{
+			StNodeDir[i] = new int    [2];
+			StX1[i]      = new double [3];
+			StX2[i]      = new double [3];
+
+			StNodeDir[i][0] = StNodeDir[i][1] = 0;
+			StX1[i][0] = StX1[i][1] = StX1[i][2] = 0.0;
+			StX2[i][0] = StX2[i][1] = StX2[i][2] = 0.0;
+		}
+	}
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++) 
+  {
+	  for (int is=0; is<numStructNodes; is++) 
+	  {
       subEmbQ[iSub][is][0] = 0.0;
       subEmbQ[iSub][is][1] = 0.0;
       subEmbQ[iSub][is][2] = 0.0;
     }
 
+	  if(!externalSI)
+	  {		  
     if(ghostPoints) gp = ghostPoints->operator[](iSub);
 
-    if (Phi){
       subDomain[iSub]->computeEMBNodeScalarQuantity(X(iSub), (*V)(iSub), postFcn, varFcn, 
- 						   fluidId(iSub), &((*Phi)(iSub)),
+																		fluidId(iSub), Phi ? &((*Phi)(iSub)):(SVec<double,1>*)0,
      						   subEmbQ[iSub], numStructNodes, numStructElems, stElem, Xstruct, 
 						   (*distLSS)(iSub), 1.0, gp, (*ngrad)(iSub) );
-    } else {
-      subDomain[iSub]->computeEMBNodeScalarQuantity(X(iSub), (*V)(iSub), postFcn, varFcn, 
- 						   fluidId(iSub), (SVec<double,1>*)0,
-						   subEmbQ[iSub], numStructNodes, numStructElems, stElem, Xstruct, 
-     					           (*distLSS)(iSub), 1.0, gp, (*ngrad)(iSub) );
+
+	  } 
+	  else 
+		  subDomain[iSub]->computeEMBNodeScalarQuantity_step1(X(iSub), (*V)(iSub),
+																				numStructElems, stElem, Xstruct, 
+																				(*distLSS)(iSub), 
+																				StNodeDir, StX1, StX2, true);
     }
   
-    for (int is=0; is<numStructNodes; is++) {
-      if( subEmbQ[iSub][is][0] ) {
+  if(externalSI)
+  {
+	  tmp1 = new double[numStructElems];
+	  tmp2 = new double[numStructElems];
+
+	  for(int i=0; i<numStructElems; ++i) 
+	  { 
+		  tmp1[i] = (double) StNodeDir[i][0];
+		  tmp2[i] = (double) StNodeDir[i][1];
+	  }
+
+	  com->globalSum(numStructElems, tmp1);
+	  com->globalSum(numStructElems, tmp2);
+
+	  for(int i=0; i<numStructElems; ++i) 
+	  {
+		  StNodeDir[i][0] = (int) tmp1[i];
+		  StNodeDir[i][1] = (int) tmp2[i];
+	  }
+	  
+	  for(int k=0; k<3; ++k)
+	  {
+		  for(int i=0; i<numStructElems; ++i) 
+		  {
+			  tmp1[i] = StX1[i][k];
+			  tmp2[i] = StX2[i][k];
+		  }
+		  
+		  com->globalSum(numStructElems, tmp1);
+		  com->globalSum(numStructElems, tmp2);
+		  
+		  for(int i=0; i<numStructElems; ++i) 
+		  {
+			  StX1[i][k] = tmp1[i];
+			  StX2[i][k] = tmp2[i];
+		  }
+	  }
+  }
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++) 
+  {
+	  if(externalSI)
+	  {
+		  if(ghostPoints) gp = ghostPoints->operator[](iSub);
+
+		  subDomain[iSub]->computeEMBNodeScalarQuantity_step2(X(iSub), (*V)(iSub), postFcn, varFcn, 
+																				fluidId(iSub), 
+																				subEmbQ[iSub], numStructNodes, numStructElems, stElem, Xstruct, 
+																				(*distLSS)(iSub), 1.0, gp, (*ngrad)(iSub), 
+																				StNodeDir, StX1, StX2);
+	  }
+
+	  // Assembly of local contributions
+	  for(int is=0; is<numStructNodes; is++) 
+	  {
+		  if(subEmbQ[iSub][is][0]) 
+		  {
 	EmbQs[is][0] = subEmbQ[iSub][is][0];
 	EmbQs[is][1] = subEmbQ[iSub][is][1]/subEmbQ[iSub][is][0]; //Cp
 	EmbQs[is][2] = subEmbQ[iSub][is][2]/subEmbQ[iSub][is][0]; //Cf
@@ -1433,9 +1520,26 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
     
   }
 
+  // Cleaning  
   for(int i=0; i<numLocSub; ++i) delete [] subEmbQ[i];
   delete [] subEmbQ;
   
+  if(externalSI)
+  {
+	  for(int i=0; i<numStructElems; ++i)
+	  {
+		  delete [] StNodeDir[i];
+		  delete [] StX1[i];
+		  delete [] StX2[i];
+	  }
+
+	  delete [] StNodeDir;
+	  delete [] StX1;
+	  delete [] StX2;
+	  delete [] tmp1;
+	  delete [] tmp2;
+  }
+
 }
 // -----------------------------------------------------------------------------------------------------------------------------
 
@@ -1690,13 +1794,16 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
 
   int iSub;
 
-  if (type == PostFcn::VELOCITY) {
+	if(type == PostFcn::VELOCITY) 
+	{
 #pragma omp parallel for
-    for (iSub=0; iSub<numLocSub; ++iSub) {
+		for(iSub=0; iSub<numLocSub; ++iSub) 
+		{
       double (*u)[dim] = U.subData(iSub);
       double (*q)[3] = Q.subData(iSub);
 
-      for (int i=0; i<Q.subSize(iSub); ++i) {
+			for(int i=0; i<Q.subSize(iSub); ++i) 
+			{
 	double v[dim];
 	varFcn->conservativeToPrimitive(u[i], v);
 	Vec3D vel = varFcn->getVelocity(v);
@@ -1706,7 +1813,8 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
       }
     }
   }
-  else if (type == PostFcn::DISPLACEMENT || type == PostFcn::FLIGHTDISPLACEMENT || type == PostFcn::LOCALFLIGHTDISPLACEMENT) {
+	else if(type == PostFcn::DISPLACEMENT || type == PostFcn::FLIGHTDISPLACEMENT || type == PostFcn::LOCALFLIGHTDISPLACEMENT) 
+	{
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub)
       subDomain[iSub]->computeDisplacement(X(iSub), Q(iSub));
@@ -1760,11 +1868,135 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
                                               DistSVec<double,3> &X,
                                               DistSVec<double,dim> &U,
                                               DistSVec<double,3> &Q,
+															 DistLevelSetStructure *distLSS,
                                               DistVec<int> &fluidId)
 {
                                                                                                                                                                                              
   int iSub;
                                                                                                                                                                                              
+	if(type == PostFcn::VELOCITY) 
+	{
+#pragma omp parallel for
+		for(iSub=0; iSub<numLocSub; ++iSub) 
+		{
+			double (*u)[dim] = U.subData(iSub);
+			double (*q)[3]   = Q.subData(iSub);
+
+			int (*fId) = fluidId.subData(iSub);
+                   
+			for(int i=0; i<Q.subSize(iSub); ++i) 
+			{
+				double v[dim];
+
+				varFcn->conservativeToPrimitive(u[i], v, fId[i]);
+
+				Vec3D vel = varFcn->getVelocity(v, fId[i]);
+
+				q[i][0] = vel[0];
+				q[i][1] = vel[1];
+				q[i][2] = vel[2];
+			}
+		}
+	}
+	else if(type == PostFcn::DISPLACEMENT) 
+	{
+#pragma omp parallel for
+		for (iSub=0; iSub<numLocSub; ++iSub)
+			subDomain[iSub]->computeDisplacement(X(iSub), Q(iSub));
+	}
+
+/*/////////////////////////////////////////////
+	DistSVec<double,6> R(domain->getNodeDistInfo());
+	DistSVec<double,3> ddx(domain->getNodeDistInfo());
+	DistSVec<double,3> ddy(domain->getNodeDistInfo());
+	DistSVec<double,3> ddz(domain->getNodeDistInfo());
+	DistSVec<double,3> tmp3(domain->getNodeDistInfo());
+
+	DistSVec<int,1> *count = new DistSVec<int,1>(domain->getNodeDistInfo());
+
+#pragma omp parallel for
+	for(iSub=0; iSub<numLocSub; ++iSub) 
+	{
+		subDomain[iSub]->computeWeightsLeastSquaresEdgePart(X(iSub), fluidId(iSub), 
+																			 (*count)(iSub), 
+																			 R(iSub), 
+																			 &((*distLSS)(iSub)),
+																			 false);
+
+		subDomain[iSub]->sndData(*(domain->getWeightPat()), R.subData(iSub));
+
+		subDomain[iSub]->sndData(*(domain->getLevelPat()), (*count).subData(iSub));
+	}
+
+	domain->getWeightPat()->exchange();
+	domain->getLevelPat()->exchange();
+
+#pragma omp parallel for
+	for(iSub=0; iSub<numLocSub; ++iSub) 
+	{
+		subDomain[iSub]->addRcvData(*(domain->getWeightPat()), R.subData(iSub));
+
+		subDomain[iSub]->addRcvData(*(domain->getLevelPat()), (*count).subData(iSub));
+
+		subDomain[iSub]->computeWeightsLeastSquaresNodePart((*count)(iSub), R(iSub));
+
+		double (*u)[dim] = U.subData(iSub);
+		double (*t3)[3]  = tmp3.subData(iSub);
+		double (*x)[3]   = X.subData(iSub);
+
+		for(int i=0; i<tmp3.subSize(iSub); ++i) 
+		{
+			double v[dim];
+			varFcn->conservativeToPrimitive(u[i], v);
+			t3[i][0] = v[4];
+			t3[i][1] = v[4];
+			t3[i][2] = v[4];
+		}
+
+		subDomain[iSub]->computeGradientsLeastSquares(X(iSub), fluidId(iSub), 
+																	 R(iSub), tmp3(iSub), 
+																	 ddx(iSub), ddy(iSub), 
+																	 ddz(iSub), true, 
+																	 &((*distLSS)(iSub)), false);
+	}
+
+	if(count) delete count;
+
+	domain->assemble(domain->getVec3DPat(), ddx);
+	domain->assemble(domain->getVec3DPat(), ddy);
+	domain->assemble(domain->getVec3DPat(), ddz);
+
+#pragma omp parallel for
+	for(iSub=0; iSub<numLocSub; ++iSub) 
+	{
+		double (*dvdx)[3] = ddx.subData(iSub);
+		double (*dvdy)[3] = ddy.subData(iSub);
+		double (*dvdz)[3] = ddz.subData(iSub);
+
+		double (*q)[3] = Q.subData(iSub);
+					
+		for(int i=0; i<Q.subSize(iSub); ++i)
+		{						
+			q[i][0] = dvdx[i][0];
+			q[i][1] = dvdy[i][0];
+			q[i][2] = dvdz[i][0];
+		}
+	}
+/////////////////////////////////////////////*/
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
+                                              DistSVec<double,3> &X,
+                                              DistSVec<double,dim> &U,
+                                              DistSVec<double,3> &Q,
+                                              DistVec<int> &fluidId)
+{
+  int iSub;
+
   if (type == PostFcn::VELOCITY) {
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {

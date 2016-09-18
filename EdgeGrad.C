@@ -124,16 +124,23 @@ void EdgeGrad<dim>::computeUpwindGradient(Elem& elem, double rij[3], SVec<double
   //---------------------------------------------------
   int le, N1, N2;
   bool e_flag = false;
-  for (int j=0; j<6; j++){
 
+  for(int j=0; j<6; j++)
+  {
     le = elem.edgeNum(j);
 
     N1 = elem.nodeNum( elem.edgeEnd(j,0) );
     N2 = elem.nodeNum( elem.edgeEnd(j,1) );
    
-    if((fluidId[N1] != fluidId[N2]) ||
-      (!LSS.isActive(0.0, N1) || !LSS.isActive(0.0, N2)) ||
-       LSS.edgeIntersectsStructure(0.0, le) ) {
+	 bool isValid = true;
+
+	 if(fluidId[N1] != fluidId[N2]) isValid = false;
+
+	 if(LSS.edgeIntersectsStructure(0.0, le)) isValid = false;
+	 if(!LSS.isActive(0.0, N1) || !LSS.isActive(0.0, N2)) isValid = false;
+	 
+    if(!isValid)
+	 {
     	 e_flag = true;
     	 break;
       }
@@ -141,8 +148,8 @@ void EdgeGrad<dim>::computeUpwindGradient(Elem& elem, double rij[3], SVec<double
   }
   //---------------------------------------------------
 
-  if(!e_flag){
-
+  if(!e_flag)
+  {
     *v6_flag = false;
 
     double dp1dxi[4][3];
@@ -153,7 +160,8 @@ void EdgeGrad<dim>::computeUpwindGradient(Elem& elem, double rij[3], SVec<double
     int i2 = elem.nodeNum(2);
     int i3 = elem.nodeNum(3);
 
-    for (int k=0; k<dim; ++k) {
+    for(int k=0; k<dim; ++k) 
+	 {
       grad[k] = ( (dp1dxi[0][0]*V[i0][k] + dp1dxi[1][0]*V[i1][k] + 
 		   dp1dxi[2][0]*V[i2][k] + dp1dxi[3][0]*V[i3][k]) * rij[0] +
 		  (dp1dxi[0][1]*V[i0][k] + dp1dxi[1][1]*V[i1][k] + 
@@ -161,15 +169,12 @@ void EdgeGrad<dim>::computeUpwindGradient(Elem& elem, double rij[3], SVec<double
 		  (dp1dxi[0][2]*V[i0][k] + dp1dxi[1][2]*V[i1][k] + 
 		   dp1dxi[2][2]*V[i2][k] + dp1dxi[3][2]*V[i3][k]) * rij[2] );
     }
-
-  }else{
-
+  }
+  else
+  {
     *v6_flag = true;
 
-    for (int k=0; k<dim; ++k) {
-      grad[k] = 0.0;
-    }
-
+    for (int k=0; k<dim; ++k) grad[k] = 0.0;
   }
 
 }
@@ -195,7 +200,8 @@ void EdgeGrad<dim>::computeUpwindGradient(Elem& elem, double rij[3], SVec<double
     N1 = elem.nodeNum( elem.edgeEnd(j,0) );
     N2 = elem.nodeNum( elem.edgeEnd(j,1) );
    
-    if(fluidId[N1] != fluidId[N2]) {
+    if(fluidId[N1] != fluidId[N2]) 
+	 {
     	 e_flag = true;
     	 break;
       }
@@ -445,10 +451,16 @@ void EdgeGrad<dim>::compute(int l, int i, int j, ElemSet& elems,
 			    LevelSetStructure &LSS)
 {
 
-  if( (fluidId[i] != fluidId[j]) ||
-      (!LSS.isActive(0.0, i) || !LSS.isActive(0.0, j)) ||
-        LSS.edgeIntersectsStructure(0.0, l) ){
-    for (int k=0; k<dim; ++k) {
+	 bool isValid = true;
+
+	 if(fluidId[i] != fluidId[j]) isValid = false;
+	 if(LSS.edgeIntersectsStructure(0.0, l)) isValid = false;
+	 if(!LSS.isActive(0.0, i) || !LSS.isActive(0.0, j)) isValid = false;
+	 
+	 if(!isValid)
+	 {
+		 for(int k=0; k<dim; ++k)
+		 {
       ddVij[k] = 0.0;
       ddVji[k] = 0.0;
     }

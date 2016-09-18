@@ -81,9 +81,53 @@ class LevelSetStructure {
     Vec<bool> &is_active;
     Vec<bool> &is_occluded;
     Vec<bool> &edge_intersects;
+
+	 // Surrogate based quantities
+    Vec<bool>   &edge_SI; // ID of the edge that contains the SI 
+	 Vec<double>   &xi_SI; // baricentric cooardinates of the the 
+	 Vec<double>  &eta_SI; // intersection point on the wall 
+	 Vec<Vec3D> &nWall_SI; // wall normal at the Wall
+	 Vec<int>   &TriID_SI; // ID of the element of the embedded 
+	                       //    surface intersected
+
+	 // Node based quantities
+	 Vec<double>   &xi_node; // baricentric cooardinates of the the 
+	 Vec<double>  &eta_node; // intersection point on the wall 
+	 Vec<Vec3D> &nWall_node; // wall normal at the Wall
+	 Vec<int>   &TriID_node; // ID of the element of the embedded 
+	                         //    surface intersected
+
   public:
-    LevelSetStructure(Vec<int>& status,Vec<double>& distance,Vec<bool>& is_swept,Vec<bool>& is_active,Vec<bool>& is_occluded,Vec<bool>& edge_intersects)
-        : status(status),distance(distance),is_swept(is_swept),is_active(is_active),is_occluded(is_occluded),edge_intersects(edge_intersects)
+LevelSetStructure(Vec<int>& status,
+						Vec<double>& distance,
+						Vec<bool>& is_swept,
+						Vec<bool>& is_active,
+						Vec<bool>& is_occluded,
+						Vec<bool>& edge_intersects,
+						Vec<bool>&  edge_SI,
+						Vec<double>& xi_SI,
+						Vec<double>& eta_SI,
+						Vec<Vec3D>& nWall_SI,
+						Vec<int>&   TriID_SI,
+						Vec<double>& xi_node,
+						Vec<double>& eta_node,
+						Vec<Vec3D>& nWall_node,
+						Vec<int>& TriID_node): status(status),
+		                                   distance(distance),
+		                                   is_swept(is_swept),
+		                                   is_active(is_active),
+		                                   is_occluded(is_occluded),
+                                    	  edge_intersects(edge_intersects),
+                                    	  edge_SI(edge_SI),
+		                                   xi_SI(xi_SI),
+		                                   eta_SI(eta_SI),
+		                                   nWall_SI(nWall_SI),
+                                         TriID_SI(TriID_SI),
+		                                   xi_node(xi_node),
+		                                   eta_node(eta_node),
+		                                   nWall_node(nWall_node),
+		                                   TriID_node(TriID_node)
+
     {}
     virtual ~LevelSetStructure()
     {}
@@ -109,6 +153,20 @@ class LevelSetStructure {
             swept[i] = is_swept[i] ? 1 : 0;
     }
 
+	 /* Retrun true if the edge 'n' contains a SI */
+	 bool edgeWithSI( int n) const { return edge_SI[n];  } 
+	 int  eWallWithSI(int n) const { return TriID_SI[n]; }
+ 
+	 void nWallWithSI(int n, Vec3D &nWall) { nWall = nWall_SI[n]; }
+	 void nWallNode(  int i, Vec3D &nWall) { nWall = nWall_node[i]; }
+
+	 virtual void xWallWithSI(int n, Vec3D &xWall) = 0;
+	 virtual void vWallWithSI(int n, Vec3D &vWall) = 0;
+	 virtual bool xWallNode(  int i, Vec3D &xWall) = 0;
+	 virtual bool vWallNode(  int i, Vec3D &vWall) = 0;
+
+	 virtual bool getTwall(double &Tw) = 0;
+
     Vec<int> & getStatus() { return status; }
 
     virtual class CrackingSurface* 
@@ -130,6 +188,16 @@ class DistLevelSetStructure {
     DistVec<bool> *is_active;
     DistVec<bool> *is_occluded;
     DistVec<bool> *edge_intersects;
+    DistVec<bool> *edge_SI;   // d2d
+	 DistVec<int>  *TriID_SI;
+	 DistVec<double> *xi_SI;
+	 DistVec<double> *eta_SI;
+	 DistVec<Vec3D> *nWall_SI;
+	 DistVec<int>  *TriID_node;
+	 DistVec<double> *xi_node;
+	 DistVec<double> *eta_node;
+	 DistVec<Vec3D> *nWall_node;
+
   protected:
     int numLocSub;
     int numFluid;
@@ -137,10 +205,13 @@ class DistLevelSetStructure {
 
   public:
     DistLevelSetStructure()
-        : status(0), distance(0), is_swept(0), is_active(0), is_occluded(0), edge_intersects(0)
+		 : status(0), distance(0), is_swept(0), is_active(0), is_occluded(0), edge_intersects(0), 
+		 edge_SI(0), xi_SI(0), eta_SI(0), nWall_SI(0), TriID_SI(0), xi_node(0), eta_node(0), nWall_node(0), TriID_node(0)
     {}
     virtual ~DistLevelSetStructure()
-    {delete status;delete distance;delete is_swept;delete is_active;delete is_occluded;delete edge_intersects;}
+    {delete status;delete distance;delete is_swept;delete is_active;delete is_occluded;delete edge_intersects; 
+	  delete edge_SI; delete nWall_SI; delete xi_SI; delete eta_SI; delete TriID_SI; 
+	  delete nWall_node; delete xi_node; delete eta_node; delete TriID_node;}
 
     int numOfFluids() {return numFluid;}
     void setNumOfFluids(int nf) {numFluid = nf;}

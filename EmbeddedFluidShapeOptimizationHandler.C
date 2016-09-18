@@ -191,7 +191,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSetUpLinearSolver
   this->bcData->update(X);
 
   this->spaceOp->computeResidual(X, A, U, 
-				 *this->Wstarij, *this->Wstarji, this->distLSS,
+											*this->Wstarij, *this->Wstarji, *this->Wextij, this->distLSS,
                                  this->linRecAtInterface, this->viscSecOrder, 
 				 this->nodeTag, 
 				 FluxFD, 
@@ -230,7 +230,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSetUpLinearSolver
   pc->setup();
 
   this->spaceOp->computeResidual(X, A, U, 
-				 *this->Wstarij, *this->Wstarji, this->distLSS,
+											*this->Wstarij, *this->Wstarji, *this->Wextij, this->distLSS,
                                  this->linRecAtInterface, this->viscSecOrder, 
 				 this->nodeTag, 
 				 Flux, 
@@ -759,7 +759,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSemiAnalytical
   this->computeTimeStep(1, &dtLeft, U);
   
   this->spaceOp->computeResidual(*X_, *A_, U, 
-				 *this->Wstarij, *this->Wstarji, this->distLSS,
+											*this->Wstarij, *this->Wstarji, *this->Wextij, this->distLSS,
                                  this->linRecAtInterface, this->viscSecOrder, 
 				 this->nodeTag, 
 				 *Fp, 
@@ -790,7 +790,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSemiAnalytical
   this->computeTimeStep(1, &dtLeft, U);
   
   this->spaceOp->computeResidual(*X_, *A_, U, 
-				 *this->Wstarij, *this->Wstarji, this->distLSS,
+											*this->Wstarij, *this->Wstarji, *this->Wextij, this->distLSS,
                                  this->linRecAtInterface, this->viscSecOrder, 
 				 this->nodeTag, 
 				 *Fm, 
@@ -1204,7 +1204,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsFinite
   this->bcData->update(*X_);
 
   this->spaceOp->computeResidual(*X_, *A_, *Up, 
-				 *this->Wstarij, *this->Wstarji, this->distLSS,
+											*this->Wstarij, *this->Wstarji, *this->Wextij, this->distLSS,
                                  this->linRecAtInterface, this->viscSecOrder, 
 				 this->nodeTag, 
 				 *Fp, //dummy 
@@ -1241,7 +1241,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsFinite
   this->bcData->update(*X_);
 
   this->spaceOp->computeResidual(*X_, *A_, *Um, 
-				 *this->Wstarij, *this->Wstarji, this->distLSS,
+											*this->Wstarij, *this->Wstarji, *this->Wextij, this->distLSS,
                                  this->linRecAtInterface, this->viscSecOrder, 
 				 this->nodeTag, 
 				 *Fm, //dummy 

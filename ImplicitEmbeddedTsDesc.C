@@ -151,22 +151,30 @@ int ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
   // Adam 04/06/10: Took everything in common in solveNLAllFE and solveNLAllRK2 and put it here. Added Ghost-Points treatment for viscous flows.
 
   //if(this->emmh && !this->inSubCycling) {  //subcycling is allowed from now on
-  if(this->emmh) {
+	if(this->emmh) 
+	{
     int failSafe=0;
-    if(TsDesc<dim>::failSafeFlag == false){
+
+		if(TsDesc<dim>::failSafeFlag == false)
+		{
       *this->WstarijCopy = *this->Wstarij;
       *this->WstarjiCopy = *this->Wstarji;
-      if(this->timeState->useNm1()) {
+
+			if(this->timeState->useNm1()) 
+			{
         *this->Wstarij_nm1Copy = *this->Wstarij_nm1;
         *this->Wstarji_nm1Copy = *this->Wstarji_nm1;
       }
       *this->nodeTagCopy = this->distLSS->getStatus();
       *EmbeddedTsDesc<dim>::UCopy = U;
     }
-    else{
+		else
+		{
       *this->Wstarij = *this->WstarijCopy;
       *this->Wstarji = *this->WstarjiCopy;
-      if(this->timeState->useNm1()) {
+
+			if(this->timeState->useNm1()) 
+			{
         *this->Wstarij_nm1 = *this->Wstarij_nm1Copy;
         *this->Wstarji_nm1 = *this->Wstarji_nm1Copy;
       }
@@ -181,7 +189,9 @@ int ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
     //recompute intersections
     double tw = this->timer->getTime();
 
-    failSafe = this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts,true,TsDesc<dim>::failSafeFlag); 
+		failSafe = this->distLSS->recompute(this->dtf, this->dtfLeft, 
+														this->dts, true, TsDesc<dim>::failSafeFlag);
+		
     this->com->globalMin(1, &failSafe);
     if(failSafe<0) //in case of intersection failure -1 is returned by recompute 
        return failSafe;
@@ -198,10 +208,15 @@ int ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
 
     //store previous states for phase-change update
     tw = this->timer->getTime();
-    this->spaceOp->updateSweptNodes(*this->X, *this->A, this->phaseChangeChoice, this->phaseChangeAlg, U, this->Vtemp,
-				    *this->Weights, *this->VWeights, *this->Wstarij, *this->Wstarji,
-				    this->distLSS, (double*)this->vfar, 
-				    this->ioData.embed.interfaceLimiter == EmbeddedFramework::LIMITERALEX1, &this->nodeTag);
+
+		this->spaceOp->updateSweptNodes(*this->X, *this->A, 
+												  this->phaseChangeChoice, this->phaseChangeAlg, 
+												  U, this->Vtemp,  *this->Weights, *this->VWeights, 
+												  *this->Wstarij, *this->Wstarji, this->distLSS, 
+												  (double*)this->vfar, 
+												  this->ioData.embed.interfaceLimiter == EmbeddedFramework::LIMITERALEX1, 
+												  &this->nodeTag);
+
     this->timer->addEmbedPhaseChangeTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
 
@@ -209,22 +224,30 @@ int ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
     this->timeState->getUn() = U;
 
     // BDF update (Unm1)
-    if (this->timeState->useNm1() && this->timeState->existsNm1()) {
+		if (this->timeState->useNm1() && this->timeState->existsNm1()) 
+		{
       tw = this->timer->getTime();
       DistSVec<double,dim>& Unm1 = this->timeState->getUnm1();
   
-      if (!this->existsWstarnm1) {
-        
-        this->spaceOp->computeResidual(*this->X, *this->A, Unm1, *this->Wstarij, *this->Wstarji, this->distLSS,
-                                 this->linRecAtInterface, this->viscSecOrder, this->nodeTag, this->Vtemp, this->riemann, 
+			if (!this->existsWstarnm1) 
+			{        
+				this->spaceOp->computeResidual(*this->X, *this->A, Unm1, 
+														 *this->Wstarij, *this->Wstarji, *this->Wextij, this->distLSS,
+														 this->linRecAtInterface, this->viscSecOrder, 
+														 this->nodeTag, this->Vtemp, this->riemann, 
                                  this->riemannNormal, 1, this->ghostPoints);
       }
 
       tw = this->timer->getTime();
-      this->spaceOp->updateSweptNodes(*this->X,*this->A, this->phaseChangeChoice, this->phaseChangeAlg, Unm1, this->Vtemp,
-				      *this->Weights, *this->VWeights, *this->Wstarij_nm1, *this->Wstarji_nm1,
+
+			this->spaceOp->updateSweptNodes(*this->X,*this->A, 
+													  this->phaseChangeChoice, this->phaseChangeAlg, 
+													  Unm1, this->Vtemp, *this->Weights, *this->VWeights, 
+													  *this->Wstarij_nm1, *this->Wstarji_nm1,
 				      this->distLSS, (double*)this->vfar,
-				      this->ioData.embed.interfaceLimiter == EmbeddedFramework::LIMITERALEX1,&this->nodeTag);
+													  this->ioData.embed.interfaceLimiter == EmbeddedFramework::LIMITERALEX1,
+													  &this->nodeTag);
+
       this->timer->addEmbedPhaseChangeTime(tw);
       this->timer->removeIntersAndPhaseChange(tw);
 
@@ -232,7 +255,8 @@ int ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
       this->timer->removeIntersAndPhaseChange(tw);
     }
 
-    if (this->timeState->useNm1()) {
+		if (this->timeState->useNm1()) 
+		{
       *this->Wstarij_nm1 = *this->Wstarij;
       *this->Wstarji_nm1 = *this->Wstarji;
       this->existsWstarnm1 = true;
@@ -243,14 +267,6 @@ int ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
   if (this->modifiedGhidaglia)
     embeddedU.hh() = *this->bcData->getBoundaryStateHH();
 
-//  // Ghost-Points Population
-//  if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
-//    {
-//      this->ghostPoints->deletePointers();
-//      this->spaceOp->populateGhostPoints(this->ghostPoints,*this->X,U,this->varFcn,this->distLSS,this->viscSecOrder,this->nodeTag);
-//      embeddedU.real() = U;
-//      embeddedU.setGhost(*this->ghostPoints,this->varFcn); 
-//    }
   return 0;
 }
 //------------------------------------------------------------------------------
@@ -268,8 +284,8 @@ int ImplicitEmbeddedTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U, i
 
   int its = 0;
   its = commonPart(U); //failure gives negative values 
-  if(its<0)  //failSafe
-    return its;
+
+	if(its<0) return its; //failSafe
 
   TsDesc<dim>::setFailSafe(false);
 
@@ -279,14 +295,9 @@ int ImplicitEmbeddedTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U, i
   this->data->resolveErrors();
   if(this->errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP]) return its;
 
-/*
-  if(its==-10){
-    U=Ubc; // original failsafe uses UCopy, however, this vector is only initialized if there is a mesh motion handler, which was causing bugs. 
-           //Therefore, I used Ubc which appears to be unused to store the initial value instead. 
-    return its;
-  }
-*/
-  if(its<0){  //failSafe
+	if(its < 0)
+	{  
+      //failSafe
     U = *EmbeddedTsDesc<dim>::UCopy;
     return its;
   }
@@ -294,7 +305,10 @@ int ImplicitEmbeddedTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U, i
   this->timer->addFluidSolutionTime(t0);
    
   int ierr = this->checkSolution(U);
-  if(ierr>0){  //failSafe
+
+	if(ierr > 0)
+	{  
+      //failSafe
     U = *EmbeddedTsDesc<dim>::UCopy;
     return (-ierr);
   }
@@ -303,7 +317,8 @@ int ImplicitEmbeddedTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U, i
                  TsDesc<dim>::timeStepCalculation == TsData::ERRORESTIMATION )
     doErrorEstimation(U);
 
-  if (this->modifiedGhidaglia) {
+	if (this->modifiedGhidaglia) 
+	{
     *this->bcData->getBoundaryStateHH() = embeddedU.hh();
     this->timeState->updateHH(embeddedU.hh());
   }
@@ -319,13 +334,6 @@ template<int dim>
 void ImplicitEmbeddedTsDesc<dim>::computeFunction(int it, DistSVec<double,dim> &Q,
                                                   DistSVec<double,dim> &F)
 {
-  //Kevin's debug
-//  int BuggyNode = 340680;
-  // phi is obtained once and for all for this iteration
-  // no need to recompute it before computation of jacobian.
-//  if (this->ghostPoints) {
-//    embeddedU.getGhost(*this->ghostPoints,this->varFcn); 
-//  }
 
   // Included for test with twilight zone problems (AM)
   // (Usually does nothing)
@@ -333,32 +341,47 @@ void ImplicitEmbeddedTsDesc<dim>::computeFunction(int it, DistSVec<double,dim> &
 				       this->currentTime + this->currentTimeStep,
 				       this->spaceOp->getVarFcn());
 
-
-  this->spaceOp->computeResidual(*this->X, *this->A, Q, *this->Wstarij, *this->Wstarji, this->distLSS,
-                                 this->linRecAtInterface, this->viscSecOrder, this->nodeTag, F, this->riemann, 
+	this->spaceOp->computeResidual(*this->X, *this->A, Q, 
+											 *this->Wstarij, *this->Wstarji, *this->Wextij, this->distLSS,
+											 this->linRecAtInterface, this->viscSecOrder, 
+											 this->nodeTag, F, this->riemann, 
                                  this->riemannNormal, 1, this->ghostPoints);
 
-//  this->printNodalDebug(BuggyNode,-100,&F,&(this->nodeTag),&(this->nodeTag0));
+	this->timeState->add_dAW_dt(it, *this->geoState, *this->A, Q, F,this->distLSS);
 
-  this->timeState->add_dAW_dt(it, *this->geoState, *this->A, Q, F,this->distLSS);
   this->spaceOp->applyBCsToResidual(Q, F,this->distLSS);
 
   this->domain->setExactBoundaryResidual(F, *this->X, this->ioData, 
 					 this->currentTime + this->currentTimeStep,
 					 this->spaceOp->getVarFcn());
 
-//  std::cout << "t^{n+1} = " << (this->currentTime + this->currentTimeStep)*this->ioData.ref.rv.time << std::endl; 
  
-  if (this->modifiedGhidaglia) {
+	if (this->modifiedGhidaglia) 
+	{
+		*hhResidual = 0.0;
+		this->domain->computeHHBoundaryTermResidual(*this->bcData,Q,*hhResidual, this->varFcn);
 
-    *hhResidual = 0.0;
-    this->domain->
-      computeHHBoundaryTermResidual(*this->bcData,Q,*hhResidual, this->varFcn);
-       
-    this->timeState->add_dAW_dt_HH(-1, *this->geoState, *this->A,*this->bcData->getBoundaryStateHH()
-    			     , *hhResidual);
+		this->timeState->add_dAW_dt_HH(-1, *this->geoState, *this->A,
+												 *this->bcData->getBoundaryStateHH(),
+												 *hhResidual);
   }
 
+	
+/*	int isubd;
+#pragma omp parallel for
+	for (isubd=0; isubd < this->domain->getNumLocSub(); ++isubd) 
+	{
+		int lnu = (*this->Wextij)(isubd).size();
+		for(int k_=0; k_<lnu; ++k_)
+		{
+			if( !(*this->distLSS)(isubd).isActive(0.0,k_) ){				
+				Vec3D XX = (*this->X)(isubd)[k_];
+				if(XX[1] > 0.0 && XX[2] > 0.02) 
+					fprintf(stdout, "%d, %f,%f,%f, %f\n", isubd, XX[0],XX[1],XX[2], (*this->Wextij)(isubd)[k_][4]);
+			}
+		} 
+	}
+*/
 }
 
 //------------------------------------------------------------------------------
@@ -368,8 +391,8 @@ void ImplicitEmbeddedTsDesc<dim>::doErrorEstimation(DistSVec<double,dim> &U)
 {
   DistSVec<double,dim> *flux = new DistSVec<double,dim>(TsDesc<dim>::domain->getNodeDistInfo());
 
-  this->spaceOp->computeResidual(*this->X, *this->A, this->timeState->getUn(), *this->Wstarij, *this->Wstarji, this->distLSS,
-                                 this->linRecAtInterface, this->viscSecOrder, this->nodeTag, *flux, this->riemann, 
+  this->spaceOp->computeResidual(*this->X, *this->A, this->timeState->getUn(), *this->Wstarij, *this->Wstarji, *this->Wextij, 
+											this->distLSS, this->linRecAtInterface, this->viscSecOrder, this->nodeTag, *flux, this->riemann, 
                                  this->riemannNormal, 1, this->ghostPoints);
 
   this->timeState->calculateErrorEstiNorm(U, *flux); 

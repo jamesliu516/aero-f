@@ -36,7 +36,12 @@ void generateConnectionsSet(Domain& domain,Communicator& com,DistVec<int>& nodeC
 void unionColors(Domain& domain,Communicator& com,const int nLocalSubDomains,const int* localColorCount,
      std::map<pair<PhysBAM::GLOBAL_SUBD_ID,int>,int>& localToGlobalColorMap);
 
-static int floodFillSubDomain(SubDomain& subDomain,EdgeSet& edges,const Vec<bool>& edgeIntersections,const Vec<bool>& occluded_node,Vec<int>& nodeColors);
+static int floodFillSubDomain(SubDomain& subDomain, 
+										EdgeSet& edges, 
+										const Vec<bool>& edgeIntersections, 
+										const Vec<bool>& occluded_node, 
+										Vec<int>& nodeColors);
+
 static void dumpColorsToFile(const std::string& prefix,SubDomain& subDomain,const SVec<double,3>& X,Vec<int>& color);
 };
 

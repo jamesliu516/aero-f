@@ -108,8 +108,9 @@ protected:
   };
   DescriptorCase descriptorCase;
 
-
-
+private:
+  bool externalSI; //d2d
+  int ccc;
 public:
 
   SpaceOperator(IoData &, VarFcn *, DistBcData<dim> *, DistGeoState *,
@@ -152,7 +153,19 @@ public:
   DistSVec<double,dim>* getCurrentPrimitiveVector() { return V; }
 
   FemEquationTerm *getFemEquationTerm() { return fet;}
-  void conservativeToPrimitive(DistSVec<double,dim> &U,DistVec<int>* fid = 0) {varFcn->conservativeToPrimitive(U, *V,fid);}
+
+  void conservativeToPrimitive(DistSVec<double,dim> &U, DistVec<int>* fid = 0) 
+  {
+	  varFcn->conservativeToPrimitive(U, *V, fid);
+  }
+
+  void conservativeToPrimitive(DistSVec<double,dim> &U, 
+										 DistLevelSetStructure *distLSS,
+										 DistVec<int>* fid = 0) 
+  {
+	  varFcn->conservativeToPrimitive(U, *V, distLSS, fid);
+  }
+
 
 // Included (MB)
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
@@ -170,12 +183,12 @@ public:
   //d2d embedded
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
                        DistSVec<double,dim> &, DistSVec<double,dim> &,
-                       DistSVec<double,dim> &, DistLevelSetStructure *,
+                       DistSVec<double,dim> &, DistSVec<double,dim> &Wext,
+							  DistLevelSetStructure *,
                        bool, bool, DistVec<int> &, 
 		       DistSVec<double,dim> &,
                        DistExactRiemannSolver<dim> *, int, 
-		       int it = 0,
-                       DistVec<GhostPoint<dim>*> *ghostPoints = 0, 
+							  int it = 0, DistVec<GhostPoint<dim>*> *ghostPoints = 0, 
 		       bool=true);
 
   void computeResidual(DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, 
@@ -200,6 +213,11 @@ public:
     fprintf(stderr,"PopulateGhostPoints<%d> not implemented!\n",neq);
     exit(-1);
   }
+
+
+  // d2d
+  void setSIstencil( DistSVec<double,3> &X, DistLevelSetStructure *distLSS, DistVec<int> &fluidId, DistSVec<double,dim> &U);
+  void setFEMstencil(DistSVec<double,3> &X, DistLevelSetStructure *distLSS, DistVec<int> &fluidId, DistSVec<double,dim> &U);
 
   void computeRiemannWeightsForEmbeddedStruct(DistSVec<double,3> &X,
                            DistSVec<double,dim> &U, DistSVec<double,dim> &V,
@@ -417,9 +435,15 @@ public:
   template<class Scalar>
   void applyBCsToH2Jacobian(DistSVec<double,dim> &, DistMat<Scalar,dim> &);
 
+  void computeNodalGrad(DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, 
+						  DistVec<int> *fluidId=0, DistLevelSetStructure *distLSS=0);
+
+
+
   // Included (MB)
   /// \note This routine is called from FluidSensitivityAnalysis.
-  void computeGradP(DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &);
+  void computeGradP(DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, 
+						  DistVec<int> *fluidId=0, DistLevelSetStructure *distLSS=0);
 
 
   // Included (MB)
@@ -469,7 +493,7 @@ public:
 
   void computeForceLoad(int forceApp, int orderOfAccuracy, DistSVec<double,3> &X, DistVec<double> &ctrlVol, 
                         double (*Fs)[3], int sizeFs, DistLevelSetStructure *distLSS,
-                        DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
+                        DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, DistSVec<double,dim> *Wextij,
 			DistVec<GhostPoint<dim>*> *ghostPoints = 0, PostFcn *postFcn = 0,DistVec<int>* fid = 0);
 
   void computederivativeOfForceLoad(int forceApp, int orderOfAccuracy, DistSVec<double,3> &X, DistVec<double> &ctrlVol,

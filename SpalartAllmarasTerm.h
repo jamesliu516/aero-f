@@ -212,7 +212,8 @@ inline
 double SATerm::computeTurbulentViscosity(double *V, double mul)
 {
 
-  double mutilde = V[0]*V[5];
+	//double mutilde = V[0]*V[5];
+	double mutilde = V[0] * std::max(0.0,V[5]);
   double chi = mutilde / mul;
   double chi3 = chi*chi*chi;
   double fv1 = chi3 / (chi3 + cv1_pow3);
