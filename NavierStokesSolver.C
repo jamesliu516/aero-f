@@ -65,8 +65,8 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
 	    if(ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES)
 	      {
 		com->fprintf(stderr,"--- DES Turbulent Model Used ***\n");
-		com->fprintf(stderr, "*** Error: This option should work but has never been tested. Please use carefully. ***\n");
-		exit(1);
+					//com->fprintf(stderr, "*** Error: This option should work but has never been tested. Please use carefully. ***\n");
+					//exit(1);
 		if (ioData.ts.type == TsData::IMPLICIT &&
 				ioData.ts.implicit.tmcoupling == ImplicitData::WEAK)
 		  NavierStokesEmbeddedSegSolver<6,5,1>::solve(ioData, geoSource, domain);

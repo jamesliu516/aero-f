@@ -124,8 +124,15 @@ public:
 		DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &);
 
   template<class Scalar2>
-  void limit(RecFcn *, DistSVec<double,3> &, DistVec<double> &, DistSVec<Scalar2,dim> &,
+	  void limit(RecFcn *, DistSVec<double,3> &, DistVec<double> &, 
+					 DistSVec<Scalar2,dim> &,
              DistVec<int>* additionalFirstOrderNodes = 0);
+
+  template<class Scalar2>
+	  void limit(RecFcn *recFcn, DistSVec<double,3> &X,
+					 DistVec<double> &ctrlVol,
+					 DistLevelSetStructure *distLSS,  
+					 DistSVec<Scalar2,dim> &V);
 
   void fix(DistSVec<bool,2>&);
   void fix(DistSVec<int,2>&);

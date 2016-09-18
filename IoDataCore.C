@@ -5166,9 +5166,11 @@ EmbeddedFramework::EmbeddedFramework() {
 
   crackingWithLevelset = OFF;
   reconstruct = CONSTANT;
-  viscousinterfaceorder = FIRST;
+  viscousinterfaceorder = FIRST; //SECOND;
 
   viscousboundarycondition = WEAK;
+
+  surrogateinterface = HYBRID;
 
   stabil_alpha = 0.0;
 
@@ -5221,6 +5223,9 @@ void EmbeddedFramework::setup(const char *name) {
 
   new ClassToken<EmbeddedFramework> (ca, "ViscousBoundaryCondition", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::viscousboundarycondition), 2,
 												 "Weak", 0, "Strong", 1);
+
+  new ClassToken<EmbeddedFramework> (ca, "SurrogateInterface", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::surrogateinterface), 2,
+												 "Hybrid", 0, "External", 1);
 
 
   new ClassInt<EmbeddedFramework>(ca, "TestCase", this,
@@ -5947,13 +5952,18 @@ void IoData::resetInputValues()
     dgcl.velocities = DGCLData::IMPLICIT_ZERO;
   }
 
-  if (bc.wall.integration == BcsWallData::AUTO) {
+  // Set the default wall integrator to FULL 
+  if(bc.wall.integration == BcsWallData::AUTO) bc.wall.integration = BcsWallData::FULL;
+  /*  if (bc.wall.integration == BcsWallData::AUTO) {
     if (eqs.type == EquationsData::NAVIER_STOKES &&
         eqs.tc.type == TurbulenceClosureData::NONE)
       bc.wall.integration = BcsWallData::FULL;
     else
-      bc.wall.integration = BcsWallData::WALL_FUNCTION;
-  }
+	 {
+	
+		 bc.wall.integration = BcsWallData::FULL;
+	 }	 
+  } */
 
   if (problem.type[ProblemData::THERMO])
     bc.wall.type = BcsWallData::ISOTHERMAL;
@@ -6110,6 +6120,24 @@ void IoData::resetInputValues()
     embed.reconstruct = EmbeddedFramework::LINEAR;
   }
 
+  //d2d
+  if(embed.surrogateinterface == EmbeddedFramework::EXTERNAL)
+  {
+	  if(schemes.ns.reconstruction != SchemeData::LINEAR) 
+		  schemes.ns.reconstruction = SchemeData::LINEAR;
+	  
+	  if(embed.forceAlg != EmbeddedFramework::EMBEDDED_SURFACE)
+	  {
+		  com->fprintf(stderr, "*** Warning: Only embedded surface algorithm supported by the external surroagate interface approach. \n");
+		  com->fprintf(stderr, "             Force computation algorithm reverted to embedded surface. \n");
+		  embed.forceAlg = EmbeddedFramework::EMBEDDED_SURFACE;
+	  }
+	  
+	  if(embed.intersectorName == EmbeddedFramework::FRG)
+		  embed.intersectorName = EmbeddedFramework::PHYSBAM;
+
+  }
+
 }
 
 //------------------------------------------------------------------------------
@@ -6156,32 +6184,51 @@ int IoData::checkFileNames()
     com->fprintf(stderr, "*** Error: no matcher file given\n");
     ++error;
   }
+
+  if(problem.framework != ProblemData::BODYFITTED)
+	  if(bc.wall.integration == BcsWallData::AUTO) bc.wall.integration = BcsWallData::FULL;
+
   if (eqs.type == EquationsData::NAVIER_STOKES &&
       eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY) {
     if (eqs.tc.tm.type == TurbulenceModelData::TWO_EQUATION_KE)
       bc.wall.integration = BcsWallData::WALL_FUNCTION;
-/*
-    if (eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS &&
-        strcmp(input.d2wall, "") == 0) {
+
+	 if (eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES &&
+		  strcmp(input.d2wall, "") == 0 && problem.framework == ProblemData::BODYFITTED) {
       com->fprintf(stderr, "*** Error: no distance to wall file given\n");
       ++error;
     }
-*/
-   if (eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES &&
-       strcmp(input.d2wall, "") == 0) {
-      com->fprintf(stderr, "*** Error: no distance to wall file given\n");
-    ++error;
-   }
-    if (bc.wall.integration == BcsWallData::WALL_FUNCTION) {
-      if (bc.wall.delta < 0.0) {
+
+    if (bc.wall.integration == BcsWallData::WALL_FUNCTION) 
+	 {
+		 if(problem.framework == ProblemData::BODYFITTED)
+		 {
+			 if (bc.wall.delta < 0.0) 
+			 {
+				 bc.wall.delta_given = false;
+
         com->fprintf(stderr, "*** Error: no delta value given\n");
         ++error;
       }
+			 else bc.wall.delta_given = true;
     }
     else
+		 {
+			 bc.wall.delta_given = true;
+			 if(bc.wall.delta < 0.0)
+			 {
+				 bc.wall.delta_given = false;
       bc.wall.delta = 0.0;
   }
-  else {
+		 }
+	 }
+	 else
+	 {
+		 bc.wall.delta_given = false;
+		 bc.wall.delta = 0.0;
+	 }
+
+  } else {
     output.transient.nutturb = "";
     output.transient.kturb = "";
     output.transient.epsturb = "";
@@ -6277,7 +6324,7 @@ int IoData::checkInputValues()
 
 
   // input values for NonlinearROMs
-  if (   (problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_) ) {
+  if ( problem.alltype == ProblemData::_NONLINEAR_ROM_PREPROCESSING_ ) {
     error += checkInputValuesNonlinearRomPreprocessing();
   } else if (   (problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_)
              || (problem.alltype == ProblemData::_ACC_UNSTEADY_NONLINEAR_ROM_)

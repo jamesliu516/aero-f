@@ -2427,3 +2427,108 @@ bool ElemTet::isPointInside(SVec<double,3> & X,const Vec3D& V) {
     return true;
 }
 
+
+//------------------------------------------------------------------------------
+
+void ElemTet::getVelocityAndGradient(double *v[4], double dp1dxj[4][3],
+												 double u[4][3], double dudxj[3][3])
+{
+
+    u[0][0] = v[0][1];  u[0][1] = v[0][2]; u[0][2] = v[0][3];
+    u[1][0] = v[1][1];  u[1][1] = v[1][2]; u[1][2] = v[1][3];
+    u[2][0] = v[2][1];  u[2][1] = v[2][2]; u[2][2] = v[2][3];
+    u[3][0] = v[3][1];  u[3][1] = v[3][2]; u[3][2] = v[3][3];
+
+	 
+	 dudxj[0][0] = dp1dxj[0][0]*u[0][0] 
+		          + dp1dxj[1][0]*u[1][0] 
+		          + dp1dxj[2][0]*u[2][0] 
+		          + dp1dxj[3][0]*u[3][0];
+
+    dudxj[0][1] = dp1dxj[0][1]*u[0][0] 
+		          + dp1dxj[1][1]*u[1][0] 
+		          + dp1dxj[2][1]*u[2][0] 
+		          + dp1dxj[3][1]*u[3][0];
+
+    dudxj[0][2] = dp1dxj[0][2]*u[0][0] 
+                + dp1dxj[1][2]*u[1][0] 
+            	 + dp1dxj[2][2]*u[2][0] 
+           		 + dp1dxj[3][2]*u[3][0];
+
+    dudxj[1][0] = dp1dxj[0][0]*u[0][1] 
+                + dp1dxj[1][0]*u[1][1] 
+                + dp1dxj[2][0]*u[2][1] 
+            	 + dp1dxj[3][0]*u[3][1];
+
+    dudxj[1][1] = dp1dxj[0][1]*u[0][1] 
+	         	 + dp1dxj[1][1]*u[1][1] 
+	          	 + dp1dxj[2][1]*u[2][1] 
+	          	 + dp1dxj[3][1]*u[3][1];
+
+    dudxj[1][2] = dp1dxj[0][2]*u[0][1] 
+          		 + dp1dxj[1][2]*u[1][1] 
+		          + dp1dxj[2][2]*u[2][1] 
+		          + dp1dxj[3][2]*u[3][1];
+
+    dudxj[2][0] = dp1dxj[0][0]*u[0][2] 
+        		    + dp1dxj[1][0]*u[1][2] 
+	          	 + dp1dxj[2][0]*u[2][2] 
+		          + dp1dxj[3][0]*u[3][2];
+
+    dudxj[2][1] = dp1dxj[0][1]*u[0][2] 
+          		 + dp1dxj[1][1]*u[1][2] 
+		          + dp1dxj[2][1]*u[2][2] 
+		          + dp1dxj[3][1]*u[3][2];
+
+    dudxj[2][2] = dp1dxj[0][2]*u[0][2] 
+          		 + dp1dxj[1][2]*u[1][2] 
+		          + dp1dxj[2][2]*u[2][2] 
+           		 + dp1dxj[3][2]*u[3][2];
+}
+
+void ElemTet::getTemperatureAndGradient(double *v[4], double dp1dxj[4][3], double R,
+													 double T[4],  double dtdxj[3])
+{
+
+	for(int j=0; j<4; ++j) T[j] = v[j][4]/(R*v[j][0]);
+	
+	dtdxj[0] = dp1dxj[0][0]*T[0] 
+		      + dp1dxj[1][0]*T[1] 
+            + dp1dxj[2][0]*T[2] 
+		      + dp1dxj[3][0]*T[3];
+
+	dtdxj[1] = dp1dxj[0][1]*T[0] 
+		      + dp1dxj[1][1]*T[1] 
+		      + dp1dxj[2][1]*T[2] 
+	         + dp1dxj[3][1]*T[3];
+
+	dtdxj[2] = dp1dxj[0][2]*T[0] 
+		      + dp1dxj[1][2]*T[1] 
+		      + dp1dxj[2][2]*T[2] 
+		      + dp1dxj[3][2]*T[3];
+}
+
+void ElemTet::ComputeStrainAndStressTensor(double dudxj[3][3], 
+														 double S[3][3], double Pij[6])
+{
+
+
+	S[0][0] = dudxj[0][0];
+	S[1][1] = dudxj[1][1];
+	S[2][2] = dudxj[2][2];
+	S[0][1] = 0.5*(dudxj[0][1] + dudxj[1][0]);
+	S[0][2] = 0.5*(dudxj[0][2] + dudxj[2][0]);
+	S[1][2] = 0.5*(dudxj[1][2] + dudxj[2][1]);
+	S[1][0] = S[0][1];
+	S[2][0] = S[0][2];
+	S[2][1] = S[1][2];
+
+
+	Pij[0] = (2.0/3.0)*(2.0 * dudxj[0][0] - dudxj[1][1] - dudxj[2][2]);
+	Pij[1] = (2.0/3.0)*(2.0 * dudxj[1][1] - dudxj[0][0] - dudxj[2][2]);
+	Pij[2] = (2.0/3.0)*(2.0 * dudxj[2][2] - dudxj[0][0] - dudxj[1][1]);
+	Pij[3] = (dudxj[1][0] + dudxj[0][1]);
+	Pij[4] = (dudxj[2][0] + dudxj[0][2]);
+	Pij[5] = (dudxj[2][1] + dudxj[1][2]);
+
+}

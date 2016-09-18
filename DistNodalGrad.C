@@ -30,7 +30,8 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom) : domain(
   tag = 0;
 
   if (ioData.schemes.ns.limiter == SchemeData::BARTH ||
-      ioData.schemes.ns.limiter == SchemeData::VENKAT) {
+      ioData.schemes.ns.limiter == SchemeData::VENKAT) 
+  {
     Vmin = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
     Vmax = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
     phi = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
@@ -38,7 +39,8 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom) : domain(
 // Included (MB)
     if (ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
         ioData.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
-        ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
+        ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) 
+	 {
       dVmin = new DistSVec<double,dim>(domain->getNodeDistInfo());
       dVmax = new DistSVec<double,dim>(domain->getNodeDistInfo());
       dphi = new DistSVec<double,dim>(domain->getNodeDistInfo());
@@ -788,10 +790,12 @@ void DistNodalGrad<dim, Scalar>::computeDerivativeOfWeightsOperators(DistSVec<do
 template<int dim, class Scalar>
 template<class Scalar2>
 void DistNodalGrad<dim, Scalar>::compute(int config, DistSVec<double,3> &X,
-				 DistVec<double> &ctrlVol, DistSVec<Scalar2, dim> &V)
+													  DistVec<double> &ctrlVol, 
+													  DistSVec<Scalar2, dim> &V)
 {
 
-  if (config != lastConfig) {
+	if(config != lastConfig) 
+	{
     computeWeights(X);
     lastConfig = config;
   }
@@ -937,7 +941,7 @@ void DistNodalGrad<dim, Scalar>::computeDerivativeOperators(DistSVec<double,3> &
 
 //------------------------------------------------------------------------------
 // least square gradient involving only nodes of same fluid (multiphase flow)
-// $dd
+// $d2d
 template<int dim, class Scalar>
 template<class Scalar2>
 void DistNodalGrad<dim, Scalar>::compute(int config, DistSVec<double,3> &X,
@@ -947,15 +951,17 @@ void DistNodalGrad<dim, Scalar>::compute(int config, DistSVec<double,3> &X,
 					 bool includeSweptNodes)
 {
 
-  if (typeGradient == SchemeData::LEAST_SQUARES){
+	if(typeGradient == SchemeData::LEAST_SQUARES)
+	{    
+		domain->computeWeightsLeastSquares(X, fluidId, *R, distLSS, includeSweptNodes);
     
-    domain->computeWeightsLeastSquares(X, fluidId, *R, distLSS, includeSweptNodes);
     domain->computeGradientsLeastSquares(X, fluidId, *R, V, *ddx, *ddy, *ddz, linFSI, 
 					 distLSS, includeSweptNodes);
+	}
+	else if(typeGradient == SchemeData::GALERKIN || typeGradient == SchemeData::NON_NODAL)
+	{    
+		domain->computeWeightsGalerkin(X, fluidId, *wii, *wij, *wji, distLSS, includeSweptNodes);
 
-  }else if(typeGradient == SchemeData::GALERKIN || typeGradient == SchemeData::NON_NODAL){
-    
-    domain->computeWeightsGalerkin(X, fluidId, *wii, *wij, *wji, distLSS, includeSweptNodes);
     domain->computeGradientsGalerkin(ctrlVol, *wii, *wij, *wji, V, *ddx, *ddy, *ddz);       
 
   }
@@ -1092,16 +1098,22 @@ void DistNodalGrad<dim, Scalar>::limit(RecFcn *recFcn, DistSVec<double,3> &X,
   if (ltdsensor)
     domain->computePressureSensor(ltdsensor->getThreshold(), X, V, *ddx, *ddy, *ddz, *sensor, *sigma);
 
-  if (tag) {
+  if (tag) 
+  {
 #pragma omp parallel for
-    for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    for (int iSub = 0; iSub < numLocSub; ++iSub) 
+	 {
       bool *loctag = tag->subData(iSub);
       Scalar (*locddx)[dim] = ddx->subData(iSub);
       Scalar (*locddy)[dim] = ddy->subData(iSub);
       Scalar (*locddz)[dim] = ddz->subData(iSub);
-      for (int i=0; i<tag->subSize(iSub); ++i) {
- 	if (loctag[i]) {
- 	  for (int j=0; j<dim; ++j) {
+
+		 for (int i=0; i<tag->subSize(iSub); ++i) 
+		 {
+			 if (loctag[i]) 
+			 {
+				 for (int j=0; j<dim; ++j) 
+				 {
 	    locddx[i][j] = 0.0;
 	    locddy[i][j] = 0.0;
 	    locddz[i][j] = 0.0;
@@ -1195,6 +1207,52 @@ void DistNodalGrad<dim, Scalar>::limitDerivative(RecFcn *recFcn, DistSVec<double
       }
     }
   }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, class Scalar>
+template<class Scalar2>
+void DistNodalGrad<dim, Scalar>::limit(RecFcn *recFcn, DistSVec<double,3> &X,
+													DistVec<double> &ctrlVol, 
+													DistLevelSetStructure *distLSS,
+													DistSVec<Scalar2,dim> &V)
+{
+
+	RecFcnLtdMultiDim<dim>* ltdmd = dynamic_cast<RecFcnLtdMultiDim<dim>*>(recFcn);
+	if (ltdmd)
+		domain->computeMultiDimLimiter(X, ctrlVol, V, *ddx, *ddy, *ddz, distLSS);
+		
+	RecFcnLtdSensor* ltdsensor = dynamic_cast<RecFcnLtdSensor*>(recFcn);
+	if (ltdsensor)
+		domain->computePressureSensor(ltdsensor->getThreshold(), X, V, *ddx, *ddy, *ddz, *sensor, *sigma);
+
+	if (tag) 
+	{
+#pragma omp parallel for
+		for (int iSub = 0; iSub < numLocSub; ++iSub) 
+		{
+			bool *loctag = tag->subData(iSub);
+
+			Scalar (*locddx)[dim] = ddx->subData(iSub);
+			Scalar (*locddy)[dim] = ddy->subData(iSub);
+			Scalar (*locddz)[dim] = ddz->subData(iSub);
+
+			for (int i=0; i<tag->subSize(iSub); ++i) 
+			{
+				if (loctag[i]) 
+				{
+					for (int j=0; j<dim; ++j) 
+					{
+						locddx[i][j] = 0.0;
+						locddy[i][j] = 0.0;
+						locddz[i][j] = 0.0;
+					}
+				}
+			}
+		}
+	}
+
 }
 
 //------------------------------------------------------------------------------

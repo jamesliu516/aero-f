@@ -623,7 +623,7 @@ public:
   void computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, 
 		       Vec<Vec3D> &normal, Vec<double> &normalVel,
 		       SVec<double,3> &X, SVec<double,dim> &V, Vec<double> &idti, 
-		       Vec<double> &idtv, TimeLowMachPrec &tprec);
+							  Vec<double> &idtv, TimeLowMachPrec &tprec, LevelSetStructure *LSS=0);
 
   template<int dim>
   void computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal, 
@@ -1078,7 +1078,7 @@ public:
   template<int dim>
   void computeTimeStep(FemEquationTerm *, VarFcn *, GeoState &, 
 		       SVec<double,3> &, SVec<double,dim> &, Vec<double> &,
-                       Vec<double> &, TimeLowMachPrec &);
+                       Vec<double> &, TimeLowMachPrec &, LevelSetStructure *LSS=0);
 
   template<int dim>
   void computeFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &, 

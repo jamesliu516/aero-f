@@ -44,7 +44,7 @@ private:
   Vec3D computeTangentVector(Vec3D &, Vec3D &);
   void computeFaceValues(double [3], double *, double *[3], double &, Vec3D &, 
 			 double &, Vec3D &, double &, double &);
-  double computeFrictionVelocity(Vec3D &, double, double, Vec3D &, double);
+  double computeFrictionVelocity(double, double, double, double);
   double computeFrictionTemperature(double, double, double, double, double);
 
 // Included (MB)
@@ -64,6 +64,9 @@ public:
   double computeInterfaceWork(Vec3D&, double [3], double*, double* [3]);
   double computeHeatPower(Vec3D &, double [3], double *, double *[3]);
   double computeDeltaPlus(Vec3D &, double [3], double *, double *[3]);
+
+  double computedudT(double rho, double T, double ut, double dT, 
+						 double d2w, double &dudn, double &dTdn);
 
   template<int neq>
   void computeJacobianSurfaceTerm(int, Vec3D &, double [3], double *, 

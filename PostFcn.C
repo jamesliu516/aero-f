@@ -1729,10 +1729,14 @@ Vec3D PostFcnNS::computeViscousForce(double dp1dxj[4][3], Vec3D& n, double d2w[3
 {
 
   Vec3D Fv;
-
+	/*
   if (wallFcn && Vwall)
+	{
     Fv = wallFcn->computeForce(n, d2w, Vwall, Vface);
-  else {
+	}
+	else 
+	{
+	*/
     double u[4][3], ucg[3];
     computeVelocity(Vtet, u, ucg);
 
@@ -1753,7 +1757,7 @@ Vec3D PostFcnNS::computeViscousForce(double dp1dxj[4][3], Vec3D& n, double d2w[3
     Fv[0] = tij[0][0] * n[0] + tij[0][1] * n[1] + tij[0][2] * n[2];
     Fv[1] = tij[1][0] * n[0] + tij[1][1] * n[1] + tij[1][2] * n[2];
     Fv[2] = tij[2][0] * n[0] + tij[2][1] * n[1] + tij[2][2] * n[2];
-  }
+//	}
 
   return -1.0 * Fv;
 

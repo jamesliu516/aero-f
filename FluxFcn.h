@@ -38,7 +38,7 @@ private:
   
   void check(int tag=0) const{ 
     if(tag>=numPhases_){
-      fprintf(stdout, "*** Error: An unknown fluid model with FluidID = %d is detected. Could be a software bug!\n", tag);
+		fprintf(stdout, "*** Error: An unknown fluid model with FluidID = %d is detected [%d]. Could be a software bug!\n", tag, numPhases_);
       DebugTools::PrintBacktrace();
       fflush(stdout);
       MPI_Barrier(MPI_COMM_WORLD);

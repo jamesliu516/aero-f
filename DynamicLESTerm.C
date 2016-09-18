@@ -65,7 +65,8 @@ void DynamicLESTerm::computeDelta(double tetVol, SVec<double,3> &X, int nodeNum[
 //-----------------------------------------------------------------------
 
 void DynamicLESTerm::compute(double tetVol, double dp1dxj[4][3], double *V[4], 
-                             double Cs[4], double Pt[4], double *r, SVec<double,3> &X, int nodeNum[4])
+                             double Cs[4], double Pt[4], double *r, 
+									  SVec<double,3> &X, int nodeNum[4])
 
 {
 
@@ -88,11 +89,12 @@ void DynamicLESTerm::compute(double tetVol, double dp1dxj[4][3], double *V[4],
   csprime = onefourth*(Cs[0]+Cs[1]+Cs[2]+Cs[3]);
   Prsgs   = onefourth*(Pt[0]+Pt[1]+Pt[2]+Pt[3]);
     
+  // Clipping for (cs*delta)^2 and pt
+  if(csprime > pow(csmax*delta, 2)) 
+	  csprime = csmax*delta*delta; 
 
-// Clipping for (cs*delta)^2 and pt
-
-  if (csprime > pow(csmax*delta,2)) csprime = csmax*delta*delta; 
-  if (mach < 0.3) Prsgs = Prandtl; // for subsonic flow use constant prandtl number
+  if (mach < 0.3) 
+	  Prsgs = Prandtl; // for subsonic flow use constant prandtl number
   else {
     if(Prsgs < ptmin) Prsgs = ptmin;
     if(Prsgs > ptmax) Prsgs = ptmax;
@@ -105,7 +107,8 @@ void DynamicLESTerm::compute(double tetVol, double dp1dxj[4][3], double *V[4],
 
 // Applying the laminar-turbulent trip
 
-  if(trip){
+  if(trip)
+  {
      if((X[nodeNum[0]][0]>=x0 && X[nodeNum[0]][0]<=x1 && X[nodeNum[0]][1]>=y0 && X[nodeNum[0]][1]<=y1 &&
         X[nodeNum[0]][2]>=z0 && X[nodeNum[0]][2]<=z1) || (X[nodeNum[1]][0]>=x0 && X[nodeNum[1]][0]<=x1 &&
         X[nodeNum[1]][1]>=y0 && X[nodeNum[1]][1]<=y1 && X[nodeNum[1]][2]>=z0 && X[nodeNum[1]][2]<=z1) ||
@@ -113,13 +116,11 @@ void DynamicLESTerm::compute(double tetVol, double dp1dxj[4][3], double *V[4],
         X[nodeNum[2]][2]>=z0 && X[nodeNum[2]][2]<=z1) || (X[nodeNum[3]][0]>=x0 && X[nodeNum[3]][0]<=x1 &&
         X[nodeNum[3]][1]>=y0 && X[nodeNum[3]][1]<=y1 && X[nodeNum[3]][2]>=z0 && X[nodeNum[3]][2]<=z1)){
         muT = computeEddyViscosity(rhoCG, delta, dudxj);} 
-     else{
+     else
         muT = 0.0;
      }
-  }
-  else{
+  else
     muT = computeEddyViscosity(rhoCG, delta, dudxj); 
-  }
 
 // mu + muT check: if mu + muT < 0.0 then muT is set to -mu
 
@@ -127,8 +128,7 @@ void DynamicLESTerm::compute(double tetVol, double dp1dxj[4][3], double *V[4],
   computeTemperature(V, T, Tcg);
   double mu = ooreynolds_mu * viscoFcn->compute_mu(Tcg);
 
-  if((mu + muT) < 0.0)
-     muT = -mu;
+  if((mu + muT) < 0.0) muT = -mu;
 
 // trubulence stress and energy gradient calculation
 

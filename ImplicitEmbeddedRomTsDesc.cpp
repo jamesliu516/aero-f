@@ -163,5 +163,5 @@ void ImplicitEmbeddedRomTsDesc<dim>::projectVector(VecSet<DistSVec<double, dim> 
     Vec<double> temp;
     transMatVecProd(mat, vec, temp); // temp = transpose(mat) * vec;
     for (int i = 0; i < this->reducedDimension; i++)
-        buffer[i] = temp;
+        buffer[i] = temp[i];
 }

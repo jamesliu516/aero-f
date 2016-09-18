@@ -67,6 +67,8 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   DistSVec<double,dim> *VWeights; //<! stores U*Weights for each node. Used in updating phase change.
   DistVec<double> *Weights;       //<! weights for each node. Used in updating phase change.
 
+  DistSVec<double,dim> *Wextij;
+
   ReinitializeDistanceToWall<1> *wall_computer;
   // ------------------------------------------------------------------------------------
 
