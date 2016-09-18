@@ -3860,7 +3860,6 @@ int TsOutput<dim>::writeBinaryVectorsToDiskRom(bool lastNewtonIt, int timeStep, 
             ((timeStep==0) && (newtonIt==0)) ||  // special case: initial condition
             ((stateOutputFreqNewton>0)&&(newtonIt%stateOutputFreqNewton==0))) {
           // output FOM state
-          com->fprintf(stdout, "Outputting file with tag %e\n", tag);
           domain->writeVectorToFile(stateVectors, step, tag, *state);
           ++(*(domain->getNewtonStateStep()));
           ++status;

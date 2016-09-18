@@ -126,10 +126,6 @@ struct InputData {
   const char *sower;
   const char *metis;
   int nParts;
-  const char *matlab;
-  const char *matlabFunction;
-  const char *embarassinglyParallelMatlabFunction;
-  const char *matlabCommandFile;
 
   //const char *stateVecFile;//CBM
 
@@ -2374,6 +2370,10 @@ struct NonlinearRomOnlineData {
   double romSpatialOnlyMaxHomotomyStep;
   double romSpatialOnlyHomotomyStepExpGrowthRate;
 
+  double newtonStepThreshold;
+
+  enum MeritFunction {ROM_RESIDUAL=0, HDM_RESIDUAL=1} meritFunction;
+
   NonlinearRomOnlineNonStateData krylov;
   NonlinearRomOnlineNonStateData sensitivity;
 
@@ -2643,7 +2643,6 @@ struct GappyConstructionData {
   enum SowerInputs {SOWER_INPUTS_FALSE = 0, SOWER_INPUTS_TRUE = 1} sowerInputs;
   enum DoPreproGNAT {DO_PREPRO_GNAT_FALSE = 0, DO_PREPRO_GNAT_TRUE = 1} doPreproGNAT;
   enum DoPreproApproxMetricNonlinear {DO_PREPRO_APPROX_METRIC_NL_FALSE = 0, DO_PREPRO_APPROX_METRIC_NL_TRUE = 1} doPreproApproxMetricNonlinear;
-  enum DoPreproApproxMetricNonlinearCVX {DO_PREPRO_CVX_METRIC_NL_FALSE = 0, DO_PREPRO_CVX_METRIC_NL_TRUE = 1} doPreproApproxMetricNonlinearCVX;
   enum DoPreproApproxMetricNonlinearNNLS {DO_PREPRO_NNLS_METRIC_NL_FALSE = 0, DO_PREPRO_NNLS_METRIC_NL_TRUE = 1} doPreproApproxMetricNonlinearNNLS;
 
   int maxDimensionState;

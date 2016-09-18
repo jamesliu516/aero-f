@@ -78,10 +78,10 @@ protected:
   virtual void computeFullResidual(int, DistSVec<double, dim> &, bool applyWeighting = false, DistSVec<double, dim> *R = NULL, bool includeHomotopy = true); 
   virtual void saveNewtonSystemVectors(const int _it) {};	// only implemented for PG/Galerkin
   void saveNewtonSystemVectorsAction(const int);	// implementation for PG/Galerkin
-	virtual void solveNewtonSystem(const int &it, double &res, bool &breakloop, DistSVec<double, dim> &, const int &totalTimeSteps = 0) = 0;
+  virtual void solveNewtonSystem(const int &it, double &res, bool &breakloop, DistSVec<double, dim> &, const int &totalTimeSteps = 0) = 0;
 	// each ROM has a different way of solving the Newton system
   int solveLinearSystem(int, Vec<double> &, Vec<double> &);
-  virtual double meritFunction(int, DistSVec<double, dim> &, DistSVec<double, dim> &, DistSVec<double, dim> &, double); 
+  virtual double meritFunction(int, DistSVec<double, dim> &, DistSVec<double, dim> &, DistSVec<double, dim> &, double) = 0; // depends on MOR approach
   double meritFunctionDeriv(int, DistSVec<double, dim> &, DistSVec<double, dim> &, DistSVec<double, dim> &, double);
   double lineSearch(DistSVec<double, dim> &, Vec<double> &, int, VecSet<DistSVec<double, dim> > &,double, bool &);
   double lineSearchBacktrack(DistSVec<double, dim> &, Vec<double> &, int, VecSet<DistSVec<double, dim> > &,double, bool &);

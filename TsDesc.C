@@ -473,6 +473,9 @@ void TsDesc<dim>::formInterpolationWeights(IoData &iod) {
   std::vector<std::vector<double> > solutionsParameters;
   solutionsParameters.resize(nData);
 
+  std::vector<double> minParamValues(nParams,1e16);
+  std::vector<double> maxParamValues(nParams,-1e16);
+
   char solnFile[500];
   for (int iData=0; iData < nData; ++iData) {
     // skip solution name
@@ -481,10 +484,18 @@ void TsDesc<dim>::formInterpolationWeights(IoData &iod) {
     solutionsParameters[iData].resize(nParams);
     for (int iParam=0; iParam < nParams; ++iParam) {
       _n = fscanf(paramsFile, "%lf", &(solutionsParameters[iData][iParam]));
-      //com->fprintf(stdout," ... param #%d = %e\n",iParam,solutionsParameters[iData][iParam]);
+      minParamValues[iParam] = (solutionsParameters[iData][iParam] < minParamValues[iParam]) ? solutionsParameters[iData][iParam]: minParamValues[iParam];
+      maxParamValues[iParam] = (solutionsParameters[iData][iParam] > maxParamValues[iParam]) ? solutionsParameters[iData][iParam]: minParamValues[iParam];
     } 
   }
   fclose(paramsFile);
+
+  for (int iData=0; iData < nData; ++iData) {
+    for (int iParam=0; iParam < nParams; ++iParam) {
+      double paramRange = maxParamValues[iParam] - minParamValues[iParam];
+      solutionsParameters[iData][iParam] = (paramRange>1e-15) ? (solutionsParameters[iData][iParam] - minParamValues[iParam]) / paramRange : 0; 
+    } 
+  }
 
   // read parameters for current simulation
   std::vector<double> parameters;
@@ -506,6 +517,8 @@ void TsDesc<dim>::formInterpolationWeights(IoData &iod) {
   for (int iParam=0; iParam < nParams; ++iParam) {
     _n = fscanf(inParams, "%lf", &(parameters[iParam]));
     com->fprintf(stdout," ... current operating point: param #%d = %e\n",iParam,parameters[iParam]);
+    double paramRange = maxParamValues[iParam] - minParamValues[iParam];
+    parameters[iParam] = (paramRange>1e-15) ? (parameters[iParam] - minParamValues[iParam]) / paramRange : 0; 
   }
 
   // determine weighting

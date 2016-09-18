@@ -17,7 +17,7 @@ class SurfMeshGen : public GappyPreprocessing<dim> {
 
 	void outputSampleNodes() { ;}
 
-	void addSampleNodesAndNeighbors() { ;}
+//	void addSampleNodesAndNeighbors() { ;}
 
 	public:
 	SurfMeshGen(Communicator *, IoData &, Domain &, DistGeoState *);

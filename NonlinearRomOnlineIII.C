@@ -363,10 +363,8 @@ bool NonlinearRomOnlineIII<dim>::updateBasisFastExact(int currentCluster, DistSV
      totalCompensation += compensation;
      r = temp2;
   }
-  this->com->fprintf(stdout,"entries required to build r = %d\n", sumVec.size());
   sumVec.clear();
-  this->com->fprintf(stdout,"r = %1.12e\n", r);
-  this->com->fprintf(stdout,"totalCompensation = %1.12e\n", totalCompensation);
+  //this->com->fprintf(stdout,"totalCompensation = %1.12e\n", totalCompensation);
 
   if ( r < pow(this->rTol,2.0) ) { // no need to update basis -- just need to update alpha, beta, and N
     this->com->fprintf(stdout, " ... r is less than the specified tolerance of %e -- skipping the update\n", this->rTol);
@@ -389,10 +387,6 @@ bool NonlinearRomOnlineIII<dim>::updateBasisFastExact(int currentCluster, DistSV
     updatePerformed = true;
 
     r = pow(r, 0.5);
-
-    for (int iVec = 0; iVec<robSize; ++iVec) {
-      this->com->fprintf(stdout,"m[%d] = %1.12e\n",iVec, m[iVec]);
-    }
 
     // form alphaP, betaP, and nP
     double alphaP = alphaA/r;

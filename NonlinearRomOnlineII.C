@@ -107,8 +107,12 @@ bool NonlinearRomOnlineII<dim>::updateBasis(int iCluster, DistSVec<double, dim> 
         updatePerformed = updateBasisSimple(iCluster, U);
         break;
       case (NonlinearRomOnlineData::UPDATES_FAST_EXACT):
-        this->com->fprintf(stderr, " ... Applying rank one basis update using fast exact method\n");
-        updatePerformed = updateBasisFastExact(iCluster, U, coords);
+        //this->com->fprintf(stderr, " ... Applying rank one basis update using fast exact method\n");
+        //updatePerformed = updateBasisFastExact(iCluster, U, coords);
+        this->com->fprintf(stderr, "*** Warning: Switching to simple basis update (fast updates were specified)\n");
+        this->com->fprintf(stderr, "             This assumes that the full mesh is being used - if this isn't the case then simple updates aren't appropriate!\n\n");
+        this->com->fprintf(stdout, " ... Applying simple (and exact) rank one basis update\n");
+        updatePerformed = updateBasisSimple(iCluster, U);
         break;
       case (NonlinearRomOnlineData::UPDATES_FAST_APPROX):
         this->com->fprintf(stdout, " ... Applying rank one basis update using fast approximate method\n");
@@ -349,103 +353,7 @@ bool NonlinearRomOnlineII<dim>::updateBasisFastExact(int currentCluster, DistSVe
     }
   }
 
-
-  /*// START DEBUGGING
-
-    // print alpha beta and N
-    this->com->fprintf(stdout, "debuggin: exactUpdatesAlphaSwitch=%e\n", this->exactUpdatesAlphaSwitch);
-    this->com->fprintf(stdout, "debuggin: alphaA=%e\n", alphaA);
-    for (int iCluster=0; iCluster<this->exactUpdatesAlpha.size(); ++iCluster) {
-      this->com->fprintf(stdout, "debuggin: exactUpdatesAlpha[%d]=%e\n", iCluster, this->exactUpdatesAlpha[iCluster]);
-    }
-
-    this->com->fprintf(stdout, "debuggin: exactUpdatesBetaSwitch.size()=%d\n", this->exactUpdatesBetaSwitch.size());
-    for (int iCluster=0; iCluster<this->exactUpdatesBetaSwitch.size(); ++iCluster) {
-     this->com->fprintf(stdout, "debuggin: exactUpdatesBetaSwitch[%d]=%e\n", iCluster, this->exactUpdatesBetaSwitch[iCluster]);
-    }
-    this->com->fprintf(stdout, "debuggin: betaA.size()=%d\n", betaA.size());
-    for (int iCluster=0; iCluster<betaA.size(); ++iCluster) {
-     this->com->fprintf(stdout, "debuggin: betaA[%d]=%e\n", iCluster, betaA[iCluster]);
-    }
-    this->com->fprintf(stdout, "debuggin: exactUpdatesBeta.size()=%d\n", this->exactUpdatesBeta.size());
-    for (int iCluster=0; iCluster<this->exactUpdatesBeta.size(); ++iCluster) {
-      this->com->fprintf(stdout, "debuggin: exactUpdatesBeta[%d].size()=%d\n", iCluster, this->exactUpdatesBeta[iCluster].size());
-      for (int iVec=0; iVec<this->exactUpdatesBeta[iCluster].size(); ++iVec) {
-        this->com->fprintf(stdout, "debuggin: exactUpdatesBeta[%d][%d]=%e\n", iCluster, iVec, this->exactUpdatesBeta[iCluster][iVec]);
-      }
-    }
-
-    this->com->fprintf(stdout, "debuggin: exactUpdatesNSwitch.size()=%d\n", this->exactUpdatesNSwitch.size());
-    for (int iCluster=0; iCluster<this->exactUpdatesNSwitch.size(); ++iCluster) {
-      this->com->fprintf(stdout, "debuggin: exactUpdatesNSwitch[%d].size()=%d\n", iCluster, this->exactUpdatesNSwitch[iCluster].size());
-      for (int iVec=0; iVec<this->exactUpdatesNSwitch[iCluster].size(); ++iVec) {
-        this->com->fprintf(stdout, "debuggin: exactUpdatesNSwitch[%d][%d]=%e\n", iCluster, iVec, this->exactUpdatesNSwitch[iCluster][iVec]);
-      }
-    }
-    this->com->fprintf(stdout, "debuggin: nA.size()=%d\n", nA.size());
-    for (int iCluster=0; iCluster<nA.size(); ++iCluster) {
-      this->com->fprintf(stdout, "debuggin: nA[%d].size()=%d\n", iCluster, nA[iCluster].size());
-      for (int iVec=0; iVec<nA[iCluster].size(); ++iVec) {
-        this->com->fprintf(stdout, "debuggin: nA[%d][%d]=%e\n", iCluster, iVec, nA[iCluster][iVec]);
-      }
-    }
-     this->com->fprintf(stdout, "debuggin: exactUpdatesN.size()=%d\n", this->exactUpdatesN.size());
-    for (int iCluster=0; iCluster<this->exactUpdatesN.size(); ++iCluster) {
-      this->com->fprintf(stdout, "debuggin: exactUpdatesN[%d].size()=%d\n", iCluster, this->exactUpdatesN[iCluster].size());
-      for (int iVec=0; iVec<this->exactUpdatesN[iCluster].size(); ++iVec) {
-        this->com->fprintf(stdout, "debuggin: exactUpdatesN[%d][%d].size()=%d\n", iCluster, iVec, this->exactUpdatesN[iCluster][iVec].size());
-        for (int jVec=0; jVec<this->exactUpdatesN[iCluster][iVec].size(); ++jVec) {
-          this->com->fprintf(stdout, "debuggin: exactUpdatesN[%d][%d][%d]=%e\n", iCluster, iVec, jVec, this->exactUpdatesN[iCluster][iVec][jVec]);
-        }
-      }
-    }
-
-  // this was used for testing the round-ff error associated with coords (occasionally large)
-  DistSVec<double, dim> testU(this->domain.getNodeDistInfo());
-  testU = *this->Uic;
-  this->readClusteredBasis(0, "state");
-  for (int iVec=0; iVec<this->basis->numVectors(); ++iVec) {
-    this->com->fprintf(stdout, "debuggin: coords[%d] = %e\n", iVec, (*coords)[iVec]); 
-    testU = testU + (*(this->basis))[iVec] * (*coords)[iVec];
-  }
-  DistSVec<double, dim> shouldBeZero(this->domain.getNodeDistInfo());
-  shouldBeZero = testU - U;
-  this->com->fprintf(stdout, "debuggin: norm of (U - (Uic + V*coords)) = %e (should be zero until third switch)\n", shouldBeZero.norm());
-
-  this->readClusteredBasis(currentCluster, "state");
-  */
-
-  // for checking r and m when running model II
-  DistSVec<double, dim> p(this->domain.getNodeDistInfo());
-  p = *(this->Uref) - U;
-
-  double* mSimple = new double[robSize];
-  for (int iVec=0; iVec<robSize; ++iVec) {
-    mSimple[iVec] = (*(this->basis))[iVec] * p;
-  }
-
-  for (int iVec=0; iVec<robSize; ++iVec) {
-    p -= (*(this->basis))[iVec] * mSimple[iVec];
-  }
-
-  double Ra = p.norm();
-  if (Ra>0) {
-    double RaInv = 1/Ra;
-    p *= RaInv;
-  }
-
-  for (int iVec = 0; iVec<robSize; ++iVec) {
-    if (mSimple[iVec]!=0) {
-      this->com->fprintf(stdout,"((m - mSimple)./(mSimple))[%d] = %1.12e\n",iVec, (m[iVec]-mSimple[iVec])/mSimple[iVec]); 
-    } else { 
-      this->com->fprintf(stdout,"mSimple[%d] = 0, m[%d] = %1.12e\n",iVec, iVec, m[iVec]);
-    }
-    //m[iVec] = mSimple[iVec];
-  }
-
   double r = pow(alphaA * this->uicNorm, 2);
-
-  this->com->fprintf(stdout,"r = %1.12e\n", r);
 
   for (int iCluster=0; iCluster<this->nClusters; ++iCluster) {
     for (int pCluster=0; pCluster<this->nClusters; ++pCluster) {
@@ -456,8 +364,6 @@ bool NonlinearRomOnlineII<dim>::updateBasisFastExact(int currentCluster, DistSVe
       }
     }
   }
-
-  this->com->fprintf(stdout,"r = %1.12e\n", r);
 
   std::vector<std::vector<double> > nATmp = nA; //nATmp = nA[iCluser] - delta_(iCluster,currentCluster)*m
   if (nATmp[currentCluster].size()>0) {
@@ -471,8 +377,6 @@ bool NonlinearRomOnlineII<dim>::updateBasisFastExact(int currentCluster, DistSVe
     }
   }
 
-  this->com->fprintf(stdout,"r = %1.12e\n", r);
-
   for (int iCluster=0; iCluster<this->nClusters; ++iCluster) {
     for (int pCluster=0; pCluster<this->nClusters; ++pCluster) {
       for (int iVec=0; iVec<nATmp[iCluster].size(); ++iVec) {   
@@ -480,8 +384,6 @@ bool NonlinearRomOnlineII<dim>::updateBasisFastExact(int currentCluster, DistSVe
       }
     }
   } 
-
-  this->com->fprintf(stdout,"r = %1.12e\n", r);
 
   for (int iCluster=0; iCluster<this->nClusters; ++iCluster) {
     for (int pCluster=0; pCluster<this->nClusters; ++pCluster) {
@@ -510,13 +412,9 @@ bool NonlinearRomOnlineII<dim>::updateBasisFastExact(int currentCluster, DistSVe
     }
   }
 
-  this->com->fprintf(stdout,"r = %1.12e\n", r);
-
   for (int iCluster=0; iCluster<this->nClusters; ++iCluster) {
     r += 2.0*alphaA*betaA[iCluster]*this->urefUicProducts[iCluster];
   }
-
-  this->com->fprintf(stdout,"r = %1.12e\n", r);
 
   for (int iCluster=0; iCluster<this->nClusters; ++iCluster) {
     for (int iVec=0; iVec<nATmp[iCluster].size(); ++iVec) {
@@ -524,17 +422,6 @@ bool NonlinearRomOnlineII<dim>::updateBasisFastExact(int currentCluster, DistSVe
     }
   }
 
-  this->com->fprintf(stdout,"r = %1.12e\n", r);
-
-  // START DEBUGGGING
-  if (Ra>0) {
-    this->com->fprintf(stdout,"(r^2 - rSimple^2) / rSimple^2= %1.12e\n", (r-Ra*Ra)/(Ra*Ra));
-  } else {
-    this->com->fprintf(stdout,"rSimple = 0,  r= %1.12e\n", r);
-  }
-
-  delete [] mSimple;
-  // END DEBUGGING
 
   //  Only update if Uref is different than U (this handles the case of time=0) 
   if ( r < pow(this->rTol,2.0) ) { // no need to update basis -- just need to update alpha, beta, and N
@@ -558,13 +445,6 @@ bool NonlinearRomOnlineII<dim>::updateBasisFastExact(int currentCluster, DistSVe
     updatePerformed = true;
 
     r = pow(r, 0.5);
-
-    this->com->fprintf(stdout,"DOUBLECHECK\n");
-    this->com->fprintf(stdout,"r= %1.12e\n", r);
-    for (int iVec = 0; iVec<robSize; ++iVec) {
-      this->com->fprintf(stdout,"m[%d] = %1.12e\n",iVec, m[iVec]);
-    }
-
 
     // form alphaP, betaP, and nP
     double alphaP = alphaA/r; 
@@ -651,90 +531,6 @@ bool NonlinearRomOnlineII<dim>::updateBasisFastExact(int currentCluster, DistSVe
       }
     }
 
-    // START DEBUGGING
-    VecSet< DistSVec<double, dim> > basisOld(robSize, this->domain.getNodeDistInfo());
-    VecSet< DistSVec<double, dim> > basisSimple(robSize, this->domain.getNodeDistInfo());
-
-    for (int iVec=0; iVec<robSize; ++iVec)
-        basisOld[iVec] = (*(this->basis))[iVec];
-
-    for (int iVec=0; iVec<robSize; ++iVec) {
-      basisSimple[iVec] = p * yVec[(iVec*kSize) + kSize-1];
-      for (int jVec=0; jVec<robSize; ++jVec) {
-        basisSimple[iVec] += yVec[(iVec*kSize) + jVec] * basisOld[jVec];
-      }
-    }
-
-    /*
-    // print alpha beta and N
-    this->com->fprintf(stdout, "debuggin: exactUpdatesAlphaSwitch=%e\n", this->exactUpdatesAlphaSwitch);
-    this->com->fprintf(stdout, "debuggin: alphaA=%e\n", alphaA);
-    this->com->fprintf(stdout, "debuggin: alphaP=%e\n", alphaP);
-    this->com->fprintf(stdout, "debuggin: exactUpdatesAlpha.size()=%d\n", this->exactUpdatesAlpha.size());
-    for (int iCluster=0; iCluster<this->exactUpdatesAlpha.size(); ++iCluster) {
-      this->com->fprintf(stdout, "debuggin: exactUpdatesAlpha[%d]=%e\n", iCluster, this->exactUpdatesAlpha[iCluster]);
-    }
-
-    this->com->fprintf(stdout, "debuggin: exactUpdatesBetaSwitch.size()=%d\n", this->exactUpdatesBetaSwitch.size());
-    for (int iCluster=0; iCluster<this->exactUpdatesBetaSwitch.size(); ++iCluster) {
-     this->com->fprintf(stdout, "debuggin: exactUpdatesBetaSwitch[%d]=%e\n", iCluster, this->exactUpdatesBetaSwitch[iCluster]);
-    }
-    this->com->fprintf(stdout, "debuggin: betaA.size()=%d\n", betaA.size());
-    for (int iCluster=0; iCluster<betaA.size(); ++iCluster) {
-     this->com->fprintf(stdout, "debuggin: betaA[%d]=%e\n", iCluster, betaA[iCluster]);
-    }
-    this->com->fprintf(stdout, "debuggin: betaP.size()=%d\n", betaP.size());
-    for (int iCluster=0; iCluster<betaP.size(); ++iCluster) {
-     this->com->fprintf(stdout, "debuggin: betaP[%d]=%e\n", iCluster, betaP[iCluster]);
-    }
-    this->com->fprintf(stdout, "debuggin: exactUpdatesBeta.size()=%d\n", this->exactUpdatesBeta.size());
-    for (int iCluster=0; iCluster<this->exactUpdatesBeta.size(); ++iCluster) {
-      this->com->fprintf(stdout, "debuggin: exactUpdatesBeta[%d].size()=%d\n", iCluster, this->exactUpdatesBeta[iCluster].size());
-      for (int iVec=0; iVec<this->exactUpdatesBeta[iCluster].size(); ++iVec) {
-        this->com->fprintf(stdout, "debuggin: exactUpdatesBeta[%d][%d]=%e\n", iCluster, iVec, this->exactUpdatesBeta[iCluster][iVec]);
-      }
-    }
-
-    this->com->fprintf(stdout, "debuggin: exactUpdatesNSwitch.size()=%d\n", this->exactUpdatesNSwitch.size());
-    for (int iCluster=0; iCluster<this->exactUpdatesNSwitch.size(); ++iCluster) {
-      this->com->fprintf(stdout, "debuggin: exactUpdatesNSwitch[%d].size()=%d\n", iCluster, this->exactUpdatesNSwitch[iCluster].size());
-      for (int iVec=0; iVec<this->exactUpdatesNSwitch[iCluster].size(); ++iVec) {
-        this->com->fprintf(stdout, "debuggin: exactUpdatesNSwitch[%d][%d]=%e\n", iCluster, iVec, this->exactUpdatesNSwitch[iCluster][iVec]);
-      }
-    }
-    this->com->fprintf(stdout, "debuggin: nA.size()=%d\n", nA.size());
-    for (int iCluster=0; iCluster<nA.size(); ++iCluster) {
-      this->com->fprintf(stdout, "debuggin: nA[%d].size()=%d\n", iCluster, nA[iCluster].size());
-      for (int iVec=0; iVec<nA[iCluster].size(); ++iVec) {
-        this->com->fprintf(stdout, "debuggin: nA[%d][%d]=%e\n", iCluster, iVec, nA[iCluster][iVec]);
-      }
-    }
-    this->com->fprintf(stdout, "debuggin: nATmp.size()=%d\n", nATmp.size());
-    for (int iCluster=0; iCluster<nATmp.size(); ++iCluster) {
-      this->com->fprintf(stdout, "debuggin: nATmp[%d].size()=%d\n", iCluster, nATmp[iCluster].size());
-      for (int iVec=0; iVec<nATmp[iCluster].size(); ++iVec) {
-        this->com->fprintf(stdout, "debuggin: nATmp[%d][%d]=%e\n", iCluster, iVec, nATmp[iCluster][iVec]);
-      }
-    }
-    this->com->fprintf(stdout, "debuggin: nP.size()=%d\n", nP.size());
-    for (int iCluster=0; iCluster<nP.size(); ++iCluster) {
-      this->com->fprintf(stdout, "debuggin: nP[%d].size()=%d\n", iCluster, nP[iCluster].size());
-      for (int iVec=0; iVec<nP[iCluster].size(); ++iVec) {
-        this->com->fprintf(stdout, "debuggin: nP[%d][%d]=%e\n", iCluster, iVec, nP[iCluster][iVec]);
-      }
-    }
-    this->com->fprintf(stdout, "debuggin: exactUpdatesN.size()=%d\n", this->exactUpdatesN.size());
-    for (int iCluster=0; iCluster<this->exactUpdatesN.size(); ++iCluster) {
-      this->com->fprintf(stdout, "debuggin: exactUpdatesN[%d].size()=%d\n", iCluster, this->exactUpdatesN[iCluster].size());
-      for (int iVec=0; iVec<this->exactUpdatesN[iCluster].size(); ++iVec) {
-        this->com->fprintf(stdout, "debuggin: exactUpdatesN[%d][%d].size()=%d\n", iCluster, iVec, this->exactUpdatesN[iCluster][iVec].size());
-        for (int jVec=0; jVec<this->exactUpdatesN[iCluster][iVec].size(); ++jVec) {
-          this->com->fprintf(stdout, "debuggin: exactUpdatesN[%d][%d][%d]=%e\n", iCluster, iVec, jVec, this->exactUpdatesN[iCluster][iVec][jVec]);
-        }
-      }
-    }
-    */ // END DEBUGGING
-
     // update basis
     VecSet< DistSVec<double, dim> >* updatedBasis = new VecSet< DistSVec<double, dim> >(robSize, this->domain.getNodeDistInfo());
     for (int jVec=0; jVec<robSize; ++jVec) {
@@ -752,15 +548,6 @@ bool NonlinearRomOnlineII<dim>::updateBasisFastExact(int currentCluster, DistSVe
         }
       }    
     }
-
-    for (int jVec=0; jVec<robSize; ++jVec) {
-      DistSVec<double, dim> dif(this->domain.getNodeDistInfo());
-      dif = (*updatedBasis)[jVec] - basisSimple[jVec];
-      this->com->fprintf(stdout, "debuggin: norm of updatedBasis[%d]=%e\n", jVec, (*updatedBasis)[jVec].norm());
-      this->com->fprintf(stdout, "debuggin: norm of basisSimple[%d]=%e\n", jVec, basisSimple[jVec].norm());
-      this->com->fprintf(stdout,"relative norm of difference for vector %d = %e\n", jVec, dif.norm()/basisSimple[jVec].norm());
-    }
-    
 
     delete (this->basis);
     delete (this->sVals);

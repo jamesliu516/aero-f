@@ -748,7 +748,7 @@ DistSVec<double,dim>* VarFcn::computeEnergyWeightVec(IoData &iod, DistSVec<doubl
       ewv[i][3] = 0.25 * momentum_rv * (v[i][3] * velocity_rv);
       ewv[i][4] = energy_rv;
       if (dim==6) {
-        ewv[i][5] = (u[i][5]>1e-14) ? viscosity_rv*0.5*pow(pow(Vff,3)/(0.09*eddyLengthScale*u[i][5]*viscosity_rv),0.5) : abs(u[i][5]);
+        ewv[i][5] = (u[i][5]>1e-14) ? viscosity_rv*0.5*pow(pow(Vff,3)/(0.09*eddyLengthScale*u[i][5]*viscosity_rv),0.5) : std::abs(u[i][5]);
       } else {
         for (int j=5; j<dim; ++j) { // for the time being just de-emphasize the turbulence equations
           ewv[i][j] = iod.romOnline.turbulenceWeight;

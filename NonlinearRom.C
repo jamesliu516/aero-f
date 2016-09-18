@@ -3194,17 +3194,16 @@ void NonlinearRom<dim>::readApproxMetricStateLowRankFactor(const char* sampledOr
 
   char *approxMetricPath;
 
-  if (strcmp(sampledOrFull,"sampled")==0) {
+  if ((ioData->problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_POST_
+       || ioData->problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_POST_)
+       && strcmp(approxMetricStateLowRankSurfaceCoordsName,"")!=0) {
+      determinePath(approxMetricStateLowRankSurfaceCoordsName,-1,approxMetricPath);
+    if (!clusterCenters) readClusterCenters(""); // surface centers
+  } else if (strcmp(sampledOrFull,"sampled")==0) {
     determinePath(approxMetricStateLowRankName,-1,approxMetricPath);
     if (!clusterCenters) readClusterCenters("sampledCenters"); 
   } else if (strcmp(sampledOrFull,"full")==0) {
-    if ((ioData->problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_POST_
-           || ioData->problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_POST_)
-           && strcmp(approxMetricStateLowRankSurfaceCoordsName,"")!=0) {
-      determinePath(approxMetricStateLowRankSurfaceCoordsName,-1,approxMetricPath);
-    } else {
-      determinePath(approxMetricStateLowRankFullCoordsName,-1,approxMetricPath);
-    }
+    determinePath(approxMetricStateLowRankFullCoordsName,-1,approxMetricPath);
     if (!clusterCenters) readClusterCenters("centers");
   } else {
     fprintf(stderr, "*** Error: sampledOrFull not specified correctly in readApproxMetricStateLowRankFactor()\n");

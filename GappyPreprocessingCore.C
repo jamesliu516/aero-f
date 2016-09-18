@@ -226,9 +226,6 @@ template \
 void GappyPreprocessing<dim>::outputApproxSnapsReduced(int iCluster);\
 \
 template \
-void GappyPreprocessing<dim>::computeApproxMetricNonlinearCVX(int iCluster);\
-\
-template \
 void GappyPreprocessing<dim>::computeApproxMetricNonlinearNNLS(int iCluster);
 
 INSTANTIATION_HELPER(5);

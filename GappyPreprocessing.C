@@ -429,7 +429,7 @@ void GappyPreprocessing<dim>::buildReducedModel() {
         }
       } // end GNAT online matrix preprocessing
 
-      if (gappyIO->doPreproApproxMetricNonlinear || gappyIO->doPreproApproxMetricNonlinearCVX || gappyIO->doPreproApproxMetricNonlinearNNLS ) {
+      if (gappyIO->doPreproApproxMetricNonlinear || gappyIO->doPreproApproxMetricNonlinearNNLS ) {
         initialize();
         this->freeMemoryForGappyPrepro();
 
@@ -475,7 +475,7 @@ void GappyPreprocessing<dim>::buildReducedModel() {
       } else {
         com->fprintf(stdout,"\nOutputting approximated metric in surface coordinates\n");
         this->readApproxMetricStateLowRankFactor("full");
-        outputApproxMetricLowRankFactorFullCoords("state");
+        outputApproxMetricLowRankFactorReducedCoords("state");
       }
     }
 
@@ -518,10 +518,6 @@ void GappyPreprocessing<dim>::constructApproximatedMetric(const char* type, int 
           }
           (*corrMat)[iSnap][iSnap] = (*this->snap)[iSnap] * (*this->snap)[iSnap];
         }
-        if (gappyIO->doPreproApproxMetricNonlinearCVX) {
-          for (int jCluster=0; jCluster<this->nClusters; ++jCluster)
-            this->outputClusteredInfoASCII(jCluster, "correlationMatrix", NULL, corrMat);
-        }
       }
     } else {
       this->readClusteredSnapshots(iCluster, true, "residual", 0, ioData->romOffline.gappy.maxClusteredSnapshotsNonlinearApproxMetric);
@@ -535,8 +531,6 @@ void GappyPreprocessing<dim>::constructApproximatedMetric(const char* type, int 
         }
         (*corrMat)[iSnap][iSnap] = (*this->snap)[iSnap] * (*this->snap)[iSnap];
       }
-      if (gappyIO->doPreproApproxMetricNonlinearCVX)
-        this->outputClusteredInfoASCII(iCluster, "correlationMatrix", NULL, corrMat);
     }
   }
 
@@ -667,13 +661,7 @@ void GappyPreprocessing<dim>::computeCorrelationMatrixEVD(std::vector<std::vecto
 template<int dim>
 void GappyPreprocessing<dim>::computePseudoInverseMaskedSnapshots(const char* type, int iCluster) {
 
-
-
-  if (strcmp(type,"nonlinear")==0 && gappyIO->doPreproApproxMetricNonlinearCVX) {
-    outputApproxSnapsReduced(iCluster);
-    this->freeMemoryForGappyPrepro();
-    computeApproxMetricNonlinearCVX(iCluster);
-  } else if (strcmp(type,"nonlinear")==0 && gappyIO->doPreproApproxMetricNonlinearNNLS) {
+  if (strcmp(type,"nonlinear")==0 && gappyIO->doPreproApproxMetricNonlinearNNLS) {
     computeApproxMetricNonlinearNNLS(iCluster);
   } else if (strcmp(type,"state")==0 || (gappyIO->doPreproApproxMetricNonlinear && strcmp(type,"nonlinear")==0)) {
     computeMaskedSnapshots(type, iCluster);
@@ -1050,111 +1038,6 @@ void GappyPreprocessing<dim>::computeApproxMetricNonlinearNNLS(int iCluster) {
 //----------------------------------------------
 
 template<int dim>
-void GappyPreprocessing<dim>::computeApproxMetricNonlinearCVX(int iCluster) {
-
-  if (strcmp(this->ioData->input.matlab,"")==0) {
-    this->com->fprintf(stderr, "*** Error: no MATLAB executable provided\n");
-    sleep(1);
-    exit(-1);
-  }
-
-    // form all file names
-    char *sampledApproxMetricNonlinearSnapsPath = NULL;
-    this->determinePath(this->sampledApproxMetricNonlinearSnapsName, iCluster, sampledApproxMetricNonlinearSnapsPath);
-    char *correlationMatrixPath = NULL;
-    this->determinePath(this->correlationMatrixName, iCluster, correlationMatrixPath);
-    char *sampledNodesPath = NULL;
-    this->determinePath(this->sampledNodesName, iCluster, sampledNodesPath);
-    char *metricPath = NULL;
-    this->determinePath(this->approxMetricNonlinearName, iCluster, metricPath);
-
-    // call matlab
-    FILE *shell;
-    std::string matlabCommandString(this->ioData->input.matlab);
-    matlabCommandString += " -nodisplay -nodesktop -nosplash -r \"";
-    if (strcmp(this->ioData->input.embarassinglyParallelMatlabFunction,"")!=0) {
-      matlabCommandString += string(this->ioData->input.embarassinglyParallelMatlabFunction);
-    } else if (strcmp(this->ioData->input.matlabFunction,"")!=0) {
-      matlabCommandString += string(this->ioData->input.matlabFunction);
-    }
-    matlabCommandString += "('";
-    matlabCommandString += string(sampledApproxMetricNonlinearSnapsPath);
-    matlabCommandString += "','";
-    matlabCommandString += string(correlationMatrixPath);
-    matlabCommandString += "','";
-    matlabCommandString += string(sampledNodesPath);
-    matlabCommandString += "','";
-    matlabCommandString += string(metricPath);
-    matlabCommandString += "'";
-    if (strcmp(this->ioData->input.embarassinglyParallelMatlabFunction,"")!=0) {
-      matlabCommandString += ",";
-      char buffer [100];
-      int status = sprintf(buffer, "%d", thisCPU);
-      matlabCommandString += string(buffer);
-      matlabCommandString += ","; 
-      status = sprintf(buffer, "%d", nTotCpus);
-      matlabCommandString += string(buffer);
-    }
-    matlabCommandString += "); quit\"";
-    const char *matlabCommandChar = matlabCommandString.c_str();
-
-    delete [] sampledApproxMetricNonlinearSnapsPath;
-    delete [] correlationMatrixPath;
-    delete [] sampledNodesPath;
-    delete [] metricPath;
-
-  if (strcmp(this->ioData->input.embarassinglyParallelMatlabFunction,"")!=0) {
-    this->com->fprintf(stdout, "\n%s\n", matlabCommandChar);
-    if (!(shell = popen(matlabCommandChar, "r"))) {
-      fprintf(stderr, " *** Error: attempt to use external MATLAB executable (%s) failed! (CPU%d)\n", this->ioData->input.matlab, thisCPU);
-      exit(-1);
-    } else {
-      this->com->fprintf(stdout, "\n ... All ranks are calling external MATLAB executable (%s) ...\n", this->ioData->input.matlab);
-    }
-
-    char buff[512];
-    while (fgets(buff, sizeof(buff), shell)!=NULL){}
-    pclose(shell);
-
-  } else if (strcmp(this->ioData->input.matlabFunction,"")!=0) {
-    if (this->com->cpuNum() == 0) {
-      if (strcmp(this->ioData->input.matlabCommandFile,"")==0) {
-        fprintf(stdout, "\n%s\n", matlabCommandChar);
-        if (!(shell = popen(matlabCommandChar, "r"))) {
-          fprintf(stderr, " *** Error: attempt to use external MATLAB executable (%s) failed!\n",
-                         this->ioData->input.matlab);
-          exit(-1);
-        } else {
-          fprintf(stdout, "\n ... CPU0 is calling external MATLAB executable (%s) ...\n",
-                         this->ioData->input.matlab);
-        }
-
-        char buff[512];
-        while (fgets(buff, sizeof(buff), shell)!=NULL){
-          fprintf(stdout, "%s", buff);
-        }
-        pclose(shell);
-      } else {
-        // just append the command to file (assume that this will be run later)
-        FILE *matlabCommandFile = 0;
-        if (iCluster==0)
-          matlabCommandFile = fopen(this->ioData->input.matlabCommandFile, "wt");
-        else 
-          matlabCommandFile = fopen(this->ioData->input.matlabCommandFile, "at");
-        com->fprintf(matlabCommandFile,"%s\n\n", matlabCommandChar);
-        fclose(matlabCommandFile);
-      }
-    }
-  } else {
-    fprintf(stderr, "*** Error: no matlab function specified \n");
-    exit(-1); 
-  }
-
-}
-
-//----------------------------------------------
-
-template<int dim>
 void GappyPreprocessing<dim>::computeMaskedSnapshots(const char* type, int iCluster) {
 
   //initialize
@@ -1332,11 +1215,7 @@ void GappyPreprocessing<dim>::outputApproxMetricLowRankFactorFullCoords(const ch
 
   char *filePath = NULL;
   if (strcmp(type,"state")==0) {
-    if (surfaceMeshConstruction) {
-      this->determinePath(this->approxMetricStateLowRankSurfaceCoordsName, -1, filePath);
-    } else {
-      this->determinePath(this->approxMetricStateLowRankFullCoordsName, -1, filePath);
-    }
+    this->determinePath(this->approxMetricStateLowRankFullCoordsName, -1, filePath);
   } else if (strcmp(type,"nonlinear")==0) {
     this->determinePath(this->approxMetricNonlinearLowRankFullCoordsName, iCluster, filePath);
   } else {
@@ -1376,7 +1255,11 @@ void GappyPreprocessing<dim>::outputApproxMetricLowRankFactorReducedCoords(const
 
   char *filePath = NULL;
   if (strcmp(type,"state")==0) {
-    this->determinePath(this->approxMetricStateLowRankName, -1, filePath);
+    if (surfaceMeshConstruction) {
+      this->determinePath(this->approxMetricStateLowRankSurfaceCoordsName, -1, filePath);
+    } else { 
+      this->determinePath(this->approxMetricStateLowRankName, -1, filePath);
+    }
   } else if (strcmp(type,"nonlinear")==0) {
     this->determinePath(this->approxMetricNonlinearLowRankName, iCluster, filePath);
   } else {
@@ -1474,7 +1357,28 @@ void GappyPreprocessing<dim>::setSampleNodes(int iCluster) {
 
   // for surface mesh construction
   if (surfaceMeshConstruction) {
-    nSampleNodes = 1; // should be zero previously
+    if (ioData->romOffline.rob.basisUpdates.preprocessForApproxUpdates==BasisUpdatesData::APPROX_UPDATES_FALSE) { // use a true surface mesh
+      com->fprintf(stderr, "*** Note: This surface mesh is not appropriate for approximate basis upates.\n");
+      nSampleNodes = 1; // should be zero previously
+    } else { // need to include all sampled nodes in surface mesh
+      if (int(globalSampleNodesUnion.size())>0) {
+        globalSampleNodes = globalSampleNodesUnion;
+      } else {
+        this->readSampleNodes(-1, "full", false);
+        globalSampleNodes = this->sampleNodes;
+        this->sampleNodes.clear();
+        reinitializeMapsForSampleNodes();
+        globalSampleNodesUnion = globalSampleNodes;
+      }
+      nSampleNodes = globalSampleNodes.size();
+
+      globalSampleNodeRankMap.clear();
+
+      for (int iSampleNode = 0; iSampleNode < nSampleNodes; ++iSampleNode) {
+        int globalSampleNode = globalSampleNodes[iSampleNode];
+        globalSampleNodeRankMap.insert(pair<int, int > (globalSampleNode, iSampleNode));
+      }
+    }
   } else {
     if (iCluster<0) {
       if (int(globalSampleNodesUnion.size())>0) {
@@ -2496,6 +2400,9 @@ void GappyPreprocessing<dim>::buildRemainingMesh() {
 template<int dim>
 void GappyPreprocessing<dim>::addSampleNodesAndNeighbors() {
 
+  if (surfaceMeshConstruction && ioData->romOffline.rob.basisUpdates.preprocessForApproxUpdates==BasisUpdatesData::APPROX_UPDATES_FALSE)
+    return;
+ 
   for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
     com->fprintf(stdout," ... Adding neighbors for sample node %d of %d...\n",iSampleNodes,nSampleNodes);
 

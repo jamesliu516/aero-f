@@ -21,6 +21,8 @@ protected:
   
   double dt;
 
+  double meritFunction(int, DistSVec<double, dim> &, DistSVec<double, dim> &, DistSVec<double, dim> &, double) {return 0.0;} // not applicable 
+
 public:
 
   void checkLocalRomStatus(DistSVec<double, dim> &, const int);
