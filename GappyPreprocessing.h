@@ -295,7 +295,6 @@ protected:
   void computeMaskedSnapshots(const char* type, int iCluster = -1);
   void computePseudoInverseTranspose();
   void computeApproximatedMetricLowRankFactor();
-  void computeApproxMetricNonlinearCVX(int iCluster);
   void computeApproxMetricNonlinearNNLS(int iCluster);
   void outputApproxMetricLowRankFactorFullCoords(const char* type, int iCluster = -1);
   void outputApproxMetricLowRankFactorReducedCoords(const char* type, int iCluster = -1);

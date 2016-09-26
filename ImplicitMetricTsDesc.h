@@ -22,6 +22,8 @@ protected:
 
   void solveNewtonSystem(const int &, double &, bool &, DistSVec<double, dim> &, const int & totalTimeSteps = 0);
 
+  double meritFunction(int, DistSVec<double, dim> &, DistSVec<double, dim> &, DistSVec<double, dim> &, double);
+
   public:
   
   ImplicitMetricTsDesc(IoData &, GeoSource &, Domain *);

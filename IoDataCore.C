@@ -139,10 +139,6 @@ InputData::InputData()
   sower = "";
   metis = "";
   nParts = 0;
-  matlab = "";
-  matlabFunction = "";
-  embarassinglyParallelMatlabFunction = "";
-  matlabCommandFile = "";
 
   exactInterfaceLocation = "";
 
@@ -224,11 +220,6 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "PathToSowerExecutable", this, &InputData::sower);
   new ClassStr<InputData>(ca, "PathToMetisExecutable", this, &InputData::metis);
   new ClassInt<InputData>(ca, "NumberOfPartitions", this, &InputData::nParts);
-
-  new ClassStr<InputData>(ca, "PathToMatlabExecutable", this, &InputData::matlab); // for rapid prototyping with CVX
-  new ClassStr<InputData>(ca, "MatlabFunction", this, &InputData::matlabFunction); // for rapid prototyping with CVX
-  new ClassStr<InputData>(ca, "EmbarassinglyParallelMatlabFunction", this, &InputData::embarassinglyParallelMatlabFunction); // for rapid prototyping with CVX
-  new ClassStr<InputData>(ca, "WriteMatlabCommandsTo", this, &InputData::matlabCommandFile); // for rapid prototyping with CVX (on a different machine)
 
 }
 
@@ -4063,7 +4054,11 @@ NonlinearRomOnlineData::NonlinearRomOnlineData()
   romSpatialOnlyInitialHomotomyStep = -1.0;
   romSpatialOnlyMaxHomotomyStep = 1e16;
   romSpatialOnlyHomotomyStepExpGrowthRate = 2;
+
+  newtonStepThreshold = 1e-6; 
  
+  meritFunction = ROM_RESIDUAL;
+
 }
 
 //------------------------------------------------------------------------------
@@ -4071,7 +4066,7 @@ NonlinearRomOnlineData::NonlinearRomOnlineData()
 void NonlinearRomOnlineData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 31, father);
+  ClassAssigner *ca = new ClassAssigner(name, 32, father);
 
   new ClassToken<NonlinearRomOnlineData> (ca, "Projection", this, reinterpret_cast<int
 			NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::projection), 2, "PetrovGalerkin", 0, "Galerkin", 1);
@@ -4111,6 +4106,11 @@ void NonlinearRomOnlineData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<NonlinearRomOnlineData>(ca, "SpatialOnlyInitialHomotopyStep", this, &NonlinearRomOnlineData::romSpatialOnlyInitialHomotomyStep);
   new ClassDouble<NonlinearRomOnlineData>(ca, "SpatialOnlyMaxHomotopyStep", this, &NonlinearRomOnlineData::romSpatialOnlyMaxHomotomyStep);
   new ClassDouble<NonlinearRomOnlineData>(ca, "SpatialOnlyHomotopyStepExpGrowthRate", this, &NonlinearRomOnlineData::romSpatialOnlyHomotomyStepExpGrowthRate);
+
+  new ClassDouble<NonlinearRomOnlineData>(ca, "NewtonStepThreshold", this, &NonlinearRomOnlineData::newtonStepThreshold);
+
+  new ClassToken<NonlinearRomOnlineData> (ca, "MeritFunction", this, reinterpret_cast<int
+      NonlinearRomOnlineData::*>(&NonlinearRomOnlineData::meritFunction), 2, "ROM", 0, "HDM", 1);
 
   krylov.setup("Krylov",ca);
   sensitivity.setup("Sensitivities",ca);
@@ -4183,7 +4183,6 @@ GappyConstructionData::GappyConstructionData()
   outputReducedBases = OUTPUT_REDUCED_BASES_TRUE;
   doPreproGNAT = DO_PREPRO_GNAT_FALSE;
   doPreproApproxMetricNonlinear = DO_PREPRO_APPROX_METRIC_NL_FALSE;
-  doPreproApproxMetricNonlinearCVX = DO_PREPRO_CVX_METRIC_NL_FALSE;
   doPreproApproxMetricNonlinearNNLS = DO_PREPRO_NNLS_METRIC_NL_FALSE;
   sowerInputs = SOWER_INPUTS_FALSE;
 
@@ -4260,8 +4259,6 @@ void GappyConstructionData::setup(const char *name, ClassAssigner *father) {
       GappyConstructionData::*>(&GappyConstructionData::doPreproGNAT), 2, "False", 0, "True", 1);
   new ClassToken<GappyConstructionData>(ca, "PerformApproxMetricNonlinearPrepro", this, reinterpret_cast<int
       GappyConstructionData::*>(&GappyConstructionData::doPreproApproxMetricNonlinear), 2, "False", 0, "True", 1);
-  new ClassToken<GappyConstructionData>(ca, "PerformApproxMetricNonlinearPreproCVX", this, reinterpret_cast<int
-      GappyConstructionData::*>(&GappyConstructionData::doPreproApproxMetricNonlinearCVX), 2, "False", 0, "True", 1);
   new ClassToken<GappyConstructionData>(ca, "PerformApproxMetricNonlinearPreproNNLS", this, reinterpret_cast<int
       GappyConstructionData::*>(&GappyConstructionData::doPreproApproxMetricNonlinearNNLS), 2, "False", 0, "True", 1);
 

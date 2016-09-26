@@ -32,6 +32,7 @@ protected:
   double computePGResidualNorm(DistSVec<double,dim> &);
   void setReferenceResidual();
 
+  double meritFunction(int, DistSVec<double, dim> &, DistSVec<double, dim> &, DistSVec<double, dim> &, double);
 public:
   bool checkForLastIteration(IoData &, int, double, double, DistSVec<double,dim> &);
   void monitorInitialState(int, DistSVec<double,dim> &);
