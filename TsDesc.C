@@ -80,7 +80,7 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
       moveMesh(ioData, geoSource);
     }
   } else {
-    if (strcmp(input->displacements,"")!=0 && strcmp(input->positions,"")==0) {  
+    if ((input->displacements && strcmp(input->displacements,"")!=0) && (!input->positions || strcmp(input->positions,"")==0)) {  
       // read initial displacement of full mesh
       geoState->setupInitialDisplacement(input->displacements, X, A);
       mems = 0;

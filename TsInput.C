@@ -27,6 +27,8 @@ TsInput::TsInput(IoData &iod) {
 				    levelsets, dummy, dummy, dummy,
 				    dummy, NULL);
     delete [] fn;
+    multiSolutions = NULL;
+    displacements = NULL;
 
   } else {
 
@@ -73,7 +75,7 @@ TsInput::absolutePath(const std::string & rawPath, const std::string & prefix) {
 TsInput::~TsInput() {
   delete[] solutions;
   delete[] positions;
-  delete[] displacements;
+  if(displacements) delete[] displacements;
   delete[] levelsets;
   delete[] podFile;
  // delete[] snapFile;
