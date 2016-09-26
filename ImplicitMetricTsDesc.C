@@ -47,6 +47,17 @@ void ImplicitMetricTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bo
     exit(1);
   }
   res = sqrt(res);
+
+  // Check onvergence criterion
+  if (it == 0) {
+    this->res0 = res;
+    this->target = this->epsNewton * this->res0;
+    this->com->fprintf(stderr, " ... ROM residual = %e (target = %e)\n", res, this->target);
+  } else {
+    this->com->fprintf(stderr, " ... ROM residual = %e\n", res);
+  }
+  if (breakloop = (res == 0.0) || (res <= this->target)) return;
+
  
   VecSet< DistSVec<double, dim> > weightedAJRestrict(*this->AJRestrict);
   if (this->rom->metric->numVectors() == 1) {
@@ -85,16 +96,6 @@ void ImplicitMetricTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bo
   this->solveLinearSystem(it, rhs, this->dUromNewtonIt);
   this->timer->addLinearSystemSolveTime(t0);
 
-  // Convergence criterion
-  t0 = this->timer->getTime();
-  res = this->dUromNewtonIt.norm();
-  if (it == 0) {
-    this->res0 = res;
-    this->target = this->epsNewton * this->res0;
-  }
-  breakloop = (res == 0.0) || (res <= this->target);
-  this->timer->addCheckConvergenceTime(t0);
-
 }
 
 //------------------------------------------------------------------------------
@@ -123,4 +124,49 @@ void ImplicitMetricTsDesc<dim>::setProblemSize(DistSVec<double, dim> &U) {
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim>
+double ImplicitMetricTsDesc<dim>::meritFunction(int it, DistSVec<double, dim> &Q, DistSVec<double, dim> &dQ, DistSVec<double, dim> &F, double stepLength)  {
+  // merit function: norm of the residual (want to minimize residual)
+
+  DistSVec<double, dim> newQ(this->domain->getNodeDistInfo());
+  newQ = Q + stepLength*dQ;
+  this->checkSolution(newQ);
+  this->computeFullResidual(it,newQ,true,&F);
+
+  DistSVec<double, dim> weightedResRestrict(*this->ResRestrict);
+  if (this->rom->metric->numVectors() == 1) {
+    weightedResRestrict *= (*this->rom->metric)[0];
+  } else {
+    this->com->fprintf(stderr, "... the metric has %d vectors...\n", this->rom->metric->numVectors());
+    this->com->fprintf(stderr, "... this hasn't been coded yet ...\n");
+    sleep(1);
+    exit(-1);
+  }
+
+  double merit = 0.0;
+
+  if (this->ioData->romOnline.meritFunction == NonlinearRomOnlineData::HDM_RESIDUAL) {
+    // merit function = 1/2 * (norm of full-order residual)^2
+    merit = *this->ResRestrict * weightedResRestrict;	
+    merit *= 0.5;
+  } else if (this->ioData->romOnline.meritFunction == NonlinearRomOnlineData::ROM_RESIDUAL) {
+    // Form the ROM residual
+    Vec<double> romResidual;
+    romResidual.resize(this->nPod);
+    this->computeAJ(it, newQ, true);
+    this->projectVector(*this->AJRestrict, weightedResRestrict, romResidual);
+    merit = romResidual*romResidual;
+    merit *= 0.5;
+  } else {
+    fprintf(stderr,"*** Error: unrecognized choice of merit function!\n");
+    exit(-1);
+  }
+
+  return merit;
+
+}
+
+//------------------------------------------------------------------------------
+
 

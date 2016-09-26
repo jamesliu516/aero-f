@@ -883,7 +883,7 @@ void DistTimeState<dim>::updateDtCoeff()
     dt_coeff_count=0;
     dt_coeff /= 2.0;
     if(dt_coeff<0.001 && allowdtstop) {
-      printf("Could not resolve unphysicality by reducing timestep. Aborting.");
+      domain->getCommunicator()->fprintf(stdout, "Could not resolve unphysicality by reducing timestep. Aborting.");
       exit(-1);
     }
   }

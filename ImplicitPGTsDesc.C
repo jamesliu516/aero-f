@@ -341,4 +341,35 @@ void ImplicitPGTsDesc<dim>::setReferenceResidual()
 
 }
 
+//------------------------------------------------------------------------------
+template<int dim>
+double ImplicitPGTsDesc<dim>::meritFunction(int it, DistSVec<double, dim> &Q, DistSVec<double, dim> &dQ, DistSVec<double, dim> &R, double stepLength)  {
+	// merit function: norm of the residual (want to minimize residual)
 
+  DistSVec<double, dim> newQ(this->domain->getNodeDistInfo());
+  newQ = Q + stepLength*dQ;
+  this->computeFullResidual(it,newQ,true,&R);
+
+  double merit = 0.0;
+
+  if (this->ioData->romOnline.meritFunction == NonlinearRomOnlineData::HDM_RESIDUAL) {
+    // merit function = 1/2 * (norm of full-order residual)^2
+    merit = R.norm();	
+    merit *= merit;
+    merit *= 0.5;
+  } else if (this->ioData->romOnline.meritFunction == NonlinearRomOnlineData::ROM_RESIDUAL) {
+    // Form the ROM residual
+    Vec<double> romResidual;
+    romResidual.resize(this->nPod);
+    this->computeAJ(it, newQ, true);
+    this->projectVector(this->AJ, R, romResidual);
+    merit = romResidual*romResidual;
+    merit *= 0.5;
+  } else {
+    fprintf(stderr,"*** Error: unrecognized choice of merit function!\n");
+    exit(-1);
+  }
+
+  return merit;
+
+}
