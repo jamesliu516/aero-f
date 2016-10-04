@@ -230,7 +230,6 @@ void TsRestart::readRestartFileNames(const char* fn,
   strcpy(fid, tmp[4]);
   strcpy(dat, tmp[5]);
   strcpy(spos, tmp[6]);
-
 }
 
 

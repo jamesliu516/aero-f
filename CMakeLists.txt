@@ -14,6 +14,10 @@ MARK_AS_ADVANCED(LOCAL_DIR)
 
 option(AEROACOUSTIC "Enable aeroacoustic computations" OFF)
 
+if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-write-strings -Wno-unused-result -Wno-aggressive-loop-optimizations -Wno-format-zero-length")
+endif ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
+
 IF(USE_OPENMP)
   FIND_PACKAGE(OpenMP REQUIRED)
   if(OpenMP_FLAG_DETECTED)
