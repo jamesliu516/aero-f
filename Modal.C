@@ -3379,7 +3379,7 @@ void ModalSolver<dim>::computeDampingRatios()
   sort(dryModes, dryModes + nStrMode);
  
   for (int i = 0; i < nStrMode; ++i) {
-    evList[i].imag() = dryModes[i]; 
+    evList[i].imag(dryModes[i]); 
   }
  
 //loop over eigenvalues/modes
@@ -3445,14 +3445,14 @@ void ModalSolver<dim>::computeDampingRatios()
         sortEV_c[i] = sortEV[i];
       }
       for (int i = nStrMode-1; i >= 0; i--) {
-        tmpSort.imag() = (-1.0);
+        tmpSort.imag(-1.0);
         for (int j = 0; j < nStrMode; j++) {
           if (sortEV_c[j].imag() > tmpSort.imag()) {
             tmpSort = sortEV_c[j];
             i_addr = j;
           }
         }
-        sortEV_c[i_addr].imag() = -1.0;
+        sortEV_c[i_addr].imag(-1.0);
         if(iEV == i)
           Index = i_addr;
         sortEV[i] = tmpSort;
@@ -3562,14 +3562,14 @@ void ModalSolver<dim>::computeREigenvector(double sReal, double sImag, int iEV,
      sortEV_c[i] = sortEV[i];
    }
    for (int i = nStrMode-1; i >= 0; i--) {
-     tmpSort.imag() = (-1.0);
+     tmpSort.imag(-1.0);
      for (int j = 0; j < nStrMode; j++) {
        if (sortEV_c[j].imag() > tmpSort.imag()) {
          tmpSort = sortEV_c[j];
          i_addr = j;
        }
      }
-     sortEV_c[i_addr].imag() = -1.0;
+     sortEV_c[i_addr].imag(-1.0);
      if(iEV == i)
        Index = i_addr;
      sortEV[i] = tmpSort;
@@ -3652,14 +3652,14 @@ void ModalSolver<dim>::computeOIBEI(double sReal, double sImag, int iEV)
      sortEV_c[i] = sortEV[i];
    }
    for (int i = nStrMode-1; i >= 0; i--) {
-     tmpSort.imag() = (-1.0);
+     tmpSort.imag(-1.0);
      for (int j = 0; j < nStrMode; j++) {
        if (sortEV_c[j].imag() > tmpSort.imag()) {
          tmpSort = sortEV_c[j];
          i_addr = j;
        }
      }
-     sortEV_c[i_addr].imag() = -1.0;
+     sortEV_c[i_addr].imag(-1.0);
      if(iEV == i)
        Index = i_addr;
      sortEV[i] = tmpSort;
@@ -3774,14 +3774,14 @@ void ModalSolver<dim>::computeEigenvectorsAndResidual(double sReal, double sImag
      sortEV_c[i] = sortEV[i];
    }
    for (int i = nStrMode-1; i >= 0; i--) {
-     tmpSort.imag() = (-1.0);
+     tmpSort.imag(-1.0);
      for (int j = 0; j < nStrMode; j++) {
        if (sortEV_c[j].imag() > tmpSort.imag()) {
          tmpSort = sortEV_c[j];
          i_addr = j;
        }
      }
-     sortEV_c[i_addr].imag() = -1.0;
+     sortEV_c[i_addr].imag(-1.0);
      if(iEV == i)
        Index = i_addr;
      sortEV[i] = tmpSort;

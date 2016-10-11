@@ -40,10 +40,18 @@ template<class T> struct IS_SAME<T,T> {static const bool value=true;};
 template<class T1,class T2> struct ASSERT_SAME_HELPER;
 template<class T> struct ASSERT_SAME_HELPER<T,T>{};
 
-#define STATIC_ASSERT_SAME(T1,T2) \
+#ifndef BOOST_NO_CXX11_STATIC_ASSERT
+template<int x> struct static_assert_test{};
+#  define STATIC_ASSERT_SAME(T1,T2) \
+   typedef static_assert_test< \
+      sizeof(::PhysBAM::ASSERT_SAME_HELPER<T1,T2>)> \
+         BOOST_JOIN(boost_static_assert_typedef_, __LINE__)
+#else
+#  define STATIC_ASSERT_SAME(T1,T2) \
    typedef ::boost::static_assert_test< \
       sizeof(::PhysBAM::ASSERT_SAME_HELPER<T1,T2>)> \
          BOOST_JOIN(boost_static_assert_typedef_, __LINE__)
+#endif
 
 template<class T> struct IS_CONST {static const bool value=false;};
 template<class T> struct IS_CONST<const T> {static const bool value=true;};
