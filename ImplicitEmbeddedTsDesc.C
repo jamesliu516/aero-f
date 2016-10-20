@@ -268,7 +268,7 @@ int ImplicitEmbeddedTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U, i
 
   int its = 0;
   its = commonPart(U); //failure gives negative values
-  projectStateOntoROB(U);
+  projectStateOntoROB(U); // Lei Lei, 11 Oct 2016, for Rom projection
   if(its<0)  //failSafe
     return its;
 

@@ -249,6 +249,7 @@ public:
 
   void setExistsNm1();
   void setDtNm1(double dt);
+    void setDt(double dt){ *(this->dt) = dt; }
 
   double getTime()  { return data->dt_n; }
   

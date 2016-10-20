@@ -87,10 +87,15 @@ public:
   virtual int solveLinearSystem(int it, DistSVec<double,dim> &b,
 			DistSVec<double,dim> &dQ) = 0;
     /**
-     * only used in subclass ImplicitEmbeddedRomTsDesc
+     * (Lei Lei) only overridden in subclass ImplicitEmbeddedRomTsDesc
      * similiar in function to projectSwitchStateOntoAffineSubspace
      */
-    void projectStateOntoROB(DistSVec<double, dim> &U) {}
+    virtual void projectStateOntoROB(DistSVec<double, dim> &U) {}
+    /**
+     * (Lei Lei) only overridden in subclass ImplicitEmbeddedRomTsDesc
+     * testing if ghost point phase change is done
+     */
+    virtual void printGhostPoint() {}
 
   int getMaxItsNewton() const { return maxItsNewton; }
   double getEpsNewton() const { return epsNewton; }
