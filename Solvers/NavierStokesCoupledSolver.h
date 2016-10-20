@@ -65,6 +65,8 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
   else if(ioData.problem.alltype == ProblemData::_EMBEDDED_ALS_ROM_ONLINE_){
       ImplicitEmbeddedRomTsDesc<dim> tsDesc(ioData, geoSource, &domain);
       TsSolver<ImplicitEmbeddedRomTsDesc<dim> > tsSolver(&tsDesc);
+      // todo: testing functionality of tsDesc
+      //tsDesc.test();
       tsSolver.solve(ioData);
   }
   else if (ioData.problem.alltype == ProblemData::_NONLINEAR_ROM_POST_) {

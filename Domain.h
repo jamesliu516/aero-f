@@ -1011,6 +1011,8 @@ public:
   void printInletVariable(DistSVec<double,dim>&);
   template<int dim>
   void printAllVariable(DistVec<int> &, DistSVec<double,dim>&, int );
+	// for printing distLSS->is_active() to stdout, Lei Lei
+	void printDistVecBool(DistVec<bool> &, int );
 
   template<int dimLS>
   void printPhi(DistSVec<double,3> &, DistSVec<double,dimLS> &, int);

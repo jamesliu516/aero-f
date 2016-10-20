@@ -1297,6 +1297,8 @@ public:
   template<class Scalar, int neq>
   void printAllMatrix(GenMat<Scalar,neq> &, int );
 
+    void printDistVecBool(Vec<bool> &, int, int );
+
   template<int dim>
   void hardyInterpolationLogMap(SVec<double, dim> ***, SVec<double, dim> **, int, int, int, FullM &, FullM &);
 

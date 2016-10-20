@@ -25,6 +25,9 @@ template<class Scalar, int dim> class DistEmbeddedVec;
 template<int dim> class PostOperator;
 template<int dim> class TsOutput;
 
+// included for Rom, Lei Lei, 27 Sep 2016
+template<class VecType> class VecSet;
+
 //------------------------------------------------------------------------------
 
 template<int dim, int neq>
@@ -1173,6 +1176,21 @@ public:
 
 };
 
+//----------------------------------------------------------------------------//
+//                MatVecProd for H1 Reduced Order Model                       //
+//----------------------------------------------------------------------------//
+// Approximate Matrix Vector Product for Reduced Order model
+template<int dim, class Scalar, int neq>
+class MatVecProdRomH1: public MatVecProdH1<dim, Scalar, neq> {
+protected:
+    int reducedDimension;
+    VecSet<DistSVec<Scalar, dim> > Phi; //<! reduced bases
+
+public:
+    MatVecProdRomH1(DistTimeState<dim> *, SpaceOperator<dim> *, Domain *, IoData &, VecSet<DistSVec<Scalar, dim> > &);
+    ~MatVecProdRomH1();
+    void apply(Vec<double> &b, Vec<double> &x); //<! matrix-vector-multiplication for reduced
+};
 //------------------------------------------------------------------------------
 
 #ifdef TEMPLATE_FIX
