@@ -3091,6 +3091,8 @@ double ElemTet::computeDistancePlusPhi(int i, SVec<double,3> &X, SVec<double,dim
   // the tet. If not found, we look at the boundaries, first edges, then 
   // vertices.
 
+
+
   bool show = false;
 
   double minimum = -1.0; // this function will be a distance eventually (>0.0)
@@ -3112,8 +3114,9 @@ double ElemTet::computeDistancePlusPhi(int i, SVec<double,3> &X, SVec<double,dim
 
   computeDistancePlusPhiToVertices(phi,Y0,Y1,Y2,minimum,show);
 
-  found = computeDistancePlusPhiToOppFace(phi,Y0,Y1,Y2,minimum,show);
-	
+  if(Psi[oppn[0]][0] < 1.0e9 && Psi[oppn[1]][0] < 1.0e9 && Psi[oppn[1]][0] < 1.0e9)
+	  found = computeDistancePlusPhiToOppFace(phi,Y0,Y1,Y2,minimum,show);
+
   if(!found) computeDistancePlusPhiToEdges(phi,Y0,Y1,Y2,minimum,show);
 
   return minimum;

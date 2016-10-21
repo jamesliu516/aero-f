@@ -1906,13 +1906,16 @@ bool ElemTet::computeDistancePlusPhiToEdges(double phi[3], Vec3D Y0,
 {
   bool found = false;
   //1st edge
-  found = computeDistancePlusPhiToEdge(phi[0],phi[1],Y0,Y1,mini, show);
+  if(phi[0] < 1.0e9 && phi[1] + phi[0] < 1.0e9)
+    found = computeDistancePlusPhiToEdge(phi[0],phi[1],Y0,Y1,mini, show);
 
   //2nd edge
-  found = computeDistancePlusPhiToEdge(phi[0],phi[2],Y0,Y2,mini, show);
+  if(phi[0] < 1.0e9 && phi[2] + phi[0] < 1.0e9)
+    found = computeDistancePlusPhiToEdge(phi[0],phi[2],Y0,Y2,mini, show);
 
   //3rd edge
-  found = computeDistancePlusPhiToEdge(phi[1]+phi[0],phi[2]-phi[1],Y0-Y1,Y2-Y1,mini, show);
+  if(phi[0] + phi[1] < 1.0e9 && phi[0] + phi[2] < 1.0e9)
+    found = computeDistancePlusPhiToEdge(phi[1]+phi[0],phi[2]-phi[1],Y0-Y1,Y2-Y1,mini, show);
 
   return found;
 }
@@ -1928,36 +1931,42 @@ bool ElemTet::computeDistancePlusPhiToEdge(double phi0, double phi1,
 
   // normal to Y1 in (Y0,Y1)-plane can be written n = n0*Y0+n1*Y1 
   // note that Y0 and Y1 are not necessarily orthogonal.
+  /*                                Y0
+   *                                /
+   *                               /
+   *                              /
+   *                             /
+   *                       phi0 /----------------->Y1 phi0+phi1
+   *                      min ||Y0 - alphaY1|| + phi0 + alpha*phi1
+   *                      0<=alpha <=1
+   */
 
 
-  double K = Y0 * Y1;
+
   double y1sq = Y1 * Y1;
-  Vec3D n = Y0 -K/y1sq * Y1; 
-  double normn = n.norm();
-  if(normn==0.0) return false;
-  n /= normn;
-  double orthogonal = Y0 * n;
+  double y0sq_over_y1sq = Y0 * Y0/y1sq;
+  double K_over_y1sq = Y0 * Y1/y1sq;
 
   if(y1sq==phi1*phi1) return false;
   //if(fabs(y1sq-phi1*phi1)<eps*Y1.norm()) return false;
-  double Z1sq = phi1*phi1*orthogonal*orthogonal/(y1sq*(y1sq-phi1*phi1));
+  double Z1sq = (K_over_y1sq*K_over_y1sq - y0sq_over_y1sq)/(phi1*phi1 - y1sq);
   if(Z1sq<0.0) return false;
 
   double Z1 = sqrt(Z1sq);
-  double alpha = (K - Z1*y1sq)/y1sq;
+  double alpha = K_over_y1sq + phi1*Z1;
   if(alpha>=0.0 && alpha<=1.0){
     if(show) fprintf(stdout, "edge1 -%e %e\n", alpha, phi0+alpha*phi1+ (Y0 - alpha*Y1).norm()); 
     found = true;
-    mini = min(mini,phi0+alpha*phi1 + (Y0 - alpha*Y1).norm());
+    mini = min(mini,phi0+alpha*phi1 + sqrt(y1sq*(alpha*alpha -2*alpha*K_over_y1sq + y0sq_over_y1sq)));
   }
-  Z1 = -Z1;
-  alpha = (K - Z1*y1sq)/y1sq;
+  double alpha1 = alpha;
+
+  alpha = K_over_y1sq - phi1*Z1;
   if(alpha>=0.0 && alpha<=1.0){
     found = true;
     if(show) fprintf(stdout, "edge2 -%e %e\n", alpha, phi0+alpha*phi1+ (Y0 - alpha*Y1).norm()); 
-    mini = min(mini,phi0+alpha*phi1 + (Y0 - alpha*Y1).norm());
+    mini = min(mini,phi0+alpha*phi1 + sqrt(y1sq*(alpha*alpha -2*alpha*K_over_y1sq + y0sq_over_y1sq)));
   }
-
   return found;
 }
 //------------------------------------------------------------------------------
