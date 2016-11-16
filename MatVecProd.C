@@ -3142,7 +3142,7 @@ void MatVecProd_dRdX<dim,Scalar,neq>::rstSpaceOp
 }
 
 
-
+/*
 template<int dim, class Scalar, int neq>
 MatVecProdRomH1<dim,Scalar,neq>::MatVecProdRomH1(DistTimeState<dim> *ts, SpaceOperator<dim> *spo,
                                                  Domain *domain, IoData &ioData,
@@ -3164,7 +3164,7 @@ MatVecProdRomH1<dim,Scalar,neq>::~MatVecProdRomH1()
  * let A be the matrix mvpOp represent,
  * then Phi^T A Phi x = b.
  * warning: unoptimized code.
- */
+ *
 template<int dim, class Scalar, int neq>
 void MatVecProdRomH1<dim,Scalar,neq>::apply(Vec<double> &x, Vec<double> &b){
   // step 0: skipped. check x.len == this->reducedDimension
@@ -3195,3 +3195,4 @@ void MatVecProdRomH1<dim,Scalar,neq>::apply(Vec<double> &x, Vec<double> &b){
     b[i] = Phi[i] * res;
   }
 }
+*/
