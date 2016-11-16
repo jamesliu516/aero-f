@@ -678,7 +678,6 @@ void EmbeddedAlternatingLeastSquare<dim>::transpose(double* &buff1, double* &buf
     }
 }
 /*
-//TODO: move this to somewhere?
 template<int dim>
 GenFullM<double> EmbeddedAlternatingLeastSquare<dim>::getRow(VecSet<DistSVec<double, dim> >& X, int numCol, int subVecIndex, int nodeIndex){
     GenFullM<double> result(dim, numCol);
@@ -695,7 +694,6 @@ void EmbeddedAlternatingLeastSquare<dim>::setRow(VecSet<DistSVec<double, dim> &X
     }
 }
 
-//TODO: move this to somewhere?
 template<int dim>
 GenFullM<double> EmbeddedAlternatingLeastSquare<dim>::kroneckerProduct(double *v, double *u, int m, int n){
     GenFullM<double> result(m, n);
@@ -709,13 +707,11 @@ GenFullM<double> EmbeddedAlternatingLeastSquare<dim>::kroneckerProduct(double *v
 */
 
 /*
-//TODO:
 template <int dim>
 int EmbeddedAlternatingLeastSquare<dim>::writeReducedOrderBasisToFile() {
 
 }
 
-//TODO:
 template  <int dim>
 int EmbeddedAlternatingLeastSquare<dim>::AlternatingLeastSquareMethodI(
         VecSet<DistSVec<double, dim> > &X,
@@ -744,12 +740,12 @@ int EmbeddedAlternatingLeastSquare<dim>::AlternatingLeastSquareMethodI(
                     if(!localMasterFlag && localMasterFlag[iNode] && !localMask[iNode]){ // loop over unmasked and master nodes
                         GenFullM<double> A = getRow(U, numCol, iSub, iNode);
                         M += A^A; // or M.add(A^A, 0, 0);
-                        v += A^ X[j][iSub][iNode]; // TODO:
+                        v += A^ X[j][iSub][iNode];
                     }
                 }
             }
             M.Factor(1e-9);
-            M.ReSolve(v.data()); // TODO:
+            M.ReSolve(v.data());
             V[j] = v.data();
         }
         // iterate over rows of X to update rows of U

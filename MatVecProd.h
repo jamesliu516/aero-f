@@ -1175,7 +1175,7 @@ public:
   void rstSpaceOp(IoData &, VarFcn *, SpaceOperator<dim> *, bool, SpaceOperator<dim> * = 0);
 
 };
-
+/*
 //----------------------------------------------------------------------------//
 //                MatVecProd for H1 Reduced Order Model                       //
 //----------------------------------------------------------------------------//
@@ -1191,6 +1191,7 @@ public:
     ~MatVecProdRomH1();
     void apply(Vec<double> &b, Vec<double> &x); //<! matrix-vector-multiplication for reduced
 };
+*/
 //------------------------------------------------------------------------------
 
 #ifdef TEMPLATE_FIX

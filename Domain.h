@@ -1012,7 +1012,7 @@ public:
   template<int dim>
   void printAllVariable(DistVec<int> &, DistSVec<double,dim>&, int );
 	// for printing distLSS->is_active() to stdout, Lei Lei
-	void printDistVecBool(DistVec<bool> &, int );
+	void printDistVecBool(DistVec<bool> &, bool );
 
   template<int dimLS>
   void printPhi(DistSVec<double,3> &, DistSVec<double,dimLS> &, int);

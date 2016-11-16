@@ -47,8 +47,8 @@ ImplicitEmbeddedRomTsDesc<dim>::ImplicitEmbeddedRomTsDesc(IoData &_ioData,
             this->printf(DEBUG, " ... FD matrix vector product set\n");
             break;
         case ImplicitData::H1: // approximate
-           // this->test_Jacobian = new MatVecProdH1<dim, double, dim>(this->timeState, this->spaceOp, this->domain, _ioData);
-            this->Jacobian = new MatVecProdRomH1<dim,double,dim>(this->timeState, this->spaceOp, this->domain, _ioData, this->reducedBasis);
+            this->Jacobian = new MatVecProdH1<dim, double, dim>(this->timeState, this->spaceOp, this->domain, _ioData);
+           // this->Jacobian = new MatVecProdRomH1<dim,double,dim>(this->timeState, this->spaceOp, this->domain, _ioData, this->reducedBasis);
             this->printf(DEBUG, " ... H1 matrix vector product set, only works for ROM\n");
             break;
         case ImplicitData::H2: // exact
@@ -273,8 +273,8 @@ void ImplicitEmbeddedRomTsDesc<dim>::projectStateOntoROB(DistSVec<double, dim> &
      * additional diagonastics: checking ghost node values
      */
     this->com->printf(DEBUG, "testing print ghost nodes\n");
-    DistVec<bool> is_swept = this->distLSS->getIsSwept();
-    this->domain->printDistVecBool(is_swept, 0);
+    DistVec<bool> is_swept = this->distLSS->getIsActive();
+    this->domain->printDistVecBool(is_swept, false);
 }
 
 /*

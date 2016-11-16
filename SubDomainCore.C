@@ -6331,12 +6331,12 @@ Elem* SubDomain::searchPoint(Vec3D Xp, SVec<double,3>& X) {
 
 //-----------------------------------------------------------------------------
 
-void SubDomain::printDistVecBool(Vec<bool> &X, int numSub, int it)
+void SubDomain::printDistVecBool(Vec<bool> &X, int numSub, bool status)
 {
   int glob;
   for (int i=0; i<nodes.size(); i++){
     glob = locToGlobNodeMap[i]+1;
-    if(X[i]) fprintf(stdout, "X[%d] is %d. global node is %d\n", i, X[i], glob);
+    if(X[i] == status) fprintf(stdout, "X[%d] is %d. global node is %d\n", i, X[i], glob);
   }
 }
 
