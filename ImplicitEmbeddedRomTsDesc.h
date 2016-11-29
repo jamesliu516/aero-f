@@ -17,7 +17,7 @@
 template<int dim>
 class ImplicitEmbeddedRomTsDesc : public ImplicitEmbeddedCoupledTsDesc<dim> {
 private:
-    typedef ImplicitEmbeddedTsDesc<dim> super;
+    typedef ImplicitEmbeddedCoupledTsDesc<dim> super;
     ParallelRom<dim> *LeastSquareSolver;
     // two jacobians here, one for ROM and one for FOM
     // MatVecProd<dim, dim> *test_Jacobian; // not needed, use parent mvp object
@@ -71,6 +71,7 @@ public:
     // TODO: emulate solveNewtonSystem() (get search direction in dQ)
     int solveLinearSystem(int it, DistSVec<double, dim> &rhs, DistSVec<double, dim> &dQ);
     ///@}
+    int _solveLinearSystem(int it , DistSVec<double, dim> &rhs, Vec<double> &sol);
 
     /** @name interface to NewtonSolver
      * OPTIONAL functions to call NewtonSolver (backtracking linear search)

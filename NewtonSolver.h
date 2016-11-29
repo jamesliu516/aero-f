@@ -143,7 +143,7 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
 
     probDesc->solveLinearSystem(it, rhs, dQ);
 
-    probDesc->printf(9, " ... debugging: maxItsLs = %d, getLineSearch = %d\n", probDesc->getMaxItsLineSearch(), probDesc->getLineSearch());
+    probDesc->printf(9, " debugging NewtonSolver::solve() : maxItsLs = %d, getLineSearch = %d\n", probDesc->getMaxItsLineSearch(), probDesc->getLineSearch());
    if (probDesc->getLineSearch()) { 
      for (itLS=0; itLS<maxItsLS; ++itLS) {
        if (itLS>0){
@@ -163,7 +163,7 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
        probDesc->computeFunction(it, Q, F);
        res2trial = probDesc->recomputeResidual(F, Finlet);
        restrial = F*F-res2trial;
-       probDesc->printf(9, " ... debugging: dQ.norm() = %f, res2trial = %f, restrial = %f\n", dQ.norm(), res2trial, restrial);
+       probDesc->printf(9, " debugging Newtonsolver::solve(): dQ.norm() = %f, res2trial = %f, restrial = %f\n", dQ.norm(), res2trial, restrial);
        if (restrial>=0.0) {
          if (sqrt(restrial) < sqrt(1-2.0*alpha*c1)*res || dQ.norm() <= epsAbsInc)
            break;
