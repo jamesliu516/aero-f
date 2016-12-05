@@ -164,8 +164,8 @@ void ReinitializeDistanceToWall<dimLS>::GetLevelsFromInterfaceAndMarchForward(Di
 		{
 			for(int i = 0; i < done(iSub).len ; ++i) 
 			{
-	  min_level=min(min_level,tag(iSub)[i]);
-          max_level=max(max_level,tag(iSub)[i]);
+	            min_level=min(min_level,tag(iSub)[i]);
+                max_level=max(max_level,tag(iSub)[i]);
       }
     }
     dom.getCommunicator()->globalMin(1,&min_level);

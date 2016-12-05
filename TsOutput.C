@@ -2733,6 +2733,7 @@ void TsOutput<dim>::writeEmbeddedSurfaceToDisk(bool lastIt, int it, double t, Ve
 
   if(toWrite(it,lastIt,t)) {
     if(com->cpuNum() != 0) return;
+    if(it == 0)  fprintf(fpEmbeddedSurface, "%d\n", solidX.size());
     fprintf(fpEmbeddedSurface, "%e\n", t*tscale);
     for(int i=0; i<solidX.size(); i++) 
       fprintf(fpEmbeddedSurface, "%e %e %e\n", xscale*(solidX[i][0]-solidX0[i][0]), xscale*(solidX[i][1]-solidX0[i][1]), 
