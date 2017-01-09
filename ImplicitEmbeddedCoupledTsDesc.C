@@ -16,6 +16,10 @@
 #define PrecScalar double
 #endif
 
+#ifndef DEBUG
+#define DEBUG 10
+#endif
+
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -23,6 +27,8 @@ ImplicitEmbeddedCoupledTsDesc<dim>::
 ImplicitEmbeddedCoupledTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   ImplicitEmbeddedTsDesc<dim>(ioData, geoSource, dom)
 {
+  this->printf(DEBUG, " ... initalize ImplictEmbeddedCoupledTsDesc.C\n");
+
   ImplicitData &implicitData = ioData.ts.implicit;
   
   // MatVecProd, Prec and Krylov solver for Euler equations

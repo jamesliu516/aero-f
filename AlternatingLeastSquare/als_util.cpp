@@ -207,8 +207,8 @@ double *linear_solve_SVD(double *A, double *b, int nrow, int ncol) {
     int ispec = 9;
     char* name = "DGELSD";
     char* opt = "";
-    int smlsiz = std::max(25, F77_NAME(ilaenv)(&ispec, name, opt, &m, &n, &nrhs, &lda)) + 1;
-    int nlvl = std::max( 0, 1 + (int)(log((double)minmn/(double)smlsiz)/(double) 0.69314718055994530942) );
+    int smlsiz = std::max(25, F77_NAME(ilaenv)(&ispec, name, opt, &m, &n, &nrhs, &lda) );
+    int nlvl = std::max( 1, 1 + (int)(log((double)minmn/(double)smlsiz)/(double) 0.69314718055994530942) );
     int liwork = std::max(1, 3 * minmn * nlvl + 11 * minmn);
     int iwork[liwork];
     //
@@ -307,6 +307,30 @@ int matrix_multiply(double *A, double *B, int a, int b, int c, double *result){
     return 0;
 }
 
+
+/**
+ * A is a-by-b, B is a-by-b
+ * result <= A % B, where % is elementwise multiplication
+ */
+int matrix_matrix_elementwise_multiply(double *A, double *B, int M, int N, double *result){
+    char *uplo = "L";
+    int n = M * N;
+    int k = 0; // only diagonal is provided
+    double alpha = 1.0;
+    int lda = 1;
+    int incx = 1;
+    double beta = 0.0;
+    int incy = 1;
+    F77_NAME(dsbmv)(uplo,
+                    &n, &k, &alpha, A,
+                    &lda, B, &incx,
+                    &beta, result, &incy);
+    return 0;
+}
+
+void char_2_double(unsigned char *X, double *Y, int M, int N){
+    for(int i = 0; i < M * N; i++) Y[i] = (double) X[i];
+}
 
 /**
  * frobenius norm of matrix

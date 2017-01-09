@@ -222,6 +222,8 @@ public:
   int *getTimeIt() { return domain->getTimeIt(); }
   int *getNewtonIt() { return domain->getNewtonIt(); }
   int *getNumResidualsOutputCurrentNewtonIt() { return domain->getNumResidualsOutputCurrentNewtonIt(); }
+    // Lei Lei, 26 Sep 2016
+    virtual void test() {} // a placeholder for derived class to run tests/diagnostics
   void readICFromDisk(char *, int, int, DistSVec<double,dim> &);
   bool outputOnlySpatialResidualBool;
   bool outputOnlySpatialResidual() {return outputOnlySpatialResidualBool;}

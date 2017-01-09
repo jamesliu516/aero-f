@@ -6,7 +6,7 @@
 #define PROJECT_IMPLICITEMBEDDEDROMTSDESC_H
 
 #include <MatVecProd.h>                             // for Jacobian
-#include <ImplicitEmbeddedTsDesc.h>                 // base calss, time integrator
+#include <ImplicitEmbeddedCoupledTsDesc.h>          // base calss, time integrator
 #include <VectorSet.h>                              // vector and matrix class
 #include <ParallelRom.h>                            // for scalapack least square
 #include <EmbeddedAlternatingLeastSquare.h>         // for reading basis
@@ -15,20 +15,28 @@
 // TODO: inherit from ImplictRomTsDesc instead
 // see ImplicitEmbeddedCoupledTsDesc.C
 template<int dim>
-class ImplicitEmbeddedRomTsDesc : public ImplicitEmbeddedTsDesc<dim> {
+class ImplicitEmbeddedRomTsDesc : public ImplicitEmbeddedCoupledTsDesc<dim> {
 private:
-    typedef ImplicitEmbeddedTsDesc<dim> super;
+    typedef ImplicitEmbeddedCoupledTsDesc<dim> super;
     ParallelRom<dim> *LeastSquareSolver;
+    // two jacobians here, one for ROM and one for FOM
+    // MatVecProd<dim, dim> *test_Jacobian; // not needed, use parent mvp object
     MatVecProd<dim, dim> *Jacobian;
+    KspPrec<dim> *rom_pc;
+    KspSolver<DistEmbeddedVec<double,dim>, MatVecProd<dim,dim>, KspPrec<dim>, Communicator> *rom_ksp;
+
     VecSet<DistSVec<double, dim> > reducedJacobian;
     Vec<double> reducedNewtonDirection;
     //TODO: two methods: project U into Qy and lift y to U
 
     int reducedDimension;
     VecSet<DistSVec<double, dim> > reducedBasis;
-    double **result; //<! scrachpad for scalapack to store result, fixed size from initialization
+    DistSVec<double, dim> referenceState;
+    double **result; //<! scratchpad for scalapack to store result, fixed size from initialization
 
     // internal methods
+    void printGhostPoint();
+    void projectStateOntoROB(DistSVec<double, dim> &U);
     void expandVector(Vec<double>& p, DistSVec<double, dim>& dQ);
     void projectVector(VecSet<DistSVec<double, dim> > &mat, DistSVec<double,dim> &vec, Vec<double> &buffer);
 
@@ -63,6 +71,7 @@ public:
     // TODO: emulate solveNewtonSystem() (get search direction in dQ)
     int solveLinearSystem(int it, DistSVec<double, dim> &rhs, DistSVec<double, dim> &dQ);
     ///@}
+    int _solveLinearSystem(int it , DistSVec<double, dim> &rhs, Vec<double> &sol);
 
     /** @name interface to NewtonSolver
      * OPTIONAL functions to call NewtonSolver (backtracking linear search)
@@ -85,7 +94,19 @@ public:
     //TODO: overwrite this to use reduced coordinate ?
     int solveNonlinearSystem(DistSVec<double, dim> &Q, const int totalTimeSteps) { return super::solveNonLinearSystem(Q, totalTimeSteps); };
     ///@}
-  
+    // diagnostic/test function
+    void test();
+    void checkMVP(int it, DistSVec<double, dim> &Q, DistSVec<double, dim> &dx, DistSVec<double, dim> &orig);
+    void outputMatrix(char *fn, VecSet<DistSVec<double, dim> > &A);
+    void outputVector(char *fn, DistSVec<double, dim> &b);
+    /*
+     * rom krylov subspace solver
+     * todo: make ksprec for vec
+     * todo: make setup() work with vec<double>
+     */
+    //template<int dim, int dimLS, class MatVecProdOp>
+    //KspSolver<Vec<double>, MatVecProdOp, KspPrec, Communicator> * createROMKrylovSolver(KspData &kspdata, MatVecProdOp *_mvp, KspPrec *_pc, Communicator *_com);
+
     /* must implement, or compilation error
     void solveNewtonSystem(const int &it, double &res, bool &breakloop,
                            DistSVec<double, dim> &U,

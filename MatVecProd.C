@@ -15,6 +15,9 @@
 // Included (MB)
 #include <FemEquationTermDesc.h>
 
+
+// included for rom (lei lei, Sep 27 2016)
+#include <VectorSet.h>
 //------------------------------------------------------------------------------
 
 template<int dim, int neq>
@@ -3392,3 +3395,59 @@ void MatVecProd_dRdX<dim,Scalar,neq>::rstSpaceOp
   spaceOp->setFluxFcn(fluxFcn);
 */
 }
+
+
+/*
+template<int dim, class Scalar, int neq>
+MatVecProdRomH1<dim,Scalar,neq>::MatVecProdRomH1(DistTimeState<dim> *ts, SpaceOperator<dim> *spo,
+                                                 Domain *domain, IoData &ioData,
+                                                 VecSet<DistSVec<Scalar, dim> > &_Phi) :
+MatVecProdH1<dim, Scalar, neq>(ts, spo, domain, ioData),
+Phi(_Phi)
+{
+  this->reducedDimension = this->Phi.numVectors();
+}
+
+
+template<int dim, class Scalar, int neq>
+MatVecProdRomH1<dim,Scalar,neq>::~MatVecProdRomH1()
+{
+  // todo: remove Phi
+}
+
+/*
+ * let A be the matrix mvpOp represent,
+ * then Phi^T A Phi x = b.
+ * warning: unoptimized code.
+ *
+template<int dim, class Scalar, int neq>
+void MatVecProdRomH1<dim,Scalar,neq>::apply(Vec<double> &x, Vec<double> &b){
+  // step 0: skipped. check x.len == this->reducedDimension
+  //todo: not sure about this declaration
+  VecSet<DistSVec<Scalar, dim> > result(this->reducedDimension, this->domain->getNodeDistInfo());
+  // step 1: compute A * Phi = result
+  for(int i = 0; i < this->reducedDimension; i++){
+    DistEmbeddedVec<Scalar, dim> embedded_x(this->domain->getNodeDistInfo());
+    DistEmbeddedVec<Scalar, dim> embedded_b(this->domain->getNodeDistInfo());
+    embedded_b = 0.0;
+    embedded_x = 0.0;
+    embedded_x.real() = reducedBasis[i];
+
+    // result from apply on distEmbeddedSVec type
+    this->apply(embedded_x, embedded_b);
+    DistSVec<Scalar, dim> result(this->domain->getNodeDistInfo());
+    result[i] = embedded_b.real();
+  }
+  // step 2: compute result * x = res
+  DistSVec<Scalar, dim> res(this->domain->getNodeDistInfo());
+  res = 0.0;
+  for(int i = 0; i < this->reducedDimension; i++){
+    res += result[i] * x[i];
+  }
+  // step 3: compute Phi^T * res = b
+  b = 0.0;
+  for(int i = 0; i < this->reducedDimension; i++){
+    b[i] = Phi[i] * res;
+  }
+}
+*/

@@ -12,11 +12,12 @@ EmbeddedAlternatingLeastSquareData::EmbeddedAlternatingLeastSquareData() {
 }
 
 EmbeddedAlternatingLeastSquareData::setup(const char *name, ClassAssigner *father){
-    ClassAssigner *ca = new ClassAssigner(name, 4, father);
+    ClassAssigner *ca = new ClassAssigner(name, 5, father);
 
     new ClassInt<EmbeddedAlternatingLeastSquareData>(ca, "MaxBasisSize", this, &EmbeddedAlternatingLeastSquareData::maxBasisSize);
     new ClassDouble<EmbeddedAlternatingLeastSquareData>(ca, "RelativeMinimumEnergy", this, &EmbeddedAlternatingLeastSquareData::relativeMinimumEnergy);
     new ClassInt<EmbeddedAlternatingLeastSquareData>(ca, "MaxIteration", this, EmbeddedAlternatingLeastSquareData::maxIteration);
     new ClassToken<EmbeddedAlternatingLeastSquareData> (ca, "LeastSquareSolver", this, reinterpret_cast<int EmbeddedAlternatingLeastSquareData::*>(&EmbeddedAlternatingLeastSquareData::leastSquareSolver), 2,
                                                         "QR", 0, "SVD", 1);
+    snapshots.setup("Snapshots", ca);
 }
