@@ -365,6 +365,7 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::solve(VecType &b, VecTyp
   if (!this->pcOp)
     typePrec = 0;
 
+  this->ioOp->printf(10, "preconditioner type is %d", typePrec);
   do {
 
     this->mvpOp->apply(x, w);

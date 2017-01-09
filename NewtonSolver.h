@@ -111,7 +111,7 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
     probDesc->computeFunction(it, Q, F);
     res2 = probDesc->recomputeResidual(F, Finlet);
     res = F*F-res2;
-
+    probDesc->printf(9, " ... deubgging: it = %d, res2 = %f, res = %f\n", it, res2, res);
 		if(res < 0.0)
 		{
       probDesc->printf(1, "ERROR: negative residual captured in Newton Solver!\n");
@@ -154,15 +154,15 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
 
     probDesc->solveLinearSystem(it, rhs, dQ);
 
-		if(probDesc->getLineSearch()) 
-		{ 
-			for(itLS=0; itLS<maxItsLS; ++itLS) 
-			{
-				if(itLS > 0)
-				{
+    probDesc->printf(9, " debugging NewtonSolver::solve() : maxItsLs = %d, getLineSearch = %d\n", probDesc->getMaxItsLineSearch(), probDesc->getLineSearch());
+   if (probDesc->getLineSearch()) { 
+     for (itLS=0; itLS<maxItsLS; ++itLS) {
+       if (itLS>0){
          alpha *= rho; 
-					if(itLS==1)	dQ *= (rho-1);
-					else dQ *= rho;
+         if (itLS==1)
+           dQ *= (rho-1);
+         else
+           dQ *= rho;
        }
        else 
          alpha = 1.0;
@@ -174,9 +174,8 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
        probDesc->computeFunction(it, Q, F);
        res2trial = probDesc->recomputeResidual(F, Finlet);
        restrial = F*F-res2trial;
-
-				if(restrial>=0.0) 
-				{
+       probDesc->printf(9, " debugging Newtonsolver::solve(): dQ.norm() = %f, res2trial = %f, restrial = %f\n", dQ.norm(), res2trial, restrial);
+       if (restrial>=0.0) {
          if (sqrt(restrial) < sqrt(1-2.0*alpha*c1)*res || dQ.norm() <= epsAbsInc)
            break;
        }
@@ -184,8 +183,7 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
          probDesc->printf(1, "*** Warning: Line Search reached %d its ***\n", maxItsLS);
      }
    }
-		else 
-		{ 
+   else { 
 // Included (MB)
       probDesc->fixSolution(Q, dQ);
       rhs = Q;
@@ -194,10 +192,8 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
     probDesc->incrementNewtonOutputTag();
 
     // verify that the solution is physical
-		if(probDesc->checkSolution(Q)) 
-		{
-			if(probDesc->getTsParams()->checksol) 
-			{
+    if (probDesc->checkSolution(Q)) {
+      if (probDesc->getTsParams()->checksol) {
         //probDesc->getErrorHandler()->localErrors[ErrorHandler::REDO_TIMESTEP] += 1;
         probDesc->checkFailSafe(Q);
         Q = rhs;
@@ -205,8 +201,7 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
         ++fsIt;
         return -10; // signal re-compute CFL number
       }
-			else if(probDesc->checkFailSafe(Q) && fsIt < 5) 
-			{
+      else if (probDesc->checkFailSafe(Q) && fsIt < 5) {
         probDesc->printf(1, "*** Warning: Newton solver redoing iteration %d\n", it+1);
         Q = rhs;
         --it;

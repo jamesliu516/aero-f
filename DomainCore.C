@@ -2484,3 +2484,13 @@ void Domain::setWallMask(DistVec<double>& wallMask, DistVec<double>& neighborMas
 
 }
 
+
+//------------------------------------------------------------------------------
+void Domain::printDistVecBool(DistVec<bool> &X, bool status)
+{
+  com->barrier();
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++)
+    subDomain[iSub]->printDistVecBool(X(iSub), numLocSub, status);
+  com->barrier();
+}

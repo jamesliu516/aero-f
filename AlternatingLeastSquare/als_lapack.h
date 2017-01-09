@@ -12,9 +12,11 @@ class AlternatingLeastSquare {
     int nrow, ncol, dim;
     double *X;
     unsigned char *M;
+    double *MM; // double version of M, for calculating error
     double *UT;
     double *V;
     double X_norm;
+    double *error_trajectory;
     /** MPI communication memory */
     double *global_vec_data;
     double *local_vec_data;
@@ -49,7 +51,10 @@ public:
 
     void display();
 
-    double error();
+    /** objective function value */
+    double objectiveFunctionValue();
+
+    void relativeProjectionError();
 };
 
 #endif
