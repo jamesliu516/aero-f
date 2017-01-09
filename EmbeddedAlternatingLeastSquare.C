@@ -3,7 +3,7 @@
 //
 #include <EmbeddedAlternatingLeastSquare.h>
 #include <als_lapack.h>
-#include <ParallelRom.h>
+#include <ParallelRomExtension.h>
 
 template<int dim>
 EmbeddedAlternatingLeastSquare<dim>::EmbeddedAlternatingLeastSquare(Communicator *_com, IoData &_ioData,
@@ -392,6 +392,19 @@ void EmbeddedAlternatingLeastSquare<dim>::ReducedOrderBasisConstruction() {
     ReducedOrderBasisConstruction(k);
 }
 
+template<int dim>
+void EmbeddedAlternatingLeastSquare<dim>::ReducedOrderBasisConstructionTesting(int k) {
+    VecSet< DistSVec<double, dim> >* basisInit = new VecSet< DistSVec<double, dim> >(k, this->domain.getNodeDistInfo());
+    VecSet< DistSVec<double, dim> > UInit = *basisInit;
+    ParallelRomExtension<dim> parallelRomExtension(this->domain, this->com, this->domain.getNodeDistInfo());
+    parallelRomExtension.parallelALS(*(this->snap), *(this->mask), UInit, this->maxIteration);
+    // do QR before writing to disk
+    std::vector<std::vector<double> > RT(k, std::vector<double>(k));
+    qr(&UInit, &RT, true);
+    this->com->fprintf(stderr, "... using Kyle's QR with no pivoting\n");
+    outputBasis(UInit);
+}
+
 //TODO: put this as part of NonlinearRomDatabaseConstruction<dim>::SVD()
 template<int dim>
 void EmbeddedAlternatingLeastSquare<dim>::ReducedOrderBasisConstruction(int _dim) {
@@ -444,7 +457,7 @@ void EmbeddedAlternatingLeastSquare<dim>::ReducedOrderBasisConstruction(int _dim
     //todo: do QR before writing to disk
     std::vector<std::vector<double> > RT(k, std::vector<double>(k));
     qr(&basis, &RT, true);
-    this->com->fprintf(stderr, "... testing Kyle's QR with no pivoting\n");
+    this->com->fprintf(stderr, "... using Kyle's QR with no pivoting\n");
     outputBasis(basis);
     //this->com->barrier();
     this->com->fprintf(stderr, "... cleaning up memories\n");

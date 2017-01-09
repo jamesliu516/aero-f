@@ -115,6 +115,7 @@ public:
     //TODO: change int dim to double minimum_energy
     void ReducedOrderBasisConstruction();
     void ReducedOrderBasisConstruction(int _dim);
+    void ReducedOrderBasisConstructionTesting(int _dim);
 
     /**
      * testing if snapshot I/O is correct; testing if armadillo compile correctly.
