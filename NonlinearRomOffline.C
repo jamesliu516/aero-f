@@ -128,7 +128,9 @@ void NonlinearRomOfflineSolver<dim>::solve()  {
      com->fprintf(stderr, "... read state file successfully\n");
      //testing
      //embeddedAlternatingLeastSquare.testingSnapshotIO();
-     embeddedAlternatingLeastSquare.ReducedOrderBasisConstruction(40);
+     //embeddedAlternatingLeastSquare.ReducedOrderBasisConstruction(40);
+     embeddedAlternatingLeastSquare.ReducedOrderBasisConstructionTesting(40);
+
  }
 
     modalTimer->print(this->domain.getStrTimer());

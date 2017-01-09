@@ -11,7 +11,7 @@ typedef GenFullM<double> FullM;
 template <int dim>
 class ParallelRom {
 
-	private:
+	protected:
 	Domain &domain;
 	Communicator *com; 
 	SubDomain **subDomain;
@@ -52,5 +52,10 @@ class ParallelRom {
 	template<class VecContainer1, class VecContainer2> void parallelLSMultiRHS(const VecContainer1 &A,
 			const VecContainer2 &B, int n, int nRhs, double **lsSol, bool=true); // least-squares
 			// via QR with multiple RHS
+
+	// Alternating Least Square, Lei Lei 2016 Dec 28
+	template<class VecContainer1, class VecContainer2> void parallelALS(const VecContainer1 &X, const VecContainer2 &M,
+			VecContainer1 &UT);
+
 };
 #endif

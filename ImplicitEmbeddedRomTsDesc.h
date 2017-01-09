@@ -32,7 +32,7 @@ private:
     int reducedDimension;
     VecSet<DistSVec<double, dim> > reducedBasis;
     DistSVec<double, dim> referenceState;
-    double **result; //<! scrachpad for scalapack to store result, fixed size from initialization
+    double **result; //<! scratchpad for scalapack to store result, fixed size from initialization
 
     // internal methods
     void printGhostPoint();
@@ -97,7 +97,9 @@ public:
 
     // diagnostic/test function
     void test();
-
+    void checkMVP(int it, DistSVec<double, dim> &Q, DistSVec<double, dim> &dx, DistSVec<double, dim> &orig);
+    void outputMatrix(char *fn, VecSet<DistSVec<double, dim> > &A);
+    void outputVector(char *fn, DistSVec<double, dim> &b);
     /*
      * rom krylov subspace solver
      * todo: make ksprec for vec
