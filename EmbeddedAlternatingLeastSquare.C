@@ -57,7 +57,7 @@ void EmbeddedAlternatingLeastSquare<dim>::constructDatabase() {
     this->com->printf(10, "load cluster center\n");
     if(this->ioData->romOffline.rob.state.snapshots.subtractCenters)
         this->readClusterCenters("centers"); //todo: program exits here
-    this->com->printf(10, "laod nearest snaps\n");
+    this->com->printf(10, "load nearest snaps\n");
     if(this->ioData->romOffline.rob.state.snapshots.subtractNearestSnapsToCenters)
         this->readNearestSnapsToCenters();
     this->com->printf(10, "reading clustered snapshots, with preprocessing\n");
@@ -384,7 +384,7 @@ int EmbeddedAlternatingLeastSquare<dim>::initialization(VecSet<DistSVec<double, 
  */
 template<int dim>
 void EmbeddedAlternatingLeastSquare<dim>::ReducedOrderBasisConstruction() {
-    int n = min(this->numSnapshots, this->maxBasisSize);
+    int n = min(min(this->numSnapshots, this->maxBasisSize), (*(this->snap)).numVectors());
     VecSet<DistSVec<double, dim> > *basisInitTemp = new VecSet<DistSVec<double, dim> >(n, this->domain.getNodeDistInfo());
     VecSet<DistSVec<double, dim> > basisInit = *basisInitTemp;
     int k = initialization(basisInit);
@@ -416,7 +416,7 @@ void EmbeddedAlternatingLeastSquare<dim>::ReducedOrderBasisConstruction(int _dim
     for(int i = 0; i < this->numMasters.size(); i++){
         nrow += this->numMasters[i];
     }
-    int ncol = this->numSnapshots;
+    int ncol = min(this->numSnapshots, (*(this->snap)).numVectors());
     int k = _dim; //TODO: change it
     this->reducedDimension = _dim; //TODO: change it
     this->com->fprintf(stderr, "... (M, N) is [%d, %d], reduced dimension is %d\n", nrow, ncol, _dim);
