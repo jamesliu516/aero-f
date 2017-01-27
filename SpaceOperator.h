@@ -195,8 +195,8 @@ public:
                        DistSVec<double,dim> &, DistSVec<double,dim> &, 
                        DistVec<int> &, DistVec<int> &, DistLevelSetStructure *,
                        bool, bool, DistVec<int> &, DistSVec<double,dim> &,
-                       DistExactRiemannSolver<dim> *, int,
-                       double, double, int it = 0, DistVec<GhostPoint<dim>*> *ghostPoints = 0);
+					   DistExactRiemannSolver<dim> *, int,
+					   double, double, int it = 0, DistVec<GhostPoint<dim>*> *ghostPoints = 0);
 
   void updateSweptNodes(DistSVec<double,3> &X,DistVec<double> &ctrlVol,
 			int phaseChangeChoice, int phaseChangeAlg,
@@ -355,17 +355,18 @@ public:
   void rstFluxFcn(IoData &);
 
   // Included (YC)
-  void computeDerivativeOperators(DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, double, DistSVec<double,dim> &, DistVec<double> &,
+  void computeDerivativeOperators(Vec3D &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, double, DistSVec<double,dim> &, DistVec<double> &,
                                   DistTimeState<dim> * = 0, PostOperator<dim> * = 0, dRdXoperators<dim> * =0);
 
   // Included (MB)
   void computeDerivativeOfResidual(DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &, DistVec<double> &,
                                DistSVec<double,dim> &, double, DistSVec<double,dim> &, DistSVec<double,dim> &, DistTimeState<dim> * = 0);
 
-  void computeDerivativeOfResidual(dRdXoperators<dim> *, DistSVec<double,3> &, DistVec<double> &, DistVec<Vec3D>&, DistVec<Vec3D>&, DistVec<double>&, 
-                                   DistSVec<double,dim> &, DistSVec<double,6> &, DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void computeDerivativeOfResidual(dRdXoperators<dim> *, DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &, DistVec<double> &, DistVec<Vec3D>&, DistVec<Vec3D>&, DistVec<double>&,
+                                   DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,6> &, DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &, double, DistTimeState<dim> *);
 
-  void computeTransposeDerivativeOfResidual(dRdXoperators<dim> *, DistSVec<double,dim> &, DistVec<double> &, DistSVec<double,3> &,
+  void computeTransposeDerivativeOfResidual(dRdXoperators<dim> *, DistSVec<double,dim> &, DistSVec<double,dim> &,
+                                            DistVec<double> &, DistVec<double> &, DistSVec<double,3> &,
                                             DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<Vec3D>&,
                                             DistVec<Vec3D>&, DistVec<double>&, DistSVec<double,6>& );
 
@@ -478,7 +479,8 @@ public:
     DistSVec<double,6> &dR,
     DistVec<double> &dCtrlVol,
     DistSVec<double,3> &dX,
-    DistSVec<double,dim> &dU
+	DistSVec<double,dim> &dU,
+	bool assembleDX = true
   );
 
   // Included (MB)

@@ -307,10 +307,6 @@ void Domain::computeTransposeDerivativeOfGradientsLeastSquares(dRdXoperators<dim
                                                                        dddx(iSub), dddy(iSub), dddz(iSub), dX2(iSub), dR2(iSub), dV2(iSub));
   }
 
-//  assemble(vec3DPat, dX2);
-//  CommPattern<Scalar> *vPat = getCommPat(dddx);
-//  assemble(vPat, dV2);  
-
   timer->addNodalGradTime(t0);
 
 }
@@ -1097,45 +1093,6 @@ void Domain::computeDerivativeOfFiniteVolumeTerm(dRdXoperators<dim> &dRdXop,
                                                          bcData(iSub), geoState(iSub),
 		                                                     dX(iSub), ngrad(iSub), legrad, 
                                                          dddx(iSub), dddy(iSub), dddz(iSub), dEdgeNormal(iSub), dFaceNormal(iSub), dFaceNormalVel(iSub), dF(iSub));
-/*
-    SVec<double,3> dX2(dX(iSub));  
-    SVec<double,dim> dF2(dF(iSub)), dddx2(dddx(iSub)), dddy2(dddy(iSub)), dddz2(dddz(iSub));
-    Vec<double> dFaceNormalVel2(dFaceNormalVel(iSub));
-    Vec<Vec3D> dEdgeNormal2(dEdgeNormal(iSub)), dFaceNormal2(dFaceNormal(iSub));
-    dX2 = 0.0;    dF2 = 0.0; 
-    subDomain[iSub]->computeDerivativeOfFiniteVolumeTerm(dRdXop.dFluxdddx[iSub], dRdXop.dFluxdddy[iSub], dRdXop.dFluxdddz[iSub],
-                                                         dRdXop.dFluxdEdgeNorm[iSub], dRdXop.dFluxdX[iSub],
-                                                         dRdXop.dFluxdFaceNormal[iSub], dRdXop.dFluxdFaceNormalVel[iSub], dRdXop.dFluxdUb[iSub],
-                                                         bcData(iSub), geoState(iSub),
-		                                                     dX(iSub), ngrad(iSub), legrad, 
-                                                         dddx(iSub), dddy(iSub), dddz(iSub), dEdgeNormal(iSub), dFaceNormal(iSub), dFaceNormalVel(iSub), dF2);
-    double aa = dF2*dF(iSub);
-    dddx2 = 0.0;   dddy2 = 0.0;   dddz2 = 0.0;   dEdgeNormal2 = 0.0;   dFaceNormal2 = 0.0;   dFaceNormalVel2 = 0.0;
-
-    subDomain[iSub]->computeTransposeDerivativeOfFiniteVolumeTerm(dRdXop.dFluxdddx[iSub], dRdXop.dFluxdddy[iSub], dRdXop.dFluxdddz[iSub],
-                                                         dRdXop.dFluxdEdgeNorm[iSub], dRdXop.dFluxdX[iSub],
-                                                         dRdXop.dFluxdFaceNormal[iSub], dRdXop.dFluxdFaceNormalVel[iSub], dRdXop.dFluxdUb[iSub],
-                                                         bcData(iSub), geoState(iSub), dF(iSub), ngrad(iSub), legrad, dX2, 
-                                                         dddx2, dddy2, dddz2, dEdgeNormal2, dFaceNormal2, dFaceNormalVel2);
-
-    SVec<double,3> dEdgeNormalSVec(dEdgeNormal(iSub).size()), dEdgeNormal2SVec(dEdgeNormal2.size());
-    SVec<double,3> dFaceNormalSVec(dFaceNormal.size()), dFaceNormal2SVec(dFaceNormal.size());
-    for(int i=0; i<dEdgeNormal2.size(); ++i)
-      for(int j=0; j<3; ++j) { 
-        dEdgeNormalSVec[i][j] = dEdgeNormal(iSub)[i][j];
-        dEdgeNormal2SVec[i][j] = dEdgeNormal2[i][j];
-      }
-    for(int i=0; i<dFaceNormal2.size(); ++i)
-      for(int j=0; j<3; ++j) { 
-        dFaceNormalSVec[i][j] = dFaceNormal(iSub)[i][j];
-        dFaceNormal2SVec[i][j] = dFaceNormal2[i][j];
-      }
-
-    double bb = dX2*dX(iSub) + dddx2*dddx(iSub) + dddy2*dddy(iSub) + dddz2*dddz(iSub) + dEdgeNormal2SVec*dEdgeNormalSVec + dFaceNormal2SVec*dFaceNormalSVec + dFaceNormalVel2*dFaceNormalVel(iSub);
-    double diff = sqrt((aa-bb)*(aa-bb));
-    if(aa != 0) fprintf(stderr, " ... relative error = %e, aa = %e, bb = %e\n", diff/abs(aa), aa, bb);
-    else fprintf(stderr, " ... absolute error = %e, aa = %e, bb = %e\n", diff, aa, bb);
-*/
   }
   assemble(vecPat, dF);
 
@@ -2399,6 +2356,62 @@ void Domain::computeDerivativeOfGalerkinTerm(FemEquationTerm *fet, DistBcData<di
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim>
+void Domain::computeDerivativeOfGalerkinTerm(dRdXoperators<dim> &dRdXop, FemEquationTerm *fet, DistBcData<dim> &bcData,
+				 DistGeoState &geoState, DistSVec<double,3> &X, DistSVec<double,3> &dX,
+				 DistSVec<double,dim> &V, DistSVec<double,dim> &dV, double dMach, DistSVec<double,dim> &dR)
+{ // YC
+
+  double t0 = timer->getTime();
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->computeDerivativeOfGalerkinTerm(dRdXop.dViscousFluxdX[iSub], fet, bcData(iSub), geoState(iSub),
+					 X(iSub), dX(iSub), V(iSub), dV(iSub), dMach, dR(iSub));
+
+  timer->addFiniteElementTermTime(t0);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void Domain::computeTransposeDerivativeOfGalerkinTerm(dRdXoperators<dim> &dRdXop, DistSVec<double,dim> &dR, DistSVec<double,3> &dX)
+{ // YC
+
+  double t0 = timer->getTime();
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->computeTransposeDerivativeOfGalerkinTerm(dRdXop.dViscousFluxdX[iSub], dR(iSub), dX(iSub));
+
+  timer->addFiniteElementTermTime(t0);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+template<int dim>
+void Domain::computeDerivativeOperatorsOfGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &bcData,
+				 DistGeoState &geoState, DistSVec<double,3> &X,
+				 DistSVec<double,dim> &V, RectangularSparseMat<double,3,dim> **dViscousFluxdX)
+{
+
+  double t0 = timer->getTime();
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->computeDerivativeOperatorsOfGalerkinTerm(fet, bcData(iSub), geoState(iSub),
+					 X(iSub), V(iSub), *dViscousFluxdX[iSub]);
+
+  timer->addFiniteElementTermTime(t0);
+
+}
+
+//------------------------------------------------------------------------------
+
 
 // Included (MB)
 template<int dim>
@@ -4982,9 +4995,6 @@ void Domain::getDerivativeOfGradP(RectangularSparseMat<double,dim,3> **dGradPddd
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; iSub++)
     subDomain[iSub]->getDerivativeOfGradP(*dGradPdddx[iSub], *dGradPdddy[iSub], *dGradPdddz[iSub], dddx(iSub), dddy(iSub), dddz(iSub), dGradP(iSub));
-
-// dGradP is not assembled originally
-//  assemble(vec3DPat, dGradP);
 
 }
 

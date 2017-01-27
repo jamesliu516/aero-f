@@ -33,9 +33,17 @@ public:
   virtual ~MeshMotionSolver() {}
 
   virtual int solve(DistSVec<double,3> &, DistSVec<double,3> &) = 0;
+  virtual int solveAdjoint(DistSVec<double,3> &, DistSVec<double,3> &) = 0;
   virtual int solveSensitivity(DistSVec<double,3> &, DistSVec<double,3> &) = 0;
   virtual void setup(DistSVec<double,3> &) = 0;
-  virtual void applyProjector(DistSVec<double,3> &dX) {};
+  virtual void applyProjector(DistSVec<double,3> &dX) {}
+  virtual void applyProjectorTranspose(DistSVec<double,3> &dX) {}
+  virtual void setAdjointFlagOn() {}
+  virtual void set_dX0(DistSVec<double,3> &dX) {}
+  virtual void computeStiffnessMatrix(DistSVec<double,3> &) {}
+  virtual int solveLinearSystem(int, DistSVec<double,3> &, DistSVec<double,3> &) { return 0; }
+  virtual void setOperators(DistSVec<double,3> &) {}
+  virtual void apply(DistSVec<double,3> &, DistSVec<double,3> &) {}
 
 };
 
@@ -75,6 +83,9 @@ protected:
   Timer *timer;
 
   double volStiff;
+  bool adjointFlag;
+  bool stiffFlag;
+  bool sensitivityFlag;
 
   BCApplier* meshMotionBCs; //HB
 
@@ -85,17 +96,22 @@ public:
   virtual ~TetMeshMotionSolver();
 
   virtual int solve(DistSVec<double,3> &, DistSVec<double,3> &);
+  virtual int solveAdjoint(DistSVec<double,3> &, DistSVec<double,3> &);
   int solveSensitivity(DistSVec<double,3> &, DistSVec<double,3> &) { return 0; };
 
   void applyProjector(DistSVec<double,3> &X);
+  void applyProjectorTranspose(DistSVec<double,3> &X);
+  void apply(DistSVec<double,3> &, DistSVec<double,3> &);
  
   void printf(int, const char *, ...);
   void fprintf(FILE *, const char *, ...);
   virtual void computeFunction(int, DistSVec<double,3> &, DistSVec<double,3> &);
   void recomputeFunction(DistSVec<double,3> &, DistSVec<double,3> &) {}
+  virtual void computeStiffnessMatrix(DistSVec<double,3> &);
   double recomputeResidual(DistSVec<double,3> &, DistSVec<double,3> &) { return 0.0; }
   void computeJacobian(int, DistSVec<double,3> &, DistSVec<double,3> &);
   void setOperators(DistSVec<double,3> &);
+  void setAdjointFlagOn() { adjointFlag = true; }
   int solveLinearSystem(int, DistSVec<double,3> &, DistSVec<double,3> &);
 
   int checkSolution(DistSVec<double,3> &X) { return 0; }
@@ -113,6 +129,7 @@ public:
   DistInfo &getVecInfo() const { return domain->getNodeDistInfo(); }
   
   virtual void setup(DistSVec<double,3> &X);
+  virtual void set_dX0(DistSVec<double,3> &dX);
   TsParameters* getTsParams() { return NULL; }
   ErrorHandler* getErrorHandler() {return NULL; }
 

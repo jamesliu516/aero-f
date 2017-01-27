@@ -195,6 +195,10 @@ public:
 			   SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &) = 0;
 
   virtual
+  void computeDerivativeOperatorsOfGalerkinTerm(FemEquationTerm *, SVec<double,3> &, Vec<double> &,
+			   SVec<double,dim> &, RectangularSparseMat<double,3,dim> &) = 0; // YC
+
+  virtual
   void computeDerivativeOfFaceGalerkinTerm(FemEquationTerm *, int [3], int, Vec3D &, Vec3D &,
 			       SVec<double,3> &, SVec<double,3> &, Vec<double> &, double *, double *,
 			       SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &) = 0;
@@ -371,6 +375,12 @@ public:
 			      Vec<double> &d2wall, SVec<double,dim> &V, SVec<double,dim> &dV, double dMach,
 			      SVec<double,dim> &dR) {
     t->computeDerivativeOfGalerkinTerm(fet, X, dX, d2wall, V, dV, dMach, dR);
+  }
+
+  //YC
+  void computeDerivativeOperatorsOfGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
+             Vec<double> &d2wall, SVec<double,dim> &V, RectangularSparseMat<double,3,dim> &dViscousFluxdX) {
+     t->computeDerivativeOperatorsOfGalerkinTerm(fet, X, d2wall, V, dViscousFluxdX);
   }
 
   void computeDerivativeOfFaceGalerkinTerm(FemEquationTerm *fet, int face[3], int code, Vec3D &n, Vec3D &dn,
@@ -620,6 +630,8 @@ public:
   virtual void computeDerivativeTransposeOfWeightsGalerkin(SVec<double,3> &, SVec<double,3> &, SVec<double,3> &, SVec<double,3> &, SVec<double,3> &) = 0;
 
   virtual double computeDerivativeOfGradientP1Function(SVec<double,3> &, SVec<double,3> &, double [4][3]) = 0;
+  virtual double computeDerivativeOfGradientP1Function2(SVec<double,3> &, SVec<double,3> &, double [4][3], double dX[4][3]) = 0;
+  virtual void  computeDerivativeOperatorOfGradientP1Function(SVec<double,3> &, double [4][3], double[4][3][4][3], int [4]) = 0;
   virtual void computeDerivativeTransposeOfGradientP1Function(SVec<double,3> &, double, double [4][3], double [4][3], SVec<double,3> &) = 0;
 
   virtual void computeBarycentricCoordinates(SVec<double,3>&, const Vec3D& , double [3]) = 0;
@@ -841,6 +853,16 @@ public:
     GenElemWrapper_dim<dim> *wrapper=
       (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
     wrapper->computeDerivativeOfGalerkinTerm(fet, X, dX, d2wall, V, dV, dMach, dR);
+  }
+
+  template<int dim>
+  void computeDerivativeOperatorsOfGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
+			      Vec<double> &d2wall, SVec<double,dim> &V, RectangularSparseMat<double,3,dim> &dViscousFluxdX) {  //YC
+    ElemHelper_dim<dim> h;
+    char xx[64];
+    GenElemWrapper_dim<dim> *wrapper=
+      (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+    wrapper->computeDerivativeOperatorsOfGalerkinTerm(fet, X, d2wall, V, dViscousFluxdX);
   }
 
   template<int dim>
@@ -1074,6 +1096,13 @@ public:
   }
 
   template<int dim>
+  void computeDerivativeOperatorsOfGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
+			      Vec<double> &d2wall, SVec<double,dim> &V, RectangularSparseMat<double,3,dim> &dViscousFluxdX) { //YC
+    fprintf(stderr, "Error: undefined function (computeDerivativeOperatorsOfGalerkinTerm) for this elem type\n"); exit(1);
+  }
+
+
+  template<int dim>
   void computeDerivativeOfFaceGalerkinTerm(FemEquationTerm *fet, int face[3], int code, Vec3D &n, Vec3D &dn,
 				  SVec<double,3> &X, SVec<double,3> &dX, Vec<double> &d2wall, double *Vwall, double *dVwall,
 				  SVec<double,dim> &V, SVec<double,dim> &dV, double dMach, SVec<double,dim> &dR) {
@@ -1088,6 +1117,12 @@ public:
     fprintf(stderr, "Error: undefined function (interpolateSolution0 for this elem type\n"); exit(1);
     return -1;
   }
+
+
+  // Included (YC)
+    template<int dim>
+    void computeDerivativeOperatorsOfGalerkinTerm(FemEquationTerm *, GeoState &, SVec<double,3> &,
+  			   SVec<double,dim> &, RectangularSparseMat<double,3,dim> &);
 
 // Level Set Reinitialization
 

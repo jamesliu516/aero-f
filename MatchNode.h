@@ -34,7 +34,7 @@ public:
   void getDisplacement(int, double, double, double, bool *, double (*)[2][3], double (*)[3], 
 		       double (*)[3], double (*)[3], double (*)[3], double *,
 		       bool isEmbedded); 
-  void getDisplacementSensitivity(bool *, double (*)[2][3], double (*)[3], double *);
+  void getDisplacementSensitivity(bool *, double, double (*)[2][3], double (*)[3], double *);
                        
   void getDisplacement(double (*)[3], int (*)[3], double (*)[3], double (*)[3], double (*)[3], double);
 
@@ -42,6 +42,10 @@ public:
 
   template<int dim>
   void send(double, double (*)[dim], double (*)[dim]);
+
+  template<int dim>
+  void sendWithMasterFlag(double, double (*)[dim], double (*)[dim], bool *, int);
+
   double (*getGap(int, int *))[3];
 
   int size() const { return numNodes; }

@@ -55,14 +55,31 @@ protected:
   double dRedMachNS;
   double dRe_mudMachNS;
   void computeDerivativeOfVelocity(double *[4], double [4][3], double [3]);
+  void computeDerivativeOperatorsOfVelocity(double [4][3][4][4], double [3][4][4]);
+
   void computeDerivativeOfTemperature(double *[4], double *[4], double [4], double &);
+  void computeDerivativeOperatorsOfTemperature(double *[4], double [4][5], double [4]);
+  void computeDerivativeOperatorsOfTemperature2(double *V[4], double dTdV[4][4][5], double dTcgdV[4][5]);
+
   void computeDerivativeOfVelocityGradient(double [4][3], double [4][3], double [4][3], double [4][3], double [3][3]);
+  void computeDerivativeOperatorsOfVelocityGradient(double [4][3], double [4][3], double [3][3][4][3], double [3][3][4][3]);
+
   void computeDerivativeOfTemperatureGradient(double [4][3], double [4][3], double [4], double [4], double [3]);
+  void computeDerivativeOperatorsOfTemperatureGradient(double [4][3], double [4], double [3][4][3], double [3][4]);
+
   void computeDerivativeOfStressTensor(double, double, double, double, double [3][3], double [3][3], double [3][3]);
+  void computeDerivativeOperatorsOfStressTensor(double, double, double[3][3], double [3][3][3][3], double [3][3], double [3][3]);
+
   void computeDerivativeOfHeatFluxVector(double, double, double [3], double [3], double [3]);
+  void computeDerivativeOperatorsOfHeatFluxVector(double, double [3], double [3][3], double [3]);
+
   template<int dim>
   void computeDerivativeOfVolumeTermNS(double, double, double, double, double, double, double [3], double [3], double [3][3], double [3][3],
 			   double [3], double [3], double (*)[dim]);
+  template<int dim>
+  void computeDerivativeOperatorsOfVolumeTermNS(double, double, double, double [3],
+         double [3][3], double [3], double [3][dim], double [3][dim], double [3][dim],
+         double [3][dim][3], double [3][dim][3][3], double [3][dim][3]);
 
   void computeDerivativeOfSurfaceTermNS(double [4][3], double [4][3], Vec3D &, Vec3D &, double *, double *, double *[4], double *[4], double, double *);
   void rstVarNS(IoData &, Communicator*);
@@ -239,6 +256,27 @@ void NavierStokesTerm::computeDerivativeOfVelocity(double *dV[4], double du[4][3
 
 }
 
+// Included (YC)
+inline
+void NavierStokesTerm::computeDerivativeOperatorsOfVelocity(double dudV[4][3][4][4], double ducgdV[3][4][4])
+{
+
+  dudV[0][2][0][3] = dudV[0][1][0][2] = dudV[0][0][0][1] = 1.0;
+  dudV[1][2][1][3] = dudV[1][1][1][2] = dudV[1][0][1][1] = 1.0;
+  dudV[2][2][2][3] = dudV[2][1][2][2] = dudV[2][0][2][1] = 1.0;
+  dudV[3][2][3][3] = dudV[3][1][3][2] = dudV[3][0][3][1] = 1.0;
+  double ducgdu[3][4][3] = {0};
+  ducgdu[0][0][0] = ducgdu[0][1][0] = ducgdu[0][2][0] = ducgdu[0][3][0] = fourth;
+  ducgdu[1][0][1] = ducgdu[1][1][1] = ducgdu[1][2][1] = ducgdu[1][3][1] = fourth;
+  ducgdu[2][0][2] = ducgdu[2][1][2] = ducgdu[2][2][2] = ducgdu[2][3][2] = fourth;
+  for(int i=0; i<3; ++i)
+    for(int j=0; j<4; ++j)
+      for(int k=0; k<3; ++k)
+        for(int l=0; l<4; ++l)
+          for(int m=0; m<4; ++m)
+            ducgdV[i][l][m] += ducgdu[i][j][k]*dudV[j][k][l][m];
+}
+
 //------------------------------------------------------------------------------
 
 inline
@@ -271,6 +309,49 @@ void NavierStokesTerm::computeDerivativeOfTemperature(double *V[4], double *dV[4
 }
 
 //------------------------------------------------------------------------------
+
+// Included (YC)
+inline
+void NavierStokesTerm::computeDerivativeOperatorsOfTemperature2(double *V[4], double dTdV[4][4][5], double dTcgdV[4][5])
+{
+  double dTdV0[5] = {0};
+  varFcn->computeDerivativeOperatorsOfTemperature(V[0], dTdV0);
+  dTdV[0][0][0] = dTdV0[0];  dTdV[0][0][4] = dTdV0[4];
+  double dTdV1[5] = {0};
+  varFcn->computeDerivativeOperatorsOfTemperature(V[1], dTdV1);
+  dTdV[1][1][0] = dTdV1[0];  dTdV[1][1][4] = dTdV1[4];
+  double dTdV2[5] = {0};
+  varFcn->computeDerivativeOperatorsOfTemperature(V[2], dTdV2);
+  dTdV[2][2][0] = dTdV2[0];  dTdV[2][2][4] = dTdV2[4];
+  double dTdV3[5] = {0};
+  varFcn->computeDerivativeOperatorsOfTemperature(V[3], dTdV3);
+  dTdV[3][3][0] = dTdV3[0];  dTdV[3][3][4] = dTdV3[4];
+
+  for(int k=0; k<4; ++k)
+    for(int j=0; j<4; ++j)
+      for(int i=0; i<5; ++i)
+        dTcgdV[j][i] += dTdV[k][j][i]*fourth;
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+inline
+void NavierStokesTerm::computeDerivativeOperatorsOfTemperature(double *V[4], double dTdV[4][5], double dTcgdV[4])
+{
+
+  varFcn->computeDerivativeOperatorsOfTemperature(V[0], dTdV[0]);
+  varFcn->computeDerivativeOperatorsOfTemperature(V[1], dTdV[1]);
+  varFcn->computeDerivativeOperatorsOfTemperature(V[2], dTdV[2]);
+  varFcn->computeDerivativeOperatorsOfTemperature(V[3], dTdV[3]);
+
+  for(int j=0; j<4; ++j)
+    for(int i=0; i<5; ++i)
+    dTcgdV[j] = dTdV[j][i]*fourth;
+}
+
+//------------------------------------------------------------------------------
+
 
 inline
 void NavierStokesTerm::computeVelocityGradient(double dp1dxj[4][3], double u[4][3],
@@ -362,6 +443,44 @@ void NavierStokesTerm::computeDerivativeOfVelocityGradient(double dp1dxj[4][3], 
 
 //------------------------------------------------------------------------------
 
+
+
+// Included (YC)
+inline
+void NavierStokesTerm::computeDerivativeOperatorsOfVelocityGradient(double dp1dxj[4][3], double u[4][3],
+                                                                    double ddudxjddp1dxj[3][3][4][3], double ddudxjdu[3][3][4][3])
+{
+
+  if(ddudxjddp1dxj) {
+    ddudxjddp1dxj[0][0][0][0] = u[0][0];  ddudxjddp1dxj[0][0][1][0] = u[1][0];  ddudxjddp1dxj[0][0][2][0] = u[2][0];  ddudxjddp1dxj[0][0][3][0] = u[3][0];
+    ddudxjddp1dxj[0][1][0][1] = u[0][0];  ddudxjddp1dxj[0][1][1][1] = u[1][0];  ddudxjddp1dxj[0][1][2][1] = u[2][0];  ddudxjddp1dxj[0][1][3][1] = u[3][0];
+    ddudxjddp1dxj[0][2][0][2] = u[0][0];  ddudxjddp1dxj[0][2][1][2] = u[1][0];  ddudxjddp1dxj[0][2][2][2] = u[2][0];  ddudxjddp1dxj[0][2][3][2] = u[3][0];
+    ddudxjddp1dxj[1][0][0][0] = u[0][1];  ddudxjddp1dxj[1][0][1][0] = u[1][1];  ddudxjddp1dxj[1][0][2][0] = u[2][1];  ddudxjddp1dxj[1][0][3][0] = u[3][1];
+    ddudxjddp1dxj[1][1][0][1] = u[0][1];  ddudxjddp1dxj[1][1][1][1] = u[1][1];  ddudxjddp1dxj[1][1][2][1] = u[2][1];  ddudxjddp1dxj[1][1][3][1] = u[3][1];
+    ddudxjddp1dxj[1][2][0][2] = u[0][1];  ddudxjddp1dxj[1][2][1][2] = u[1][1];  ddudxjddp1dxj[1][2][2][2] = u[2][1];  ddudxjddp1dxj[1][2][3][2] = u[3][1];
+    ddudxjddp1dxj[2][0][0][0] = u[0][2];  ddudxjddp1dxj[2][0][1][0] = u[1][2];  ddudxjddp1dxj[2][0][2][0] = u[2][2];  ddudxjddp1dxj[2][0][3][0] = u[3][2];
+    ddudxjddp1dxj[2][1][0][1] = u[0][2];  ddudxjddp1dxj[2][1][1][1] = u[1][2];  ddudxjddp1dxj[2][1][2][1] = u[2][2];  ddudxjddp1dxj[2][1][3][1] = u[3][2];
+    ddudxjddp1dxj[2][2][0][2] = u[0][2];  ddudxjddp1dxj[2][2][1][2] = u[1][2];  ddudxjddp1dxj[2][2][2][2] = u[2][2];  ddudxjddp1dxj[2][2][3][2] = u[3][2];
+  }
+
+  if(ddudxjdu) {
+    ddudxjdu[0][0][0][0] = dp1dxj[0][0];  ddudxjdu[0][0][1][0] = dp1dxj[1][0];  ddudxjdu[0][0][2][0] = dp1dxj[2][0];  ddudxjdu[0][0][3][0] = dp1dxj[3][0];
+    ddudxjdu[0][1][0][0] = dp1dxj[0][1];  ddudxjdu[0][1][1][0] = dp1dxj[1][1];  ddudxjdu[0][1][2][0] = dp1dxj[2][1];  ddudxjdu[0][1][3][0] = dp1dxj[3][1];
+    ddudxjdu[0][2][0][0] = dp1dxj[0][2];  ddudxjdu[0][2][1][0] = dp1dxj[1][2];  ddudxjdu[0][2][2][0] = dp1dxj[2][2];  ddudxjdu[0][2][3][0] = dp1dxj[3][2];
+    ddudxjdu[1][0][0][1] = dp1dxj[0][0];  ddudxjdu[1][0][1][1] = dp1dxj[1][0];  ddudxjdu[1][0][2][1] = dp1dxj[2][0];  ddudxjdu[1][0][3][1] = dp1dxj[3][0];
+    ddudxjdu[1][1][0][1] = dp1dxj[0][1];  ddudxjdu[1][1][1][1] = dp1dxj[1][1];  ddudxjdu[1][1][2][1] = dp1dxj[2][1];  ddudxjdu[1][1][3][1] = dp1dxj[3][1];
+    ddudxjdu[1][2][0][1] = dp1dxj[0][2];  ddudxjdu[1][2][1][1] = dp1dxj[1][2];  ddudxjdu[1][2][2][1] = dp1dxj[2][2];  ddudxjdu[1][2][3][1] = dp1dxj[3][2];
+    ddudxjdu[2][0][0][2] = dp1dxj[0][0];  ddudxjdu[2][0][1][2] = dp1dxj[1][0];  ddudxjdu[2][0][2][2] = dp1dxj[2][0];  ddudxjdu[2][0][3][2] = dp1dxj[3][0];
+    ddudxjdu[2][1][0][2] = dp1dxj[0][1];  ddudxjdu[2][1][1][2] = dp1dxj[1][1];  ddudxjdu[2][1][2][2] = dp1dxj[2][1];  ddudxjdu[2][1][3][2] = dp1dxj[3][1];
+    ddudxjdu[2][2][0][2] = dp1dxj[0][2];  ddudxjdu[2][2][1][2] = dp1dxj[1][2];  ddudxjdu[2][2][2][2] = dp1dxj[2][2];  ddudxjdu[2][2][3][2] = dp1dxj[3][2];
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+
+
 inline
 void NavierStokesTerm::computeTemperatureGradient(double dp1dxj[4][3], double T[4],
 						  double dTdxj[3])
@@ -398,6 +517,45 @@ void NavierStokesTerm::computeDerivativeOfTemperatureGradient(double dp1dxj[4][3
 }
 
 //------------------------------------------------------------------------------
+
+// Included (YC)
+inline
+void NavierStokesTerm::computeDerivativeOperatorsOfTemperatureGradient(double dp1dxj[4][3], double T[4],
+						  double ddTdxjddp1dxj[3][4][3], double ddTdxjdT[3][4])
+{
+
+  ddTdxjddp1dxj[0][0][0] = T[0];
+  ddTdxjddp1dxj[0][1][0] = T[1];
+  ddTdxjddp1dxj[0][2][0] = T[2];
+  ddTdxjddp1dxj[0][3][0] = T[3];
+  ddTdxjdT[0][0] = dp1dxj[0][0];
+  ddTdxjdT[0][1] = dp1dxj[1][0];
+  ddTdxjdT[0][2] = dp1dxj[2][0];
+  ddTdxjdT[0][3] = dp1dxj[3][0];
+
+  ddTdxjddp1dxj[1][0][1] = T[0];
+  ddTdxjddp1dxj[1][1][1] = T[1];
+  ddTdxjddp1dxj[1][2][1] = T[2];
+  ddTdxjddp1dxj[1][3][1] = T[3];
+  ddTdxjdT[1][0] = dp1dxj[0][1];
+  ddTdxjdT[1][1] = dp1dxj[1][1];
+  ddTdxjdT[1][2] = dp1dxj[2][1];
+  ddTdxjdT[1][3] = dp1dxj[3][1];
+
+  ddTdxjddp1dxj[2][0][2] = T[0];
+  ddTdxjddp1dxj[2][1][2] = T[1];
+  ddTdxjddp1dxj[2][2][2] = T[2];
+  ddTdxjddp1dxj[2][3][2] = T[3];
+  ddTdxjdT[2][0] = dp1dxj[0][2];
+  ddTdxjdT[2][1] = dp1dxj[1][2];
+  ddTdxjdT[2][2] = dp1dxj[2][2];
+  ddTdxjdT[2][3] = dp1dxj[3][2];
+
+}
+
+//------------------------------------------------------------------------------
+
+
 
 inline
 void NavierStokesTerm::computeStressTensor(double mu, double lambda, double dudxj[3][3], double tij[3][3])
@@ -441,6 +599,43 @@ void NavierStokesTerm::computeDerivativeOfStressTensor(double mu, double dmu, do
 
 //------------------------------------------------------------------------------
 
+
+// Included (YC)
+inline
+void NavierStokesTerm::computeDerivativeOperatorsOfStressTensor(double mu, double lambda, double dudxj[3][3],
+                                                                double dtijddudxj[3][3][3][3], double dtijdmu[3][3], double dtijdlambda[3][3])
+{
+
+  double div = dudxj[0][0] + dudxj[1][1] + dudxj[2][2];
+  if(dtijdlambda) {
+    dtijdlambda[0][0] = dtijdlambda[1][1] = dtijdlambda[2][2] = div;
+  }
+  if(dtijdmu) {
+    dtijdmu[0][0] =  2.0*dudxj[0][0];
+    dtijdmu[1][1] =  2.0*dudxj[1][1];
+    dtijdmu[2][2] =  2.0*dudxj[2][2];
+    dtijdmu[1][0] = dtijdmu[0][1] = (dudxj[1][0] + dudxj[0][1]);
+    dtijdmu[2][0] = dtijdmu[0][2] = (dudxj[2][0] + dudxj[0][2]);
+    dtijdmu[2][1] = dtijdmu[1][2] = (dudxj[2][1] + dudxj[1][2]);
+  }
+  if(dtijddudxj) {
+    dtijddudxj[0][0][0][0] = dtijddudxj[1][1][0][0] = dtijddudxj[2][2][0][0] = lambda;
+    dtijddudxj[0][0][1][1] = dtijddudxj[1][1][1][1] = dtijddudxj[2][2][1][1] = lambda;
+    dtijddudxj[0][0][2][2] = dtijddudxj[1][1][2][2] = dtijddudxj[2][2][2][2] = lambda;
+    dtijddudxj[0][0][0][0] += 2.0 * mu;
+    dtijddudxj[1][1][1][1] += 2.0 * mu;
+    dtijddudxj[2][2][2][2] += 2.0 * mu;
+    dtijddudxj[1][0][0][1] = dtijddudxj[1][0][1][0] = dtijddudxj[0][1][0][1] = dtijddudxj[0][1][1][0] = mu;
+    dtijddudxj[2][0][0][2] = dtijddudxj[2][0][2][0] = dtijddudxj[0][2][0][2] = dtijddudxj[0][2][2][0] = mu;
+    dtijddudxj[2][1][1][2] = dtijddudxj[2][1][2][1] = dtijddudxj[1][2][1][2] = dtijddudxj[1][2][2][1] = mu;
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+
+
 inline
 void NavierStokesTerm::computeHeatFluxVector(double kappa, double dTdxj[3], double qj[3])
 {
@@ -465,6 +660,23 @@ void NavierStokesTerm::computeDerivativeOfHeatFluxVector(double kappa, double dk
 }
 
 //------------------------------------------------------------------------------
+
+
+// Included (YC)
+inline
+void NavierStokesTerm::computeDerivativeOperatorsOfHeatFluxVector(double kappa, double dTdxj[3], double dqjddTdxj[3][3], double dqjdkappa[3])
+{
+
+  dqjddTdxj[2][2] = dqjddTdxj[1][1] = dqjddTdxj[0][0] = -kappa;
+  dqjdkappa[0] = -dTdxj[0];
+  dqjdkappa[1] = -dTdxj[1];
+  dqjdkappa[2] = -dTdxj[2];
+
+}
+
+//------------------------------------------------------------------------------
+
+
 
 template<int dim>
 inline
@@ -500,6 +712,56 @@ void NavierStokesTerm::computeVolumeTermNS(double mu, double lambda, double kapp
 }
 
 //------------------------------------------------------------------------------
+
+// Included (YC)
+template<int dim>
+inline
+void NavierStokesTerm::computeDerivativeOperatorsOfVolumeTermNS(double mu, double lambda, double kappa, double u[3],
+					   double dudxj[3][3], double dTdxj[3],
+					   double drdmu[3][dim], double drdlambda[3][dim], double drdkappa[3][dim],
+             double drdu[3][dim][3], double drddudxj[3][dim][3][3], double drddTdxj[3][dim][3])
+{
+  double tij[3][3];
+  computeStressTensor(mu, lambda, dudxj, tij);
+
+  double dtijdlambda[3][3] = {0}, dtijddudxj[3][3][3][3] = {0}, dtijdmu[3][3] = {0};
+  computeDerivativeOperatorsOfStressTensor(mu, lambda, dudxj, dtijddudxj, dtijdmu, dtijdlambda);
+
+  double dqjdkappa[3] = {0}, dqjddTdxj[3][3] = {0};
+  computeDerivativeOperatorsOfHeatFluxVector(kappa, dTdxj, dqjddTdxj, dqjdkappa);
+
+  double drdtij[3][dim][3][3] = {0};
+  drdtij[0][3][2][0] = drdtij[0][2][1][0] = drdtij[0][1][0][0] = 1.0;
+  drdtij[1][3][2][1] = drdtij[1][2][1][1] = drdtij[1][1][0][1] = 1.0;
+  drdtij[2][3][2][2] = drdtij[2][2][1][2] = drdtij[2][1][0][2] = 1.0;
+  drdtij[0][4][0][0] = drdtij[1][4][0][1] = drdtij[2][4][0][2] = u[0];
+  drdtij[0][4][1][0] = drdtij[1][4][1][1] = drdtij[2][4][1][2] = u[1];
+  drdtij[0][4][2][0] = drdtij[1][4][2][1] = drdtij[2][4][2][2] = u[2];
+  drdu[0][4][0] = tij[0][0];  drdu[0][4][1] = tij[1][0];  drdu[0][4][2] = tij[2][0];
+  drdu[1][4][0] = tij[0][1];  drdu[1][4][1] = tij[1][1];  drdu[1][4][2] = tij[2][1];
+  drdu[2][4][0] = tij[0][2];  drdu[2][4][1] = tij[1][2];  drdu[2][4][2] = tij[2][2];
+  double drdqj[3][dim][3] = {0};
+  drdqj[2][4][2] = drdqj[1][4][1] = drdqj[0][4][0] = -1.0;
+
+  for(int i=0; i<3; ++i)
+    for(int j=0; j<dim; ++j)
+      for(int k=0; k<3; ++k) {
+        drdkappa[i][j] += drdqj[i][j][k]*dqjdkappa[k];
+        for(int l=0; l<3; ++l) {
+          drddTdxj[i][j][l] += drdqj[i][j][k]*dqjddTdxj[k][l];
+          drdmu[i][j] += drdtij[i][j][k][l]*dtijdmu[k][l];
+          drdlambda[i][j] += drdtij[i][j][k][l]*dtijdlambda[k][l];
+          for(int m=0; m<3; ++m)
+            for(int n=0; n<3; ++n) {
+              drddudxj[i][j][m][n] += drdtij[i][j][k][l]*dtijddudxj[k][l][m][n];
+            }
+        }
+      }
+
+}
+
+//------------------------------------------------------------------------------
+
 
 // Included (MB)
 template<int dim>

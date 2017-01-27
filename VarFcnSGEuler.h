@@ -188,6 +188,11 @@ public:
     return ( invgam1 * dV[4] - computeTemperature(V) * dV[0] ) /V[0];
   }
 
+  void computeDerivativeOperatorsOfTemperature(double *V, double dTdV[5]) const {
+    dTdV[0] = -computeTemperature(V)/V[0];
+    dTdV[4] = invgam1/V[0];
+  }
+
   double computeDerivativeOfMachNumber(double *V, double *dV, double dMach) const 
   {
     // Fix when the speed is 0
@@ -313,24 +318,16 @@ inline
 void VarFcnSGEuler::computeConservativeToPrimitiveDerivativeOperators(double *U, double *V, double dVdU[5][5], double dVdPstiff[5])
 {
 
-//  dV[0] = dU[0];
 
   double invRho = 1.0 / V[0];
 
-//  dV[1] =  invRho*dU[1]  - invRho*V[1]*dU[0];
-//  dV[2] =  invRho*dU[2]  - invRho*V[2]*dU[0];
-//  dV[3] =  invRho*dU[3]  - invRho*V[3]*dU[0]; 
-
   double vel2 = V[1] * V[1] + V[2] * V[2] + V[3] * V[3];
 
-//  double dvel2 = 2.0 * V[1] * dV[1] + 2.0 * V[2] * dV[2] + 2.0 * V[3] * dV[3];
   double cf01 = gam-1.0;
   double cf02 = -0.5*cf01*vel2;
   double cf03 = -2.0*0.5*cf01*U[0]*V[1];
   double cf04 = -2.0*0.5*cf01*U[0]*V[2];
   double cf05 = -2.0*0.5*cf01*U[0]*V[3];
-//  dV[4] = cf01*dU[4] + cf03*invRho*dU[1]  + cf04*invRho*dU[2] + cf05*invRho*dU[3]  + (cf02 - cf05*invRho*V[3]- cf03*invRho*V[1] - cf04*invRho*V[2])*dU[0];
-
 
   dVdU[0][0] = 1.0;
   dVdU[1][0] = -invRho*V[1];    dVdU[1][1] = invRho;

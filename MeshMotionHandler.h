@@ -45,7 +45,7 @@ public:
   MeshMotionHandler(IoData &, Domain *);
   virtual ~MeshMotionHandler() {}
 
-  virtual void sendForceSensitivity(DistSVec<double,3> *) {} 
+  virtual void sendForceSensitivity(DistSVec<double,3> *, bool applyScale = true) {}
   virtual void cmdCom(bool *) {}
   virtual void getNumParam(int &, int &, double &) {}
   virtual void sendNumParam(int) {}
@@ -53,7 +53,7 @@ public:
   virtual double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &) = 0;
   virtual double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * =0) {return 0.0;} 
   virtual double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &) {return 0.0;}
-  virtual void updateDStep2(DistSVec<double,3> &, DistSVec<double,3> &) {}
+  virtual void updateDStep2(DistSVec<double,3> &, DistSVec<double,3> &, bool applyScale = false) {}
   virtual void setPositionVector(DistSVec<double,3> &) {}
   virtual void storeFluidSuggestedTimestep(double dtf) {dtf0 = dtf;}
   virtual int    structureSubcycling() {return 0;}
@@ -171,14 +171,14 @@ public:
   int getModalMotion(DistSVec<double,3> &);
   void negotiate();
 
-  void sendForceSensitivity(DistSVec<double,3> *); 
+  void sendForceSensitivity(DistSVec<double,3> *, bool applyScale = true);
   void cmdCom(bool *);
   void getNumParam(int &numParam, int &, double &steadyTol);
   void sendNumParam(int numParam);
   void getRelResidual(double &relres);
   virtual double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
   double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * =0);
-  double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+  void updateDStep2(DistSVec<double,3> &, DistSVec<double,3> &, bool applyScale = false);
   void updateDStep2(DistSVec<double,3> &, DistSVec<double,3> &);
   void setPositionVector(DistSVec<double,3> &X);
   int getAlgNum(); 

@@ -156,11 +156,17 @@ private:
   char *dMatchPressure;
   char *dForces;
   char *dLiftDrag;
+  char *dLiftx;
+  char *dLifty;
+  char *dLiftz;
   char *dFluxNorm;
 
   FILE *fpdMatchPressure;
   FILE *fpdForces;
   FILE *fpdLiftDrag;
+  FILE *fpdLiftx;
+  FILE *fpdLifty;
+  FILE *fpdLiftz;
   FILE *fpdFluxNorm;
 
   char *heatfluxes;
@@ -303,6 +309,9 @@ public:
 
 // Included (YC)
   void writeDerivativeOfLiftDragToDisk(int it, int actvar, Vec3D & L, Vec3D & dL);
+  void writeDerivativeOfLiftxToDisk(double& dLx);
+  void writeDerivativeOfLiftyToDisk(double& dLy);
+  void writeDerivativeOfLiftzToDisk(double& dLz);
 
 // Included (MB)
   void rstVar(IoData &);

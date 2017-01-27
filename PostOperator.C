@@ -17,13 +17,14 @@
 #include <SpaceOperator.h>
 #include <VectorSet.h>
 #include <GhostPoint.h>
+#include <MatVecProd.h>
 
 //------------------------------------------------------------------------------
 
 template<int dim>
 PostOperator<dim>::PostOperator(IoData &iod, VarFcn *vf, DistBcData<dim> *bc, 
 				DistGeoState *gs, Domain *dom, DistSVec<double,dim> *v) : 
-  varFcn(vf), bcData(bc), geoState(gs), domain(dom)
+  varFcn(vf), bcData(bc), geoState(gs), domain(dom), built_dVdU(false)
 {
 
   threshold = iod.schemes.ns.eps;
@@ -248,37 +249,15 @@ void PostOperator<dim>::computeDerivativeOfNodalForce(RectangularSparseMat<doubl
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
-//    varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub));
-//    varFcn->conservativeToPrimitiveDerivative(U(iSub), dU(iSub), (*V)(iSub), (*dV)(iSub));
     dVdU[iSub]->apply(dU(iSub), (*dV)(iSub));
 
     SVec<double,3> dSSVec(1); 
     subDomain[iSub]->computeDerivativeOfNodalForce(dForcedX[iSub], dForcedGradP[iSub], dForcedV[iSub], dForcedS[iSub],
                                                    dX(iSub), (*dV)(iSub), dS, dF(iSub), dSSVec, dGradPSVec(iSub));
-/*
-    SVec<double,3> dX2(dX(iSub)), dSSVec2(dSSVec), dGradPSVec2(dGradPSVec), dF2(dF(iSub));
-    SVec<double,dim> dU2(dU(iSub)), dV2((*dV)(iSub));
-    dX2 = 0.0;   dSSVec2 = 0.0;   dGradPSVec2 = 0.0;   dU2 = 0.0;  dV2 = 0.0;
-    dVdU[iSub]->apply(dU(iSub), dV2);
-    subDomain[iSub]->computeDerivativeOfNodalForce(dForcedX[iSub], dForcedGradP[iSub], dForcedV[iSub], dForcedS[iSub],
-                                                   dX(iSub), dV2, dS, dF2, dSSVec, dGradPSVec);
-    double aa = dF(iSub)*dF2;
-
-    dV2 = 0.0;
-    subDomain[iSub]->computeTransposeDerivativeOfNodalForce(dForcedX[iSub], dForcedGradP[iSub], dForcedV[iSub], dForcedS[iSub],
-                                                            dF(iSub), dGradPSVec2, dX2, dV2, dSSVec2);
-    dVdU[iSub]->applyTranspose(dV2, dU2);
-    double bb = dGradPSVec2*dGradPSVec + dX2*dX(iSub) + dU2*dU(iSub) + dSSVec2*dSSVec;
-    double diffnorm = sqrt((aa-bb)*(aa-bb));
-    double aanorm = sqrt(aa*aa);
-    if(aanorm != 0) fprintf(stderr, " ... rel. diff is %e\n", diffnorm/aanorm);
-    else fprintf(stderr, " ... abs. diff is %e\n", diffnorm);
-*/
-
   }
 
-  CommPattern<double> *vec3DPat = domain->getCommPat(dF);
-  domain->assemble(vec3DPat, dF);  // TODO: was not assembled originally
+//  CommPattern<double> *vec3DPat = domain->getCommPat(dF);
+//  domain->assemble(vec3DPat, dF);  // TODO: was not assembled originally
 
 }
 
@@ -310,13 +289,6 @@ void PostOperator<dim>::computeTransposeDerivativeOfNodalForce(RectangularSparse
     dVdU[iSub]->applyTranspose((*dV)(iSub), dU(iSub));
     for(int i=0; i<3; ++i) dS[i] = dSSVec[0][i];
   }
-/*
-  CommPattern<double> *vec3DPat = domain->getCommPat(dX);
-  domain->assemble(vec3DPat, dGradPSVec);
-  domain->assemble(vec3DPat, dX);
-  CommPattern<double> *vPat = domain->getCommPat(dU);
-  domain->assemble(vPat, dU);
-*/
 }
 
 //------------------------------------------------------------------------------
@@ -336,7 +308,10 @@ void PostOperator<dim>::computeDerivativeOperatorsOfNodalForce(DistSVec<double,3
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) { 
     varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub));
-    varFcn->computeConservativeToPrimitiveDerivativeOperators(U(iSub), (*V)(iSub), *dVdU[iSub], *dVdPstiff[iSub]);
+    if(!built_dVdU) {
+      varFcn->computeConservativeToPrimitiveDerivativeOperators(U(iSub), (*V)(iSub), *dVdU[iSub], *dVdPstiff[iSub]);
+      built_dVdU = true;
+    }
     subDomain[iSub]->computeDerivativeOperatorsOfNodalForce(postFcn, X(iSub), (*V)(iSub), Pin(iSub), 
                                                             *dForcedX[iSub], *dForcedGradP[iSub],
                                                             *dForcedV[iSub], *dForcedS[iSub]);
@@ -795,7 +770,6 @@ void PostOperator<dim>::computeDerivativeOfForceAndMoment(Vec3D &x0, DistSVec<do
   }
 
   map<int, int>::iterator it;
-  iSurf = 1;
   for (it = surfOutMap.begin(); it != surfOutMap.end(); it++)  {
     if (it->second > 0)  {
       dFi[0] += dFi[it->second];
@@ -811,6 +785,164 @@ void PostOperator<dim>::computeDerivativeOfForceAndMoment(Vec3D &x0, DistSVec<do
 }
 
 //------------------------------------------------------------------------------
+
+
+// Included (YC)
+// computes the derivative of non-dimensional forces and moments
+
+template<int dim>
+void PostOperator<dim>::computeDerivativeOfForceAndMoment(dRdXoperators<dim> *dRdXop, DistSVec<double,3> &dX,
+                                                          DistSVec<double,dim> &dU, double dS[3], DistSVec<double,3> &dGradP,
+                                                          Vec3D *dFi, Vec3D *dMi, Vec3D *dFv, Vec3D *dMv, int hydro)
+{
+
+  int iSurf;
+  for(iSurf = 0; iSurf < numSurf; ++iSurf) {
+    dFi[iSurf] = 0.0;
+    dMi[iSurf] = 0.0;
+    dFv[iSurf] = 0.0;
+    dMv[iSurf] = 0.0;
+  }
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    dRdXop->dVdU[iSub]->apply(dU(iSub), (*dV)(iSub));
+    Vec3D *dfi = new Vec3D[numSurf];
+    Vec3D *dmi = new Vec3D[numSurf];
+    Vec3D *dfv = new Vec3D[numSurf];
+    Vec3D *dmv = new Vec3D[numSurf];
+    for(iSurf = 0; iSurf < numSurf; ++iSurf) {
+      dfi[iSurf] = 0.0;
+      dmi[iSurf] = 0.0;
+      dfv[iSurf] = 0.0;
+      dmv[iSurf] = 0.0;
+    }
+
+    subDomain[iSub]->computeDerivativeOfForceAndMoment(dRdXop->dFidGradP[iSub],
+                                                       dRdXop->dFidX[iSub], dRdXop->dFidV[iSub],
+                                                       dRdXop->dFvdX[iSub], dRdXop->dFvdV[iSub],
+                                                       dRdXop->dFidS[iSub], dRdXop->dMidGradP[iSub], dRdXop->dMidX[iSub],
+                                                       dRdXop->dMidV[iSub], dRdXop->dMidS[iSub], dRdXop->dMvdX[iSub], dRdXop->dMvdV[iSub],
+                                                       dX(iSub), (*dV)(iSub), dS, dGradP(iSub),
+                                                       dfi, dmi, dfv, dmv, hydro);
+
+    for(iSurf = 0; iSurf < numSurf; ++iSurf) {
+#pragma omp critical
+      dFi[iSurf] += dfi[iSurf];
+#pragma omp critical
+      dMi[iSurf] += dmi[iSurf];
+#pragma omp critical
+      dFv[iSurf] += dfv[iSurf];
+#pragma omp critical
+      dMv[iSurf] += dmv[iSurf];
+    }
+    delete [] dfi;
+    delete [] dmi;
+    delete [] dfv;
+    delete [] dmv;
+  }
+
+  for(iSurf = 0; iSurf < numSurf; ++iSurf) {
+//#pragma omp critical
+    {
+      double dCoef[12] = { dFi[iSurf][0], dFi[iSurf][1], dFi[iSurf][2],
+                           dMi[iSurf][0], dMi[iSurf][1], dMi[iSurf][2],
+                           dFv[iSurf][0], dFv[iSurf][1], dFv[iSurf][2],
+                           dMv[iSurf][0], dMv[iSurf][1], dMv[iSurf][2] };
+      com->globalSum(12, dCoef);
+
+      dFi[iSurf][0] = dCoef[0];
+      dFi[iSurf][1] = dCoef[1];
+      dFi[iSurf][2] = dCoef[2];
+
+      dMi[iSurf][0] = dCoef[3];
+      dMi[iSurf][1] = dCoef[4];
+      dMi[iSurf][2] = dCoef[5];
+
+      dFv[iSurf][0] = dCoef[6];
+      dFv[iSurf][1] = dCoef[7];
+      dFv[iSurf][2] = dCoef[8];
+
+      dMv[iSurf][0] = dCoef[9];
+      dMv[iSurf][1] = dCoef[10];
+      dMv[iSurf][2] = dCoef[11];
+    }
+  }
+
+  map<int, int>::iterator it;
+  for (it = surfOutMap.begin(); it != surfOutMap.end(); it++)  {
+    if (it->second > 0)  {
+      dFi[0] += dFi[it->second];
+
+      dMi[0] += dMi[it->second];
+
+      dFv[0] += dFv[it->second];
+
+      dMv[0] += dMv[it->second];
+    }
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+// computes the transpose of derivative of non-dimensional forces and moments
+
+template<int dim>
+void PostOperator<dim>::computeTransposeDerivativeOfForceAndMoment(dRdXoperators<dim> *dRdXop, SVec<double,3> &dFi,
+                                                                   SVec<double,3> &dMi, SVec<double,3> &dFv, SVec<double,3> &dMv,
+                                                                   DistSVec<double,3> &dX, DistSVec<double,dim> &dU,
+                                                                   SVec<double,3> &dS, DistSVec<double,3> &dGradP, int hydro)
+{
+
+  *dV = 0.0;
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    subDomain[iSub]->computeTransposeDerivativeOfForceAndMoment(dRdXop->dFidGradP[iSub], dRdXop->dFidX[iSub],
+                                                                dRdXop->dFidV[iSub], dRdXop->dFvdX[iSub],
+                                                                dRdXop->dFvdV[iSub], dRdXop->dFidS[iSub],
+                                                                dRdXop->dMidGradP[iSub], dRdXop->dMidX[iSub],
+                                                                dRdXop->dMidV[iSub], dRdXop->dMidS[iSub], dRdXop->dMvdX[iSub], dRdXop->dMvdV[iSub],
+                                                                dFi, dFv, dMi, dMv,
+                                                                dX(iSub), (*dV)(iSub), dS, dGradP(iSub), hydro);
+    dRdXop->dVdU[iSub]->applyTranspose((*dV)(iSub), dU(iSub));
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+// computes the derivative operators of non-dimensional forces and moments
+
+template<int dim>
+void PostOperator<dim>::computeDerivativeOperatorsOfForceAndMoment(dRdXoperators<dim> &dRdXop,
+                                                                   Vec3D &x0, DistSVec<double,3> &X,
+                                                                   DistSVec<double,dim> &U, int hydro)
+{
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub));
+    if(!built_dVdU) {
+      varFcn->computeConservativeToPrimitiveDerivativeOperators(U(iSub), (*V)(iSub), *dRdXop.dVdU[iSub], *dRdXop.dVdPstiff[iSub]);
+      built_dVdU = true;
+    }
+    subDomain[iSub]->computeDerivativeOperatorsOfForceAndMoment(surfOutMap, postFcn, (*bcData)(iSub), (*geoState)(iSub),
+                                                                X(iSub), (*V)(iSub), x0, hydro,
+                                                                *dRdXop.dFidGradP[iSub],
+                                                                *dRdXop.dFidX[iSub], *dRdXop.dFidV[iSub],
+                                                                *dRdXop.dFvdX[iSub], *dRdXop.dFvdV[iSub],
+                                                                *dRdXop.dFidS[iSub], *dRdXop.dMidGradP[iSub], *dRdXop.dMidX[iSub],
+                                                                *dRdXop.dMidV[iSub], *dRdXop.dMidS[iSub], *dRdXop.dMvdX[iSub], *dRdXop.dMvdV[iSub]);
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+
+
 
 template<int dim>
 void PostOperator<dim>::computeDerivativeOfForceAndMoment(Vec3D &x0, DistSVec<double,3> &X, 
