@@ -178,6 +178,9 @@ public:
   virtual void rV(IoData &iod) { pmin = iod.eqs.fluidModel.pmin; }
   virtual Vec3D getDerivativeOfVelocity(double *dV) const { return Vec3D(dV[1], dV[2], dV[3]); }
   virtual double computeDerivativeOfTemperature(double *V, double *dV) const { return 0.0; }
+  virtual void computeDerivativeOperatorsOfTemperature(double *V, double dTdV[5]) const {
+    fprintf(stderr, "*** Error:  computeDerivativeOperatorsOfTemperature Function not defined\n");
+    exit(-1);  }
   virtual double computeDerivativeOfMachNumber(double *V, double *dV, double dMach) const { return 0.0; }
   virtual double computeDerivativeOfSoundSpeed(double *V, double *dV, double dMach) const { return 0.0; }
   virtual double computeDerivativeOfTotalPressure(double machr, double dmachr, double* V, double* dV, double dmach) const { return 0.0; }

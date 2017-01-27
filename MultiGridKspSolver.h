@@ -32,6 +32,9 @@ class MultiGridMatVecProd {
                                                                                                       
   }
 
+  void applyTranspose(DistSVec<Scalar,neq>& x, DistSVec<Scalar,neq>& b) {}
+  void applyT(DistSVec<Scalar,neq>& x, DistSVec<Scalar,neq>& b) {}
+
 };
 
 template<class Scalar,int neq,class Scalar2>                                                          
@@ -86,6 +89,9 @@ class MultiGridRASPrec {
     }
     level->assemble(b);
   }
+
+  void applyTranspose(DistSVec<Scalar2,neq>& x, DistSVec<Scalar2,neq>& b) {}
+  void applyT(DistSVec<Scalar2,neq>& x, DistSVec<Scalar2,neq>& b) {}
 };
 
 template<class Scalar,int neq,class Scalar2>

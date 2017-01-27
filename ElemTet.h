@@ -201,12 +201,17 @@ public:
 			      SVec<double,3> &, SVec<double,3> &);
 
   double computeDerivativeOfGradientP1Function(SVec<double,3> &, SVec<double,3> &, double [4][3]);
+  double computeDerivativeOfGradientP1Function2(SVec<double,3> &, SVec<double,3> &, double [4][3], double [4][3]);
+  void computeDerivativeOperatorOfGradientP1Function(SVec<double,3> &, double [4][3], double [4][3][4][3], int [4] = NULL);
   void computeDerivativeTransposeOfGradientP1Function(SVec<double,3> &, double, double [4][3], double [4][3], SVec<double,3> &);
 
   template<int dim>
   void computeDerivativeOfGalerkinTerm(FemEquationTerm *, SVec<double,3> &, SVec<double,3> &, Vec<double> &,
 			   SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &);
 
+  template<int dim>
+  void computeDerivativeOperatorsOfGalerkinTerm(FemEquationTerm *, SVec<double,3> &, Vec<double> &,
+                                                SVec<double,dim> &, RectangularSparseMat<double,3,dim> &);
   template<int dim>
   void computeDerivativeOfFaceGalerkinTerm(FemEquationTerm *, int [3], int, Vec3D &, Vec3D &,
 			       SVec<double,3> &, SVec<double,3> &, Vec<double> &, double *, double *,

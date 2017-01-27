@@ -233,6 +233,8 @@ public:
   Connectivity *createElementToNodeConnectivity();
   Connectivity *createEdgeBasedConnectivity();
   Connectivity *createNodeToConstantConnectivity();
+  Connectivity *createConstantToNodeConnectivity();
+  Connectivity *createConstantToConstantConnectivity();
   Connectivity *createElementBasedEdgeToNodeConnectivity();
   Connectivity *createElementBasedNodeToEdgeConnectivity();
   Connectivity *createFaceToNodeConnectivity();
@@ -501,11 +503,9 @@ public:
 
   template<int dim, int dimLS>
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&,
-                              FluxFcn**, RecFcn*, 
-										BcData<dim>&, GeoState&,
+                              FluxFcn**, RecFcn*,BcData<dim>&, GeoState&,
                               SVec<double,3>&, SVec<double,dim>&,
-                              SVec<double,dim>&, SVec<double,dim>&, 
-										LevelSetStructure&, bool,
+                              SVec<double,dim>&, SVec<double,dim>&, LevelSetStructure&, bool,
                               Vec<int> &, int, FluidSelector &,
                               NodalGrad<dim>&, EdgeGrad<dim>*,
 			      SVec<double,dimLS>& phi,
@@ -753,7 +753,13 @@ public:
   RectangularSparseMat<double,dim,dim2> *create_NodeBaseddRdXoperators();
 
   template<int dim, int dim2>
-  RectangularSparseMat<double,dim,dim2> *create_ConstantBaseddRdXoperators();
+  RectangularSparseMat<double,dim,dim2> *create_ConstantToNodeBaseddRdXoperators();
+
+  template<int dim, int dim2>
+  RectangularSparseMat<double,dim,dim2> *create_NodeToConstantBaseddRdXoperators();
+
+  template<int dim, int dim2>
+  RectangularSparseMat<double,dim,dim2> *create_ConstantToConstantBaseddRdXoperators();
 
   template<int dim, int dim2>
   RectangularSparseMat<double,dim,dim2> *create_NodeToFaceBaseddRdXoperators();
@@ -1580,12 +1586,75 @@ public:
 
   template<int dim>
   void computeDerivativeOfForceAndMoment(map<int,int> &surfIndexMap, PostFcn *, BcData<dim> &, GeoState &, SVec<double,3> &, SVec<double,3> &,
-                                                                           SVec<double,dim> &, SVec<double,dim> &, double [3],
-                                                                           Vec3D &, Vec3D *, Vec3D *, Vec3D *, Vec3D *, int = 0);
+                                         SVec<double,dim> &, SVec<double,dim> &, double [3],
+                                         Vec3D &, Vec3D *, Vec3D *, Vec3D *, Vec3D *, int = 0);
+
+  template<int dim>
+  void computeDerivativeOfForceAndMoment(RectangularSparseMat<double,3,3> *dFidGradP,
+                                         RectangularSparseMat<double,3,3> *dFidX,
+                                         RectangularSparseMat<double,dim,3> *dFidV,
+                                         RectangularSparseMat<double,3,3> *dFvdX,
+                                         RectangularSparseMat<double,dim,3> *dFvdV,
+                                         RectangularSparseMat<double,3,3> *dFidS,
+                                         RectangularSparseMat<double,3,3> *dMidGradP,
+                                         RectangularSparseMat<double,3,3> *dMidX,
+                                         RectangularSparseMat<double,dim,3> *dMidV,
+                                         RectangularSparseMat<double,3,3> *dMidS,
+                                         RectangularSparseMat<double,3,3> *dMvdX,
+                                         RectangularSparseMat<double,dim,3> *dMvdV,
+                                         SVec<double,3> &dX,
+                                         SVec<double,dim> &dV, double dS[3], SVec<double,3> &,
+                                         Vec3D *dFi, Vec3D *dMi, Vec3D *dFv, Vec3D *dMv, int hydro = 0);
+
+  template<int dim>
+  void computeTransposeDerivativeOfForceAndMoment(RectangularSparseMat<double,3,3> *dFidGradP,
+                                                  RectangularSparseMat<double,3,3> *dFidX,
+                                                  RectangularSparseMat<double,dim,3> *dFidV,
+                                                  RectangularSparseMat<double,3,3> *dFvdX,
+                                                  RectangularSparseMat<double,dim,3> *dFvdV,
+                                                  RectangularSparseMat<double,3,3> *dFidS,
+                                                  RectangularSparseMat<double,3,3> *dMidGradP,
+                                                  RectangularSparseMat<double,3,3> *dMidX,
+                                                  RectangularSparseMat<double,dim,3> *dMidV,
+                                                  RectangularSparseMat<double,3,3> *dMidS,
+                                                  RectangularSparseMat<double,3,3> *dMvdX,
+                                                  RectangularSparseMat<double,dim,3> *dMvdV,
+                                                  SVec<double,3> &dFiSVec, SVec<double,3> &dFvSVec,
+                                                  SVec<double,3> &dMiSVec, SVec<double,3> &dMvSVec, SVec<double,3> &dX,
+                                                  SVec<double,dim> &dV, SVec<double,3> &dSSVec,
+                                                  SVec<double,3> &dGradPSVec, int hydro);
+
+  template<int dim>
+  void computeDerivativeOperatorsOfForceAndMoment(map<int,int> &surfIndexMap, PostFcn *, BcData<dim> &, GeoState &, SVec<double,3> &,
+                                                  SVec<double,dim> &, Vec3D &, int,
+                                                  RectangularSparseMat<double,3,3> &dFidGradP,
+                                                  RectangularSparseMat<double,3,3> &dFidX,
+                                                  RectangularSparseMat<double,dim,3> &dFidV,
+                                                  RectangularSparseMat<double,3,3> &dFvdX,
+                                                  RectangularSparseMat<double,dim,3> &dFvdV,
+                                                  RectangularSparseMat<double,3,3> &dFidS,
+                                                  RectangularSparseMat<double,3,3> &dMidGradP,
+                                                  RectangularSparseMat<double,3,3> &dMidX,
+                                                  RectangularSparseMat<double,dim,3> &dMidV,
+                                                  RectangularSparseMat<double,3,3> &dMidS,
+                                                  RectangularSparseMat<double,3,3> &dMvdX,
+                                                  RectangularSparseMat<double,dim,3> &dMvdV);
 
   template<int dim>
   void computeDerivativeOfGalerkinTerm(FemEquationTerm *, BcData<dim> &, GeoState &,
 			   SVec<double,3> &, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &);
+
+  template<int dim>
+  void computeDerivativeOfGalerkinTerm(RectangularSparseMat<double,3,dim> *, FemEquationTerm *, BcData<dim> &, GeoState &,
+			   SVec<double,3> &, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &);
+
+  template<int dim>
+  void computeTransposeDerivativeOfGalerkinTerm(RectangularSparseMat<double,3,dim> *, SVec<double,dim> &, SVec<double,3> &);
+
+  template<int dim>
+  void computeDerivativeOperatorsOfGalerkinTerm(FemEquationTerm *, BcData<dim> &, GeoState &,
+			   SVec<double,3> &, SVec<double,dim> &, RectangularSparseMat<double,3,dim> &);
+
 
   template<int dim>
   void applyBCsToDerivativeOfResidual(BcFcn *, BcData<dim> &, SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &);

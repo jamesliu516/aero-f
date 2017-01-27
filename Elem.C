@@ -163,6 +163,18 @@ void ElemSet::computeDerivativeOfGalerkinTerm(FemEquationTerm *fet, GeoState &ge
 //------------------------------------------------------------------------------
 
 template<int dim>
+void ElemSet::computeDerivativeOperatorsOfGalerkinTerm(FemEquationTerm *fet, GeoState &geoState,
+				 SVec<double,3> &X, SVec<double,dim> &V, RectangularSparseMat<double,3,dim> &dViscousFluxdX)
+{
+
+  Vec<double> &d2wall = geoState.getDistanceToWall();
+
+  for (int i=0; i<numElems; ++i)
+    elems[i]->computeDerivativeOperatorsOfGalerkinTerm(fet, X, d2wall, V, dViscousFluxdX);
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
 void ElemSet::computeMBarAndM(DynamicVMSTerm *dvmst,
 			      SVec<double,dim> **VBar,
 			      SVec<double,1> **volRatio,

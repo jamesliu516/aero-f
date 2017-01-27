@@ -814,10 +814,10 @@ void TsDesc<dim>::setMeshSensitivitySolverPositionVector()
 //------------------------------------------------------------------------------
 
 template<int dim>
-void TsDesc<dim>::receiveBoundaryPositionSensitivityVector(DistSVec<double,3> &dXdSb)
+void TsDesc<dim>::receiveBoundaryPositionSensitivityVector(DistSVec<double,3> &dXdSb, bool applyScale)
 {
   if (mmh) {
-    mmh->updateDStep2(*Xs,dXdSb);
+	mmh->updateDStep2(*Xs,dXdSb, applyScale);
   }
 }
 
@@ -832,9 +832,9 @@ void TsDesc<dim>::negotiate()
 //------------------------------------------------------------------------------
 
 template<int dim>
-void TsDesc<dim>::sendForceSensitivity(DistSVec<double,3> *dFdS) 
+void TsDesc<dim>::sendForceSensitivity(DistSVec<double,3> *dFdS, bool applyScale)
 {
-  if (mmh)  mmh->sendForceSensitivity(dFdS);
+  if (mmh)  mmh->sendForceSensitivity(dFdS, applyScale);
 }
 
 //------------------------------------------------------------------------------

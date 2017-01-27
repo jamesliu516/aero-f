@@ -380,7 +380,7 @@ DistVec<Scalar>::operator*(const DistVec<Scalar> &x)
 
   int iSub;
 
-  Scalar res = 0;
+  Scalar res = 0.0;
 
 #ifndef MPI_OMP_REDUCTION
   Scalar *allres = reinterpret_cast<Scalar *>(alloca(sizeof(Scalar) * distInfo.numGlobSub));
@@ -400,7 +400,7 @@ DistVec<Scalar>::operator*(const DistVec<Scalar> &x)
       int locOffset = distInfo.subOffset[iSub];
       int locLen = distInfo.subLen[iSub];
 
-      Scalar locres = 0;
+      Scalar locres = 0.0;
 
       for (int i = 0; i < locLen; ++i)
         if (distInfo.masterFlag[locOffset+i])
@@ -427,7 +427,7 @@ DistVec<Scalar>::operator*(const DistVec<Scalar> &x)
       int locOffset = distInfo.subOffset[iSub];
       int locLen = distInfo.subLen[iSub];
 
-      Scalar locres = 0;
+      Scalar locres = 0.0;
 
       for (int i = 0; i < locLen; ++i)
         locres += this->v[locOffset+i] * x.v[locOffset+i];

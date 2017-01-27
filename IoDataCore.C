@@ -448,6 +448,9 @@ TransientData::TransientData()
   dDisplacement = "";
   dForces = "";
   dLiftDrag = "";
+  dLiftx = "";
+  dLifty = "";
+  dLiftz = "";
   dEddyvis = "";
 
   tempnormalderivative = "";
@@ -474,7 +477,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 86, father); 
+  ClassAssigner *ca = new ClassAssigner(name, 102, father);
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
 
@@ -582,7 +585,6 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "VelocitySensitivity", this, &TransientData::dVelocityVector);
   new ClassStr<TransientData>(ca, "DisplacementSensitivity", this, &TransientData::dDisplacement);
   new ClassStr<TransientData>(ca, "ForceSensitivity", this, &TransientData::dForces);
-  new ClassStr<TransientData>(ca, "LiftandDragSensitivity", this, &TransientData::dLiftDrag); //YC
 
   new ClassStr<TransientData>(ca, "TemperatureNormalDerivative", this, &TransientData::tempnormalderivative);
   new ClassStr<TransientData>(ca, "HeatFluxPerUnitSurface", this, &TransientData::surfaceheatflux); 
@@ -593,6 +595,11 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 
   new ClassStr<TransientData>(ca, "MultiSolutionFluxNorm", this, &TransientData::multiSolnFluxNorm);
 
+  // Included (YC)
+  new ClassStr<TransientData>(ca, "LiftandDragSensitivity", this, &TransientData::dLiftDrag);
+  new ClassStr<TransientData>(ca, "LiftxSensitivity", this, &TransientData::dLiftx);
+  new ClassStr<TransientData>(ca, "LiftySensitivity", this, &TransientData::dLifty);
+  new ClassStr<TransientData>(ca, "LiftzSensitivity", this, &TransientData::dLiftz);
   //do defaults
 
 }
@@ -3231,10 +3238,10 @@ SensitivityAnalysis::SensitivityAnalysis()
   sensMach = OFF_SENSITIVITYMACH;
   sensAlpha = OFF_SENSITIVITYALPHA;
   sensBeta = OFF_SENSITIVITYBETA;
-  si = 0;
-  sf = -1;
+  numShapeVariables = 0;
   fsiFlag = false;
   adaptiveEpsFSI = OFF_ADAPTIVEEPSFSI;
+  sparseFlag = false;
 
   // For debugging purposes
   excsol = OFF_EXACTSOLUTION;
@@ -3257,8 +3264,9 @@ SensitivityAnalysis::SensitivityAnalysis()
 void SensitivityAnalysis::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 22, father);
+  ClassAssigner *ca = new ClassAssigner(name, 24, father);
   new ClassToken<SensitivityAnalysis>(ca, "Method", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::method), 2, "Direct", 0, "Adjoint", 1);
+  new ClassToken<SensitivityAnalysis>(ca, "SparseApproach", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sparseFlag), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "MatrixVectorProduct", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::mvp), 4, "FiniteDifference", 0, "Approximate", 1, "Exact", 2, "ApproximateFiniteDifference", 3);
   new ClassToken<SensitivityAnalysis>(ca, "LeastSquaresSolver", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::lsSolver), 2, "QR", 0, "NormalEquations", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityComputation", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::scFlag), 3, "Analytical", 0, "SemiAnalytical", 1, "FiniteDifference", 2);
@@ -3269,8 +3277,7 @@ void SensitivityAnalysis::setup(const char *name, ClassAssigner *father)
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityAlpha", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensAlpha), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityBeta", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensBeta), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "AdaptiveEpsFSI", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::adaptiveEpsFSI), 2, "Off", 0, "On", 1);
-  new ClassInt<SensitivityAnalysis>(ca, "ShapeVariableInitial", this, &SensitivityAnalysis::si);
-  new ClassInt<SensitivityAnalysis>(ca, "ShapeVariableFinal", this, &SensitivityAnalysis::sf);
+  new ClassInt<SensitivityAnalysis>(ca, "NumShapeVariables", this, &SensitivityAnalysis::numShapeVariables);
 
 // For debugging purposes
   new ClassToken<SensitivityAnalysis>(ca, "ExactSolution", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::excsol), 2, "Off", 0, "On", 1);

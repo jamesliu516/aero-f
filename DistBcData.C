@@ -1858,10 +1858,10 @@ void DistBcDataSA<dim>::computeNodeValue(DistSVec<double,3> &X)
       double (*t)[2] = tmp->subData(iSub);
       double (*unode)[dim] = this->Unode.subData(iSub);
       for (int i=0; i<this->Unode.subSize(iSub); ++i) {
-	if (t[i][0] != 0.0) {
-	  double w = 1.0 / t[i][0];
-	  unode[i][5] = w * t[i][1];
-	}
+	    if (t[i][0] != 0.0) {
+	      double w = 1.0 / t[i][0];
+	      unode[i][5] = w * t[i][1];
+	    }
       }
     }
   }
@@ -1898,11 +1898,11 @@ void DistBcDataSA<dim>::computeDerivativeOfNodeValue(DistSVec<double,3> &X, Dist
       double (*dt)[2] = dtmp->subData(iSub);
       double (*dunode)[dim] = this->dUnode->subData(iSub);
       for (int i=0; i<this->dUnode->subSize(iSub); ++i) {
-	if (t[i][0] != 0.0) {
-	  double w = 1.0 / t[i][0];
-	  double dw = -1.0 / ( t[i][0] * t[i][0] ) * dt[i][0];
-	  dunode[i][5] = dw * t[i][1] + w * dt[i][1];
-	}
+  	    if (t[i][0] != 0.0) {
+	      double w = 1.0 / t[i][0];
+	      double dw = -1.0 / ( t[i][0] * t[i][0] ) * dt[i][0];
+	      dunode[i][5] = dw * t[i][1] + w * dt[i][1];
+	    }
       }
     }
   }

@@ -1188,6 +1188,19 @@ public:
 			   DistSVec<double,dim> &, DistSVec<double,dim> &, double, DistSVec<double,dim> &);
 
   template<int dim>
+  void computeDerivativeOfGalerkinTerm(dRdXoperators<dim> &, FemEquationTerm *, DistBcData<dim> &,
+			   DistGeoState &, DistSVec<double,3> &, DistSVec<double,3> &,
+			   DistSVec<double,dim> &, DistSVec<double,dim> &, double, DistSVec<double,dim> &);
+
+  template<int dim>
+  void computeTransposeDerivativeOfGalerkinTerm(dRdXoperators<dim> &, DistSVec<double,dim> &, DistSVec<double,3> &);
+
+  template<int dim>
+  void computeDerivativeOperatorsOfGalerkinTerm(FemEquationTerm *, DistBcData<dim> &,
+			   DistGeoState &, DistSVec<double,3> &,
+			   DistSVec<double,dim> &, RectangularSparseMat<double,3,dim> **);
+
+  template<int dim>
   void applyBCsToDerivativeOfResidual(BcFcn *, DistBcData<dim> &,
 			  DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
 

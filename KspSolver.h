@@ -40,6 +40,7 @@ protected:
 
 public:
   int maxits;
+  int typePrec;
 
   KspSolver() {}
   KspSolver(KspData &, MatVecProdOp *, PrecOp *, IoOp *);
@@ -52,12 +53,14 @@ public:
   void disableOutput() { output = NULL; } 
 
   virtual int solve(VecType &, VecType &) = 0;
+  virtual int solveT(VecType &, VecType &) = 0;
   virtual int solveLS(VecType &, VecType &) { return 0; };
 
   void printParam() { ioOp->fprintf(stderr, " solver params: %d maxits, %e eps\n", maxits, eps);  }
 
   void setKspBinaryOutput(KspBinaryOutput<VecType>*);
   KspBinaryOutput<VecType> *kspBinaryOutput;
+  void setTypePrec(int tp) { typePrec = tp; }
 
 };
 
@@ -76,6 +79,7 @@ public:
 
   int solve(VecType &, VecType &);
   int solveLS(VecType &, VecType &);
+  int solveT(VecType &, VecType &) { return 0; }
 
 };
 
@@ -94,6 +98,8 @@ public:
 
   int solve(VecType &, VecType &);
   int solveLS(VecType &, VecType &);
+  int solveLS(VecType &, VecType &);
+  int solveT(VecType &, VecType &) { return 0; }
 
 };
 
@@ -161,6 +167,7 @@ public:
   ~GcrSolver() {}
                       
   int solve(VecType &, VecType &);
+  int solveT(VecType &, VecType &) { return 0; }
   int solveMRhs(VecType &, VecType &);
                                                         
 };

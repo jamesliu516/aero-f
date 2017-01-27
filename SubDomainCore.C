@@ -371,6 +371,104 @@ Connectivity *SubDomain::createNodeToConstantConnectivity()
 
 }
 
+
+Connectivity *SubDomain::createConstantToNodeConnectivity()
+{
+
+  int numNodes = nodes.size();
+
+  int *numNeigh = reinterpret_cast<int *>(alloca(sizeof(int) * 1));
+
+  int i;
+  numNeigh[0] = numNodes;
+
+
+  int l;
+  int nnz = numNodes;
+
+  if (nnz != numNodes) {
+    fprintf(stderr,"*** Error: wrong number of nonzero blocks\n");
+    exit(1);
+  }
+
+  // construction of ia
+
+  int *ia = new int[2];
+
+  ia[0] = 0;
+  ia[1] = numNeigh[0];
+
+  // construction of ja
+
+  int *ja = new int[nnz];
+
+  for (l=0; l<numNodes; ++l) {
+    ja[l] = l;
+  }
+
+  for (i=0; i<1; ++i)
+#ifdef OLD_STL
+    sort(ja+ia[i], ja+ia[i+1]);
+#else
+    stable_sort(ja+ia[i], ja+ia[i+1]);
+#endif
+
+  Connectivity *constantToNode = new Connectivity(1, ia, ja);
+
+  return constantToNode;
+
+}
+
+//------------------------------------------------------------------------------
+
+Connectivity *SubDomain::createConstantToConstantConnectivity()
+{
+
+  int *numNeigh = reinterpret_cast<int *>(alloca(sizeof(int) * 1));
+
+  int i;
+  numNeigh[0] = 1;
+
+
+  int l;
+  int nnz = 1;
+
+  if (nnz != 1) {
+    fprintf(stderr,"*** Error: wrong number of nonzero blocks\n");
+    exit(1);
+  }
+
+  // construction of ia
+
+  int *ia = new int[2];
+
+  ia[0] = 0;
+  ia[1] = numNeigh[0];
+
+  // construction of ja
+
+  int *ja = new int[nnz];
+
+  for (l=0; l<1; ++l) {
+    ja[l] = l;
+  }
+
+  for (i=0; i<1; ++i)
+#ifdef OLD_STL
+    sort(ja+ia[i], ja+ia[i+1]);
+#else
+    stable_sort(ja+ia[i], ja+ia[i+1]);
+#endif
+
+  Connectivity *constantToconstant = new Connectivity(1, ia, ja);
+
+  return constantToconstant;
+
+}
+
+//------------------------------------------------------------------------------
+
+
 //------------------------------------------------------------------------------
 
 Connectivity *SubDomain::createElementBasedEdgeToNodeConnectivity()
@@ -928,22 +1026,11 @@ int SubDomain::computeDerivativeOfControlVolumes(int numInvElem, double lscale,
 {
 
   dCtrlVol = 0.0;
-//  Vec<double> dctrlvol(dCtrlVol);
-  
-//  if(isSparse) {
-//    dCtrlVoldX.apply(dX, dctrlvol);
-//    return 0;
-//  }
 
   for (int i=0; i<elems.size(); ++i) {
     double dVolume = elems[i].computeDerivativeOfControlVolumes(X, dX, dCtrlVol);
   }
-/*
-  Vec<double> diff = dctrlvol - dCtrlVol;
-  double dCtrlVolnorm = dCtrlVol.norm();
-  if(dCtrlVolnorm != 0) fprintf(stderr, " ... rel diff for dCtrlVol is %e\n",diff.norm()/dCtrlVolnorm);
-  else fprintf(stderr, " ... abs diff for dCtrlVol is %e\n",diff.norm());
-*/
+
   return 0;
 
 }
@@ -958,7 +1045,7 @@ int SubDomain::computeDerivativeOfControlVolumes(RectangularSparseMat<double,3,1
   dCtrlVol = 0.0;
   
   dCtrlVoldX.apply(dX, dCtrlVol);
-//  fprintf(stderr, " ... norm of dCtrlVol is %e\n", dCtrlVol.norm());
+
   return 0;
 
 }
@@ -972,7 +1059,6 @@ int SubDomain::computeTransposeDerivativeOfControlVolumes(RectangularSparseMat<d
  
   SVec<double,3> dummy(dX);
   dummy = 0.0; 
-//TODO: uncomment below
   dCtrlVoldX.applyTranspose(dCtrlVol, dummy);
   dX += dummy;
   return 0;
@@ -1079,15 +1165,8 @@ void SubDomain::computeDerivativeOfNormals(SVec<double,3> &X, SVec<double,3> &dX
                                            Vec<Vec3D> &edgeNorm, Vec<Vec3D> &dEdgeNorm, Vec<double> &edgeNormVel, Vec<double> &dEdgeNormVel,
                                            Vec<Vec3D> &faceNorm, Vec<Vec3D> &dFaceNorm, Vec<double> &faceNormVel, Vec<double> &dFaceNormVel)
 {
-
   dEdgeNorm = 0.0;
   dEdgeNormVel = 0.0;
-
-//  if(isSparse) {
-//    dEdgeNormdX.apply(dX, dEdgeNorm);
-//    dFaceNormdX.apply(dX, dFaceNorm);
-//    return;
-//  }
 
   int i;
   for (i=0; i<elems.size(); ++i)
@@ -1096,12 +1175,6 @@ void SubDomain::computeDerivativeOfNormals(SVec<double,3> &X, SVec<double,3> &dX
 
   for (i=0; i<faces.size(); ++i)
     faces[i].computeDerivativeOfNormal(X, dX, faceNorm[i], dFaceNorm[i], faceNormVel[i], dFaceNormVel[i]);
-/*
-  Vec<Vec3D> diff = dfacenorm - dFaceNorm;
-  fprintf(stderr, " ... dfacenorm = %e, dFaceNorm = %e\n", dfacenorm.norm(), dFaceNorm.norm());
-  if(dEdgeNorm.norm() !=0 ) fprintf(stderr, " ... rel diff of dFaceNorm is %e\n", diff.norm()/dFaceNorm.norm()); 
-  else fprintf(stderr, " ... abs diff of dEdgeNorm is %e\n", diff.norm()); 
-*/
 }
 
 //------------------------------------------------------------------------------
@@ -1440,21 +1513,11 @@ void SubDomain::computeTransposeDerivativeOfWeightsLeastSquaresEdgePart(Rectangu
 
 //------------------------------------------------------------------------------
 // Included (MB)
-// YC: if you intend to modified this routine, 
+// YC: if you intend to modified this routine,
 // you should also modify SubDomain::computeDerivativeTransposeOfWeightsLeastSquaresEdgePart accordingly
 // and                    SubDomain::compute_dRdX
 void SubDomain::computeDerivativeOfWeightsLeastSquaresEdgePart(SVec<double,3> &X, SVec<double,3> &dX, SVec<double,6> &R, SVec<double,6> &dR)
 {
-
-//  SVec<double,6> dr(dR), ur(dR);
-//  ur = 0.0; 
-/*
-  if(isSparse) {
-    dR = 0.0;
-    dRdX.apply(dX, dR, 0);
-    return;
-  }
-*/
   R = 0.0;
   dR = 0.0;
 
@@ -1527,15 +1590,7 @@ void SubDomain::computeDerivativeOfWeightsLeastSquaresEdgePart(SVec<double,3> &X
 
     dR[i][5] += ddzdz;
     dR[j][5] += ddzdz;
-
   }
-/*
-  ur = dR - dr;
-  double urnorm = ur.norm();
-  double dRnorm = dR.norm();
-  if(dRnorm != 0) fprintf(stderr," ... norm(dR-dR2)/norm(dR2) = %e\n", urnorm/dRnorm);
-  else fprintf(stderr," ... norm(dR-dR2) = %e\n", urnorm);
-*/
 }
 
 //------------------------------------------------------------------------------
@@ -2105,15 +2160,6 @@ void SubDomain::computeTransposeDerivativeOfWeightsLeastSquaresNodePart(Rectangu
 // Included (MB)
 void SubDomain::computeDerivativeOfWeightsLeastSquaresNodePart(SVec<double,6> &R, SVec<double,6> &dR)
 {
-/*
-  SVec<double,6> dr(dR); //, dr2(dR), ur(dR);
-  if(isSparse) {
-    dRdR.apply(dr, dR, 0);
-//    fprintf(stderr," ... norm of dr is %e\n", dr2.norm());
-//    fprintf(stderr," ... norm of dR is %e\n", dR.norm());
-    return;
-  }
-*/
   for (int i=0; i<dR.size(); ++i) {
     double r11  = sqrt(R[i][0]);
     double dr11  = 1.0/(2.0*r11)*dR[i][0];
@@ -2136,11 +2182,7 @@ void SubDomain::computeDerivativeOfWeightsLeastSquaresNodePart(SVec<double,6> &R
     dR[i][3] = dr22;
     dR[i][4] = dr23;
     dR[i][5] = dr33;
-
   }
-//  ur = dR - dr2;
-//  fprintf(stderr," ... norm(dR-dR2)/norm(dR2) = %e\n", ur.norm()/dR.norm());
-
 }
 
 //------------------------------------------------------------------------------

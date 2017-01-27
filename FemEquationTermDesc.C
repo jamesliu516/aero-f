@@ -225,6 +225,94 @@ bool FemEquationTermNS::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
 
 }
 
+
+// Included (YC)
+void FemEquationTermNS::computeDerivativeOperatorsOfVolumeTerm(double dp1dxj[4][3], double *V[4],
+            double (*drddp1dxj)[5][4][3], double (*drdV)[5][4][5], double (*drdMach)[5])
+{
+  double u[4][3], ucg[3];
+  computeVelocity(V, u, ucg);
+
+  double dudV[4][3][4][4] = {0}, ducgdV[3][4][4] = {0};
+  computeDerivativeOperatorsOfVelocity(dudV, ducgdV);
+
+  double T[4], Tcg;
+  computeTemperature(V, T, Tcg);
+
+  double dTdV[4][5] = {0}, dTcgdV[4] = {0};
+  computeDerivativeOperatorsOfTemperature(V, dTdV, dTcgdV);
+
+  double dudxj[3][3];
+  computeVelocityGradient(dp1dxj, u, dudxj);
+
+  double ddudxj[3][3] = {0};
+  double ddudxjddp1dxj[3][3][4][3] = {0}, ddudxjdu[3][3][4][3] = {0};
+  computeDerivativeOperatorsOfVelocityGradient(dp1dxj, u, ddudxjddp1dxj, ddudxjdu);
+
+  double dTdxj[3];
+  computeTemperatureGradient(dp1dxj, T, dTdxj);
+
+  double ddTdxjddp1dxj[3][4][3] = {0}, ddTdxjdT[3][4] = {0};
+  computeDerivativeOperatorsOfTemperatureGradient(dp1dxj, T, ddTdxjddp1dxj, ddTdxjdT);
+
+  double coef = -1.0 / ( reynolds_muNS * reynolds_muNS ) * dRe_mudMachNS;
+  double mu, lambda, kappa;
+  computeTransportCoefficients(Tcg, mu, lambda, kappa);
+
+  double dmudTcg(0), dmudMach(0);
+  viscoFcn->compute_muDerivativeOperators(Tcg, dmudTcg, dmudMach);
+  double dlambdadmu(0), dlambdadMach(0);
+  viscoFcn->compute_lambdaDerivativeOperators(dlambdadmu, dlambdadMach);
+  double dkappadTcg(0), dkappadMach(0);
+  thermalCondFcn->computeDerivativeOperators(Tcg, dkappadTcg, dkappadMach);
+
+  mu     *= ooreynolds_mu;
+  lambda *= ooreynolds_mu;
+  kappa  *= ooreynolds_mu;
+  double drdmu[3][5] = {0}, drdlambda[3][5] = {0}, drdkappa[3][5] = {0}, drdu[3][5][3] = {0}, drddudxj[3][5][3][3] = {0}, drddTdxj[3][5][3] = {0};
+  computeDerivativeOperatorsOfVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj,
+                                           drdmu, drdlambda, drdkappa, drdu, drddudxj, drddTdxj);
+  for(int i=0; i<3; ++i) {
+    for(int j=0; j<5; ++j) {
+      drdMach[i][j] += (drdkappa[i][j]*(coef*kappa+ooreynolds_mu*dkappadMach) + drdmu[i][j]*(coef*mu+ooreynolds_mu*dmudMach) + drdlambda[i][j]*(coef*lambda+ooreynolds_mu*dlambdadMach+ooreynolds_mu*dlambdadmu*ooreynolds_mu*dmudMach+ooreynolds_mu*dlambdadmu*mu*coef));
+      for(int k=0; k<4; ++k) {
+        for(int l=0; l<5; ++l) {
+          drdV[i][j][k][l] += (drdmu[i][j]*ooreynolds_mu*dmudTcg + drdkappa[i][j]*ooreynolds_mu*dkappadTcg + drdlambda[i][j]*ooreynolds_mu*dlambdadmu*ooreynolds_mu*dmudTcg)*dTcgdV[k];
+        }
+      }
+      for(int k=0; k<3; ++k) {
+        for(int l=0; l<4; ++l) {
+          for(int m=0; m<5; ++m) {
+            drdV[i][j][l][m] += drddTdxj[i][j][k]*ddTdxjdT[k][l]*dTdV[l][m];//added
+          }
+          for(int w=0; w<3; ++w) {
+            drddp1dxj[i][j][l][w] += drddTdxj[i][j][k]*ddTdxjddp1dxj[k][l][w];
+          }
+        }
+        for(int l=0; l<4; ++l) {
+          for(int m=0; m<4; ++m) {
+            drdV[i][j][l][m] += drdu[i][j][k]*ducgdV[k][l][m];
+          }
+        }
+        for(int l=0; l<3; ++l) {
+          for(int m=0; m<4; ++m) {
+            for(int n=0; n<3; ++n) {
+              drddp1dxj[i][j][m][n] += drddudxj[i][j][k][l]*ddudxjddp1dxj[k][l][m][n];
+              for(int o=0; o<4; ++o) {
+                for(int p=0; p<4; ++p) {
+                  drdV[i][j][o][p] += drddudxj[i][j][k][l]*ddudxjdu[k][l][m][n]*dudV[m][n][o][p];
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+
+
 //------------------------------------------------------------------------------
 
 // This function was modified to account for the derivative of the mu with respect to the conservative variables

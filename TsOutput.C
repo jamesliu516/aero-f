@@ -736,7 +736,29 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else
     dLiftDrag = 0;
 
+  if (iod.output.transient.dLiftx[0] != 0) {
+    dLiftx = new char[dsp + strlen(iod.output.transient.dLiftx)];
+    sprintf(dLiftx, "%s%s", iod.output.transient.prefix, iod.output.transient.dLiftx);
+  }
+  else dLiftx = 0;
+
+  if (iod.output.transient.dLifty[0] != 0) {
+    dLifty = new char[dsp + strlen(iod.output.transient.dLifty)];
+    sprintf(dLifty, "%s%s", iod.output.transient.prefix, iod.output.transient.dLifty);
+  }
+  else dLifty = 0;
+
+  if (iod.output.transient.dLiftz[0] != 0) {
+    dLiftz = new char[dsp + strlen(iod.output.transient.dLiftz)];
+    sprintf(dLiftz, "%s%s", iod.output.transient.prefix, iod.output.transient.dLiftz);
+  }
+  else dLiftz = 0;
+
+
   fpdLiftDrag = 0;
+  fpdLiftx = 0;
+  fpdLifty = 0;
+  fpdLiftz = 0;
 
   if (iod.output.rom.dFluxNorm[0] != 0) {
     dFluxNorm = new char[sprom+ strlen(iod.output.rom.dFluxNorm)];
@@ -946,6 +968,9 @@ TsOutput<dim>::~TsOutput()
       delete[] dMatchPressure;
       delete[] dForces;
       delete[] dLiftDrag;
+      delete[] dLiftx;
+      delete[] dLifty;
+      delete[] dLiftz;
       delete[] dFluxNorm;
       
       int i;
@@ -1246,6 +1271,45 @@ void TsOutput<dim>::openAsciiFiles()
         fprintf(fpdLiftDrag, "Step Variable Lx Ly Lz dLx dLy dLz \n");
   
       fflush(fpdLiftDrag);
+    }
+    if (dLiftx) {
+      fpdLiftx = fopen(dLiftx, "w");
+      if (!fpdLiftx) {
+        fprintf(stderr, "*** Error: could not open \'%s\'\n", dLiftx);
+        exit(1);
+      }
+      if (refVal->mode == RefVal::NON_DIMENSIONAL)
+        fprintf(fpdLiftx, "dCLx\n");
+      else
+        fprintf(fpdLiftx, "dLx\n");
+
+      fflush(fpdLiftx);
+    }
+    if (dLifty) {
+      fpdLifty = fopen(dLifty, "w");
+      if (!fpdLifty) {
+        fprintf(stderr, "*** Error: could not open \'%s\'\n", dLifty);
+        exit(1);
+      }
+      if (refVal->mode == RefVal::NON_DIMENSIONAL)
+        fprintf(fpdLifty, "dCLy\n");
+      else
+        fprintf(fpdLifty, "dLy\n");
+
+      fflush(fpdLifty);
+    }
+    if (dLiftz) {
+      fpdLiftz = fopen(dLiftz, "w");
+      if (!fpdLiftz) {
+        fprintf(stderr, "*** Error: could not open \'%s\'\n", dLiftz);
+        exit(1);
+      }
+      if (refVal->mode == RefVal::NON_DIMENSIONAL)
+        fprintf(fpdLiftz, "dCLz\n");
+      else
+        fprintf(fpdLiftz, "dLz\n");
+
+      fflush(fpdLiftz);
     }
   }
   if (hydrostaticforces) {
@@ -2142,6 +2206,44 @@ void TsOutput<dim>::writeDerivativeOfLiftDragToDisk(int it, int actvar, Vec3D & 
   if (fpdLiftDrag) {
     fprintf(fpdLiftDrag, "%d %d %16.13e %16.13e %16.13e %16.13e %16.13e %16.13e \n", it, actvar, L[0], L[1], L[2], dL[0], dL[1], dL[2]);
     fflush(fpdLiftDrag);
+  }
+
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
+void TsOutput<dim>::writeDerivativeOfLiftxToDisk(double& dLx)
+{
+
+  if (fpdLiftx) {
+    fprintf(fpdLiftx, "%16.13e\n", dLx);
+    fflush(fpdLiftx);
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void TsOutput<dim>::writeDerivativeOfLiftyToDisk(double& dLy)
+{
+
+  if (fpdLifty) {
+    fprintf(fpdLifty, "%16.13e\n", dLy);
+    fflush(fpdLifty);
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void TsOutput<dim>::writeDerivativeOfLiftzToDisk(double& dLz)
+{
+
+  if (fpdLiftz) {
+    fprintf(fpdLiftz, "%16.13e\n", dLz);
+    fflush(fpdLiftz);
   }
 
 }

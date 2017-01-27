@@ -243,57 +243,12 @@ void compute_dWdXAnddWdR(int pm, double dx[3], double *R, double *W, double dWdX
   dWdX[0][0] =-pm*co11;  dWdX[0][1] =-pm*co12;  dWdX[0][2] =-pm*co13;  dWdX[0][3] = pm*co11;  dWdX[0][4] = pm*co12;  dWdX[0][5] = pm*co13;
   dWdX[1][0] =-pm*co21;  dWdX[1][1] =-pm*co22;  dWdX[1][2] =-pm*co23;  dWdX[1][3] = pm*co21;  dWdX[1][4] = pm*co22;  dWdX[1][5] = pm*co23;
   dWdX[2][0] =-pm*co31;  dWdX[2][1] =-pm*co32;  dWdX[2][2] =-pm*co33;  dWdX[2][3] = pm*co31;  dWdX[2][4] = pm*co32;  dWdX[2][5] = pm*co33;
-/*
-  dWdX = [-co11 -co12 -co13  co11  co12  co13 ] [dX[i][0]]
-         [-co21 -co22 -co23  co21  co22  co23 ] [dX[i][1]]
-         [-co31 -co32 -co33  co31  co32  co33 ] [dX[i][2]]
-                                                [dX[j][0]]
-                                                [dX[j][1]]
-                                                [dX[j][2]]
-*/
 
 // size of dWdR is 3x6
   dWdR[0][0] = ro11;  dWdR[0][1] = ro12;  dWdR[0][2] = ro13;  dWdR[0][3] = ro14;  dWdR[0][4] = ro15;  dWdR[0][5] = ro16; 
   dWdR[1][0] = ro21;  dWdR[1][1] = ro22;  dWdR[1][2] = ro23;  dWdR[1][3] = ro24;  dWdR[1][4] = ro25;  dWdR[1][5] = ro26; 
   dWdR[2][0] = ro31;  dWdR[2][1] = ro32;  dWdR[2][2] = ro33;  dWdR[2][3] = ro34;  dWdR[2][4] = ro35;  dWdR[2][5] = ro36; 
-/*
-  dWdR = [ cl04 cl05 cl06 cl07 cl08 cl09 ] [dR[0]]
-         [ dl04 dl05 dl06 dl07 dl08 dl09 ] [dR[1]]
-         [ bl03 bl04 bl05 bl06 bl07 bl08 ] [dR[2]]
-                                           [dR[3]]
-                                           [dR[4]]
-                                           [dR[5]]
-*/
 
-/*
-  dW[0] = cl01*ddx[0]
-        + cl02*ddx[1]
-        + cl03*ddx[2]
-        + cl04*dR[0]
-        + cl05*dR[1]
-        + cl06*dR[2]
-        + cl07*dR[3]
-        + cl08*dR[4]
-        + cl09*dR[5];
-  dW[1] = dl01*ddx[0]
-        + dl02*ddx[1]
-        + dl03*ddx[2]
-        + dl04*dR[0]
-        + dl05*dR[1]
-        + dl06*dR[2]
-        + dl07*dR[3]
-        + dl08*dR[4]
-        + dl09*dR[5];
-  dW[2] = bl01*ddx[0]
-        + bl02*ddx[1]
-        + bl00*ddx[2]
-        + bl03*dR[0]
-        + bl04*dR[1]
-        + bl05*dR[2]
-        + bl06*dR[3]
-        + bl07*dR[4]
-        + bl08*dR[5];
-*/
 }
 
 //------------------------------------------------------------------------------
@@ -333,30 +288,7 @@ void computeDerivativeOfLocalWeightsLeastSquares(double dx[3], double ddx[3], do
   dW[0] = dalpha1 - dr12or11*alpha2 - r12or11*dalpha2 + dpsi*alpha3  + psi*dalpha3;
   dW[1] = dalpha2 - dr23or22*alpha3 - r23or22*dalpha3;
   dW[2] = dalpha3;
-/*
-  double dWdX[3][6];
-  double dWdR[3][6];
-  compute_dWdXAnddWdR(dx, R, W, dWdX, dWdR);
 
-  double dW2[3] = {0};
-  for (int i=0; i<3; ++i) 
-    for (int j=0; j<6; ++j) 
-      dW2[i] += dWdX[i][j]*dX[j]; 
-
-  for (int i=0; i<3; ++i) 
-    for (int j=0; j<6; ++j) 
-      dW2[i] += dWdR[i][j]*dR[j]; 
-
-  double relativeDiff = sqrt((dW[0]-dW2[0])*(dW[0]-dW2[0]) + (dW[1]-dW2[1])*(dW[1]-dW2[1]) + (dW[2]-dW2[2])*(dW[2]-dW2[2]));
-  double normOfdW = sqrt(dW[0]*dW[0] + dW[1]*dW[1] + dW[2]*dW[2]);
-  if(normOfdW != 0.0) {
-    double reldiffsquare = relativeDiff/normOfdW;
-    if(reldiffsquare > 1.0e-12)
-      fprintf(stderr," .... relativeDiff = %e\n", reldiffsquare);
-  } else
-    if(relativeDiff > 1.0e-10)
-      fprintf(stderr," ... relativeDiff = %e\n", relativeDiff);
-*/  
 }
 
 //------------------------------------------------------------------------------
@@ -855,35 +787,14 @@ void SubDomain::computeDerivativeOfGradientsLeastSquares(
   SVec<Scalar,dim> xxx(dddx), dddx2(dddx), uux(dddx);
   SVec<Scalar,dim> yyy(dddy), dddy2(dddy), uuy(dddy);
   SVec<Scalar,dim> zzz(dddz), dddz2(dddz), uuz(dddz);
-/*
-  if(isSparse) { 
- 
-    xxx = (Scalar) 0;    yyy = (Scalar) 0;   zzz = (Scalar) 0;
-    dddx2 = (Scalar) 0;  dddy2 = (Scalar) 0; dddz2 = (Scalar) 0;
-
-    dddxdX->apply(dX, xxx, 0);
-    dddydX->apply(dX, yyy, 0);
-    dddzdX->apply(dX, zzz, 0);
-
-    dddxdR->apply(dR, dddx, 0);
-    dddydR->apply(dR, dddy, 0);
-    dddzdR->apply(dR, dddz, 0);
-
-    dddx += xxx;    dddy += yyy;    dddz += zzz;
-    return;
-
-  }
-*/
 
   dddx = (Scalar) 0.0;
   dddy = (Scalar) 0.0;
   dddz = (Scalar) 0.0;
-//  fprintf(stderr, " ... SubDomain::computeDerivativeOfGradientsLeastSquares 02 \n");
 
   bool *edgeFlag = edges.getMasterFlag();
   int (*edgePtr)[2] = edges.getPtr();
 
-//  fprintf(stderr, " ... SubDomain::computeDerivativeOfGradientsLeastSquares 03 \n");
   for (int l=0; l<edges.size(); ++l) {
 
     if (!edgeFlag[l]) continue;
@@ -898,51 +809,14 @@ void SubDomain::computeDerivativeOfGradientsLeastSquares(
 
     double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
     double ddx[3] = {dX[j][0] - dX[i][0], dX[j][1] - dX[i][1], dX[j][2] - dX[i][2]};
-//    fprintf(stderr, " ... SubDomain::computeDerivativeOfGradientsLeastSquares 04 \n");
+
     computeDerivativeOfLocalWeightsLeastSquares(dx, ddx, R[i], dR[i], Wi, dWi);
-/*    compute_dWdXAnddWdR( 1, dx, R[i], Wi, dWidX, dWidR);
-    for (int k=0; k<3; ++k) {
-      for (int q=0; q<6; ++q)
-        dWi2[k] += dWidR[k][q]*dR[i][q];
-      dWi2[k] += dWidX[k][0]*dX[i][0] + dWidX[k][1]*dX[i][1] + dWidX[k][2]*dX[i][2] + dWidX[k][3]*dX[j][0] + dWidX[k][4]*dX[j][1] + dWidX[k][5]*dX[j][2];
-    }
 
-    double difference(0.0), dWinorm(0.0);
-    for(int k=0; k<3; ++k) {
-      difference += (dWi[k] - dWi2[k])*(dWi[k] - dWi2[k]);
-      dWinorm += dWi[k]*dWi[k];
-    }
-    difference = sqrt(difference);
-    dWinorm = sqrt(dWinorm); 
-    if(dWinorm != 0 ) fprintf(stderr," ... rel. difference is %e\n", difference/dWinorm);
-    else fprintf(stderr," ... abs. difference is %e\n", difference);
-
-
-    double dWjdX[3][6] = {0}, dWjdR[3][6] = {0};
-*/
     dx[0] = -dx[0]; dx[1] = -dx[1]; dx[2] = -dx[2];
     ddx[0] = -ddx[0]; ddx[1] = -ddx[1]; ddx[2] = -ddx[2];
-//    fprintf(stderr, " ... SubDomain::computeDerivativeOfGradientsLeastSquares 05 \n");
+
     computeDerivativeOfLocalWeightsLeastSquares(dx, ddx, R[j], dR[j], Wj, dWj);
-/*    compute_dWdXAnddWdR(-1, dx, R[j], Wj, dWjdX, dWjdR);
-    for (int k=0; k<3; ++k) {
-      for (int q=0; q<6; ++q)
-        dWj2[k] += dWjdR[k][q]*dR[j][q];
-      dWj2[k] += dWjdX[k][0]*dX[i][0] + dWjdX[k][1]*dX[i][1] + dWjdX[k][2]*dX[i][2] + dWjdX[k][3]*dX[j][0] + dWjdX[k][4]*dX[j][1] + dWjdX[k][5]*dX[j][2];
-    }
 
-    double difference2(0.0), dWjnorm(0.0);
-    for(int k=0; k<3; ++k) {
-      difference2 += (dWj[k] - dWj2[k])*(dWj[k] - dWj2[k]);
-      dWjnorm += dWj[k]*dWj[k];
-    }
-    difference2 = sqrt(difference2);
-    dWjnorm = sqrt(dWjnorm);
-    if(dWjnorm) fprintf(stderr," ... rel. difference2 is %e\n", difference2/dWjnorm);
-    else fprintf(stderr," ... abs. difference2 is %e\n", difference2);
-*/
-
-//    fprintf(stderr, " ... SubDomain::computeDerivativeOfGradientsLeastSquares 06 \n");
     for (int k=0; k<dim; ++k) {
       deltaVar = var[j][k] - var[i][k];
       dDeltaVar = dvar[j][k] - dvar[i][k];
@@ -953,29 +827,8 @@ void SubDomain::computeDerivativeOfGradientsLeastSquares(
       dddy[j][k] -= (dWj[1] * deltaVar + Wj[1] * dDeltaVar);
       dddz[j][k] -= (dWj[2] * deltaVar + Wj[2] * dDeltaVar);
     }
-//    fprintf(stderr, " ... SubDomain::computeDerivativeOfGradientsLeastSquares 07 \n");
 
   }
-//  fprintf(stderr, " ... SubDomain::computeDerivativeOfGradientsLeastSquares 08 \n");
-/*
-  uux = dddx - dddx2;
-  uuy = dddy - dddy2;
-  uuz = dddz - dddz2;
-
-  double uuxnorm = uux.norm();
-  double uuynorm = uuy.norm();
-  double uuznorm = uuz.norm();
-  double dddxnorm = dddx.norm();
-  double dddynorm = dddy.norm();
-  double dddznorm = dddz.norm();
-
-  if(dddxnorm != 0 ) fprintf(stderr," ... (dddx2-dddx).norm()/dddx.norm() is %e\n", uuxnorm/dddxnorm );
-  else fprintf(stderr," ... (dddx2-dddx).norm() is %e\n", uuxnorm );
-  if(dddynorm != 0 ) fprintf(stderr," ... (dddy2-dddy).norm()/dddy.norm() is %e\n", uuynorm/dddynorm );
-  else fprintf(stderr," ... (dddy2-dddy).norm() is %e\n", uuynorm );
-  if(dddznorm != 0 ) fprintf(stderr," ... (dddz2-dddz).norm()/dddz.norm() is %e\n", uuznorm/dddznorm );
-  else fprintf(stderr," ... (dddz2-dddz).norm() is %e\n", uuznorm );
-*/
 }
 
 //------------------------------------------------------------------------------
@@ -1017,37 +870,12 @@ void SubDomain::computeDerivativeOperatorsOfGradientsLeastSquares(SVec<double,3>
     double dWidX[3][6] = {0}, dWidR[3][6] = {0};
     compute_dWdXAnddWdR( 1, dx, R[i], Wi, dWidX, dWidR);
     dx[0] = -dx[0]; dx[1] = -dx[1]; dx[2] = -dx[2];
-//    ddx[0] = -ddx[0]; ddx[1] = -ddx[1]; ddx[2]  = -ddx[2];
     double dWjdX[3][6] = {0}, dWjdR[3][6] = {0};
     compute_dWdXAnddWdR(-1, dx, R[j], Wj, dWjdX, dWjdR);
-/*    computeDerivativeOfLocalWeightsLeastSquares(dx,ddx,R[j],R[j],Wj,dWj2);
-    for (int k=0; k<3; ++k) {
-      for (int q=0; q<6; ++q)
-        dWj[k] += dWjdR[k][q]*R[j][q];
-      dWj[k] += dWjdX[k][0]*X[i][0] + dWjdX[k][1]*X[i][1] + dWjdX[k][2]*X[i][2] + dWjdX[k][3]*X[j][0] + dWjdX[k][4]*X[j][1] + dWjdX[k][5]*X[j][2];
-    }
 
-    double difference2(0.0), dWjnorm(0.0);
-    for(int k=0; k<3; ++k) {
-      difference2 += (dWj[k] - dWj2[k])*(dWj[k] - dWj2[k]);
-      dWjnorm += dWj[k]*dWj[k];
-    }
-    difference2 = sqrt(difference2);
-    fprintf(stderr," ... rel. difference2 is %e\n", difference2/sqrt(dWjnorm));
-*/
     double dddxdVarray[2*dim][2*dim] = {0}, dddydVarray[2*dim][2*dim] = {0}, dddzdVarray[2*dim][2*dim] = {0};
 
     for (int k=0; k<dim; ++k) {
-/*
-      deltaVar = var[j][k] - var[i][k];
-      dDeltaVar = dvar[j][k] - dvar[i][k];
-      dddx[i][k] += Wi[0] * dvar[j][k] - Wi[0] * dvar[i][k];
-      dddy[i][k] += Wi[1] * dvar[j][k] - Wi[1] * dvar[i][k];
-      dddz[i][k] += Wi[2] * dvar[j][k] - Wi[2] * dvar[i][k];
-      dddx[j][k] -= Wj[0] * dvar[j][k] - Wj[0] * dvar[i][k];
-      dddy[j][k] -= Wj[1] * dvar[j][k] - Wj[1] * dvar[i][k];
-      dddz[j][k] -= Wj[2] * dvar[j][k] - Wj[2] * dvar[i][k];
-*/      
       dddxdVarray[k][k] = -Wi[0];      dddxdVarray[k][dim+k] = Wi[0];
       dddydVarray[k][k] = -Wi[1];      dddydVarray[k][dim+k] = Wi[1];
       dddzdVarray[k][k] = -Wi[2];      dddzdVarray[k][dim+k] = Wi[2];
@@ -1600,44 +1428,8 @@ void SubDomain::computeDerivativeOfFiniteVolumeTerm(Vec<double> &irey, Vec<doubl
                                                     NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad, double dMach,
                                                     SVec<double,dim>& dFluxes)
 {
-
-//  if(isSparse) {  
-/*
-    SVec<double,3> dX2(dX); 
-    SVec<double,dim> dFluxes2(dFluxes), dFluxes3(dFluxes);
-    dX2 = 0.0;    
-    dFluxes3 = 0.0;
-
-    Eigen::MatrixXd r(dFluxes3.size(), dim);  r.setRandom();
-    for(int i=0; i<dFluxes2.size(); ++i) for(int j=0; j<dim; ++j) dFluxes2[i][j] = r(i,j); 
-    edges.computeDerivativeOfFiniteVolumeTerm(dFluxdddx, dFluxdddy, dFluxdddz, dFluxdX, dFluxdEdgeNorm,
-                                              elems, geoState, dX, ngrad, egrad, dFluxes3);
-    double aa = dFluxes3*dFluxes2;
-
-    edges.computeTransposeDerivativeOfFiniteVolumeTerm(dFluxdddx, dFluxdddy, dFluxdddz, dFluxdX, dFluxdEdgeNorm,
-                                                       dFluxes2, ngrad, egrad, elems, geoState, dX2);
-    double bb = dX2*dX;
-    double diff = sqrt((aa-bb)*(aa-bb));
-    if(aa != 0) fprintf(stderr, " ... rel.diff = %e, aa = %e, bb = %e\n", diff/aa, aa, bb);
-    else fprintf(stderr, " ... abs.diff = %e, aa = %e, bb = %e\n", diff, aa, bb);
-*/
-//    SVec<double,dim> dFluxes2(dFluxes), diff(dFluxes);
-//    edges.computeDerivativeOfFiniteVolumeTerm(dFluxdddx, dFluxdddy, dFluxdddz, dFluxdX, dFluxdEdgeNorm,
-//                                              elems, geoState, dX, ngrad, egrad, dFluxes);
-/*    edges.computeDerivativeOfFiniteVolumeTerm(irey, dIrey, fluxFcn, recFcn, elems, geoState, X, dX, V, dV, ngrad, egrad, dMach, dFluxes2);
-    diff = dFluxes2 - dFluxes;
-    double diffnorm = diff.norm();
-    double dFluxesnorm = dFluxes.norm();
-    double dFluxes2norm = dFluxes2.norm();
-    if(dFluxesnorm != 0) fprintf(stderr, " ... rel. diff = %e\n", diffnorm/dFluxesnorm);
-    else fprintf(stderr, " ... abs. diff = %e\n", diffnorm);
-
-*/
-
-//  } else 
   edges.computeDerivativeOfFiniteVolumeTerm(irey, dIrey, fluxFcn, recFcn, elems, geoState, X, dX, V, dV, ngrad, egrad, dMach, dFluxes);
   faces.computeDerivativeOfFiniteVolumeTerm(fluxFcn, bcData, geoState, V, dFluxes);
-
 }
 
 //------------------------------------------------------------------------------
@@ -1666,23 +1458,6 @@ void SubDomain::computeDerivativeOfFiniteVolumeTerm(
 {
   edges.computeDerivativeOfFiniteVolumeTerm(dFluxdddx, dFluxdddy, dFluxdddz, dFluxdX, dFluxdEdgeNorm,
                                             elems, geoState, dX, ngrad, egrad, dddx, dddy, dddz, dNormal, dFluxes);
-/*  SVec<double,3> dX2(dX);  
-  SVec<double,dim> dFluxes2(dFluxes);
-    dX2 = 0.0;    dFluxes = 0.0;
-    // fprintf(stderr, " ... norm of dFluxes is %e\n", dFluxes.norm());
-    // fprintf(stderr, " ... norm of dFluxes2 is %e\n", dFluxes2.norm());
-    edges.computeDerivativeOfFiniteVolumeTerm(dFluxdddx, dFluxdddy, dFluxdddz, dFluxdX, dFluxdEdgeNorm,
-                                              elems, geoState, dX, ngrad, egrad, dFluxes);
-    double aa = dFluxes2*dFluxes;
-    // fprintf(stderr, " ... norm of dFluxes is %e\n", dFluxes.norm());
-
-    edges.computeTransposeDerivativeOfFiniteVolumeTerm(dFluxdddx, dFluxdddy, dFluxdddz, dFluxdX, dFluxdEdgeNorm,
-                                                       dFluxes2, ngrad, egrad, elems, geoState, dX2);
-    double bb = dX2*dX;
-    double diff = sqrt((aa-bb)*(aa-bb));
-    if(aa != 0) fprintf(stderr, " ... relative error = %e, aa = %e, bb = %e\n", diff/abs(aa), aa, bb);
-    else fprintf(stderr, " ... absolute error = %e, aa = %e, bb = %e\n", diff, aa, bb);
-*/
   faces.computeDerivativeOfFiniteVolumeTerm(dFluxdFaceNormal, dFluxdFaceNormalVel, dFluxdUb, 
                                             bcData, geoState, dn, dndot, dFluxes);
 }
@@ -2285,6 +2060,45 @@ void SubDomain::computeDerivativeOfGalerkinTerm(FemEquationTerm *fet, BcData<dim
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::computeDerivativeOfGalerkinTerm(RectangularSparseMat<double,3,dim> *dViscousFluxdX,
+            FemEquationTerm *fet, BcData<dim> &bcData,
+				    GeoState &geoState, SVec<double,3> &X, SVec<double,3> &dX,
+				    SVec<double,dim> &V, SVec<double,dim> &dV, double dMach, SVec<double,dim> &dR)
+{ //YC
+
+  dViscousFluxdX->apply(dX,dR);
+//  faces.computeDerivativeOfGalerkinTerm(elems, fet, bcData, geoState, X, dX, V, dV, dMach, dR2); // for Turbulent flow
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::computeTransposeDerivativeOfGalerkinTerm(RectangularSparseMat<double,3,dim> *dViscousFluxdX,
+				                                                 SVec<double,dim> &dR, SVec<double,3> &dX)
+{ //YC
+
+  SVec<double,3> dummy(dX);
+  dViscousFluxdX->applyTranspose(dR,dummy);
+  dX += dummy;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+template<int dim>
+void SubDomain::computeDerivativeOperatorsOfGalerkinTerm(FemEquationTerm *fet, BcData<dim> &bcData,
+            GeoState &geoState, SVec<double,3> &X, SVec<double,dim> &V, RectangularSparseMat<double,3,dim> &dViscousFluxdX)
+{
+
+  elems.computeDerivativeOperatorsOfGalerkinTerm(fet, geoState, X, V, dViscousFluxdX);
+
+}
+
+//------------------------------------------------------------------------------
+
 
 template<int dim>
 void SubDomain::computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, SVec<double,3> &X,
@@ -3402,7 +3216,7 @@ RectangularSparseMat<double,dim,dim2> *SubDomain::create_NodeBaseddRdXoperators(
 //------------------------------------------------------------------------------
 
 template<int dim, int dim2>
-RectangularSparseMat<double,dim,dim2> *SubDomain::create_ConstantBaseddRdXoperators()
+RectangularSparseMat<double,dim,dim2> *SubDomain::create_NodeToConstantBaseddRdXoperators()
 {
   Connectivity *nodeToConstant = createNodeToConstantConnectivity();
   int numNodes = nodes.size();
@@ -3415,6 +3229,37 @@ RectangularSparseMat<double,dim,dim2> *SubDomain::create_ConstantBaseddRdXoperat
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim, int dim2>
+RectangularSparseMat<double,dim,dim2> *SubDomain::create_ConstantToNodeBaseddRdXoperators()
+{
+  Connectivity *constantToNode = createConstantToNodeConnectivity();
+  int numNodes = nodes.size();
+  int *ia = (*constantToNode).ptr();
+  int *ja = (*constantToNode)[0];
+  double (*a)[dim*dim2] = 0;
+
+  RectangularSparseMat<double, dim, dim2> *A = new RectangularSparseMat<double, dim, dim2>(1, ia[1], ia, ja, a, 0, 0);
+  return A;
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, int dim2>
+RectangularSparseMat<double,dim,dim2> *SubDomain::create_ConstantToConstantBaseddRdXoperators()
+{
+  Connectivity *constantToConstant = createConstantToConstantConnectivity();
+  int numNodes = nodes.size();
+  int *ia = (*constantToConstant).ptr();
+  int *ja = (*constantToConstant)[0];
+  double (*a)[dim*dim2] = 0;
+
+  RectangularSparseMat<double, dim, dim2> *A = new RectangularSparseMat<double, dim, dim2>(1, ia[1], ia, ja, a, 0, 0);
+  return A;
+}
+
+//------------------------------------------------------------------------------
+
 
 template<int dim, int dim2>
 RectangularSparseMat<double,dim,dim2> *SubDomain::create_EdgeBaseddRdXoperators()
@@ -4106,8 +3951,8 @@ void SubDomain::computeMatVecProdH1transpose(bool *nodeFlag, GenMat<Scalar,dim> 
       i = edgePtr[l][0];
       j = edgePtr[l][1];
 
-      DenseMatrixOp<Scalar,dim,dim*dim>::applyTransAndAddToVector(a, numNodes + 2*l, p.v, j, prod.v, i);
-      DenseMatrixOp<Scalar,dim,dim*dim>::applyTransAndAddToVector(a, numNodes + 2*l + 1, p.v, i, prod.v, j);
+      DenseMatrixOp<Scalar,dim,dim*dim>::applyTransAndAddToVector(a, numNodes + 2*l, p.v, i, prod.v, j);
+      DenseMatrixOp<Scalar,dim,dim*dim>::applyTransAndAddToVector(a, numNodes + 2*l + 1, p.v, j, prod.v, i);
 
     }
 
@@ -6239,7 +6084,7 @@ void SubDomain::computeDerivativeOperatorsOfNodalForce(PostFcn *postFcn, SVec<do
 {
 
   for (int i=0; i<faces.size(); ++i)
-    faces[i].computeDerivativeOperatorsOfNodalForce(postFcn, X, V, Pin[i], gradP, dForcedX, dForcedGradP, dForcedV, dForcedS);
+	  faces[i].computeDerivativeOperatorsOfNodalForce(elems, postFcn, X, V, Pin[i], gradP, dForcedX, dForcedGradP, dForcedV, dForcedS);
 
 }
 
@@ -6443,9 +6288,9 @@ void SubDomain::computeHeatFluxes(map<int,int> & surfOutMapHF, PostFcn* postFcn,
 // Included (MB)
 template<int dim>
 void SubDomain::computeDerivativeOfForceAndMoment(map<int,int> & surfOutMap, PostFcn *postFcn, BcData<dim> &bcData,
-				                  GeoState &geoState, SVec<double,3> &X, SVec<double,3> &dX,
-			                          SVec<double,dim> &V, SVec<double,dim> &dV, double dS[3],
-				                  Vec3D &x0, Vec3D *dFi, Vec3D *dMi, Vec3D *dFv, Vec3D *dMv, int hydro)
+		                                          GeoState &geoState, SVec<double,3> &X, SVec<double,3> &dX,
+		                                          SVec<double,dim> &V, SVec<double,dim> &dV, double dS[3],
+		                                          Vec3D &x0, Vec3D *dFi, Vec3D *dMi, Vec3D *dFv, Vec3D *dMv, int hydro)
 {
 
   Vec<double> &d2wall = geoState.getDistanceToWall();
@@ -6467,9 +6312,195 @@ void SubDomain::computeDerivativeOfForceAndMoment(map<int,int> & surfOutMap, Pos
         idx = -1;
     }
 
-    if(idx >= 0)
+    if(idx >= 0){
       faces[i].computeDerivativeOfForceAndMoment(elems, postFcn, X, dX, d2wall, Vwall[i], dVwall[i], V, dV, dS, x0, dFi[idx], dMi[idx], dFv[idx], dMv[idx], gradP, dGradP, hydro);
+    }
+  }
 
+}
+
+
+
+
+// Included (YC)
+template<int dim>
+void SubDomain::computeDerivativeOfForceAndMoment(RectangularSparseMat<double,3,3> *dFidGradP,
+                                                  RectangularSparseMat<double,3,3> *dFidX,
+                                                  RectangularSparseMat<double,dim,3> *dFidV,
+                                                  RectangularSparseMat<double,3,3> *dFvdX,
+                                                  RectangularSparseMat<double,dim,3> *dFvdV,
+                                                  RectangularSparseMat<double,3,3> *dFidS,
+                                                  RectangularSparseMat<double,3,3> *dMidGradP,
+                                                  RectangularSparseMat<double,3,3> *dMidX,
+                                                  RectangularSparseMat<double,dim,3> *dMidV,
+                                                  RectangularSparseMat<double,3,3> *dMidS,
+                                                  RectangularSparseMat<double,3,3> *dMvdX,
+                                                  RectangularSparseMat<double,dim,3> *dMvdV,
+                                                  SVec<double,3> &dX,
+                                                  SVec<double,dim> &dV, double dS[3], SVec<double,3> &dGradPSVec,
+                                                  Vec3D *dFi, Vec3D *dMi, Vec3D *dFv, Vec3D *dMv, int hydro)
+{
+
+  if(hydro != 0) { fprintf(stderr, " *** Error: hydro must be zero for sparse format\n");  exit(-1); }
+
+  SVec<double,3> dFiSVec(1), dummy(1), dSSVec(1), dFvSVec(1);
+  dFiSVec[0][0] = dFi[0][0];
+  dFiSVec[0][1] = dFi[0][1];
+  dFiSVec[0][2] = dFi[0][2];
+  dFvSVec[0][0] = dFv[0][0];
+  dFvSVec[0][1] = dFv[0][1];
+  dFvSVec[0][2] = dFv[0][2];
+  dSSVec[0][0] = dS[0];
+  dSSVec[0][1] = dS[1];
+  dSSVec[0][2] = dS[2];
+  dFidV->apply(dV, dummy);
+  dFiSVec += dummy;
+  dFidGradP->apply(dGradPSVec, dummy);
+  dFiSVec += dummy;
+  dFidX->apply(dX, dummy);
+  dFiSVec += dummy;
+  dFidS->apply(dSSVec, dummy);
+  dFiSVec += dummy;
+  dFvdV->apply(dV, dummy);
+  dFvSVec += dummy;
+  dFvdX->apply(dX, dummy);
+  dFvSVec += dummy;
+
+  dFi[0][0] = dFiSVec[0][0];
+  dFi[0][1] = dFiSVec[0][1];
+  dFi[0][2] = dFiSVec[0][2];
+  dFv[0][0] = dFvSVec[0][0];
+  dFv[0][1] = dFvSVec[0][1];
+  dFv[0][2] = dFvSVec[0][2];
+
+  SVec<double,3> dMiSVec(1);
+  dMiSVec[0][0] = dMi[0][0];
+  dMiSVec[0][1] = dMi[0][1];
+  dMiSVec[0][2] = dMi[0][2];
+  dMidV->apply(dV, dummy);
+  dMiSVec += dummy;
+  dMidGradP->apply(dGradPSVec, dummy);
+  dMiSVec += dummy;
+  dMidX->apply(dX, dummy);
+  dMiSVec += dummy;
+  dMidS->apply(dSSVec, dummy);
+  dMiSVec += dummy;
+
+  dMi[0][0] = dMiSVec[0][0];
+  dMi[0][1] = dMiSVec[0][1];
+  dMi[0][2] = dMiSVec[0][2];
+
+  SVec<double,3> dMvSVec(1);
+  dMvSVec[0][0] = dMv[0][0];
+  dMvSVec[0][1] = dMv[0][1];
+  dMvSVec[0][2] = dMv[0][2];
+  dMvdX->apply(dX, dummy);
+  dMvSVec += dummy;
+  dMvdV->apply(dV, dummy);
+  dMvSVec += dummy;
+  dMv[0][0] = dMvSVec[0][0];
+  dMv[0][1] = dMvSVec[0][1];
+  dMv[0][2] = dMvSVec[0][2];
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+template<int dim>
+void SubDomain::computeTransposeDerivativeOfForceAndMoment(RectangularSparseMat<double,3,3> *dFidGradP,
+                                                           RectangularSparseMat<double,3,3> *dFidX,
+                                                           RectangularSparseMat<double,dim,3> *dFidV,
+                                                           RectangularSparseMat<double,3,3> *dFvdX,
+                                                           RectangularSparseMat<double,dim,3> *dFvdV,
+                                                           RectangularSparseMat<double,3,3> *dFidS,
+                                                           RectangularSparseMat<double,3,3> *dMidGradP,
+                                                           RectangularSparseMat<double,3,3> *dMidX,
+                                                           RectangularSparseMat<double,dim,3> *dMidV,
+                                                           RectangularSparseMat<double,3,3> *dMidS,
+                                                           RectangularSparseMat<double,3,3> *dMvdX,
+                                                           RectangularSparseMat<double,dim,3> *dMvdV,
+                                                           SVec<double,3> &dFiSVec, SVec<double,3> &dFvSVec,
+                                                           SVec<double,3> &dMiSVec, SVec<double,3> &dMvSVec, SVec<double,3> &dX,
+                                                           SVec<double,dim> &dV, SVec<double,3> &dSSVec,
+                                                           SVec<double,3> &dGradPSVec, int hydro)
+{
+
+  if(hydro != 0) { fprintf(stderr, " *** Error: hydro must be zero for sparse format\n");  exit(-1); }
+
+
+  SVec<double,3> dummy3(dGradPSVec);
+  SVec<double,dim> dVdummy(dV);
+  dFidV->applyTranspose(dFiSVec, dVdummy);
+  dV += dVdummy;
+  dFvdV->applyTranspose(dFvSVec, dVdummy);
+  dV += dVdummy;
+  dFidGradP->applyTranspose(dFiSVec, dummy3);
+  dGradPSVec += dummy3;
+  dFidX->applyTranspose(dFiSVec, dummy3);
+  dX += dummy3;
+  dFvdX->applyTranspose(dFvSVec, dummy3);
+  dX += dummy3;
+  dFidS->applyTranspose(dFiSVec, dummy3);
+  dSSVec += dummy3;
+
+  dMidV->applyTranspose(dMiSVec, dVdummy);
+  dV += dVdummy;
+  dMvdV->applyTranspose(dMvSVec, dVdummy);
+  dV += dVdummy;
+  dMidGradP->applyTranspose(dMiSVec, dummy3);
+  dGradPSVec += dummy3;
+  dMidX->applyTranspose(dMiSVec, dummy3);
+  dX += dummy3;
+  dMidS->applyTranspose(dMiSVec, dummy3);
+  dSSVec += dummy3;
+
+  dMvdX->applyTranspose(dMvSVec, dummy3);
+  dX += dummy3;
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::computeDerivativeOperatorsOfForceAndMoment(map<int,int> & surfOutMap, PostFcn *postFcn, BcData<dim> &bcData,
+                                                           GeoState &geoState, SVec<double,3> &X,
+                                                           SVec<double,dim> &V, Vec3D &x0, int hydro,
+                                                           RectangularSparseMat<double,3,3> &dFidGradP,
+                                                           RectangularSparseMat<double,3,3> &dFidX,
+                                                           RectangularSparseMat<double,dim,3> &dFidV,
+                                                           RectangularSparseMat<double,3,3> &dFvdX,
+                                                           RectangularSparseMat<double,dim,3> &dFvdV,
+                                                           RectangularSparseMat<double,3,3> &dFidS,
+                                                           RectangularSparseMat<double,3,3> &dMidGradP,
+                                                           RectangularSparseMat<double,3,3> &dMidX,
+                                                           RectangularSparseMat<double,dim,3> &dMidV,
+                                                           RectangularSparseMat<double,3,3> &dMidS,
+                                                           RectangularSparseMat<double,3,3> &dMvdX,
+                                                           RectangularSparseMat<double,dim,3> &dMvdV)
+{
+
+  Vec<double> &d2wall = geoState.getDistanceToWall();
+  SVec<double,dim> &Vwall = bcData.getFaceStateVector();
+
+  for (int i=0; i<faces.size(); ++i) {
+    int idx;
+    map<int,int>::iterator it = surfOutMap.find(faces[i].getSurfaceID());
+    if(it != surfOutMap.end() && it->second != -2)
+      idx = it->second;
+    else {
+      if(faces[i].getCode() == BC_ISOTHERMAL_WALL_MOVING ||
+         faces[i].getCode() == BC_ADIABATIC_WALL_MOVING  ||
+         faces[i].getCode() == BC_SLIP_WALL_MOVING ||
+         faces[i].getCode() == BC_POROUS_WALL_MOVING)
+        idx = 0;
+      else
+        idx = -1;
+    }
+
+    if(idx >= 0)
+      faces[i].computeDerivativeOperatorsOfForceAndMoment(elems, postFcn, X, d2wall, Vwall[i], V, x0, gradP, hydro,
+                                                          dFidGradP, dFidX, dFidV, dFvdX, dFvdV, dFidS, dMidGradP, dMidX, dMidV, dMidS, dMvdX, dMvdV);
   }
 
 }

@@ -34,6 +34,8 @@ public:
 
   void apply(DistSVec<double,dim> &, DistSVec<double,dim> &);
 
+  void applyTranspose(DistSVec<double,dim> &, DistSVec<double,dim> &);// {}
+
 };
 
 //------------------------------------------------------------------------------

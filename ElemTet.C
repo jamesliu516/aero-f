@@ -126,7 +126,29 @@ void ElemTet::computeDerivativeOfGalerkinTerm(FemEquationTerm *fet, SVec<double,
   double vol = computeGradientP1Function(X, dp1dxj);
 
   double ddp1dxj[4][3];
+  double ddp1dxj2[4][3];
+  double diff[4][3];
   double dvol = computeDerivativeOfGradientP1Function(X, dX, ddp1dxj);
+
+  double dvol2dNodes[4][3] = {0}, ddp1dxj2dNodes[4][3][4][3] = {0};
+  computeDerivativeOperatorOfGradientP1Function(X, dvol2dNodes, ddp1dxj2dNodes);
+  double dvol3(0), ddp1dxj3[4][3] = {0};
+  for(int i=0; i<4; ++i)
+    for(int j=0; j<3; ++j) {
+      dvol3 += dvol2dNodes[i][j]*dX[ nodeNum(i) ][j];
+      for(int k=0; k<4; ++k)
+        for(int l=0; l<3; ++l) {
+          ddp1dxj3[i][j] += ddp1dxj2dNodes[i][j][k][l]*dX[ nodeNum(k) ][l];
+        }
+    }
+
+  for(int i=0; i<4; ++i)
+    for(int j=0; j<3; ++j) {
+      diff[i][j] = ddp1dxj[i][j] - ddp1dxj3[i][j];
+      if(diff[i][j] > 1e-12) {
+        fprintf(stderr, "diff for ddp1dxj in ElemTet::computeDerivativeOfGalerkinTerm is %e\n",diff[i][j]); exit(-1);
+      }
+    }
 
   double d2w[4] = {d2wall[nodeNum(0)], d2wall[nodeNum(1)],
 		   d2wall[nodeNum(2)], d2wall[nodeNum(3)]};
@@ -289,6 +311,118 @@ void ElemTet::computeGalerkinTerm_e(FemEquationTerm *fet, SVec<double,3> &X,
 }
 
 //------------------------------------------------------------------------------
+
+// Included (YC)
+template<int dim>
+void ElemTet::computeDerivativeOperatorsOfGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X, //SVec<double,3> &dX,
+			      Vec<double> &d2wall, SVec<double,dim> &V, RectangularSparseMat<double,3,dim> &dViscousFluxdX)
+            //SVec<double,dim> &dV, double dMach,
+			      //SVec<double,dim> &dR)
+{
+
+  double dp1dxj[4][3];
+  double vol = computeGradientP1Function(X, dp1dxj);
+
+  double ddp1dxj[4][3];
+  double diff[4][3];
+  double dvoldNodes[4][3] = {0}, ddp1dxjdNodes[4][3][4][3] = {0};
+  computeDerivativeOperatorOfGradientP1Function(X, dvoldNodes, ddp1dxjdNodes);
+/*  double dvol3(0), ddp1dxj3[4][3] = {0};
+  for(int i=0; i<4; ++i)
+    for(int j=0; j<3; ++j) {
+      dvol3 += dvoldNodes[i][j]*dX[ nodeNum(i) ][j];
+      for(int k=0; k<4; ++k)
+        for(int l=0; l<3; ++l) {
+          ddp1dxj3[i][j] += ddp1dxjdNodes[i][j][k][l]*dX[ nodeNum(k) ][l];
+        }
+    }*/
+//  fprintf(stderr, "dvol-dvol3 = %e\n", dvol-dvol3);
+/*
+  for(int i=0; i<4; ++i)
+    for(int j=0; j<3; ++j) {
+      diff[i][j] = ddp1dxj[i][j] - ddp1dxj3[i][j];
+      if(diff[i][j] > 1e-15)
+        fprintf(stderr, "diff is %e\n",diff[i][j]);
+    }
+*/
+  double d2w[4] = {d2wall[nodeNum(0)], d2wall[nodeNum(1)],
+		   d2wall[nodeNum(2)], d2wall[nodeNum(3)]};
+  double *v[4] = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)], V[nodeNum(3)]};
+//  double *dv[4] = {dV[nodeNum(0)], dV[nodeNum(1)], dV[nodeNum(2)], dV[nodeNum(3)]};
+
+  double r[3][dim], s[dim], pr[12];
+  bool porousTermExists =  fet->computeVolumeTerm(dp1dxj, d2w, v, reinterpret_cast<double *>(r),
+                                                  s, pr, vol, X, nodeNum(), volume_id);
+
+//  double dr[3][dim], ds[dim], dpr[12];
+//  fet->computeDerivativeOfVolumeTerm(dp1dxj, ddp1dxj, d2w, v, dv, dMach, reinterpret_cast<double *>(dr), ds, dpr, dvol, X, nodeNum(), volume_id);
+  double drddp1dxj[3][5][4][3] ={0}, drdV[3][5][4][5] = {0}, drdMach[3][5] ={0};
+  fet->computeDerivativeOperatorsOfVolumeTerm(dp1dxj, v, drddp1dxj, drdV, drdMach);
+/*  double dr2[3][dim] = {0};
+  for(int i=0; i<3; ++i)
+    for(int j=0; j<5; ++j) {
+      dr2[i][j] += drdMach[i][j]*dMach;
+      for(int k=0; k<4; ++k) {
+        for(int l=0; l<3; ++l)
+          dr2[i][j] += drddp1dxj[i][j][k][l]*ddp1dxj[k][l];
+        for(int l=0; l<5; ++l)
+          dr2[i][j] += drdV[i][j][k][l]*dV[k][l];
+      }
+    } */
+/*
+  for(int i=0; i<3; ++i)
+    for(int j=0; j<dim; ++j) {
+      double diff = abs(dr2[i][j] - dr[i][j]);
+      if(diff > 1.0e-15) fprintf(stderr, "diff is %e and dr2[i][j] is %e and dr[i][j] = %e\n",diff, dr2[i][j], dr[i][j]);
+    }
+*/
+  double dRdX[4][4][dim][3] = {0};
+  for (int j=0; j<4; ++j) {
+    int idx = nodeNum(j);
+    for (int k=0; k<dim; ++k) {
+      for(int i=0; i<4; ++i)
+        for(int l=0; l<3; ++l) {
+//          dR[idx][k] += dvoldNodes[i][l]*dX[ nodeNum(i) ][l] * ( (r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] + r[2][k] * dp1dxj[j][2]) - fourth * s[k] );
+          dRdX[j][i][k][l] += dvoldNodes[i][l]*( (r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] + r[2][k] * dp1dxj[j][2]) - fourth * s[k] );
+        }
+      for(int i=0; i<3; ++i) {
+        for(int m=0; m<4; ++m)
+          for(int l=0; l<3; ++l)
+            for(int p=0; p<4; ++p)
+              for(int q=0; q<3; ++q) {
+//                dR[idx][k] += vol*dp1dxj[j][i]*drddp1dxj[i][k][m][l]*ddp1dxjdNodes[m][l][p][q]*dX[ nodeNum(p) ][q];
+                dRdX[j][p][k][q] += vol*dp1dxj[j][i]*drddp1dxj[i][k][m][l]*ddp1dxjdNodes[m][l][p][q];
+              }
+        for(int m=0; m<4; ++m)
+          for(int l=0; l<3; ++l) {
+//            dR[idx][k] += vol*r[i][k]*(ddp1dxjdNodes[j][i][m][l]*dX[ nodeNum(m) ][l]);
+            dRdX[j][m][k][l] += vol*r[i][k]*ddp1dxjdNodes[j][i][m][l];
+          }
+      }
+//      dR[idx][k] -= vol*fourth*ds[k];
+
+    }
+  }
+
+  for(int i=0; i<4; ++i)
+    for(int j=0; j<4; ++j)
+      dViscousFluxdX.addContrib(nodeNum(j),nodeNum(i), dRdX[j][i][0]);
+
+/*
+  if (porousTermExists) {
+    for (int j=0; j<4; ++j) {
+      int idx = nodeNum(j);
+      for (int k=1; k<4; ++k) {
+        dRdpr[idx][k] += 1.0;
+        dR[idx][k] += dpr[3*j+k-1];
+      }
+    }
+  }
+*/
+}
+
+//------------------------------------------------------------------------------
+
 
 template<int dim>
 void ElemTet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SVec<double,6> &Sij_Test, 

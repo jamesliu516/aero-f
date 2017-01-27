@@ -153,7 +153,7 @@ public:
 //  virtual double computePositionSensitivityVector(bool *, int, double);
   virtual void setMeshSensitivitySolverPositionVector();
   void negotiate();
-  void sendForceSensitivity(DistSVec<double,3> *);
+  void sendForceSensitivity(DistSVec<double,3> *, bool applyScale = true);
   void interpolatePositionVector(double, double);
   void computeMeshMetrics(int it = -1);
   virtual void updateStateVectors(DistSVec<double,dim> &, int = 0);
@@ -214,7 +214,7 @@ public:
   TsParameters* getTsParams() {return data;}
   ErrorHandler* getErrorHandler() {return errorHandler;}
   void computeConvergenceInformation(IoData &ioData, const char* file, DistSVec<double,dim>&);
-  void receiveBoundaryPositionSensitivityVector(DistSVec<double,3> &);
+  void receiveBoundaryPositionSensitivityVector(DistSVec<double,3> &, bool applyScale = false);
 
   virtual void checkLocalRomStatus(DistSVec<double, dim> &, const int) {}
   virtual void writeBinaryVectorsToDiskRom(bool, int, int, DistSVec<double,dim> *, DistSVec<double,dim> *) {}  // state, residual

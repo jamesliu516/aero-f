@@ -303,6 +303,9 @@ struct TransientData {
   const char *dDisplacement;
   const char *dForces;
   const char *dLiftDrag;
+  const char *dLiftx;
+  const char *dLifty;
+  const char *dLiftz;
 
   const char *tempnormalderivative;
   const char *surfaceheatflux;
@@ -1815,6 +1818,9 @@ struct SensitivityAnalysis {
   enum SensitivityMach {OFF_SENSITIVITYMACH = 0, ON_SENSITIVITYMACH = 1} sensMach;
   enum SensitivityAOA {OFF_SENSITIVITYALPHA = 0, ON_SENSITIVITYALPHA = 1} sensAlpha;
   enum SensitivityYAW {OFF_SENSITIVITYBETA = 0, ON_SENSITIVITYBETA = 1} sensBeta;
+  enum SensitivityLiftx {OFF_SENSITIVITYLIFTX = 0, ON_SENSITIVITYLIFTX = 1} sensLiftx;
+  enum SensitivityLifty {OFF_SENSITIVITYLIFTY = 0, ON_SENSITIVITYLIFTY = 1} sensLifty;
+  enum SensitivityLiftz {OFF_SENSITIVITYLIFTZ = 0, ON_SENSITIVITYLIFTZ = 1} sensLiftz;
 
   // This flag repeats the linear solves until the number of iterations
   // is smaller than the maximum allowed.
@@ -1837,8 +1843,8 @@ struct SensitivityAnalysis {
   bool apressFlag;
   bool fsiFlag;
 
-  int si;
-  int sf;
+  int sparseFlag;
+  int numShapeVariables;
   int avgsIt;
 
   double eps;
