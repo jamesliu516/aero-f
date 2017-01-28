@@ -147,6 +147,8 @@ int ImplicitEmbeddedRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &
     DistSVec<double, dim> R(this->domain->getNodeDistInfo());
     DistSVec<double, dim> dU(this->domain->getNodeDistInfo());
     Vec<double> reduced_dU(this->reducedDimension);
+    Vec<double> reduced_U(this->reducedDimension);
+    reduced_U = 0.0;
     // newton loop
     for(it = 0; it < maxItsNewton; it++){
         R = 0.0;
@@ -161,13 +163,14 @@ int ImplicitEmbeddedRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &
         // results in this->reducedNewtonDirection
         // todo: change to lineSearch(it, Vec<double> &U, Vec<double> &dU)
         double alpha = lineSearch(it, U, reduced_dU);
-        U += reduced_dU * alpha;
+        reduced_U += alpha * reduced_dU;
+        // return full coordinate in U
+        expandVector(reduced_U, dU);
+        DistSVec<double, dim> masked_dU(this->domain->getNodeDistInfo());
+        maskVector(dU, this->distLSS->getIsActive(), masked_dU);
+        U += masked_dU;
     }
     // finishing up
-    expandVector(reduced_dU, dU);
-    DistSVec<double, dim> masked_dU(this->domain->getNodeDistInfo());
-    maskVector(dU, this->distLSS->getIsActive(), masked_dU);
-    U += masked_dU;
 
     return (maxItsNewton == 0 || it == 0) ? 1 : it;
 }
