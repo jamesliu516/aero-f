@@ -1068,6 +1068,7 @@ void SpaceOperator<dim>::computeDerivativeOfResidual
   dRdXoperators<dim> *dRdXop,
   DistSVec<double,3> &X,
   DistSVec<double,3> &dX,
+  DistVec<double> &ctrlVol,
   DistVec<double> &dCtrlVol,
   DistVec<Vec3D> &dEdgeNormal,
   DistVec<Vec3D> &dFaceNormal,
@@ -2905,7 +2906,6 @@ void SpaceOperator<dim>::computeTransposeDerivativeOfGradP
   DistSVec<double,6> &dR,
   DistVec<double> &dCtrlVol, 
   DistSVec<double,3> &dX, 
-  DistSVec<double,dim> &dU
   DistSVec<double,dim> &dU,
   bool assembleDX
 )

@@ -517,6 +517,7 @@ void FaceTria::computeDerivativeOperatorsOfForceTransmitted(ElemSet &elems, Post
   double dFi0dVface[3][3][5] = {0}, dFi0ddPdx[3][3][3] = {0}, dFi0dXface[3][3][3] = {0};
   double dFi1dVface[3][3][5] = {0}, dFi1ddPdx[3][3][3] = {0}, dFi1dXface[3][3][3] = {0};
   double dFi2dVface[3][3][5] = {0}, dFi2ddPdx[3][3][3] = {0}, dFi2dXface[3][3][3] = {0};
+  double dFvddp1dxj[3][4][3] = {0}, dFvdn[3][3] = {0}, dFvdVp[3][4][5] = {0};
 
   postFcn->computeDerivativeOperatorsOfForceTransmitted(dp1dxj, Xface, n, Vface, Vtet, pin, dPdx, hydro,
                                                         dFi0dn, dFi0dS, dFi0dVface, dFi0ddPdx, dFi0dXface,
@@ -840,8 +841,6 @@ void FaceTria::computeDerivativeOperatorsOfNodalForce(ElemSet &elems, PostFcn *p
                                                  dFi1dV, dFi1dGradP, dFi1dX, dFi1dn, dFi1dS,
 												 dFi2dV, dFi2dGradP, dFi2dX, dFi2dn, dFi2dS,
 												 dFvdX, dFvdXtet, dFvdV);
-                                                    dFi2dV, dFi2dGradP, dFi2dX, dFi2dn, dFi2dS,
-                                                    dFvdX, dFvdXtet, dFvdV);
 
      for(int i=0; i<3; ++i)
        for(int j=0; j<3; ++j)

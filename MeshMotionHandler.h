@@ -178,8 +178,10 @@ public:
   void getRelResidual(double &relres);
   virtual double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
   double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * =0);
+  double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
   void updateDStep2(DistSVec<double,3> &, DistSVec<double,3> &, bool applyScale = false);
-  void updateDStep2(DistSVec<double,3> &, DistSVec<double,3> &);
+  //void updateDStep2(DistSVec<double,3> &, DistSVec<double,3> &, bool applyScale = false);
+  //void updateDStep2(DistSVec<double,3> &, DistSVec<double,3> &);
   void setPositionVector(DistSVec<double,3> &X);
   int getAlgNum(); 
 
