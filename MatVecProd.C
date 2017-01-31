@@ -1783,7 +1783,7 @@ void MatVecProdH2<dim,Scalar,neq>::Multiplier<dd,nn,Scalar1,Scalar2>::Apply
   if (R)
   {
     *vProd = (Scalar2) 0;
-    R->applyTranspose(p, *vProd);
+    R->apply(p, *vProd);
     prod += *vProd;
   }
   else if (RFD)

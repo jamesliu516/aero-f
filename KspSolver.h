@@ -97,9 +97,10 @@ public:
   ~CgSolver() {}
 
   int solve(VecType &, VecType &);
+  //int solveLS(VecType &, VecType &);
   int solveLS(VecType &, VecType &);
-  int solveLS(VecType &, VecType &);
-  int solveT(VecType &, VecType &) { return 0; }
+  int solveT(VecType &, VecType &) { return 0;}
+  int solveMRhs(VecType &, VecType &);
 
 };
 

@@ -1350,31 +1350,25 @@ public:
 
   void initializeOperators(double);
   dRdXoperators<dim> *getdRdXop() {return dRdXop;}
-  void constructOperators(DistSVec<double,3> &X, DistVec<double> &ctrlVol, DistSVec<double,dim> &U,
+  void constructOperators(Vec3D &, DistSVec<double,3> &X, DistVec<double> &ctrlVol, DistSVec<double,dim> &U,
                           double dMach, DistSVec<double,dim> &R, DistVec<double> &, DistTimeState<dim> *timeState, PostOperator<dim> *);
-/*
-  void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
-		DistSVec<double,dim> &, DistSVec<double,dim> &);
-  void evaluate(int , DistSVec<double,3> &, DistVec<double> &,
-                DistSVec<double,dim> &, DistSVec<double,dim> &, Scalar);
-  void evaluate2(int, DistSVec<double,3> &, DistVec<double> &, 
-		 DistSVec<double,dim> &, DistSVec<double,dim> &); 
-*/
+
 
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &,
-                DistSVec<double,dim> &, DistSVec<double,dim> &);
-  void evaluate(DistExactRiemannSolver<dim> &, int, DistSVec<double,3> &, DistVec<double> &,
-                DistSVec<double,dim> &, DistSVec<double,dim> &) {}
-  void evaluate(int , DistSVec<double,3> &, DistVec<double> &, 
-                DistSVec<double,dim> &, DistSVec<double,dim> &, Scalar);
+                DistSVec<double,dim> &, DistSVec<double,dim> &)
+  {std::cout<<__FILE__<<":"<<__LINE__<<" empty header declaration called"; exit(-1);}
 
-  // UH (09/10)
-  // The following function is never called and not implemented.
-  //void evaluate(int , DistSVec<double,3> &, DistVec<double> &, DistVec<int> &,
-  //              DistSVec<double,dim> &, DistSVec<double,dim> &, Scalar);
+  void evaluate(DistExactRiemannSolver<dim> &, int, DistSVec<double,3> &, DistVec<double> &,
+                DistSVec<double,dim> &, DistSVec<double,dim> &)
+  {std::cout<<__FILE__<<":"<<__LINE__<<" empty header declaration called"; exit(-1);}
+
+  void evaluate(int , DistSVec<double,3> &, DistVec<double> &, 
+                DistSVec<double,dim> &, DistSVec<double,dim> &, Scalar)
+  {std::cout<<__FILE__<<":"<<__LINE__<<" empty header declaration called"; exit(-1);}
 
   void evaluate2(int, DistSVec<double,3> &, DistVec<double> &,
-                 DistSVec<double,dim> &, DistSVec<double,dim> &);
+                 DistSVec<double,dim> &, DistSVec<double,dim> &)
+  {std::cout<<__FILE__<<":"<<__LINE__<<" empty header declaration called"; exit(-1);}
 
   // UH (09/10)
   // The following functions are never called and not implemented.
@@ -1386,22 +1380,39 @@ public:
 
   void evalH(int , DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &);
 
-  void apply(DistSVec<double,neq>        &, DistSVec<double,neq> &);
-  void apply(DistSVec<bcomp,neq>         &, DistSVec<bcomp,neq> &);
-  void apply(DistEmbeddedVec<double,dim> &, DistEmbeddedVec<double,dim> &);
-  void applyTranspose(DistSVec<double,neq> &, DistSVec<double,neq> &) {}
+  void apply(DistSVec<double,neq>        &, DistSVec<double,neq> &)
+  {std::cout<<__FILE__<<":"<<__LINE__<<" empty header declaration called"; exit(-1);}
 
-  void applyT(DistSVec<double,neq> &, DistSVec<double,neq> &);
-  void applyT(DistSVec<bcomp,neq> &x, DistSVec<bcomp,neq> &y);
+  void apply(DistSVec<bcomp,neq>         &, DistSVec<bcomp,neq> &)
+  {std::cout<<__FILE__<<":"<<__LINE__<<" empty header declaration called"; exit(-1);}
+
+  void apply(DistEmbeddedVec<double,dim> &, DistEmbeddedVec<double,dim> &)
+  {std::cout<<__FILE__<<":"<<__LINE__<<" empty header declaration called"; exit(-1);}
+
+  void applyTranspose(DistSVec<double,neq> &, DistSVec<double,neq> &)
+  {std::cout<<__FILE__<<":"<<__LINE__<<" empty header declaration called"; exit(-1);}
+
+  void applyTranspose(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &)
+  {std::cout<<__FILE__<<":"<<__LINE__<<" empty header declaration called"; exit(-1);}
+
+  void applyT(DistSVec<double,neq> &, DistSVec<double,neq> &)
+  {std::cout<<__FILE__<<":"<<__LINE__<<" empty header declaration called"; exit(-1);}
+
+  void applyT(DistSVec<bcomp,neq> &x, DistSVec<bcomp,neq> &y)
+  {std::cout<<__FILE__<<":"<<__LINE__<<" empty header declaration called"; exit(-1);}
 
 // Included (MB)
-  void evaluateInviscid(int, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
-  void evaluateViscous(int, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void evaluateInviscid(int, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &)
+  {std::cout<<__FILE__<<":"<<__LINE__<<" empty header declaration called"; exit(-1);}
+
+  void evaluateViscous(int, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &)
+  {std::cout<<__FILE__<<":"<<__LINE__<<" empty header declaration called"; exit(-1);}
 
   //void applyInviscid(DistSVec<double,neq> &, DistSVec<double,neq> &);
   //void applyViscous(DistSVec<double,neq> &, DistSVec<double,neq> &);
 
-  void rstSpaceOp(IoData &, VarFcn *, SpaceOperator<dim> *, bool, SpaceOperator<dim> * = 0);
+  void rstSpaceOp(IoData &, VarFcn *, SpaceOperator<dim> *, bool, SpaceOperator<dim> * = 0)
+  {std::cout<<__FILE__<<":"<<__LINE__<<" empty header declaration called"; exit(-1);}
 
 };
 /*

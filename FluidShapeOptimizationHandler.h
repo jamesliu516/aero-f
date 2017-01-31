@@ -148,7 +148,14 @@ public:
 
   void fsoGetDerivativeOfEffortsAnalytical(bool, IoData &, DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &, Vec3D &, Vec3D &, Vec3D &);
 
-  void fsoGetDerivativeOfEffortsWRTStateAndMeshPositionAnalytical(IoData &, Vec3D &, Vec3D &, Vec3D &, DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,3> &, DistSVec<double,dim> &);
+  void fsoGetDerivativeOfEffortsWRTStateAndMeshPositionAnalytical(IoData &,
+		  Vec3D &,
+		  Vec3D &,
+		  Vec3D &,
+		  DistSVec<double,3> &,
+		  DistSVec<double,dim> &,
+		  DistSVec<double,3> &,
+		  DistSVec<double,dim> &);
 
   /// \note This function is implemented but never called.
   void fsoGetDerivativeOfLoadFiniteDifference(IoData &, DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,3> &, DistSVec<double,3> &);

@@ -566,7 +566,6 @@ void FluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsFiniteDifferen
   double dEnergy=2.0*ioData.ref.density*ioData.ref.length*ioData.ref.length*ioData.ref.length*velocity*dVelocity;
 
   int nSurfs = this->postOp->getNumSurf();
-  if(isSparse && nSurfs != 1) { this->com->fprintf(stderr, " *** Error : Sparse format supports only nSurfs = 1\n");  exit(-1); }
 
   Vec3D x0, F, Fplus, Fminus, dF, M, Mp, Mm, dM;
 
@@ -933,6 +932,7 @@ void FluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsWRTStateAndMes
   this->postOp->computeTransposeDerivativeOfForceAndMoment(dRdXop, dFiSVec, dMiSVec, dFvSVec, dMvSVec, dQdX, dQdU, dSSVec, dGradP);
   this->spaceOp->computeTransposeDerivativeOfGradP(dRdXop, dGradP, dddx, dddy, dddz, dR, dAdS, dQdX, dQdU);
 
+}
 
 //------------------------------------------------------------------------------
 
@@ -1112,7 +1112,7 @@ void FluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfLoadAnalytical(bool i
 //    this->postOp->computeDerivativeOfNodalForce(X, dX, U, dU, Pin, DFSPAR, dLoad2);
 //    diff = dLoad2 - dLoad;
 //    this->com->fprintf(stderr, " difference between dLoad and dLoad2 is %e and dLoad = %e, dLoad2 = %e\n", diff.norm()/dLoad.norm(), dLoad.norm(), dLoad2.norm());
-  }                                                       dRdXop->dVdU, dX, dGradP, dU, DFSPAR, dLoad);
+  }
   else this->postOp->computeDerivativeOfNodalForce(X, dX, U, dU, Pin, DFSPAR, dLoad);
 
   if (this->refVal->mode == RefVal::NON_DIMENSIONAL) {
@@ -2320,7 +2320,7 @@ void FluidShapeOptimizationHandler<dim>::fsoComputeSensitivities(bool isSparse,
   fsoGetEfforts(ioData, X, U, F, M, L);
 
 // Computing derivative of the efforts
-  Vec3D dFds, dMds, dLds;
+  Vec3D dFds, dMds, dLdS;
 
   if ( ioData.sa.scFlag == SensitivityAnalysis::FINITEDIFFERENCE )
     fsoGetDerivativeOfEffortsFiniteDifference(ioData, X, dXdS, *this->A, U, dUdS, dFds, dMds);
@@ -2396,7 +2396,7 @@ void FluidShapeOptimizationHandler<dim>::fsoComputeSensitivities(bool isSparse,
   //
   //this->output->writeDerivativeOfFluxNormToDisk(step, actvar, normF2, dnormF2);
   this->output->writeDerivativeOfForcesToDisk(step, actvar, F, dFds, M, dMds, sboom, dSboom);
-  this->output->writeDerivativeOfLiftDragToDisk(step, actvar, L, dLds); 
+  this->output->writeDerivativeOfLiftDragToDisk(step, actvar, L, dLdS);
  
   //
   // This function is writing to the disk quantities of interest in binary files.
