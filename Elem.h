@@ -1119,10 +1119,10 @@ public:
   }
 
 
-  // Included (YC)
-    template<int dim>
-    void computeDerivativeOperatorsOfGalerkinTerm(FemEquationTerm *, GeoState &, SVec<double,3> &,
-  			   SVec<double,dim> &, RectangularSparseMat<double,3,dim> &);
+//  // Included (YC)
+//    template<int dim>
+//    void computeDerivativeOperatorsOfGalerkinTerm(FemEquationTerm *, GeoState &, SVec<double,3> &,
+//  			   SVec<double,dim> &, RectangularSparseMat<double,3,dim> &);
 
 // Level Set Reinitialization
 
@@ -1197,6 +1197,11 @@ public:
   // compute Viscous Contribution Adam 2010.06.01
   template<int dim>
 	  void computeTimeStep(FemEquationTerm *,SVec<double,3> &,SVec<double,dim> &,Vec<double> &, LevelSetStructure *LSS = 0);
+
+  // Included (YC) //TODO UNSURE
+  template<int dim>
+  void computeDerivativeOperatorsOfGalerkinTerm(FemEquationTerm *, GeoState &, SVec<double,3> &,
+                                      		   SVec<double,dim> &, RectangularSparseMat<double,3,dim> &);
 
   template<int dim>
   void computeGalerkinTerm(FemEquationTerm *, GeoState &, SVec<double,3> &, 

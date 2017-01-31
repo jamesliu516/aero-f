@@ -148,7 +148,7 @@ public:
                                              double, double [3], SVec<double,3> &, 
                                              double* gradP[3], double* dGradP[3]) = 0;
 
-  virtual void computeDerivativeOperatorsOfNodalForce(PostFcn *postFcn, SVec<double,3> &X, SVec<double,dim> &V, double Pin, double* gradP[3],
+  virtual void computeDerivativeOperatorsOfNodalForce(ElemSet &elems, PostFcn *postFcn, SVec<double,3> &X, SVec<double,dim> &V, double Pin, double* gradP[3],
                                                       RectangularSparseMat<double,3,3> &dForcedX,
                                                       RectangularSparseMat<double,3,3> &dForcedGradP,
                                                       RectangularSparseMat<double,dim,3> &dForcedV,
@@ -164,6 +164,28 @@ public:
                                                  SVec<double,dim> &, SVec<double,dim> &, double [3], 
                                                  Vec3D &, Vec3D &, Vec3D &, Vec3D &, Vec3D &, 
                                                  double* gradP[3], double* dGradP[3], int = 0) = 0;
+  /*
+    virtual void computeDerivativeOfForceAndMoment2(ElemSet &, PostFcn *, SVec<double,3> &, SVec<double,3> &,
+                                                    Vec<double> &, double *, double *,
+                                                    SVec<double,dim> &, SVec<double,dim> &, double [3],
+                                                    Vec3D &, Vec3D &, Vec3D &, Vec3D &, Vec3D &,
+                                                    double* gradP[3], double* dGradP[3], int = 0) = 0;
+  */
+  virtual void computeDerivativeOperatorsOfForceAndMoment(ElemSet &, PostFcn *, SVec<double,3> &,
+                                                          Vec<double> &, double *, SVec<double,dim> &, Vec3D &,
+                                                          double* gradP[3], int ,
+                                                          RectangularSparseMat<double,3,3> &,
+                                                          RectangularSparseMat<double,3,3> &,
+                                                          RectangularSparseMat<double,dim,3> &,
+                                                          RectangularSparseMat<double,3,3> &,
+                                                          RectangularSparseMat<double,dim,3> &,
+                                                          RectangularSparseMat<double,3,3> &,
+                                                          RectangularSparseMat<double,3,3> &,
+                                                          RectangularSparseMat<double,3,3> &,
+                                                          RectangularSparseMat<double,dim,3> &,
+                                                          RectangularSparseMat<double,3,3> &,
+                                                          RectangularSparseMat<double,3,3> &,
+                                                          RectangularSparseMat<double,dim,3> &) = 0;
 
   virtual void computeDerivativeOfGalerkinTerm(ElemSet &, FemEquationTerm *, SVec<double,3> &, SVec<double,3> &,
                                                Vec<double> &, double *, double *, SVec<double,dim> &, 
@@ -289,12 +311,12 @@ public:
     t->computeDerivativeOfNodalForce(elems, postFcn, X, dX, d2wall, Vwall, dVwall, V, dV, pin, dS, dF, gradP, dGradP);
   }
 
-  void computeDerivativeOperatorsOfNodalForce(PostFcn *postFcn, SVec<double,3> &X, SVec<double,dim> &V, double Pin, double* gradP[3],
+  void computeDerivativeOperatorsOfNodalForce(ElemSet &elems, PostFcn *postFcn, SVec<double,3> &X, SVec<double,dim> &V, double Pin, double* gradP[3],
                                               RectangularSparseMat<double,3,3> &dForcedX,
                                               RectangularSparseMat<double,3,3> &dForcedGradP,
                                               RectangularSparseMat<double,dim,3> &dForcedV,
                                               RectangularSparseMat<double,3,3> &dForcedS) {
-    t->computeDerivativeOperatorsOfNodalForce(postFcn, X, V, Pin, gradP, dForcedX, dForcedGradP, dForcedV, dForcedS);
+	t->computeDerivativeOperatorsOfNodalForce(elems, postFcn, X, V, Pin, gradP, dForcedX, dForcedGradP, dForcedV, dForcedS);
   }
 
   void computeDerivativeOfNodalHeatPower(ElemSet& elems, PostFcn* postFcn, SVec<double,3>& X, 
@@ -311,6 +333,35 @@ public:
                                          Vec3D &x0, Vec3D &dFi, Vec3D &dMi, Vec3D &dFv, Vec3D &dMv, 
                                          double* gradP[3], double* dGradP[3], int hydro) {
     t->computeDerivativeOfForceAndMoment(elems, postFcn, X, dX, d2wall, Vwall, dVwall, V, dV, dS, x0, dFi, dMi, dFv, dMv, gradP, dGradP, hydro);
+  }
+  /*
+    void computeDerivativeOfForceAndMoment2(ElemSet &elems, PostFcn *postFcn,
+                                           SVec<double,3> &X, SVec<double,3> &dX,
+                                           Vec<double> &d2wall, double *Vwall, double *dVwall,
+                                           SVec<double,dim> &V, SVec<double,dim> &dV, double dS[3],
+                                           Vec3D &x0, Vec3D &dFi, Vec3D &dMi, Vec3D &dFv, Vec3D &dMv,
+                                           double* gradP[3], double* dGradP[3], int hydro) {
+      t->computeDerivativeOfForceAndMoment2(elems, postFcn, X, dX, d2wall, Vwall, dVwall, V, dV, dS, x0, dFi, dMi, dFv, dMv, gradP, dGradP, hydro);
+    }
+  */
+  void computeDerivativeOperatorsOfForceAndMoment(ElemSet &elems, PostFcn *postFcn, SVec<double,3> &X,
+                                                  Vec<double> &d2wall, double *Vwall, SVec<double,dim> &V, Vec3D &x0,
+                                                  double* gradP[3], int hydro,
+                                                  RectangularSparseMat<double,3,3> &dFidGradP,
+                                                  RectangularSparseMat<double,3,3> &dFidX,
+                                                  RectangularSparseMat<double,dim,3> &dFidV,
+                                                  RectangularSparseMat<double,3,3> &dFvdX,
+                                                  RectangularSparseMat<double,dim,3> &dFvdV,
+                                                  RectangularSparseMat<double,3,3> &dFidS,
+                                                  RectangularSparseMat<double,3,3> &dMidGradP,
+                                                  RectangularSparseMat<double,3,3> &dMidX,
+                                                  RectangularSparseMat<double,dim,3> &dMidV,
+                                                  RectangularSparseMat<double,3,3> &dMidS,
+                                                  RectangularSparseMat<double,3,3> &dMvdX,
+                                                  RectangularSparseMat<double,dim,3> &dMvdV) {
+    t->computeDerivativeOperatorsOfForceAndMoment(elems, postFcn, X, d2wall, Vwall, V, x0, gradP, hydro,
+                                                  dFidGradP, dFidX, dFidV, dFvdX, dFvdV, dFidS,
+                                                  dMidGradP, dMidX, dMidV, dMidS, dMvdX, dMvdV);
   }
 
   void computeDerivativeOfGalerkinTerm(ElemSet &elems, FemEquationTerm *fet, SVec<double,3> &X, SVec<double,3> &dX,
@@ -796,7 +847,7 @@ public:
   }
 
   template<int dim>
-  void computeDerivativeOperatorsOfNodalForce(PostFcn *postFcn, SVec<double,3> &X, SVec<double,dim> &V, double Pin, double *gradP[3],
+  void computeDerivativeOperatorsOfNodalForce(ElemSet &elems, PostFcn *postFcn, SVec<double,3> &X, SVec<double,dim> &V, double Pin, double *gradP[3],
                                               RectangularSparseMat<double,3,3> &dForcedX,
                                               RectangularSparseMat<double,3,3> &dForcedGradP,
                                               RectangularSparseMat<double,dim,3> &dForcedV,
@@ -805,7 +856,7 @@ public:
     char xx[64];
     GenFaceWrapper_dim<dim> *wrapper=
       (GenFaceWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
-    wrapper->computeDerivativeOperatorsOfNodalForce(postFcn, X, V, Pin, gradP, dForcedX, dForcedGradP, dForcedV, dForcedS);
+    wrapper->computeDerivativeOperatorsOfNodalForce(elems, postFcn, X, V, Pin, gradP, dForcedX, dForcedGradP, dForcedV, dForcedS);
   }
 
   template<int dim>
@@ -821,6 +872,21 @@ public:
 
   template<int dim>
   void computeDerivativeOfForceAndMoment(ElemSet &elems, PostFcn *postFcn,
+                                         SVec<double,3> &X, SVec<double,3> &dX,
+                                         Vec<double> &d2wall, double *Vwall, double *dVwall,
+                                         SVec<double,dim> &V, SVec<double,dim> &dV, double dS[3],
+                                         Vec3D &x0, Vec3D &dFi, Vec3D &dMi, Vec3D &dFv, Vec3D &dMv,
+                                         double* gradP[3], double* dGradP[3], int hydro) {
+
+    FaceHelper_dim<dim> h;
+    char xx[64];
+    GenFaceWrapper_dim<dim> *wrapper=
+      (GenFaceWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+    wrapper->computeDerivativeOfForceAndMoment(elems, postFcn, X, dX, d2wall, Vwall, dVwall, V, dV, dS, x0, dFi, dMi, dFv, dMv, gradP, dGradP, hydro);
+  }
+/*
+  template<int dim>
+  void computeDerivativeOfForceAndMoment2(ElemSet &elems, PostFcn *postFcn,
                                              SVec<double,3> &X, SVec<double,3> &dX,
                                              Vec<double> &d2wall, double *Vwall, double *dVwall,
                                              SVec<double,dim> &V, SVec<double,dim> &dV, double dS[3],
@@ -831,7 +897,32 @@ public:
     char xx[64];
     GenFaceWrapper_dim<dim> *wrapper=
       (GenFaceWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
-    wrapper->computeDerivativeOfForceAndMoment(elems, postFcn, X, dX, d2wall, Vwall, dVwall, V, dV, dS, x0, dFi, dMi, dFv, dMv, gradP, dGradP, hydro);
+    wrapper->computeDerivativeOfForceAndMoment2(elems, postFcn, X, dX, d2wall, Vwall, dVwall, V, dV, dS, x0, dFi, dMi, dFv, dMv, gradP, dGradP, hydro);
+  }
+*/
+  template<int dim>
+  void computeDerivativeOperatorsOfForceAndMoment(ElemSet &elems, PostFcn *postFcn, SVec<double,3> &X,
+                                                  Vec<double> &d2wall, double *Vwall, SVec<double,dim> &V, Vec3D &x0,
+                                                  double* gradP[3], int hydro,
+                                                  RectangularSparseMat<double,3,3> &dFidGradP,
+                                                  RectangularSparseMat<double,3,3> &dFidX,
+                                                  RectangularSparseMat<double,dim,3> &dFidV,
+                                                  RectangularSparseMat<double,3,3> &dFvdX,
+                                                  RectangularSparseMat<double,dim,3> &dFvdV,
+                                                  RectangularSparseMat<double,3,3> &dFidS,
+                                                  RectangularSparseMat<double,3,3> &dMidGradP,
+                                                  RectangularSparseMat<double,3,3> &dMidX,
+                                                  RectangularSparseMat<double,dim,3> &dMidV,
+                                                  RectangularSparseMat<double,3,3> &dMidS,
+                                                  RectangularSparseMat<double,3,3> &dMvdX,
+                                                  RectangularSparseMat<double,dim,3> &dMvdV) {
+    FaceHelper_dim<dim> h;
+    char xx[64];
+    GenFaceWrapper_dim<dim> *wrapper=
+      (GenFaceWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+    wrapper->computeDerivativeOperatorsOfForceAndMoment(elems, postFcn, X, d2wall, Vwall, V, x0, gradP, hydro,
+                                                        dFidGradP, dFidX, dFidV, dFvdX, dFvdV, dFidS,
+                                                        dMidGradP, dMidX, dMidV, dMidS, dMvdX, dMvdV);
   }
 
   template<int dim>
@@ -993,7 +1084,7 @@ public:
   }
 
   template<int dim>
-  void computeDerivativeOperatorsOfNodalForce(PostFcn *postFcn, SVec<double,3> &X,
+  void computeDerivativeOperatorsOfNodalForce(ElemSet *elems, PostFcn *postFcn, SVec<double,3> &X,
                           SVec<double,dim> &V, double pin, double* gradP[3],
                           RectangularSparseMat<double,3,3> &dForcedX,
                           RectangularSparseMat<double,3,3> &dForcedGradP,
@@ -1020,6 +1111,37 @@ public:
 
     fprintf(stderr, "Error: undefined function (computeDerivativeOfForceAndMoment) for this face type\n"); exit(1);
   }
+  /*
+    template<int dim>
+    void computeDerivativeOfForceAndMoment2(ElemSet &elems, PostFcn *postFcn,
+                                               SVec<double,3> &X, SVec<double,3> &dX,
+                                               Vec<double> &d2wall, double *Vwall, double *dVwall,
+                                               SVec<double,dim> &V, SVec<double,dim> &dV, double dS[3],
+                                               Vec3D &x0, Vec3D &dFi, Vec3D &dMi, Vec3D &dFv, Vec3D &dMv,
+  				             double* gradP[3], double* dGradP[3], int hydro) {
+
+      fprintf(stderr, "Error: undefined function (computeDerivativeOfForceAndMoment2) for this face type\n"); exit(1);
+    }
+  */
+  template<int dim>
+  void computeDerivativeOperatorsOfForceAndMoment(ElemSet &elems, PostFcn *postFcn, SVec<double,3> &X,
+                                                  Vec<double> &d2wall, double *Vwall, SVec<double,dim> &V, Vec3D &x0,
+                                                  double* gradP[3], int hydro,
+                                                  RectangularSparseMat<double,3,3> &dFidGradP,
+                                                  RectangularSparseMat<double,3,3> &dFidX,
+                                                  RectangularSparseMat<double,dim,3> &dFidV,
+                                                  RectangularSparseMat<double,3,3> &dFvdX,
+                                                  RectangularSparseMat<double,dim,3> &dFvdV,
+                                                  RectangularSparseMat<double,3,3> &dFidS,
+                                                  RectangularSparseMat<double,3,3> &dMidGradP,
+                                                  RectangularSparseMat<double,3,3> &dMidX,
+                                                  RectangularSparseMat<double,dim,3> &dMidV,
+                                                  RectangularSparseMat<double,3,3> &dMidS,
+                                                  RectangularSparseMat<double,3,3> &dMvdX,
+                                                  RectangularSparseMat<double,dim,3> &dMvdV) {
+    fprintf(stderr, "Error: undefined function (computeDerivativeOperatorsOfForceAndMoment) for this face type\n"); exit(1);
+  }
+
 
   template<int dim>
   void computeDerivativeOfGalerkinTerm(ElemSet &elems, FemEquationTerm *fet, SVec<double,3> &X, SVec<double,3> &dX,
