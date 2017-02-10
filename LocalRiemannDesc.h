@@ -3906,9 +3906,9 @@ class LocalRiemannActuatorDisk : public LocalRiemann {
   }
 
 
-  int computeRiemannSolution(double *Vi, double *Vj,
+  int computeRiemannSolution(double *Vi, double *Vj,double dp,
 			     double *n_s, double *n_f, VarFcn *vf,
-			     int it, double *Wi, double *Wj,int Id);
+			     int it, double *Wi, double *Wj,int Id = 0);
 
 
 
@@ -3937,16 +3937,16 @@ class LocalRiemannActuatorDisk : public LocalRiemann {
 
 template<int dim>
 inline
-int LocalRiemannActuatorDisk<dim>::computeRiemannSolution(double *Vi, double *Vj,
+int LocalRiemannActuatorDisk<dim>::computeRiemannSolution(double *Vi, double *Vj,double dp,
                                                           double *n_s, double *n_f, VarFcn *vf,
-                                                          int it, double *Wi, double *Wj,int Id) {
+                                                          int it, double *W_Ri, double *W_Rj,int Id) {
 
   //---------------------------------------------------------------
 
-  double vni = Vi[1] * n_s[0] + Vi[2] * n_s[1] + Vi[3] * n_s[2]; //normal velocity of node i
-  double vti[3] = {Vi[1] - vni * n_s[0], Vi[2] - vni * n_s[1], Vi[3] - vni * n_s[2]}; // tangential velocity of node i
-  double vnj = Vj[1] * n_s[0] + Vj[2] * n_s[1] + Vj[3] * n_s[2]; //normal velocity of node j
-  double vtj[3] = {Vj[1] - vnj * n_s[0], Vi[2] - vni * n_s[1], Vi[3] - vni * n_s[2]}; // tangential velocity of node j
+  double v_ni = Vi[1] * n_s[0] + Vi[2] * n_s[1] + Vi[3] * n_s[2]; //normal velocity of node i
+  double v_ti[3] = {Vi[1] - v_ni * n_s[0], Vi[2] - v_ni * n_s[1], Vi[3] - v_ni * n_s[2]}; // tangential velocity of node i
+  double v_nj = Vj[1] * n_s[0] + Vj[2] * n_s[1] + Vj[3] * n_s[2]; //normal velocity of node j
+  double v_tj[3] = {Vj[1] - v_nj * n_s[0], Vi[2] - v_ni * n_s[1], Vi[3] - v_ni * n_s[2]}; // tangential velocity of node j
 
 
   double rc = vf->getVarFcnBase(Id)->rhomin;
@@ -3956,17 +3956,17 @@ int LocalRiemannActuatorDisk<dim>::computeRiemannSolution(double *Vi, double *Vj
   double rho_l,v_l,p_l,rho_r,v_r,p_r,rho_a,v_a,p_a;//project to 1D ,upstream fluid states *_l, downstream fluid states *_r, actuator disk upstream states *_a;  
   if (iIsUpstream) { //  l  -> +dp r
     rho_l = std::max(rc, Vi[0]);
-    v_l = vni;
+    v_l = v_ni;
     p_l = std::max(pc, vf->getPressure(Vi, Id));
     rho_r = std::max(rc, Vj[0]);
-    v_r = vnj;
+    v_r = v_nj;
     p_r = std::max(pc, vf->getPressure(Vj, Id));
   } else {
     rho_l = std::max(rc, Vj[0]);
-    v_l = vnj;
+    v_l = v_nj;
     p_l = std::max(pc, vf->getPressure(Vj, Id));
     rho_r = std::max(rc, Vi[0]);
-    v_r = vni;
+    v_r = v_ni;
     p_r = std::max(pc, vf->getPressure(Vi, Id));
   }
 
@@ -4036,7 +4036,7 @@ void LocalRiemannActuatorDisk<dim>::riemannActuatorDisk(double rho_l, double v_l
   double gamma = vf->getGamma(Id);
   double pref  = vf->getPressureConstant(Id);
   double v_m, p_m, rho_ml, rho_mr;
-  M_l = v_l/np.sqrt(gamma*p_l/rho_l);
+  double M_l = v_l/sqrt(gamma*p_l/rho_l);
   if(M_l >= 0){
     if(M_l <= 1.0){ // first wave, actuator disk, contact wave,  third wave
       // rho_l ,      rho_a,          rho_a=rho_ml   rho_mr         rho_r
@@ -4052,7 +4052,7 @@ void LocalRiemannActuatorDisk<dim>::riemannActuatorDisk(double rho_l, double v_l
       // rho_a=rho_l,   rho_a,      rho_ml   rho_mr         rho_r
       // v_a=v_l        v_a           v_ml     v_mr           v_r 
       // p_a=p_l        p_a+dp        p_ml     p_mr           p_r
-      err + = solveContactDiscontinuity(rho_l, v_l, p_l+dp, rho_r,v_r,p_r, 0,0,gamma, v_m,p_m);
+      err += solveContactDiscontinuity(rho_l, v_l, p_l+dp, rho_r,v_r,p_r, 0,0,gamma, v_m,p_m);
       checkSolution(rho_l, v_l, p_l + dp, rho_r, v_r, p_r,v_m, p_m,0 ,0,gamma, rho_mr, rho_ml);
       rho_a = rho_l;
       v_a = v_l;
@@ -4097,7 +4097,7 @@ void LocalRiemannActuatorDisk<dim>::pressureFunction(double p, double rho_k, dou
   } else {  // rarefaction
 
 
-    f_k = 2 * a_k / (gamma - 1) * ( pow(p / p_r, (gamma - 1) / (2 * gamma)) - 1);
+    f_k = 2 * a_k / (gamma - 1) * ( pow(p / p_k, (gamma - 1) / (2 * gamma)) - 1);
 
     df_k = 1 / (rho_k * a_k) * pow(p / p_k, -(gamma + 1) / (2 * gamma));
   }
@@ -4118,8 +4118,8 @@ int LocalRiemannActuatorDisk<dim>::solveContactDiscontinuity(double rho_l, doubl
 
   int MAX_ITE = 100;
   double TOLERANCE = 1.0e-12;
-  bool found = False;
-
+  bool found = false;
+  double f_l,df_l,f_r,df_r;
 
 
   double d_v = v_r - v_l;
@@ -4170,7 +4170,7 @@ void LocalRiemannActuatorDisk<dim>::checkSolution(double rho_l, double v_l, doub
   double a_l = sqrt(gamma * p_l / rho_l), a_r = sqrt(gamma * p_r / rho_r); //sound speed 
 
   //Left side
-  p_ml = p_m + dpl;
+  double p_ml = p_m + dp_l;
   if (p_ml < p_l) { // left rarefaction wave
     double s_l = v_l - a_l;
     double a_ml = a_l * pow(p_ml / p_l, (gamma - 1) / (2 * gamma));
@@ -4189,7 +4189,7 @@ void LocalRiemannActuatorDisk<dim>::checkSolution(double rho_l, double v_l, doub
   if (p_mr < p_r) { // right rarefaction wave
 
     double s_r = v_r + a_r;
-    double a_mr = a_r * (p_mr / p_r) * *((gamma - 1) / (2 * gamma));
+    double a_mr = a_r * pow(p_mr / p_r, (gamma - 1) / (2 * gamma));
     double s_mr = v_m + a_mr;
     rho_mr = rho_r * pow(p_mr / p_r, 1 / gamma);
     if(DEBUG)
@@ -4197,7 +4197,7 @@ void LocalRiemannActuatorDisk<dim>::checkSolution(double rho_l, double v_l, doub
   }
 
   else {   //right shock wave
-    double s_shock = v_r + a_r * np.sqrt((gamma + 1) * p_mr / (2 * gamma * p_r) + (gamma - 1) / (2 * gamma));
+    double s_shock = v_r + a_r * sqrt((gamma + 1) * p_mr / (2 * gamma * p_r) + (gamma - 1) / (2 * gamma));
     rho_mr = rho_r * (p_mr / p_r + (gamma - 1) / (gamma + 1)) / ((gamma - 1) * p_mr / ((gamma + 1) * p_r) + 1);
     if(DEBUG)
       fprintf(stderr,"right shock, velocity s_shock_r is %f\n" ,s_shock);
