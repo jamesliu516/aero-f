@@ -35,8 +35,8 @@ using std::min;
 template<int dim>
 inline
 void extendedLinearExtrapolationToIntersection(ElemSet& elems, int idxTet, int idxFace,
-		double face_r, double face_t, SVec<double,3>& X, SVec<double,dim>& V, double* Wstar,
-		double alpha, double length, int i) {
+    double face_r, double face_t, SVec<double,3>& X, SVec<double,dim>& V, double* Wstar,
+    double alpha, double length, int i) {
   int n0_loc = elems[idxTet].faceDef(idxFace, 0);
   int n1_loc = elems[idxTet].faceDef(idxFace, 1);
   int n2_loc = elems[idxTet].faceDef(idxFace, 2);
@@ -52,8 +52,8 @@ void extendedLinearExtrapolationToIntersection(ElemSet& elems, int idxTet, int i
   for (int k=0; k<3; ++k)
     Xface[k] = X[n2][k]+face_r*(X[n0][k]-X[n2][k])+face_t*(X[n1][k]-X[n2][k]);
   double alpha_f = sqrt((Xface[0]-X[i][0])*(Xface[0]-X[i][0])+
-				   		(Xface[1]-X[i][1])*(Xface[1]-X[i][1])+
-				   		(Xface[2]-X[i][2])*(Xface[2]-X[i][2]))/length;
+               (Xface[1]-X[i][1])*(Xface[1]-X[i][1])+
+               (Xface[2]-X[i][2])*(Xface[2]-X[i][2]))/length;
   for (int k=0; k<dim; ++k)
     Wstar[k] = Wstar[k]+((0.5-alpha)/(1.0+alpha_f-alpha))*(Vface[k]-Wstar[k]);
   return;
@@ -86,7 +86,7 @@ hasIntersection(Elem& elem, LevelSetStructure& LSS) {
 template<int dim>
 void EdgeSet::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &geoState,
                               SVec<double,3> &X, SVec<double,dim> &V,
-			      Vec<double> &idti, Vec<double> &idtv,
+            Vec<double> &idti, Vec<double> &idtv,
                               TimeLowMachPrec &tprec, LevelSetStructure* lss)
 {
 
@@ -97,18 +97,18 @@ void EdgeSet::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &ge
   Vec<double> &normalVel = geoState.getEdgeNormalVel();
   double locbeta=0.0;
 
-	for(int l=0; l<numEdges; ++l)
-	{
+  for(int l=0; l<numEdges; ++l)
+  {
     if (!masterFlag[l]) continue;
 
     int i = ptr[l][0];
     int j = ptr[l][1];
 /*
-		if(lss)
-		{
-			if(lss->edgeIntersectsStructure(0,l)) continue;
-			if(!lss->isActive(0.0,i) || !lss->isActive(0.0,j)) continue;
-		}
+    if(lss)
+    {
+      if(lss->edgeIntersectsStructure(0,l)) continue;
+      if(!lss->isActive(0.0,i) || !lss->isActive(0.0,j)) continue;
+    }
 */
     double S = sqrt(normal[l] * normal[l]);
     double invS = 1.0 / S;
@@ -116,8 +116,8 @@ void EdgeSet::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &ge
     Vec3D n = invS * normal[l];
     double ndot = invS * normalVel[l];
 
-		for (int k=0; k<dim; ++k) Vmid[k] = 0.5*(V[i][k] + V[j][k]);
-		for (int k=0; k<3;   k++) Xmid[k] = 0.5*(X[i][k] + X[j][k]);
+    for (int k=0; k<dim; ++k) Vmid[k] = 0.5*(V[i][k] + V[j][k]);
+    for (int k=0; k<3;   k++) Xmid[k] = 0.5*(X[i][k] + X[j][k]);
 
     Vec3D u = varFcn->getVelocity(Vmid);
     double a = varFcn->computeSoundSpeed(Vmid);
@@ -285,7 +285,7 @@ template<int dim>
 void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
                               SVec<double,dim> &V, Vec<double> &dt,
                               TimeLowMachPrec &tprec, Vec<int> &fluidId, int subnum,
-			      Vec<double>* umax)
+            Vec<double>* umax)
 {
   double Vmid[dim];
   double S, invS, ndot;
@@ -345,7 +345,7 @@ void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
       dt[i] += min(0.5*(coeff1-coeff2), 0.0) * S;
 
       if (umax)
-	(*umax)[i] += min(un,-1.0e-12)*S;
+  (*umax)[i] += min(un,-1.0e-12)*S;
 
       u = varFcn->getVelocity(V[j]);
       a = varFcn->computeSoundSpeed(V[j], fluidId[j]);
@@ -386,10 +386,10 @@ int EdgeSet::computeFiniteVolumeTerm(int* locToGlobNodeMap, Vec<double> &irey, F
   double edgeirey, length;
 
   int ierr = 0;
-	int l;
+  int l;
 
   for (int iEdge=0; iEdge<numSampledEdges; ++iEdge) {
-		l = sampleMesh ? edgesConnectedToSampleNode[iEdge]: iEdge;
+    l = sampleMesh ? edgesConnectedToSampleNode[iEdge]: iEdge;
 
     if (!masterFlag[l]) continue;
 
@@ -576,7 +576,7 @@ int EdgeSet::computeThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeMap,
 
       double ft = fluxl[k][0]*normal[l][0]+fluxl[k][1]*normal[l][1]+fluxl[k][2]*normal[l][2];
       if (write) {
-	std::cout << k << " " << ft << " " << fluxes[i][k] << " ";
+  std::cout << k << " " << ft << " " << fluxes[i][k] << " ";
       }
       //ft *= 100.0;
       fluxes[i][k] -= ft;
@@ -852,14 +852,14 @@ int EdgeSet::computeJacobianThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeM
 template<int dim>
 int EdgeSet::
 computeViscousFiniteVolumeTerm(int* locToGlobNodeMap,
-			       VarFcn* varFcn,
-			       FemEquationTerm *fet,
-			       GeoState& geoState, SVec<double,3>& X,
-			       SVec<double,dim>& V,
-			       SVec<double,dim> &dX,
-			       SVec<double,dim> &dY,
-			       SVec<double,dim> &dZ,
-			       SVec<double,dim>& fluxes,
+             VarFcn* varFcn,
+             FemEquationTerm *fet,
+             GeoState& geoState, SVec<double,3>& X,
+             SVec<double,dim>& V,
+             SVec<double,dim> &dX,
+             SVec<double,dim> &dY,
+             SVec<double,dim> &dZ,
+             SVec<double,dim>& fluxes,
                                LevelSetStructure* lss) {
 
   Vec<Vec3D>& normal = geoState.getEdgeNormal();
@@ -968,9 +968,9 @@ computeViscousFiniteVolumeTerm(int* locToGlobNodeMap,
         dmid[k][2] -= dot*xhat[2];
 
         if (k >= 1 && k <= 3) {
-  	  dudxj[k-1][0] = dmid[k][0];
-	  dudxj[k-1][1] = dmid[k][1];
-	  dudxj[k-1][2] = dmid[k][2];
+      dudxj[k-1][0] = dmid[k][0];
+    dudxj[k-1][1] = dmid[k][1];
+    dudxj[k-1][2] = dmid[k][2];
         }
       }
       double tij[3][3];
@@ -992,7 +992,7 @@ computeViscousFiniteVolumeTerm(int* locToGlobNodeMap,
 
         for (int k = 0; k < dim; ++k) {
 
-	  dTdxj[m] += Tg[k]*dmid[k][m];
+    dTdxj[m] += Tg[k]*dmid[k][m];
         }
       }
 
@@ -1024,22 +1024,22 @@ computeViscousFiniteVolumeTerm(int* locToGlobNodeMap,
       }
     } else if (lss->isActive(0.0,i)) {
       for (int k = 0; k < dim; ++k) {
-	dmid[k][0] = dX[i][k];
-	dmid[k][1] = dY[i][k];
-	dmid[k][2] = dZ[i][k];
+  dmid[k][0] = dX[i][k];
+  dmid[k][1] = dY[i][k];
+  dmid[k][2] = dZ[i][k];
 
-	dot = dmid[k][0]*xhat[0]+dmid[k][1]*xhat[1]+dmid[k][2]*xhat[2];
-	if (k >= 1 && k <= 3)
-	  dot += 2.0*V[i][k]/length;
+  dot = dmid[k][0]*xhat[0]+dmid[k][1]*xhat[1]+dmid[k][2]*xhat[2];
+  if (k >= 1 && k <= 3)
+    dot += 2.0*V[i][k]/length;
 
-	dmid[k][0] -= dot*xhat[0];
-	dmid[k][1] -= dot*xhat[1];
-	dmid[k][2] -= dot*xhat[2];
+  dmid[k][0] -= dot*xhat[0];
+  dmid[k][1] -= dot*xhat[1];
+  dmid[k][2] -= dot*xhat[2];
 
         if (k >= 1 && k <= 3) {
-  	  dudxj[k-1][0] = dmid[k][0];
-	  dudxj[k-1][1] = dmid[k][1];
-	  dudxj[k-1][2] = dmid[k][2];
+      dudxj[k-1][0] = dmid[k][0];
+    dudxj[k-1][1] = dmid[k][1];
+    dudxj[k-1][2] = dmid[k][2];
         }
       }
       double tij[3][3];
@@ -1061,7 +1061,7 @@ computeViscousFiniteVolumeTerm(int* locToGlobNodeMap,
 
         for (int k = 0; k < dim; ++k) {
 
-	  dTdxj[m] += Tg[k]*dmid[k][m];
+    dTdxj[m] += Tg[k]*dmid[k][m];
         }
       }
 
@@ -1105,9 +1105,9 @@ computeViscousFiniteVolumeTerm(int* locToGlobNodeMap,
         dmid[k][2] -= dot*xhat[2];
 
         if (k >= 1 && k <= 3) {
-  	  dudxj[k-1][0] = dmid[k][0];
-	  dudxj[k-1][1] = dmid[k][1];
-	  dudxj[k-1][2] = dmid[k][2];
+      dudxj[k-1][0] = dmid[k][0];
+    dudxj[k-1][1] = dmid[k][1];
+    dudxj[k-1][2] = dmid[k][2];
         }
       }
       double tij[3][3];
@@ -1129,7 +1129,7 @@ computeViscousFiniteVolumeTerm(int* locToGlobNodeMap,
 
         for (int k = 0; k < dim; ++k) {
 
-	  dTdxj[m] += Tg[k]*dmid[k][m];
+    dTdxj[m] += Tg[k]*dmid[k][m];
         }
       }
 
@@ -1167,14 +1167,14 @@ computeViscousFiniteVolumeTerm(int* locToGlobNodeMap,
 template<int dim>
 int EdgeSet::
 computeJacobianViscousFiniteVolumeTerm(int* locToGlobNodeMap,
-				       VarFcn* varFcn,
-				       FemEquationTerm *fet,
-				       GeoState& geoState, SVec<double,3>& X,
-				       SVec<double,dim>& V,
-				       SVec<double,dim> &dX,
-				       SVec<double,dim> &dY,
-				       SVec<double,dim> &dZ,
-				       SVec<double,dim>& fluxes) {
+               VarFcn* varFcn,
+               FemEquationTerm *fet,
+               GeoState& geoState, SVec<double,3>& X,
+               SVec<double,dim>& V,
+               SVec<double,dim> &dX,
+               SVec<double,dim> &dY,
+               SVec<double,dim> &dZ,
+               SVec<double,dim>& fluxes) {
 
   Vec<Vec3D>& normal = geoState.getEdgeNormal();
   Vec<double>& normalVel = geoState.getEdgeNormalVel();
@@ -1281,9 +1281,9 @@ computeJacobianViscousFiniteVolumeTerm(int* locToGlobNodeMap,
       dmid[k][2] -= dx[2];
 
       if (k >= 1 && k <= 3) {
-	dudxj[k][0] = dmid[k][0];
-	dudxj[k][1] = dmid[k][1];
-	dudxj[k][2] = dmid[k][2];
+  dudxj[k][0] = dmid[k][0];
+  dudxj[k][1] = dmid[k][1];
+  dudxj[k][2] = dmid[k][2];
       }
     }
     double tij[3][3];
@@ -1305,7 +1305,7 @@ computeJacobianViscousFiniteVolumeTerm(int* locToGlobNodeMap,
 
       for (int k = 0; k < dim; ++k) {
 
-	dTdxj[m] += Tg[k]*dmid[k][m];
+  dTdxj[m] += Tg[k]*dmid[k][m];
       }
     }
 
@@ -1344,10 +1344,10 @@ computeJacobianViscousFiniteVolumeTerm(int* locToGlobNodeMap,
 
 template<int dim>
 int EdgeSet::computeFiniteVolumeTermRestrict(int* locToGlobNodeMap, Vec<double>
-		&irey, FluxFcn** fluxFcn, RecFcn* recFcn, ElemSet& elems, GeoState&
-		geoState, SVec<double,3>& X, SVec<double,dim>& V, NodalGrad<dim>& ngrad,
-		EdgeGrad<dim>* egrad, SVec<double,dim>& fluxes, SVec<int,2>& tag, int
-		failsafe, int rshift)
+    &irey, FluxFcn** fluxFcn, RecFcn* recFcn, ElemSet& elems, GeoState&
+    geoState, SVec<double,3>& X, SVec<double,dim>& V, NodalGrad<dim>& ngrad,
+    EdgeGrad<dim>* egrad, SVec<double,dim>& fluxes, SVec<int,2>& tag, int
+    failsafe, int rshift)
 {
 
   Vec<Vec3D>& normal = geoState.getEdgeNormal();
@@ -1362,9 +1362,9 @@ int EdgeSet::computeFiniteVolumeTermRestrict(int* locToGlobNodeMap, Vec<double>
 
   int ierr = 0;
 
-	int l;
+  int l;
   for (int iSampledEdge=0; iSampledEdge<edgesConnectedToSampleNode.size(); ++iSampledEdge) {	//TODO: only some edges
-		l = edgesConnectedToSampleNode[iSampledEdge];
+    l = edgesConnectedToSampleNode[iSampledEdge];
 
     if (!masterFlag[l]) continue;
 
@@ -1715,11 +1715,11 @@ void EdgeSet::computeDerivativeOperatorsOfFiniteVolumeTerm(Vec<double> &irey, Ve
 //------------------------------------------------------------------------------
 template<int dim>
 void EdgeSet::computeDerivativeOfFiniteVolumeTerm(FluxFcn** fluxFcn, RecFcn* recFcn,
-						  GeoState& geoState, SVec<double,3>& X, LevelSetStructure &LSS,
-						  bool linRecAtInterface, Vec<int> &fluidId,
-						  ExactRiemannSolver<dim>& riemann, int Nriemann,
-						  NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
-						  double dMach, SVec<double,dim>& V, SVec<double,dim>& dFluxes)
+              GeoState& geoState, SVec<double,3>& X, LevelSetStructure &LSS,
+              bool linRecAtInterface, Vec<int> &fluidId,
+              ExactRiemannSolver<dim>& riemann, int Nriemann,
+              NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
+              double dMach, SVec<double,dim>& V, SVec<double,dim>& dFluxes)
 {
 
   Vec<Vec3D>     &edgeNorm = geoState.getEdgeNormal();
@@ -1785,102 +1785,102 @@ void EdgeSet::computeDerivativeOfFiniteVolumeTerm(FluxFcn** fluxFcn, RecFcn* rec
 
       if(iActive) {
 
-	LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true, X[i], X[j]);
+  LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true, X[i], X[j]);
 
-	da_ds = resij.dads;
+  da_ds = resij.dads;
 
-	switch (Nriemann) {
-	case 0: //structure normal
-	  d_gradPhi = dx[0]*resij.gradPhi[0]+dx[1]*resij.gradPhi[1]+dx[2]*resij.gradPhi[2];
-	  normalDir = (d_gradPhi>=0.0) ? -1.0*resij.gradPhi : resij.gradPhi;
+  switch (Nriemann) {
+  case 0: //structure normal
+    d_gradPhi = dx[0]*resij.gradPhi[0]+dx[1]*resij.gradPhi[1]+dx[2]*resij.gradPhi[2];
+    normalDir = (d_gradPhi>=0.0) ? -1.0*resij.gradPhi : resij.gradPhi;
                dndS = (d_gradPhi>=0.0) ? -1.0*resij.dnds    : resij.dnds;
-	  break;
-	case 1: //fluid normal
-	  normalDir = -1.0/(edgeNorm[l].norm())*edgeNorm[l];
-       	       dndS = 0.0;
-	  break;
-	default:
-	  fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
-	  exit(-1);
-	}
+    break;
+  case 1: //fluid normal
+    normalDir = -1.0/(edgeNorm[l].norm())*edgeNorm[l];
+                dndS = 0.0;
+    break;
+  default:
+    fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
+    exit(-1);
+  }
 
-	for (k=0; k<dim; ++k) dVdS_t[k] = 0.0;
+  for (k=0; k<dim; ++k) dVdS_t[k] = 0.0;
 
-	//*************************************
-	if (higherOrderFSI) {
+  //*************************************
+  if (higherOrderFSI) {
 
-	  double ri[dim];
-	  higherOrderFSI->estimateR(l, 0, i, V, ngrad, X, fluidId, ri);
-	  for (k = 0; k < dim; ++k) betai[k] = 1.0;
+    double ri[dim];
+    higherOrderFSI->estimateR(l, 0, i, V, ngrad, X, fluidId, ri);
+    for (k = 0; k < dim; ++k) betai[k] = 1.0;
 
-	  if (higherOrderFSI->limitExtrapolation()) {
-	    if (V[i][1]*dx[0]+V[i][2]*dx[1]+V[i][3]*dx[2] < 0.0) {
-	      for (k = 0; k < dim; ++k) {
-		betai[k] = std::min<double>(betai[k],ri[k]);
-	      }
-	    }
-	  }
+    if (higherOrderFSI->limitExtrapolation()) {
+      if (V[i][1]*dx[0]+V[i][2]*dx[1]+V[i][3]*dx[2] < 0.0) {
+        for (k = 0; k < dim; ++k) {
+    betai[k] = std::min<double>(betai[k],ri[k]);
+        }
+      }
+    }
 
-	  for (k=0; k<dim; ++k){
-	    Vi[k] = V[i][k] + (1.0 - resij.alpha)*ddVij[k]*betai[k];
-	    dVdS_t[k] = -da_ds*ddVij[k]*betai[k];
-	  }
+    for (k=0; k<dim; ++k){
+      Vi[k] = V[i][k] + (1.0 - resij.alpha)*ddVij[k]*betai[k];
+      dVdS_t[k] = -da_ds*ddVij[k]*betai[k];
+    }
 
-	}
-	//*************************************
+  }
+  //*************************************
 
-	riemann.computeFSIRiemannSolution(  Vi, resij.normVel, normalDir, varFcn, Vstar, j,        fluidId[i]);
-	riemann.computeFSIRiemannJacobian(  Vi, resij.normVel, normalDir, varFcn, Vstar, j, dVsdV, fluidId[i]);
-	riemann.computeFSIRiemannderivative(Vi, resij.normVel, normalDir, varFcn, Vstar, j, dVsdn, fluidId[i]);
+  riemann.computeFSIRiemannSolution(  Vi, resij.normVel, normalDir, varFcn, Vstar, j,        fluidId[i]);
+  riemann.computeFSIRiemannJacobian(  Vi, resij.normVel, normalDir, varFcn, Vstar, j, dVsdV, fluidId[i]);
+  riemann.computeFSIRiemannderivative(Vi, resij.normVel, normalDir, varFcn, Vstar, j, dVsdn, fluidId[i]);
 
-	for (k=0; k<dim; ++k) dVsdS_t[k] = 0.0;
-	for (k=0; k<dim; ++k) {
-	  for(int id=0; id<3; ++id){
-	    dVsdS_t[k] += dVsdn[k*3+id]*dndS[id];
-	  }
-	}
+  for (k=0; k<dim; ++k) dVsdS_t[k] = 0.0;
+  for (k=0; k<dim; ++k) {
+    for(int id=0; id<3; ++id){
+      dVsdS_t[k] += dVsdn[k*3+id]*dndS[id];
+    }
+  }
 
-	//*************************************
-	if (higherOrderFSI) {
+  //*************************************
+  if (higherOrderFSI) {
 
-	  DenseMatrixOp<double, dim, dim*dim>::applyToVector(&dVsdV, 0, &dVdS_t, 0, &dFlux, 0);
-	  for (k=0; k<dim; ++k) dVsdS_t[k] += dFlux[k];
+    DenseMatrixOp<double, dim, dim*dim>::applyToVector(&dVsdV, 0, &dVdS_t, 0, &dFlux, 0);
+    for (k=0; k<dim; ++k) dVsdS_t[k] += dFlux[k];
 
-	  higherOrderFSI->derivativeofHOFSI(l, 0, i, V,
-					    Vi, Vstar, dVdS_t, dVsdS_t,
-					    X, resij.alpha, da_ds,
-					    length, fluidId, betai,
-					    dVdS, dVsdS);
+    higherOrderFSI->derivativeofHOFSI(l, 0, i, V,
+              Vi, Vstar, dVdS_t, dVsdS_t,
+              X, resij.alpha, da_ds,
+              length, fluidId, betai,
+              dVdS, dVsdS);
 
-	  V6NodeData (*v6data)[2] = higherOrderFSI->getV6Data();
+    V6NodeData (*v6data)[2] = higherOrderFSI->getV6Data();
 
-	  if (v6data == NULL) {
-	    for (k=0; k<dim; k++) {
-	      Vstar[k] = V[i][k] + (0.5/max(1.0-resij.alpha, alpha_lim))*(Vstar[k] - V[i][k]);
-	    }
-	  }else {
-	    higherOrderFSI->extrapolateV6(l, 0, i, V, Vi, Vstar, X, resij.alpha, length, fluidId, betai);
-	  }
+    if (v6data == NULL) {
+      for (k=0; k<dim; k++) {
+        Vstar[k] = V[i][k] + (0.5/max(1.0-resij.alpha, alpha_lim))*(Vstar[k] - V[i][k]);
+      }
+    }else {
+      higherOrderFSI->extrapolateV6(l, 0, i, V, Vi, Vstar, X, resij.alpha, length, fluidId, betai);
+    }
 
-	} else {
+  } else {
 
-	  for (k=0; k<dim; ++k) {
-	    dVsdS[k] = dVsdS_t[k];
-	     dVdS[k] = 0.0;
-	  }
+    for (k=0; k<dim; ++k) {
+      dVsdS[k] = dVsdS_t[k];
+       dVdS[k] = 0.0;
+    }
 
-	}
-	//*************************************
+  }
+  //*************************************
 
-	fluxFcn[BC_INTERNAL]->computeJacobians(1.0, 0.0, edgeNorm[l], edgeNormVel[l], Vi, Vstar, dfdUi, dfdUj);
+  fluxFcn[BC_INTERNAL]->computeJacobians(1.0, 0.0, edgeNorm[l], edgeNormVel[l], Vi, Vstar, dfdUi, dfdUj);
 
-	fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[i])->getVarFcnBase()->postMultiplyBydUdV(Vstar, dfdUj, dfdV);
-	DenseMatrixOp<double, dim, dim*dim>::applyToVector(&dfdV, 0, &dVsdS, 0, &dFlux1, 0);
+  fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[i])->getVarFcnBase()->postMultiplyBydUdV(Vstar, dfdUj, dfdV);
+  DenseMatrixOp<double, dim, dim*dim>::applyToVector(&dfdV, 0, &dVsdS, 0, &dFlux1, 0);
 
-	fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[i])->getVarFcnBase()->postMultiplyBydUdV(Vi, dfdUi, dfdV);
-	DenseMatrixOp<double, dim, dim*dim>::applyToVector(&dfdV, 0, &dVdS, 0, &dFlux2, 0);
+  fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[i])->getVarFcnBase()->postMultiplyBydUdV(Vi, dfdUi, dfdV);
+  DenseMatrixOp<double, dim, dim*dim>::applyToVector(&dfdV, 0, &dVdS, 0, &dFlux2, 0);
 
-	for (k=0; k<dim; ++k) dFluxes[i][k] += (dFlux1[k] + dFlux2[k]);
+  for (k=0; k<dim; ++k) dFluxes[i][k] += (dFlux1[k] + dFlux2[k]);
 
       }
 
@@ -1888,100 +1888,100 @@ void EdgeSet::computeDerivativeOfFiniteVolumeTerm(FluxFcn** fluxFcn, RecFcn* rec
 
         LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false, X[j], X[i]);
 
-	da_ds = resji.dads;
+  da_ds = resji.dads;
 
-	switch (Nriemann) {
-	case 0: //structure normal
-	  d_gradPhi = dx[0]*resji.gradPhi[0]+dx[1]*resji.gradPhi[1]+dx[2]*resji.gradPhi[2];
-	  normalDir = (d_gradPhi>=0.0) ? resji.gradPhi : -1.0*resji.gradPhi;
+  switch (Nriemann) {
+  case 0: //structure normal
+    d_gradPhi = dx[0]*resji.gradPhi[0]+dx[1]*resji.gradPhi[1]+dx[2]*resji.gradPhi[2];
+    normalDir = (d_gradPhi>=0.0) ? resji.gradPhi : -1.0*resji.gradPhi;
                dndS = (d_gradPhi>=0.0) ? resji.dnds    : -1.0*resji.dnds;
-	  break;
-	case 1: //fluid normal
-	  normalDir = 1.0/(edgeNorm[l].norm())*edgeNorm[l];
+    break;
+  case 1: //fluid normal
+    normalDir = 1.0/(edgeNorm[l].norm())*edgeNorm[l];
                dndS = 0.0;
-	  break;
-	default:
-	  fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
-	  exit(-1);
+    break;
+  default:
+    fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
+    exit(-1);
         }
 
-	for (k=0; k<dim; ++k) dVdS_t[k] = 0.0;
+  for (k=0; k<dim; ++k) dVdS_t[k] = 0.0;
 
-	//*************************************
-	if (higherOrderFSI) {
+  //*************************************
+  if (higherOrderFSI) {
 
-	  double rj[dim];
-	  higherOrderFSI->estimateR(l, 1, j, V, ngrad, X, fluidId, rj);
+    double rj[dim];
+    higherOrderFSI->estimateR(l, 1, j, V, ngrad, X, fluidId, rj);
 
-	  for (k = 0; k < dim; ++k) betaj[k] = 1.0;
-	  if (higherOrderFSI->limitExtrapolation()) {
-	    if (V[j][1]*dx[0]+V[j][2]*dx[1]+V[j][3]*dx[2] > 0.0) {
-	      for (k = 0; k < dim; ++k) {
-		betaj[k] = std::min<double>(betaj[k],rj[k]);
-	      }
-	    }
-	  }
+    for (k = 0; k < dim; ++k) betaj[k] = 1.0;
+    if (higherOrderFSI->limitExtrapolation()) {
+      if (V[j][1]*dx[0]+V[j][2]*dx[1]+V[j][3]*dx[2] > 0.0) {
+        for (k = 0; k < dim; ++k) {
+    betaj[k] = std::min<double>(betaj[k],rj[k]);
+        }
+      }
+    }
 
-	  for (k=0; k<dim; ++k) {
-	    Vj[k] = V[j][k] - (1.0 - resji.alpha)*ddVji[k]*betaj[k];
-	    dVdS_t[k] = da_ds*ddVji[k]*betaj[k];
-	  }
+    for (k=0; k<dim; ++k) {
+      Vj[k] = V[j][k] - (1.0 - resji.alpha)*ddVji[k]*betaj[k];
+      dVdS_t[k] = da_ds*ddVji[k]*betaj[k];
+    }
 
-	}
-	//*************************************
+  }
+  //*************************************
 
-	riemann.computeFSIRiemannSolution(  Vj, resji.normVel, normalDir, varFcn, Vstar, i,        fluidId[j]);
-	riemann.computeFSIRiemannderivative(Vj, resji.normVel, normalDir, varFcn, Vstar, i, dVsdn, fluidId[j]);
-	riemann.computeFSIRiemannJacobian(  Vj, resji.normVel, normalDir, varFcn, Vstar, i, dVsdV, fluidId[j]);
+  riemann.computeFSIRiemannSolution(  Vj, resji.normVel, normalDir, varFcn, Vstar, i,        fluidId[j]);
+  riemann.computeFSIRiemannderivative(Vj, resji.normVel, normalDir, varFcn, Vstar, i, dVsdn, fluidId[j]);
+  riemann.computeFSIRiemannJacobian(  Vj, resji.normVel, normalDir, varFcn, Vstar, i, dVsdV, fluidId[j]);
 
-	for (k=0; k<dim; ++k) dVsdS_t[k] = 0.0;
-	for (k=0; k<dim; ++k) {
-	  for(int id=0; id<3; ++id){
-	    dVsdS_t[k] += dVsdn[k*3+id]*dndS[id];
-	  }
-	}
+  for (k=0; k<dim; ++k) dVsdS_t[k] = 0.0;
+  for (k=0; k<dim; ++k) {
+    for(int id=0; id<3; ++id){
+      dVsdS_t[k] += dVsdn[k*3+id]*dndS[id];
+    }
+  }
 
-	//*************************************
-	if (higherOrderFSI) {
+  //*************************************
+  if (higherOrderFSI) {
 
-	  DenseMatrixOp<double, dim, dim*dim>::applyToVector(&dVsdV, 0, &dVdS_t, 0, &dFlux, 0);
-	  for (k=0; k<dim; ++k) dVsdS_t[k] += dFlux[k];
+    DenseMatrixOp<double, dim, dim*dim>::applyToVector(&dVsdV, 0, &dVdS_t, 0, &dFlux, 0);
+    for (k=0; k<dim; ++k) dVsdS_t[k] += dFlux[k];
 
-	  higherOrderFSI->derivativeofHOFSI(l, 1, j, V,
- 				            Vj, Vstar, dVdS_t, dVsdS_t,
-					    X, resji.alpha, da_ds,
-					    length, fluidId, betaj,
-					    dVdS, dVsdS);
+    higherOrderFSI->derivativeofHOFSI(l, 1, j, V,
+                     Vj, Vstar, dVdS_t, dVsdS_t,
+              X, resji.alpha, da_ds,
+              length, fluidId, betaj,
+              dVdS, dVsdS);
 
-	  V6NodeData (*v6data)[2] = higherOrderFSI->getV6Data();
+    V6NodeData (*v6data)[2] = higherOrderFSI->getV6Data();
 
-	  if (v6data==NULL) {
-	    for (int k=0; k<dim; k++) {
-	      Vstar[k] = V[j][k] + (0.5/max(1.0-resji.alpha, alpha_lim))*(Vstar[k] - V[j][k]);
-	    }
-	  } else {
-	    higherOrderFSI->extrapolateV6(l, 1, j, V, Vj, Vstar, X, 1.0-resji.alpha, length, fluidId, betaj);
-	  }
+    if (v6data==NULL) {
+      for (int k=0; k<dim; k++) {
+        Vstar[k] = V[j][k] + (0.5/max(1.0-resji.alpha, alpha_lim))*(Vstar[k] - V[j][k]);
+      }
+    } else {
+      higherOrderFSI->extrapolateV6(l, 1, j, V, Vj, Vstar, X, 1.0-resji.alpha, length, fluidId, betaj);
+    }
 
-	} else {
+  } else {
 
-	  for (k=0; k<dim; ++k) {
-	    dVsdS[k] = dVsdS_t[k];
-	     dVdS[k] = 0.0;
-	  }
+    for (k=0; k<dim; ++k) {
+      dVsdS[k] = dVsdS_t[k];
+       dVdS[k] = 0.0;
+    }
 
-	}
-	//*************************************
+  }
+  //*************************************
 
-	fluxFcn[BC_INTERNAL]->computeJacobians(1.0, 0.0, edgeNorm[l], edgeNormVel[l], Vstar, Vj, dfdUi, dfdUj);
+  fluxFcn[BC_INTERNAL]->computeJacobians(1.0, 0.0, edgeNorm[l], edgeNormVel[l], Vstar, Vj, dfdUi, dfdUj);
 
-	fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[j])->getVarFcnBase()->postMultiplyBydUdV(Vstar, dfdUi, dfdV);
-	DenseMatrixOp<double, dim, dim*dim>::applyToVector(&dfdV, 0, &dVsdS, 0, &dFlux1, 0);
+  fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[j])->getVarFcnBase()->postMultiplyBydUdV(Vstar, dfdUi, dfdV);
+  DenseMatrixOp<double, dim, dim*dim>::applyToVector(&dfdV, 0, &dVsdS, 0, &dFlux1, 0);
 
-	fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[j])->getVarFcnBase()->postMultiplyBydUdV(Vj, dfdUj, dfdV);
-	DenseMatrixOp<double, dim, dim*dim>::applyToVector(&dfdV, 0, &dVdS, 0, &dFlux2, 0);
+  fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[j])->getVarFcnBase()->postMultiplyBydUdV(Vj, dfdUj, dfdV);
+  DenseMatrixOp<double, dim, dim*dim>::applyToVector(&dfdV, 0, &dVdS, 0, &dFlux2, 0);
 
-	for (k=0; k<dim; ++k) dFluxes[j][k] -= (dFlux1[k] + dFlux2[k]);
+  for (k=0; k<dim; ++k) dFluxes[j][k] -= (dFlux1[k] + dFlux2[k]);
 
       }
 
@@ -2001,9 +2001,9 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                                      SVec<double,dim>& V, Vec<int> &fluidId,
                                      FluidSelector &fluidSelector,
                                      NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
-				     SVec<double,dimLS>& phi, // needed for higher order computations
+             SVec<double,dimLS>& phi, // needed for higher order computations
                                      NodalGrad<dimLS>& ngradLS,
-				     EdgeGrad<dimLS>* egradLS,
+             EdgeGrad<dimLS>* egradLS,
                                      SVec<double,dim>& fluxes, int it,
                                      SVec<int,2>& tag, int failsafe, int rshift)
 {
@@ -2052,34 +2052,34 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       egrad->compute(l, i, j, elems, X, V, dVdx, dVdy, dVdz, fluidId, ddVij, ddVji);
     }else{
       for (int k=0; k<dim; ++k) {
-	ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
-	ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
+  ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
+  ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
       }
 
     }
 
     if (!higherOrderMF) {
       if (fluidId[i] == fluidId[j])
-	recFcn->computeExtended(V[i], ddVij, V[j], ddVji, Vi, Vj,
-				varFcn->getPressure(V[i],fluidId[i]),
-				varFcn->getPressure(V[j],fluidId[j]),
-				locToGlobNodeMap[i]+1,locToGlobNodeMap[j]+1);
+  recFcn->computeExtended(V[i], ddVij, V[j], ddVji, Vi, Vj,
+        varFcn->getPressure(V[i],fluidId[i]),
+        varFcn->getPressure(V[j],fluidId[j]),
+        locToGlobNodeMap[i]+1,locToGlobNodeMap[j]+1);
       else {
-	for (int k = 0; k < dim; ++k) {
-	  Vi[k] = V[i][k];
-	  Vj[k] = V[j][k];
-	}
+  for (int k = 0; k < dim; ++k) {
+    Vi[k] = V[i][k];
+    Vj[k] = V[j][k];
+  }
       }
     } else {
 
       if (fluidId[i] == fluidId[j]) {
-	recFcn->computeExtended(V[i], ddVij, V[j], ddVji, Vi, Vj,
+  recFcn->computeExtended(V[i], ddVij, V[j], ddVji, Vi, Vj,
                         varFcn->getPressure(V[i],fluidId[i]),
                         varFcn->getPressure(V[j],fluidId[j]),
                         locToGlobNodeMap[i]+1,locToGlobNodeMap[j]+1);
-	//recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
+  //recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
       } else {
-	isAtInterface = true;
+  isAtInterface = true;
       }
     }
 
@@ -2123,25 +2123,25 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
       if (!(programmedBurn && programmedBurn->isDetonationInterface(fluidId[i],fluidId[j],burnTag)) ) {
 
-	lsdim = fluidSelector.getLevelSetDim(fluidId[i],fluidId[j],locToGlobNodeMap[i]+1,locToGlobNodeMap[j]+1);
+  lsdim = fluidSelector.getLevelSetDim(fluidId[i],fluidId[j],locToGlobNodeMap[i]+1,locToGlobNodeMap[j]+1);
 
-	// Added the option to use the "Fluid" normal for F-F interfaces
-	// This significantly improves stability.
-	// Added by Alex Main (May 2013)
+  // Added the option to use the "Fluid" normal for F-F interfaces
+  // This significantly improves stability.
+  // Added by Alex Main (May 2013)
         if (mfRiemannNormal == MF_RIEMANN_NORMAL_REAL) {
 
           if (!triangulatedLSS ||
               triangulatedLSS->isOccluded(0.0,i) ||
               triangulatedLSS->isOccluded(0.0,j) ) {
-    	    gphii[0] = -dPdx[i][lsdim];
-	    gphii[1] = -dPdy[i][lsdim];
-	    gphii[2] = -dPdz[i][lsdim];
-	    gphij[0] = -dPdx[j][lsdim];
-	    gphij[1] = -dPdy[j][lsdim];
-	    gphij[2] = -dPdz[j][lsdim];
+          gphii[0] = -dPdx[i][lsdim];
+      gphii[1] = -dPdy[i][lsdim];
+      gphii[2] = -dPdz[i][lsdim];
+      gphij[0] = -dPdx[j][lsdim];
+      gphij[1] = -dPdy[j][lsdim];
+      gphij[2] = -dPdz[j][lsdim];
 
-	    for (int k=0; k<3; k++)
-	      gradphi[k] = 0.5*(gphii[k]+gphij[k]);
+      for (int k=0; k<3; k++)
+        gradphi[k] = 0.5*(gphii[k]+gphij[k]);
 
           } else {
 
@@ -2175,59 +2175,59 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         }
         else {
 
-  	  gphii[0] = -dPdx[i][lsdim];
-	  gphii[1] = -dPdy[i][lsdim];
-	  gphii[2] = -dPdz[i][lsdim];
-	  gphij[0] = -dPdx[j][lsdim];
-	  gphij[1] = -dPdy[j][lsdim];
-	  gphij[2] = -dPdz[j][lsdim];
+      gphii[0] = -dPdx[i][lsdim];
+    gphii[1] = -dPdy[i][lsdim];
+    gphii[2] = -dPdz[i][lsdim];
+    gphij[0] = -dPdx[j][lsdim];
+    gphij[1] = -dPdy[j][lsdim];
+    gphij[2] = -dPdz[j][lsdim];
 
           double t[3];
-	  for (int k=0; k<3; k++)
-	    t[k] = 0.5*(gphii[k]+gphij[k]);
+    for (int k=0; k<3; k++)
+      t[k] = 0.5*(gphii[k]+gphij[k]);
 
-	  for (int k=0; k<3; k++)
-	    gradphi[k] = normal[l][k];
+    for (int k=0; k<3; k++)
+      gradphi[k] = normal[l][k];
 
           if (t[0]*gradphi[0]+t[1]*gradphi[1]+t[2]*gradphi[2] < 0.0) {
-	    for (int k=0; k<3; k++)
-	      gradphi[k] = -gradphi[k];
+      for (int k=0; k<3; k++)
+        gradphi[k] = -gradphi[k];
           }
         }
-	double normgradphi = sqrt(gradphi[0]*gradphi[0]+gradphi[1]*gradphi[1]+gradphi[2]*gradphi[2]);
-	for (int k=0; k<3; k++)
-	  gradphi[k] /= normgradphi;
+  double normgradphi = sqrt(gradphi[0]*gradphi[0]+gradphi[1]*gradphi[1]+gradphi[2]*gradphi[2]);
+  for (int k=0; k<3; k++)
+    gradphi[k] /= normgradphi;
 
       } else {
 
-	double xmid[3];
-	for (int k=0; k<3; k++)
-	  xmid[k] = (X[j][k]+X[i][k])*0.5;
+  double xmid[3];
+  for (int k=0; k<3; k++)
+    xmid[k] = (X[j][k]+X[i][k])*0.5;
 
-	programmedBurn->getDetonationNormal(burnTag,fluidId[i],fluidId[j], xmid, gradphi);
+  programmedBurn->getDetonationNormal(burnTag,fluidId[i],fluidId[j], xmid, gradphi);
       }
 
       if (higherOrderMF) {
 
-	assert(fluidId[i] != fluidId[j]);
+  assert(fluidId[i] != fluidId[j]);
 
         bool hasFix = (dVdx[i][0]*dVdx[i][0]+dVdy[i][0]*dVdy[i][0]+dVdz[i][0]*dVdz[i][0] == 0.0 ||
                        dVdx[j][0]*dVdx[j][0]+dVdy[j][0]*dVdy[j][0]+dVdz[j][0]*dVdz[j][0] == 0.0);
 /*
-	if (hasFix) {
-	  std::cout << "has fix! " << i << " " << j << " " << dVdx[i][0] << " " << dVdx[j][0] << std::endl;
-	}
+  if (hasFix) {
+    std::cout << "has fix! " << i << " " << j << " " << dVdx[i][0] << " " << dVdx[j][0] << std::endl;
+  }
 */
         hasFix = false;
 
-	// There are two cases.  In the first case the surrogate interface is the
-	// same for both fluids.  This implies that the edge in question is cut by
-	// the material interface.
-	double iloc[3];
+  // There are two cases.  In the first case the surrogate interface is the
+  // same for both fluids.  This implies that the edge in question is cut by
+  // the material interface.
+  double iloc[3];
 
-	// Step 1: Compute the intersection location (where the 0-contour of the level
-	// set crosses this edge.
-	double s;
+  // Step 1: Compute the intersection location (where the 0-contour of the level
+  // set crosses this edge.
+  double s;
         if (!triangulatedLSS)
           s = phi[j][lsdim]/(phi[j][lsdim]-phi[i][lsdim]);
 
@@ -2248,119 +2248,119 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
         //std::cout << s << " " << phi[j][lsdim]/(phi[j][lsdim]-phi[i][lsdim]) << std::endl;
 /*
-	double x0x0 = X[i][0]*X[i][0]+X[i][1]*X[i][1];
-	if (x0x0 < 0.5*0.5) {
+  double x0x0 = X[i][0]*X[i][0]+X[i][1]*X[i][1];
+  if (x0x0 < 0.5*0.5) {
 
-	  double xdx = X[i][0]*dx[0] + X[i][1]*dx[1];
+    double xdx = X[i][0]*dx[0] + X[i][1]*dx[1];
 
-	  s = (-2.0*xdx+sqrt(4.0*xdx*xdx-4.0*length*length*(x0x0-0.5*0.5)))/(2.0*length*length);
-	  s = 1.0-s;
-	} else {
-	  x0x0 = X[j][0]*X[j][0]+X[j][1]*X[j][1];
+    s = (-2.0*xdx+sqrt(4.0*xdx*xdx-4.0*length*length*(x0x0-0.5*0.5)))/(2.0*length*length);
+    s = 1.0-s;
+  } else {
+    x0x0 = X[j][0]*X[j][0]+X[j][1]*X[j][1];
 
-	  double xdx =-( X[j][0]*dx[0] + X[j][1]*dx[1]);
+    double xdx =-( X[j][0]*dx[0] + X[j][1]*dx[1]);
 
-	  s = (-2.0*xdx+sqrt(4.0*xdx*xdx-4.0*length*length*(x0x0-0.5*0.5)))/(2.0*length*length);
-	}
+    s = (-2.0*xdx+sqrt(4.0*xdx*xdx-4.0*length*length*(x0x0-0.5*0.5)))/(2.0*length*length);
+  }
 */
-	for (int k=0; k<3; k++)
-	  iloc[k] = X[i][k]*s+X[j][k]*(1.0-s);
+  for (int k=0; k<3; k++)
+    iloc[k] = X[i][k]*s+X[j][k]*(1.0-s);
 /*
-	gradphi[0] = iloc[0]/sqrt(iloc[0]*iloc[0] + iloc[1]*iloc[1]);
-	gradphi[1] = iloc[1]/sqrt(iloc[0]*iloc[0] + iloc[1]*iloc[1]);
-	gradphi[2] = 0.0;//iloc[2]/sqrt(iloc[0]*iloc[0] + iloc[1]*iloc[1] +
-	//		  iloc[2]*iloc[2] );
+  gradphi[0] = iloc[0]/sqrt(iloc[0]*iloc[0] + iloc[1]*iloc[1]);
+  gradphi[1] = iloc[1]/sqrt(iloc[0]*iloc[0] + iloc[1]*iloc[1]);
+  gradphi[2] = 0.0;//iloc[2]/sqrt(iloc[0]*iloc[0] + iloc[1]*iloc[1] +
+  //		  iloc[2]*iloc[2] );
 */
-	double ri[dim],rj[dim];
-	higherOrderMF->estimateR(l, 0, i, V, ngrad, X, fluidId, ri);
-	higherOrderMF->estimateR(l, 1, j, V, ngrad, X, fluidId, rj);
+  double ri[dim],rj[dim];
+  higherOrderMF->estimateR(l, 0, i, V, ngrad, X, fluidId, ri);
+  higherOrderMF->estimateR(l, 1, j, V, ngrad, X, fluidId, rj);
 
-	//double betai = 1.0,betaj = 1.0;
-	double betai[dim], betaj[dim];
-	for (int k = 0; k < dim; ++k) {
-	  betai[k] = betaj[k] = 1.0;
-	}
+  //double betai = 1.0,betaj = 1.0;
+  double betai[dim], betaj[dim];
+  for (int k = 0; k < dim; ++k) {
+    betai[k] = betaj[k] = 1.0;
+  }
 
         if (higherOrderMF->limitExtrapolation()) {
-	  if (V[i][1]*dx[0]+V[i][2]*dx[1]+V[i][3]*dx[2] < 0.0) {
-	    for (int k = 0; k < dim; ++k) {
-	      betai[k] = std::min<double>(betai[k],ri[k]);
-	    }
-	  }
-	  if (V[j][1]*dx[0]+V[j][2]*dx[1]+V[j][3]*dx[2] > 0.0) {
-	    for (int k = 0; k < dim; ++k) {
-	      betaj[k] = std::min<double>(betaj[k],rj[k]);
-	    }
-	  }
+    if (V[i][1]*dx[0]+V[i][2]*dx[1]+V[i][3]*dx[2] < 0.0) {
+      for (int k = 0; k < dim; ++k) {
+        betai[k] = std::min<double>(betai[k],ri[k]);
+      }
+    }
+    if (V[j][1]*dx[0]+V[j][2]*dx[1]+V[j][3]*dx[2] > 0.0) {
+      for (int k = 0; k < dim; ++k) {
+        betaj[k] = std::min<double>(betaj[k],rj[k]);
+      }
+    }
 
-	  //betai = std::min<double>(betai,betaj); //
-	  //betaj = std::min<double>(betai,betaj); //
+    //betai = std::min<double>(betai,betaj); //
+    //betaj = std::min<double>(betai,betaj); //
         }
 
-	//betai[4] = betaj[4] = 1.0;
+  //betai[4] = betaj[4] = 1.0;
 
-	//std::cout << V[i][1] << " " << V[i][2] << " " << V[i][3] << " " << V[j][1] << " " << V[j][2] << " " << V[j][3] << "\n";
-	//std::cout << dx[0] << " " << dx[1] << " " << dx[2] << "\n";
-	//std::cout << "betai[4] = " << betai[4] << "(" << fluidId[i] << ") betaj[4] = " << betaj[4] << " (" << fluidId[j] << ")\n";
-	//std::cout << "s = " << s << std::endl;
-	// Step 2: Extrapolate the values from cell i and cell j to the interface
-	for (int k = 0; k < dim; ++k) {
-	  Vi[k] = V[i][k]+
-	          (dVdx[i][k]*(iloc[0]-X[i][0])+
-		   dVdy[i][k]*(iloc[1]-X[i][1])+
-		   dVdz[i][k]*(iloc[2]-X[i][2]))*betai[k];
-	}
+  //std::cout << V[i][1] << " " << V[i][2] << " " << V[i][3] << " " << V[j][1] << " " << V[j][2] << " " << V[j][3] << "\n";
+  //std::cout << dx[0] << " " << dx[1] << " " << dx[2] << "\n";
+  //std::cout << "betai[4] = " << betai[4] << "(" << fluidId[i] << ") betaj[4] = " << betaj[4] << " (" << fluidId[j] << ")\n";
+  //std::cout << "s = " << s << std::endl;
+  // Step 2: Extrapolate the values from cell i and cell j to the interface
+  for (int k = 0; k < dim; ++k) {
+    Vi[k] = V[i][k]+
+            (dVdx[i][k]*(iloc[0]-X[i][0])+
+       dVdy[i][k]*(iloc[1]-X[i][1])+
+       dVdz[i][k]*(iloc[2]-X[i][2]))*betai[k];
+  }
 
-	for (int k = 0; k < dim; ++k) {
-	  Vj[k] = V[j][k]+
- 	          (dVdx[j][k]*(iloc[0]-X[j][0])+
-		   dVdy[j][k]*(iloc[1]-X[j][1])+
-		   dVdz[j][k]*(iloc[2]-X[j][2]))*betaj[k];
-	}
+  for (int k = 0; k < dim; ++k) {
+    Vj[k] = V[j][k]+
+             (dVdx[j][k]*(iloc[0]-X[j][0])+
+       dVdy[j][k]*(iloc[1]-X[j][1])+
+       dVdz[j][k]*(iloc[2]-X[j][2]))*betaj[k];
+  }
 
-	// Check for negative pressures/densities.
-	// If a negative value is detected, drop back to first order extrapolation
-	// (i.e., the Riemann solution)
-	if (Vi[0] <= 0.0)
-	  Vi[0] = V[i][0];
-	if (Vi[4] <= 0.0)
-	  Vi[4] = V[i][4];
-	if (Vj[0] <= 0.0)
-	  Vj[0] = V[j][0];
-	if (Vj[4] <= 0.0)
-	  Vj[4] = V[j][4];
+  // Check for negative pressures/densities.
+  // If a negative value is detected, drop back to first order extrapolation
+  // (i.e., the Riemann solution)
+  if (Vi[0] <= 0.0)
+    Vi[0] = V[i][0];
+  if (Vi[4] <= 0.0)
+    Vi[4] = V[i][4];
+  if (Vj[0] <= 0.0)
+    Vj[0] = V[j][0];
+  if (Vj[4] <= 0.0)
+    Vj[4] = V[j][4];
 
-	int err =riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
-	                              	        Wi,Wj,i,j,l,dx,lsdim,true);
+  int err =riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
+                                          Wi,Wj,i,j,l,dx,lsdim,true);
 
-	if (err) {
-	  std::cout << "Riemann solver failed between nodes " << locToGlobNodeMap[i]+1 << " " << locToGlobNodeMap[j]+1 << std::endl;
-	}
-	errorHandler->localErrors[ErrorHandler::BAD_RIEMANN] += err;
+  if (err) {
+    std::cout << "Riemann solver failed between nodes " << locToGlobNodeMap[i]+1 << " " << locToGlobNodeMap[j]+1 << std::endl;
+  }
+  errorHandler->localErrors[ErrorHandler::BAD_RIEMANN] += err;
 
-	// Step 3: Interpolate/Extrapolate back to the surrogate interface.
+  // Step 3: Interpolate/Extrapolate back to the surrogate interface.
 
-	//
-	if (0) {//???????? s < 0.9) {
-	  for (int k = 0; k < dim; ++k) {
-	    Vi[k] = (V[i][k]*(0.5-s)+Wi[k]*(0.5))/(1.0-s)*betai[k] +
-	      (1.0-betai[k])*Wi[k];
-	  }
-	} else
-	  higherOrderMF->extrapolateV6(l, 0, i, V, Vi, Wi, X,s, length, fluidId, betai);
+  //
+  if (0) {//???????? s < 0.9) {
+    for (int k = 0; k < dim; ++k) {
+      Vi[k] = (V[i][k]*(0.5-s)+Wi[k]*(0.5))/(1.0-s)*betai[k] +
+        (1.0-betai[k])*Wi[k];
+    }
+  } else
+    higherOrderMF->extrapolateV6(l, 0, i, V, Vi, Wi, X,s, length, fluidId, betai);
 
-	  if (0) { //s > 0.1) {
-	    for (int k = 0; k < dim; ++k) {
-	      Vj[k] = (V[j][k]*(-0.5+s)+Wj[k]*(0.5))/s*betaj[k] +
-		(1.0-betaj[k])*Wj[k];
+    if (0) { //s > 0.1) {
+      for (int k = 0; k < dim; ++k) {
+        Vj[k] = (V[j][k]*(-0.5+s)+Wj[k]*(0.5))/s*betaj[k] +
+    (1.0-betaj[k])*Wj[k];
             }
 
           } else
-	    higherOrderMF->extrapolateV6(l, 1, j, V, Vj, Wj, X, 1.0-s, length, fluidId, betaj);
+      higherOrderMF->extrapolateV6(l, 1, j, V, Vj, Wj, X, 1.0-s, length, fluidId, betaj);
 
-	  //memcpy(Vi, Wi, sizeof(double)*5);
-	  //memcpy(Vj, Wj, sizeof(double)*5);
-	  //Vi[3] = Vj[3] = 0.0;
+    //memcpy(Vi, Wi, sizeof(double)*5);
+    //memcpy(Vj, Wj, sizeof(double)*5);
+    //Vi[3] = Vj[3] = 0.0;
 
           // Check for negative pressures/densities.
           // If a negative value is detected, drop back to first order extrapolation
@@ -2374,73 +2374,73 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
           if (Vj[4] <= 0.0)
             Vj[4] = Wj[4];
 
-	  if (!hasFix) {
-	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
-					  Vi, Vi, fluxi, fluidId[i]);
+    if (!hasFix) {
+      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+            Vi, Vi, fluxi, fluidId[i]);
 
-	    //fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
-	    //				  V[i], Wi, fluxtmp, fluidId[i]);
-	    //for (int k = 0; k < dim; ++k)
-	    //  fluxi[k] = betai[k]*fluxi[k]+(1.0-betai[k])*fluxtmp[k];
+      //fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+      //				  V[i], Wi, fluxtmp, fluidId[i]);
+      //for (int k = 0; k < dim; ++k)
+      //  fluxi[k] = betai[k]*fluxi[k]+(1.0-betai[k])*fluxtmp[k];
 
-	  }
-	  else {
-	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
-					  V[i], Wi, fluxi, fluidId[i]);
-	  }
+    }
+    else {
+      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+            V[i], Wi, fluxi, fluidId[i]);
+    }
 
-	  if (!hasFix) {
-	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
-					  Vj, Vj, fluxj, fluidId[j]);
+    if (!hasFix) {
+      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+            Vj, Vj, fluxj, fluidId[j]);
 
-	    //fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
-	    //				  Wj, V[j], fluxtmp, fluidId[j]);
-	    //for (int k = 0; k < dim; ++k)
-	    //  fluxj[k] = betaj[k]*fluxj[k]+(1.0-betaj[k])*fluxtmp[k];
+      //fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+      //				  Wj, V[j], fluxtmp, fluidId[j]);
+      //for (int k = 0; k < dim; ++k)
+      //  fluxj[k] = betaj[k]*fluxj[k]+(1.0-betaj[k])*fluxtmp[k];
 
-	  }
-	  else
-	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
-					  Wj, V[j], fluxj, fluidId[j]);
+    }
+    else
+      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+            Wj, V[j], fluxj, fluidId[j]);
 
 
-	  // Now extrapolate back to compute the riemann update for cells i/j
-	  if (it == 1) {
-	    SVec<double,dim> &rupdate = riemann.getRiemannUpdate();
-	    Vec<double> &weight = riemann.getRiemannWeight();
+    // Now extrapolate back to compute the riemann update for cells i/j
+    if (it == 1) {
+      SVec<double,dim> &rupdate = riemann.getRiemannUpdate();
+      Vec<double> &weight = riemann.getRiemannWeight();
             double updatei[dim],updatej[dim];
-	    /*double alphai = 1.0, alphaj = 1.0;
+      /*double alphai = 1.0, alphaj = 1.0;
 
-	    for (int k = 0; k < dim; ++k) {
+      for (int k = 0; k < dim; ++k) {
               updatei[k] = (1.0+alphaj)*Vj[k]-alphaj*V[j][k];
               updatej[k] = (1.0+alphai)*Vi[k]-alphai*V[i][k];
-	      }*/
+        }*/
             //if (updatei[0] <= 0.0 || updatei[4] <= 0.0 || hasFix) {
-	      for (int k = 0; k < dim; ++k)
+        for (int k = 0; k < dim; ++k)
                 updatei[k] = Wi[k];
-	      // }
-	      // if (updatej[0] <= 0.0 || updatej[4] <= 0.0 || hasFix) {
-	      for (int k = 0; k < dim; ++k)
+        // }
+        // if (updatej[0] <= 0.0 || updatej[4] <= 0.0 || hasFix) {
+        for (int k = 0; k < dim; ++k)
                 updatej[k] = Wj[k];
-	      // }
-	      // std::cout << updatei[0] << " " << updatej[0] << std::endl;
- 	    for (int k = 0; k < dim; ++k) {
-	      rupdate[i][k] += updatei[k];
-	      rupdate[j][k] += updatej[k];
-	    }
-	    weight[i] += 1.0;
-	    weight[j] += 1.0;
-	  }
+        // }
+        // std::cout << updatei[0] << " " << updatej[0] << std::endl;
+       for (int k = 0; k < dim; ++k) {
+        rupdate[i][k] += updatei[k];
+        rupdate[j][k] += updatej[k];
+      }
+      weight[i] += 1.0;
+      weight[j] += 1.0;
+    }
 
       }	else {
 
-	int err = riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
-		         		         Wi,Wj,i,j,l,dx,lsdim,false);
+  int err = riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
+                          Wi,Wj,i,j,l,dx,lsdim,false);
         errorHandler->localErrors[ErrorHandler::BAD_RIEMANN] += err;
-	fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
-				      Vi, Wi, fluxi, fluidId[i]);
-	fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
-				      Wj, Vj, fluxj, fluidId[j]);
+  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+              Vi, Wi, fluxi, fluidId[i]);
+  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+              Wj, Vj, fluxj, fluidId[j]);
         if (err) {
 
           std::cout << "Riemann solver failed between nodes " << locToGlobNodeMap[i]+1 << " " << locToGlobNodeMap[j]+1 << std::endl;
@@ -2448,12 +2448,12 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       }
 
       for (int k=0; k<dim; k++){
-	/*	if (locToGlobNodeMap[i]+1 == 178888) {
-	  std::cout << "interface flux[" << k << "] = " << fluxi[k] << " " << Vi[k] << " " << Vj[k] <<  " " << Wi[k] << " " << Wj[k] << std::endl;
-	} else if (locToGlobNodeMap[j]+1 == 178888)  {
-	  std::cout << "interface flux[" << k << "] = " << -fluxj[k] << " " << Vj[k] << " " << Vi[k] << " " << Wj[k] << " " << Wi[k] << std::endl;
-	}
-	*/
+  /*	if (locToGlobNodeMap[i]+1 == 178888) {
+    std::cout << "interface flux[" << k << "] = " << fluxi[k] << " " << Vi[k] << " " << Vj[k] <<  " " << Wi[k] << " " << Wj[k] << std::endl;
+  } else if (locToGlobNodeMap[j]+1 == 178888)  {
+    std::cout << "interface flux[" << k << "] = " << -fluxj[k] << " " << Vj[k] << " " << Vi[k] << " " << Wj[k] << " " << Wi[k] << std::endl;
+  }
+  */
 
         fluxes[i][k] += fluxi[k];
         fluxes[j][k] -= fluxj[k];
@@ -2475,7 +2475,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                                      LevelSetStructure& LSS, bool linRecAtInterface, Vec<int> &fluidId,
                                      int Nriemann, FluidSelector &fluidSelector,
                                      NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
-				     SVec<double,dimLS>& phi,
+             SVec<double,dimLS>& phi,
                                      NodalGrad<dimLS>& ngradLS, EdgeGrad<dimLS>* egradLS,
                                      SVec<double,dim>& fluxes, int it,
                                      SVec<int,2>& tag, int failsafe, int rshift)
@@ -2566,8 +2566,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     }else{
 
       for (int k=0; k<dim; ++k) {
-	ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
-	ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
+  ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
+  ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
       }
 
     }
@@ -2581,7 +2581,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
       if (!linRecAtInterface){
 
-	// just set Vi = V[i], Vj = V[j]
+  // just set Vi = V[i], Vj = V[j]
         for(int k=0; k<dim; k++) {
           Vi[k] = V[i][k];
           Vj[k] = V[j][k];
@@ -2589,22 +2589,22 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
       } else {
 
-	//linRec at interface using Wstar
+  //linRec at interface using Wstar
         double Vtemp[2*dim];
 
         if (Wstarij[l][0]<1e-8) {
-	  // no riemann sol. (first time-step)
+    // no riemann sol. (first time-step)
           for (int k=0; k<dim; k++) Vi[k] = V[i][k];
         } else {
-	  recFcn->compute(V[i], ddVij, Wstarij[l], ddVji, Vi, Vtemp);
-	}
+    recFcn->compute(V[i], ddVij, Wstarij[l], ddVji, Vi, Vtemp);
+  }
 
         if (Wstarji[l][0]<1e-8) {
-	  // no riemann sol. (first time-step)
+    // no riemann sol. (first time-step)
           for (int k=0; k<dim; k++) Vj[k] = V[j][k];
         } else {
-	  recFcn->compute(Wstarji[l], ddVij, V[j], ddVji, Vtemp, Vj);
-	}
+    recFcn->compute(Wstarji[l], ddVij, V[j], ddVji, Vtemp, Vj);
+  }
 
       }
     }
@@ -2662,60 +2662,60 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
             exit(-1);
         }
 
-	if (higherOrderFSI) {
+  if (higherOrderFSI) {
 
-	  for (int k=0; k<dim; k++) Vi[k] = V[i][k];//+(1.0-resij.alpha)*ddVij[k]; //???d2d
-	  varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Vi);
-	}
+    for (int k=0; k<dim; k++) Vi[k] = V[i][k];//+(1.0-resij.alpha)*ddVij[k]; //???d2d
+    varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Vi);
+  }
 
         riemann.computeFSIRiemannSolution(Vi,resij.normVel,normalDir,varFcn,Wstar,j,fluidId[i]);
 
         if (it>0) //if it>0 (i.e. not called in computeResidualNorm), store Wstarij.
           for (int k=0; k<dim; k++)  Wstarij[l][k] = Wstar[k];
 
-	if (!higherOrderFSI) {
+  if (!higherOrderFSI) {
 
-	  if (masterFlag[l]) {
-	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi, fluidId[i], false);
-	    for (int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
-	  }
+    if (masterFlag[l]) {
+      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi, fluidId[i], false);
+      for (int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
+    }
 
         } else {
 
-	  if (masterFlag[l]) {
+    if (masterFlag[l]) {
 
-	    V6NodeData (*v6data)[2] = higherOrderFSI->getV6Data();
+      V6NodeData (*v6data)[2] = higherOrderFSI->getV6Data();
 
-	    if (v6data==NULL) {
-	      for (int k=0; k<dim; k++) Wstar[k] = V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k]);
-	    }
-	    else {
+      if (v6data==NULL) {
+        for (int k=0; k<dim; k++) Wstar[k] = V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k]);
+      }
+      else {
 
-	      int idxTet    = v6data[l][0].tet;
-	      int idxFace   = v6data[l][0].face;
-	      double face_r = v6data[l][0].r;
-	      double face_t = v6data[l][0].t;
+        int idxTet    = v6data[l][0].tet;
+        int idxFace   = v6data[l][0].face;
+        double face_r = v6data[l][0].r;
+        double face_t = v6data[l][0].t;
 
-	      if ((idxTet<0) || (idxTet>=elems.size()) || hasIntersection(elems[idxTet],LSS)) {
-		if (1.0-resij.alpha > alpha) {
-		  //if (1.0-resij.alpha > alpha)
-		  for (int k=0; k<dim; k++) Wstar[k] = V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k]);
-		}
-		//for (int k=0; k<dim; k++) Wstar[k] = V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k]);
-	      }
-	      else
-		extendedLinearExtrapolationToIntersection<dim>(elems,idxTet,idxFace,face_r,face_t,
-							       X,V,Wstar,resij.alpha,length,i);
+        if ((idxTet<0) || (idxTet>=elems.size()) || hasIntersection(elems[idxTet],LSS)) {
+    if (1.0-resij.alpha > alpha) {
+      //if (1.0-resij.alpha > alpha)
+      for (int k=0; k<dim; k++) Wstar[k] = V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k]);
+    }
+    //for (int k=0; k<dim; k++) Wstar[k] = V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k]);
+        }
+        else
+    extendedLinearExtrapolationToIntersection<dim>(elems,idxTet,idxFace,face_r,face_t,
+                     X,V,Wstar,resij.alpha,length,i);
 
-	    }
+      }
 
-	    varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Wstar);
-	    //if (1.0-resij.alpha > alpha)
-	    //fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi, fluidId[i], false);
-	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxi, fluidId[i], false);
-	    for (int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
-	  }
-	}
+      varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Wstar);
+      //if (1.0-resij.alpha > alpha)
+      //fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi, fluidId[i], false);
+      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxi, fluidId[i], false);
+      for (int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
+    }
+  }
 
       }
 
@@ -2739,65 +2739,65 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
             exit(-1);
         }
 
-	if (higherOrderFSI) {
+  if (higherOrderFSI) {
 
-	  for (int k=0; k<dim; k++) Vj[k] = V[j][k];//-(1.0-resji.alpha)*ddVji[k]; //?? d2d
-	  varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Vj);
+    for (int k=0; k<dim; k++) Vj[k] = V[j][k];//-(1.0-resji.alpha)*ddVji[k]; //?? d2d
+    varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Vj);
 
-	}
+  }
 
         riemann.computeFSIRiemannSolution(Vj,resji.normVel,normalDir,varFcn,Wstar,i,fluidId[j]);
 
         if (it>0)
           for (int k=0; k<dim; k++) Wstarji[l][k] = Wstar[k];
 
-	if (!higherOrderFSI) {
+  if (!higherOrderFSI) {
 
-	  if (masterFlag[l]) {
-	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj, fluidId[j], false);
-	    for (int k=0; k<dim; k++)  fluxes[j][k] -= fluxj[k];
-	  }
+    if (masterFlag[l]) {
+      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj, fluidId[j], false);
+      for (int k=0; k<dim; k++)  fluxes[j][k] -= fluxj[k];
+    }
 
         } else {
 
-	  if (masterFlag[l]) {
-	    V6NodeData (*v6data)[2] = higherOrderFSI->getV6Data();
+    if (masterFlag[l]) {
+      V6NodeData (*v6data)[2] = higherOrderFSI->getV6Data();
 
-	    if (v6data==NULL) {
-	      for (int k=0; k<dim; k++) Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
-	    }
-	    else {
-	      int idxTet    = v6data[l][1].tet;
-	      int idxFace   = v6data[l][1].face;
-	      double face_r = v6data[l][1].r;
-	      double face_t = v6data[l][1].t;
+      if (v6data==NULL) {
+        for (int k=0; k<dim; k++) Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
+      }
+      else {
+        int idxTet    = v6data[l][1].tet;
+        int idxFace   = v6data[l][1].face;
+        double face_r = v6data[l][1].r;
+        double face_t = v6data[l][1].t;
 
-	      if ((idxTet<0) || (idxTet>=elems.size()) || hasIntersection(elems[idxTet],LSS)) {
+        if ((idxTet<0) || (idxTet>=elems.size()) || hasIntersection(elems[idxTet],LSS)) {
 
-		//for (int k=0; k<dim; k++) Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
+    //for (int k=0; k<dim; k++) Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
 
-		if ( 1.0-resji.alpha > alpha) {
-		  for (int k=0; k<dim; k++) Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
-		}
-	      }
+    if ( 1.0-resji.alpha > alpha) {
+      for (int k=0; k<dim; k++) Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
+    }
+        }
 
-	      else
-		extendedLinearExtrapolationToIntersection<dim>(elems,idxTet,idxFace,face_r,face_t,
-							       X,V,Wstar,resji.alpha,length,j);
+        else
+    extendedLinearExtrapolationToIntersection<dim>(elems,idxTet,idxFace,face_r,face_t,
+                     X,V,Wstar,resji.alpha,length,j);
 
-	    }
-	    varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Wstar);
-	    //if (  1.0-resji.alpha > alpha)
-	    //fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj, fluidId[j], false);
-	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxj, fluidId[j], false);
-	    //else
-	    //  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, V[j], fluxj, fluidId[j], false);
+      }
+      varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Wstar);
+      //if (  1.0-resji.alpha > alpha)
+      //fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj, fluidId[j], false);
+      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxj, fluidId[j], false);
+      //else
+      //  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, V[j], fluxj, fluidId[j], false);
 
-	    //	double fluxnrm[3] = {normal[l][0],normal[l][1],normal[l][2]};
-	    //	varFcn->getVarFcnBase(fluidId[j])->computeFofV(fluxnrm,Wstar,fluxj);
-	    for (int k=0; k<dim; k++)  fluxes[j][k] -= fluxj[k];
-	  }
-	}
+      //	double fluxnrm[3] = {normal[l][0],normal[l][1],normal[l][2]};
+      //	varFcn->getVarFcnBase(fluidId[j])->computeFofV(fluxnrm,Wstar,fluxj);
+      for (int k=0; k<dim; k++)  fluxes[j][k] -= fluxj[k];
+    }
+  }
 
       }
     }
@@ -2817,17 +2817,17 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       int lsdim;
       if (!(programmedBurn && programmedBurn->isDetonationInterface(fluidId[i],fluidId[j],burnTag)) ) {
 
-	lsdim = fluidSelector.getLevelSetDim(fluidId[i],fluidId[j],locToGlobNodeMap[i]+1,locToGlobNodeMap[j]+1);
+  lsdim = fluidSelector.getLevelSetDim(fluidId[i],fluidId[j],locToGlobNodeMap[i]+1,locToGlobNodeMap[j]+1);
 
         if (mfRiemannNormal == MF_RIEMANN_NORMAL_REAL) {
-  	  gphii[0] = -dPdx[i][lsdim];
-	  gphii[1] = -dPdy[i][lsdim];
-	  gphii[2] = -dPdz[i][lsdim];
-	  gphij[0] = -dPdx[j][lsdim];
-	  gphij[1] = -dPdy[j][lsdim];
-	  gphij[2] = -dPdz[j][lsdim];
-	  for (int k=0; k<3; k++)
-	    gradphi[k] = 0.5*(gphii[k]+gphij[k]);
+      gphii[0] = -dPdx[i][lsdim];
+    gphii[1] = -dPdy[i][lsdim];
+    gphii[2] = -dPdz[i][lsdim];
+    gphij[0] = -dPdx[j][lsdim];
+    gphij[1] = -dPdy[j][lsdim];
+    gphij[2] = -dPdz[j][lsdim];
+    for (int k=0; k<3; k++)
+      gradphi[k] = 0.5*(gphii[k]+gphij[k]);
         }
         else if (mfRiemannNormal == MF_RIEMANN_NORMAL_MESH) {
           if(fluidId[i] == riemann.fluid2(fluidId[i],fluidId[j])) {
@@ -2838,55 +2838,55 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
           }
         }
         else {
-  	  gphii[0] = -dPdx[i][lsdim];
-	  gphii[1] = -dPdy[i][lsdim];
-	  gphii[2] = -dPdz[i][lsdim];
-	  gphij[0] = -dPdx[j][lsdim];
-	  gphij[1] = -dPdy[j][lsdim];
-	  gphij[2] = -dPdz[j][lsdim];
+      gphii[0] = -dPdx[i][lsdim];
+    gphii[1] = -dPdy[i][lsdim];
+    gphii[2] = -dPdz[i][lsdim];
+    gphij[0] = -dPdx[j][lsdim];
+    gphij[1] = -dPdy[j][lsdim];
+    gphij[2] = -dPdz[j][lsdim];
 
           double t[3];
-	  for (int k=0; k<3; k++)
-	    t[k] = 0.5*(gphii[k]+gphij[k]);
+    for (int k=0; k<3; k++)
+      t[k] = 0.5*(gphii[k]+gphij[k]);
 
-	  for (int k=0; k<3; k++)
-	    gradphi[k] = normal[l][k];
+    for (int k=0; k<3; k++)
+      gradphi[k] = normal[l][k];
 
           if (t[0]*gradphi[0]+t[1]*gradphi[1]+t[2]*gradphi[2] < 0.0) {
-	    for (int k=0; k<3; k++)
-	      gradphi[k] = -gradphi[k];
+      for (int k=0; k<3; k++)
+        gradphi[k] = -gradphi[k];
           }
         }
 
-	double normgradphi = sqrt(gradphi[0]*gradphi[0]+gradphi[1]*gradphi[1]+gradphi[2]*gradphi[2]);
+  double normgradphi = sqrt(gradphi[0]*gradphi[0]+gradphi[1]*gradphi[1]+gradphi[2]*gradphi[2]);
 
-	for (int k=0; k<3; k++)
-	  gradphi[k] /= normgradphi;
+  for (int k=0; k<3; k++)
+    gradphi[k] /= normgradphi;
 
       } else {
-	double xmid[3];
-	for (int k=0; k<3; k++)
-	  xmid[k] = (X[j][k]+X[i][k])*0.5;
+  double xmid[3];
+  for (int k=0; k<3; k++)
+    xmid[k] = (X[j][k]+X[i][k])*0.5;
 
-	programmedBurn->getDetonationNormal(burnTag,fluidId[i],fluidId[j], xmid, gradphi);
+  programmedBurn->getDetonationNormal(burnTag,fluidId[i],fluidId[j], xmid, gradphi);
       }
 
       if (higherOrderMF) {
 
-	assert(fluidId[i] != fluidId[j]);
+  assert(fluidId[i] != fluidId[j]);
 
 //        bool hasFix = (dVdx[i][0]*dVdx[i][0]+dVdy[i][0]*dVdy[i][0]+dVdz[i][0]*dVdz[i][0] == 0.0 ||
 //                       dVdx[j][0]*dVdx[j][0]+dVdy[j][0]*dVdy[j][0]+dVdz[j][0]*dVdz[j][0] == 0.0);
 
         bool hasFix = false;
 
-	// There are two cases.  In the first case the surrogate interface is the
-	// same for both fluids.  This implies that the edge in question is cut by
-	// the material interface.
-	double iloc[3];
-	// Step 1: Compute the intersection location (where the 0-contour of the level
-	// set crosses this edge.
-	double s;
+  // There are two cases.  In the first case the surrogate interface is the
+  // same for both fluids.  This implies that the edge in question is cut by
+  // the material interface.
+  double iloc[3];
+  // Step 1: Compute the intersection location (where the 0-contour of the level
+  // set crosses this edge.
+  double s;
         if (!triangulatedLSS)
           s = phi[j][lsdim]/(phi[j][lsdim]-phi[i][lsdim]);
         else {
@@ -2905,53 +2905,53 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
         //std::cout << s << " " << phi[j][lsdim]/(phi[j][lsdim]-phi[i][lsdim]) << std::endl;
 
-	for (int k=0; k<3; k++)
-	  iloc[k] = X[i][k]*s+X[j][k]*(1.0-s);
+  for (int k=0; k<3; k++)
+    iloc[k] = X[i][k]*s+X[j][k]*(1.0-s);
 
-	double ri[dim], rj[dim];
-	higherOrderMF->estimateR(l, 0, i, V, ngrad, X, fluidId, ri);
-	higherOrderMF->estimateR(l, 1, j, V, ngrad, X, fluidId, rj);
+  double ri[dim], rj[dim];
+  higherOrderMF->estimateR(l, 0, i, V, ngrad, X, fluidId, ri);
+  higherOrderMF->estimateR(l, 1, j, V, ngrad, X, fluidId, rj);
 
-	//double betai = 1.0,betaj = 1.0;
-	double betai[dim], betaj[dim];
-	for (int k = 0; k < dim; ++k) {
-	  betai[k] = betaj[k] = 1.0;
-	}
+  //double betai = 1.0,betaj = 1.0;
+  double betai[dim], betaj[dim];
+  for (int k = 0; k < dim; ++k) {
+    betai[k] = betaj[k] = 1.0;
+  }
 
         if (higherOrderMF->limitExtrapolation()) {
-	   //d2d: why V*dx? Should be dvd_x,y,z * dx ??
-	  if (V[i][1]*dx[0]+V[i][2]*dx[1]+V[i][3]*dx[2] < 0.0) {
-	    for (int k = 0; k < dim; ++k) {
-	      betai[k] = std::min<double>(betai[k],ri[k]);
-	    }
-	  }
-	  if (V[j][1]*dx[0]+V[j][2]*dx[1]+V[j][3]*dx[2] > 0.0) {
-	    //d2d: why V*dx? Should be dvd_x,y,z * dx ??
-	    //     not sure it has to be > 0 now?
-	    for (int k = 0; k < dim; ++k) {
-	      betaj[k] = std::min<double>(betaj[k],rj[k]);
-	    }
-	  }
+     //d2d: why V*dx? Should be dvd_x,y,z * dx ??
+    if (V[i][1]*dx[0]+V[i][2]*dx[1]+V[i][3]*dx[2] < 0.0) {
+      for (int k = 0; k < dim; ++k) {
+        betai[k] = std::min<double>(betai[k],ri[k]);
+      }
+    }
+    if (V[j][1]*dx[0]+V[j][2]*dx[1]+V[j][3]*dx[2] > 0.0) {
+      //d2d: why V*dx? Should be dvd_x,y,z * dx ??
+      //     not sure it has to be > 0 now?
+      for (int k = 0; k < dim; ++k) {
+        betaj[k] = std::min<double>(betaj[k],rj[k]);
+      }
+    }
 
             //betai = std::min<double>(betai,betaj);
             //betaj = std::min<double>(betai,betaj);
         }
 
           //std::cout << "s = " << s << std::endl;
-	  // Step 2: Extrapolate the values from cell i and cell j to the interface
-	  for (int k = 0; k < dim; ++k) {
-	    Vi[k] = V[i][k]+
-	      (dVdx[i][k]*(iloc[0]-X[i][0])+
-	       dVdy[i][k]*(iloc[1]-X[i][1])+
-	       dVdz[i][k]*(iloc[2]-X[i][2]))*betai[k];
-	  }
+    // Step 2: Extrapolate the values from cell i and cell j to the interface
+    for (int k = 0; k < dim; ++k) {
+      Vi[k] = V[i][k]+
+        (dVdx[i][k]*(iloc[0]-X[i][0])+
+         dVdy[i][k]*(iloc[1]-X[i][1])+
+         dVdz[i][k]*(iloc[2]-X[i][2]))*betai[k];
+    }
 
-	  for (int k = 0; k < dim; ++k) {
-	    Vj[k] = V[j][k]+
-	      (dVdx[j][k]*(iloc[0]-X[j][0])+
-	       dVdy[j][k]*(iloc[1]-X[j][1])+
-	       dVdz[j][k]*(iloc[2]-X[j][2]))*betaj[k];
-	  }
+    for (int k = 0; k < dim; ++k) {
+      Vj[k] = V[j][k]+
+        (dVdx[j][k]*(iloc[0]-X[j][0])+
+         dVdy[j][k]*(iloc[1]-X[j][1])+
+         dVdz[j][k]*(iloc[2]-X[j][2]))*betaj[k];
+    }
           // Check for negative pressures/densities.
           // If a negative value is detected, drop back to first order extrapolation
           // (i.e., the Riemann solution)
@@ -2964,34 +2964,34 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
           if (Vj[4] <= 0.0)
             Vj[4] = V[j][4];
 
-	  int err =riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
-						  Wi,Wj,i,j,l,dx,lsdim,true);
+    int err =riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
+              Wi,Wj,i,j,l,dx,lsdim,true);
 
           if (err) {
             std::cout << "*** ERROR: Riemann solver failed between nodes " << locToGlobNodeMap[i]+1 << " " << locToGlobNodeMap[j]+1 << std::endl;
           }
           errorHandler->localErrors[ErrorHandler::BAD_RIEMANN] += err;
 
-	  // Step 3: Interpolate/Extrapolate back to the surrogate interface.
+    // Step 3: Interpolate/Extrapolate back to the surrogate interface.
 
           //std::cout << "s = " << s << std::endl;
-	  if (0/*s < 0.9*/) {
-	    for (int k = 0; k < dim; ++k) {
-	      Vi[k] = (V[i][k]*(0.5-s)+Wi[k]*(0.5))/(1.0-s)*betai[k] +
-		(1.0-betai[k])*Wi[k];
+    if (0/*s < 0.9*/) {
+      for (int k = 0; k < dim; ++k) {
+        Vi[k] = (V[i][k]*(0.5-s)+Wi[k]*(0.5))/(1.0-s)*betai[k] +
+    (1.0-betai[k])*Wi[k];
             }
           } else
 
-	    higherOrderMF->extrapolateV6(l, 0, i, V, Vi, Wi, X,s, length,fluidId, betai);
+      higherOrderMF->extrapolateV6(l, 0, i, V, Vi, Wi, X,s, length,fluidId, betai);
 
-	  if (0/*s > 0.1*/) {
-	    for (int k = 0; k < dim; ++k) {
-	      Vj[k] = (V[j][k]*(-0.5+s)+Wj[k]*(0.5))/s*betaj[k] +
-		(1.0-betaj[k])*Wj[k];
+    if (0/*s > 0.1*/) {
+      for (int k = 0; k < dim; ++k) {
+        Vj[k] = (V[j][k]*(-0.5+s)+Wj[k]*(0.5))/s*betaj[k] +
+    (1.0-betaj[k])*Wj[k];
             }
           } else
 
-	    higherOrderMF->extrapolateV6(l, 1, j, V, Vj, Wj, X, 1.0-s, length, fluidId,betaj);
+      higherOrderMF->extrapolateV6(l, 1, j, V, Vj, Wj, X, 1.0-s, length, fluidId,betaj);
 
           // Check for negative pressures/densities.
           // If a negative value is detected, drop back to first order extrapolation
@@ -3005,48 +3005,48 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
           if (Vj[4] <= 0.0)
             Vj[4] = Wj[4];
 
-	  if (!hasFix)
-	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
-					  Vi, Vi, fluxi, fluidId[i]);
-	  else {
-	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
-					  V[i], Wi, fluxi, fluidId[i]);
-	  }
+    if (!hasFix)
+      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+            Vi, Vi, fluxi, fluidId[i]);
+    else {
+      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+            V[i], Wi, fluxi, fluidId[i]);
+    }
 
-	  if (!hasFix)
-	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
-					  Vj, Vj, fluxj, fluidId[j]);
-	  else
-	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
-					  Wj, V[j], fluxj, fluidId[j]);
+    if (!hasFix)
+      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+            Vj, Vj, fluxj, fluidId[j]);
+    else
+      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+            Wj, V[j], fluxj, fluidId[j]);
 
 
-	  // Now extrapolate back to compute the riemann update for cells i/j
-	  if (it == 1) {
-	    SVec<double,dim> &rupdate = riemann.getRiemannUpdate();
-	    Vec<double> &weight = riemann.getRiemannWeight();
+    // Now extrapolate back to compute the riemann update for cells i/j
+    if (it == 1) {
+      SVec<double,dim> &rupdate = riemann.getRiemannUpdate();
+      Vec<double> &weight = riemann.getRiemannWeight();
             double updatei[dim],updatej[dim];
-	    double alphai = 1.0, alphaj = 1.0;
+      double alphai = 1.0, alphaj = 1.0;
 
-	    for (int k = 0; k < dim; ++k) {
+      for (int k = 0; k < dim; ++k) {
               updatei[k] = (1.0+alphaj)*Vj[k]-alphaj*V[j][k];
               updatej[k] = (1.0+alphai)*Vi[k]-alphai*V[i][k];
             }
             if (updatei[0] <= 0.0 || updatei[4] <= 0.0 || hasFix) {
-	      for (int k = 0; k < dim; ++k)
+        for (int k = 0; k < dim; ++k)
                 updatei[k] = Wj[k];
             }
             if (updatej[0] <= 0.0 || updatej[4] <= 0.0 || hasFix) {
-	      for (int k = 0; k < dim; ++k)
+        for (int k = 0; k < dim; ++k)
                 updatej[k] = Wi[k];
             }
- 	    for (int k = 0; k < dim; ++k) {
-	      rupdate[i][k] += updatei[k];
-	      rupdate[j][k] += updatej[k];
-	    }
-	    weight[i] += 1.0;
-	    weight[j] += 1.0;
-	  }
+       for (int k = 0; k < dim; ++k) {
+        rupdate[i][k] += updatei[k];
+        rupdate[j][k] += updatej[k];
+      }
+      weight[i] += 1.0;
+      weight[j] += 1.0;
+    }
 
       }	else {
 
@@ -3055,19 +3055,19 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
           fprintf(stderr,"j=%d, globId = %d, fluidId = %d, occluded = %d, swept = %d.\n", j, locToGlobNodeMap[j]+1, fluidId[j], LSS.isOccluded(0.0,j), LSS.isSwept(0.0,j));
         }*/
 
-	int err = riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
-		         		         Wi,Wj,i,j,l,dx,lsdim,false);
+  int err = riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
+                          Wi,Wj,i,j,l,dx,lsdim,false);
 
-	if (err) {
-	  std::cout << "*** ERROR: Riemann solver failed between nodes " << locToGlobNodeMap[i]+1 << " " << locToGlobNodeMap[j]+1 << std::endl;
-	}
+  if (err) {
+    std::cout << "*** ERROR: Riemann solver failed between nodes " << locToGlobNodeMap[i]+1 << " " << locToGlobNodeMap[j]+1 << std::endl;
+  }
 
         errorHandler->localErrors[ErrorHandler::BAD_RIEMANN] += err;
 
-	fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
-				      Vi, Wi, fluxi, fluidId[i]);
-	fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
-				      Wj, Vj, fluxj, fluidId[j]);
+  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+              Vi, Wi, fluxi, fluidId[i]);
+  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
+              Wj, Vj, fluxj, fluidId[j]);
 
       }
 
@@ -3201,9 +3201,9 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
       //clean-up Wstar
       if(it>0) {
-	for(int k=0; k<dim; k++){
-	  Wstarij[l][k] = Wstarji[l][k] = 0.0;
-	}
+  for(int k=0; k<dim; k++){
+    Wstarij[l][k] = Wstarji[l][k] = 0.0;
+  }
       }
 
       continue;
@@ -3220,8 +3220,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       egrad->compute(l, i, j, elems, X, V, dVdx, dVdy, dVdz, fluidId, ddVij, ddVji, LSS);
     }else{
       for (int k=0; k<dim; ++k) {
-	ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
-	ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
+  ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
+  ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
       }
     }
 
@@ -3231,8 +3231,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     } else {
 
       for(int k=0; k<dim; k++) {
-	Vi[k] = V[i][k];
-	Vj[k] = V[j][k];
+  Vi[k] = V[i][k];
+  Vj[k] = V[j][k];
       }
     }
 
@@ -3267,25 +3267,25 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       if (!masterFlag[l]) continue; //not a master edge
 
       if(!(iActive && jActive)) {
-	fprintf(stderr, "Really odd! Node %i ", i);
-	fprintf(stdout, "%s", iActive ? "true" : "false");
-	fprintf(stdout, " Node %i ", j);
-	fprintf(stdout, "%s\n", jActive ? "true" : "false");
-	exit(-1);
+  fprintf(stderr, "Really odd! Node %i ", i);
+  fprintf(stdout, "%s", iActive ? "true" : "false");
+  fprintf(stdout, " Node %i ", j);
+  fprintf(stdout, "%s\n", jActive ? "true" : "false");
+  exit(-1);
       }
 
       fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[i]);
 
       if (dynamic_cast<MultiGridLevelSetStructure*>(&LSS) == 0) {
-	for (int k=0; k<dim; ++k) {
-	  fluxes[i][k] += flux[k];
-	  fluxes[j][k] -= flux[k];
-	}
+  for (int k=0; k<dim; ++k) {
+    fluxes[i][k] += flux[k];
+    fluxes[j][k] -= flux[k];
+  }
       } else {
-	for (int k=0; k<dim; ++k) {
-	  fluxes[i][k] += flux[k];
-	  fluxes[j][k] -= flux[k];
-	}
+  for (int k=0; k<dim; ++k) {
+    fluxes[i][k] += flux[k];
+    fluxes[j][k] -= flux[k];
+  }
       }
 
     }else{ // interface
@@ -3296,8 +3296,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
 
         if (jActive && fluidId[i]==fluidId[j] && resij.porosity > 0.0){
-	  iPorous = true;
-	}
+    iPorous = true;
+  }
 
         switch (Nriemann) {
           case 0: //structure normal
@@ -3314,63 +3314,63 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         if(std::abs(1.0-normalDir.norm())>0.1)
           fprintf(stderr,"KW: normalDir.norm = %e. This is too bad...\n", normalDir.norm());
 
-	//*************************************
-	double betai[dim], betaj[dim];
+  //*************************************
+  double betai[dim], betaj[dim];
 
-	if (higherOrderFSI) {
+  if (higherOrderFSI) {
 
-	  double ri[dim], rj[dim];
-	  higherOrderFSI->estimateR(l, 0, i, V, ngrad, X, fluidId, ri); // BUG corrected d2d: i<-j
+    double ri[dim], rj[dim];
+    higherOrderFSI->estimateR(l, 0, i, V, ngrad, X, fluidId, ri); // BUG corrected d2d: i<-j
 
-	  for (int k = 0; k < dim; ++k) {
-	    betai[k] = betaj[k] = 1.0;
-	  }
+    for (int k = 0; k < dim; ++k) {
+      betai[k] = betaj[k] = 1.0;
+    }
 
-	  if (higherOrderFSI->limitExtrapolation()) {
-	    if (V[i][1]*dx[0]+V[i][2]*dx[1]+V[i][3]*dx[2] < 0.0) {
-	      for (int k = 0; k < dim; ++k) {
-		betai[k] = std::min<double>(betai[k],ri[k]);
-	      }
-	    }
-	  }
+    if (higherOrderFSI->limitExtrapolation()) {
+      if (V[i][1]*dx[0]+V[i][2]*dx[1]+V[i][3]*dx[2] < 0.0) {
+        for (int k = 0; k < dim; ++k) {
+    betai[k] = std::min<double>(betai[k],ri[k]);
+        }
+      }
+    }
 
-	  for (int k=0; k<dim; k++) {
-	    Vi[k] = V[i][k] + (1.0 - resij.alpha)*ddVij[k]*betai[k];
-	  }
+    for (int k=0; k<dim; k++) {
+      Vi[k] = V[i][k] + (1.0 - resij.alpha)*ddVij[k]*betai[k];
+    }
 
-	  varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Vi);
+    varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Vi);
 
-	}
-	//*************************************
+  }
+  //*************************************
 
         riemann.computeFSIRiemannSolution(Vi, resij.normVel, normalDir, varFcn, Wstar, j, fluidId[i]);
 
         if(it > 0){
-	  //if it>0 (i.e. not called in computeResidualNorm), store Wstarij.
+    //if it>0 (i.e. not called in computeResidualNorm), store Wstarij.
           for (int k=0; k<dim; k++) Wstarij[l][k] = Wstar[k];
-	}
+  }
 
-	if (!higherOrderFSI) {
+  if (!higherOrderFSI) {
 
-	  if (masterFlag[l]) {
+    if (masterFlag[l]) {
 
-	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi, fluidId[i], false);
+      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi, fluidId[i], false);
 
             if (iPorous) {
               fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[i]);
               for (int k=0; k<dim; k++) fluxi[k] = (1.0 - resij.porosity)*fluxi[k] + resij.porosity*flux[k];
             }
 
-	    for (int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
+      for (int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
 
-	  }
+    }
 
         } else {
 
-	  //*************************************
-	  if (masterFlag[l]) {
+    //*************************************
+    if (masterFlag[l]) {
 
-	    V6NodeData (*v6data)[2] = higherOrderFSI->getV6Data();
+      V6NodeData (*v6data)[2] = higherOrderFSI->getV6Data();
             if (v6data == NULL) {
               for (int k=0; k<dim; k++) {
                 Wstar[k] = V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k]);
@@ -3387,12 +3387,12 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
               for (int k=0; k<dim; k++) fluxi[k] = (1.0 - resij.porosity)*fluxi[k] + resij.porosity*flux[k];
             }
 
-	    for (int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
+      for (int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
 
-	  }
+    }
 
-	}
-	//*************************************
+  }
+  //*************************************
 
       } //iActive
 
@@ -3402,8 +3402,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
 
         if (iActive && fluidId[i]==fluidId[j] && resji.porosity > 0.0){
-	  jPorous = true;
-	}
+    jPorous = true;
+  }
 
         switch (Nriemann) {
 
@@ -3421,61 +3421,61 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         if(std::abs(1.0-normalDir.norm())>0.1)
           fprintf(stderr,"KW: normalDir.norm = %e. This is too bad...\n", normalDir.norm());
 
-	//*************************************
-	double betai[dim], betaj[dim];
+  //*************************************
+  double betai[dim], betaj[dim];
 
-	if (higherOrderFSI) {
+  if (higherOrderFSI) {
 
-	  double ri[dim],rj[dim];
-	  higherOrderFSI->estimateR(l, 1, j, V, ngrad, X, fluidId, rj); // Limited fsi i(!active), j(active)
+    double ri[dim],rj[dim];
+    higherOrderFSI->estimateR(l, 1, j, V, ngrad, X, fluidId, rj); // Limited fsi i(!active), j(active)
 
-	  for (int k = 0; k < dim; ++k) {
-	    betai[k] = betaj[k] = 1.0;
-	  }
+    for (int k = 0; k < dim; ++k) {
+      betai[k] = betaj[k] = 1.0;
+    }
 
-	  if (higherOrderFSI->limitExtrapolation()) {
-	    if (V[j][1]*dx[0]+V[j][2]*dx[1]+V[j][3]*dx[2] > 0.0) {
-	      for (int k = 0; k < dim; ++k) {
-		betaj[k] = std::min<double>(betaj[k],rj[k]);
-	      }
-	    }
-	  }
+    if (higherOrderFSI->limitExtrapolation()) {
+      if (V[j][1]*dx[0]+V[j][2]*dx[1]+V[j][3]*dx[2] > 0.0) {
+        for (int k = 0; k < dim; ++k) {
+    betaj[k] = std::min<double>(betaj[k],rj[k]);
+        }
+      }
+    }
 
-	  for (int k=0; k<dim; k++) {
-	    Vj[k] = V[j][k]-(1.0-resji.alpha)*ddVji[k]*betaj[k];
-	  }
+    for (int k=0; k<dim; k++) {
+      Vj[k] = V[j][k]-(1.0-resji.alpha)*ddVji[k]*betaj[k];
+    }
 
-	  varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Vj);
+    varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Vj);
 
-	}
-	//*************************************
+  }
+  //*************************************
 
         riemann.computeFSIRiemannSolution(Vj,resji.normVel,normalDir,varFcn,Wstar,i,fluidId[j]);
 
         if (it>0)
           for (int k=0; k<dim; k++) Wstarji[l][k] = Wstar[k];
 
-	if (!higherOrderFSI) {
+  if (!higherOrderFSI) {
 
-	  if (masterFlag[l]) {
+    if (masterFlag[l]) {
 
-	    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj, fluidId[j], false);
+      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj, fluidId[j], false);
 
             if (jPorous) {
               fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[j]);
               for (int k=0; k<dim; k++) fluxj[k] = (1.0 - resji.porosity)*fluxj[k] + resji.porosity*flux[k];
             }
 
-	    for (int k=0; k<dim; k++)  fluxes[j][k] -= fluxj[k];
+      for (int k=0; k<dim; k++)  fluxes[j][k] -= fluxj[k];
 
-	  }
+    }
 
         } else {
 
-	  //*************************************
-	  if (masterFlag[l]) {
+    //*************************************
+    if (masterFlag[l]) {
 
-	    V6NodeData (*v6data)[2] = higherOrderFSI->getV6Data();
+      V6NodeData (*v6data)[2] = higherOrderFSI->getV6Data();
             if (v6data==NULL) {
               for (int k=0; k<dim; k++) {
                 Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
@@ -3490,15 +3490,15 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
             if (jPorous) {
               fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[j]);
               for (int k=0; k<dim; k++) {
-		fluxj[k] = (1.0 - resji.porosity)*fluxj[k] + resji.porosity*flux[k];
-	      }
+    fluxj[k] = (1.0 - resji.porosity)*fluxj[k] + resji.porosity*flux[k];
+        }
             }
 
-	    for (int k=0; k<dim; k++) fluxes[j][k] -= fluxj[k];
-	  }
+      for (int k=0; k<dim; k++) fluxes[j][k] -= fluxj[k];
+    }
 
-	}
-	//*************************************
+  }
+  //*************************************
 
       } //jActive
 
@@ -3525,221 +3525,221 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                                      SVec<int,2>& tag, int failsafe, int rshift)
 {
 
-	int ierr = 0;
+  int ierr = 0;
 
-	Vec<Vec3D>&  normal    = geoState.getEdgeNormal();
-	Vec<double>& normalVel = geoState.getEdgeNormalVel();
+  Vec<Vec3D>&  normal    = geoState.getEdgeNormal();
+  Vec<double>& normalVel = geoState.getEdgeNormalVel();
 
-	SVec<double,dim>& dVdx = ngrad.getX();
-	SVec<double,dim>& dVdy = ngrad.getY();
-	SVec<double,dim>& dVdz = ngrad.getZ();
+  SVec<double,dim>& dVdx = ngrad.getX();
+  SVec<double,dim>& dVdy = ngrad.getY();
+  SVec<double,dim>& dVdz = ngrad.getZ();
 
-	double ddVij[dim], ddVji[dim], Udummy[dim];
+  double ddVij[dim], ddVji[dim], Udummy[dim];
 
-	double Vi[2*dim], Vj[2*dim], Vstar[2*dim], V_e[2*dim], V_si[2*dim];
+  double Vi[2*dim], Vj[2*dim], Vstar[2*dim], V_e[2*dim], V_si[2*dim];
 
-	riemann.reset(it);
+  riemann.reset(it);
 
-	VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
+  VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
 
-	double flux[dim], fluxi[dim], fluxj[dim];
+  double flux[dim], fluxi[dim], fluxj[dim];
 
-	for(int i=0; i<dim; i++) fluxi[i] = fluxj[i] = 0.0;
+  for(int i=0; i<dim; i++) fluxi[i] = fluxj[i] = 0.0;
 
-	double length;
+  double length;
 
-	Vec3D nWall_o;
+  Vec3D nWall_o;
 
-	for(int l=0; l<numEdges; ++l)
-	{
-		double area = normal[l].norm();
+  for(int l=0; l<numEdges; ++l)
+  {
+    double area = normal[l].norm();
 
-		if(area < 1e-18) continue;
+    if(area < 1e-18) continue;
 
-		int i = ptr[l][0];
-		int j = ptr[l][1];
+    int i = ptr[l][0];
+    int j = ptr[l][1];
 
-		bool withSI  = LSS.edgeWithSI(l);
-		bool iActive = LSS.isActive(0.0, i);
-		bool jActive = LSS.isActive(0.0, j);
+    bool withSI  = LSS.edgeWithSI(l);
+    bool iActive = LSS.isActive(0.0, i);
+    bool jActive = LSS.isActive(0.0, j);
 
-		if(!iActive && !jActive)
-		{
-			if(it>0) for(int k=0; k<dim; k++) Vstarij[l][k] = Vstarji[l][k] = 0.0;
+    if(!iActive && !jActive)
+    {
+      if(it>0) for(int k=0; k<dim; k++) Vstarij[l][k] = Vstarji[l][k] = 0.0;
 
-			continue;
-		}
+      continue;
+    }
 
-		double dx[3] = {X[j][0] - X[i][0],
-							 X[j][1] - X[i][1],
-							 X[j][2] - X[i][2]};
+    double dx[3] = {X[j][0] - X[i][0],
+               X[j][1] - X[i][1],
+               X[j][2] - X[i][2]};
 
-		length = sqrt(dx[0]*dx[0] + dx[1]*dx[1] + dx[2]*dx[2]);
+    length = sqrt(dx[0]*dx[0] + dx[1]*dx[1] + dx[2]*dx[2]);
 
-		if(egrad)
-			egrad->compute(l, i, j, elems, X, V, dVdx, dVdy, dVdz, fluidId, ddVij, ddVji, LSS);
-		else
-		{
-			for(int k=0; k<dim; ++k)
-			{
-				ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
-				ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
-			}
-		}
+    if(egrad)
+      egrad->compute(l, i, j, elems, X, V, dVdx, dVdy, dVdz, fluidId, ddVij, ddVji, LSS);
+    else
+    {
+      for(int k=0; k<dim; ++k)
+      {
+        ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
+        ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
+      }
+    }
 
-		if(iActive && jActive && !withSI)
-		 	recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
-		else
-		{
-			for(int k=0; k<dim; k++)
-			{
-				Vi[k] = V[i][k];
-				Vj[k] = V[j][k];
-			}
-		}
+    if(iActive && jActive && !withSI)
+       recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
+    else
+    {
+      for(int k=0; k<dim; k++)
+      {
+        Vi[k] = V[i][k];
+        Vj[k] = V[j][k];
+      }
+    }
 
-		if(iActive) varFcn->getVarFcnBase(fluidId[i])->verification(0, Udummy, Vi);
-		if(jActive) varFcn->getVarFcnBase(fluidId[j])->verification(0, Udummy, Vj);
+    if(iActive) varFcn->getVarFcnBase(fluidId[i])->verification(0, Udummy, Vi);
+    if(jActive) varFcn->getVarFcnBase(fluidId[j])->verification(0, Udummy, Vj);
 
-		if(it > 0) for(int k=0; k<dim; k++) Vstarij[l][k] = Vstarji[l][k] = 0.0;
+    if(it > 0) for(int k=0; k<dim; k++) Vstarij[l][k] = Vstarji[l][k] = 0.0;
 
-		// Check for negative pressure or density
-		if(!rshift)	ierr += checkReconstructedValues(i, j, Vi, Vj, varFcn, locToGlobNodeMap,
+    // Check for negative pressure or density
+    if(!rshift)	ierr += checkReconstructedValues(i, j, Vi, Vj, varFcn, locToGlobNodeMap,
                                                    failsafe, tag, V[i], V[j],
                                                    fluidId[i], fluidId[j], iActive, jActive);
 
-		if(ierr) continue;
+    if(ierr) continue;
 
-		// These are the nodal values (not reconstructed states)
-		// Note: Vi/j[dim+1 ... 2*dim]
-		for (int k=0; k<dim; ++k)
-		{
-			Vi[k+dim] = V[i][k];
-			Vj[k+dim] = V[j][k];
-		}
+    // These are the nodal values (not reconstructed states)
+    // Note: Vi/j[dim+1 ... 2*dim]
+    for (int k=0; k<dim; ++k)
+    {
+      Vi[k+dim] = V[i][k];
+      Vj[k+dim] = V[j][k];
+    }
 
-		/*  ---------------------------------- Same Phase ---------------------------------- */
-		if(!withSI)
-		{
-			if(!masterFlag[l]) continue;
+    /*  ---------------------------------- Same Phase ---------------------------------- */
+    if(!withSI)
+    {
+      if(!masterFlag[l]) continue;
 
-			if(!(iActive && jActive))
-			{
-				fprintf(stderr, " *** Error: edge with no SI has inactive nodes. Edge=%d, i=%d, j=%d, iActive=%d, jActive=%d, intesect=%d\n",
-						  l, i, j, iActive, jActive, LSS.edgeIntersectsStructure(0,l));
-				exit(-1);
-			}
+      if(!(iActive && jActive))
+      {
+        fprintf(stderr, " *** Error: edge with no SI has inactive nodes. Edge=%d, i=%d, j=%d, iActive=%d, jActive=%d, intesect=%d\n",
+              l, i, j, iActive, jActive, LSS.edgeIntersectsStructure(0,l));
+        exit(-1);
+      }
 
-			fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[i]);
+      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[i]);
 
-			for(int k=0; k<dim; ++k)
-			{
-				fluxes[i][k] += flux[k];
-				fluxes[j][k] -= flux[k];
-			}
-		}
-		/*  ---------------------------------- IB treatment ---------------------------------- */
-		else
-		{
-			if(iActive == jActive)
-			{
-				fprintf(stderr, " *** Error: edge with SI has both nodes (in)active; Edge=%d, i=%d, j=%d, iActive=%d, jActive=%d, intesect=%d\n",
-						  l, i, j, iActive, jActive, LSS.edgeIntersectsStructure(0,l));
-				exit(-1);
-			}
+      for(int k=0; k<dim; ++k)
+      {
+        fluxes[i][k] += flux[k];
+        fluxes[j][k] -= flux[k];
+      }
+    }
+    /*  ---------------------------------- IB treatment ---------------------------------- */
+    else
+    {
+      if(iActive == jActive)
+      {
+        fprintf(stderr, " *** Error: edge with SI has both nodes (in)active; Edge=%d, i=%d, j=%d, iActive=%d, jActive=%d, intesect=%d\n",
+              l, i, j, iActive, jActive, LSS.edgeIntersectsStructure(0,l));
+        exit(-1);
+      }
 
-			Vec3D Xij;
-			for(int k=0; k<3; ++k) Xij[k] = 0.5*(X[i][k] + X[j][k]);
+      Vec3D Xij;
+      for(int k=0; k<3; ++k) Xij[k] = 0.5*(X[i][k] + X[j][k]);
 
-			Vec3D xWall, nWall, vWall;
-			LSS.xWallWithSI(l, xWall); // position
-			LSS.nWallWithSI(l, nWall); // normal vec.
-			LSS.vWallWithSI(l, vWall); // velocity
+      Vec3D xWall, nWall, vWall;
+      LSS.xWallWithSI(l, xWall); // position
+      LSS.nWallWithSI(l, nWall); // normal vec.
+      LSS.vWallWithSI(l, vWall); // velocity
 
-			double mod = sqrt(nWall*nWall);
-			if(mod !=0) nWall *= (1.0/mod);
+      double mod = sqrt(nWall*nWall);
+      if(mod !=0) nWall *= (1.0/mod);
 
-			Vec3D dWall;
-			for(int k=0; k<3; ++k) dWall[k] = Xij[k] - xWall[k];
+      Vec3D dWall;
+      for(int k=0; k<3; ++k) dWall[k] = Xij[k] - xWall[k];
 
-			// fprintf(stdout, "%f,%f,%f, %f,%f,%f, %f,%f,%f, %f,%f,%f\n",
-			//   		  X[i][0],X[i][1],X[i][2], X[j][0],X[j][1],X[j][2],
-			//   		  xWall[0],xWall[1],xWall[2], nWall[0],nWall[1],nWall[2]);
+      // fprintf(stdout, "%f,%f,%f, %f,%f,%f, %f,%f,%f, %f,%f,%f\n",
+      //   		  X[i][0],X[i][1],X[i][2], X[j][0],X[j][1],X[j][2],
+      //   		  xWall[0],xWall[1],xWall[2], nWall[0],nWall[1],nWall[2]);
 
-			// Normal for the half-Riemann problem
-			switch(Nriemann)
-			{
-			   case 0: // structure normal
-				{
-					double ntest = dWall*nWall;
-					nWall_o = (ntest >= 0.0) ? nWall : -1.0*nWall;
-					break;
-				}
-			   default:
-			   {
-					fprintf(stderr, " *** ERROR: Unknown Riemann Normal code!\n");
-					exit(-1);
-				}
-			}
+      // Normal for the half-Riemann problem
+      switch(Nriemann)
+      {
+         case 0: // structure normal
+        {
+          double ntest = dWall*nWall;
+          nWall_o = (ntest >= 0.0) ? nWall : -1.0*nWall;
+          break;
+        }
+         default:
+         {
+          fprintf(stderr, " *** ERROR: Unknown Riemann Normal code!\n");
+          exit(-1);
+        }
+      }
 
-			double Vi_[2*dim], Vj_[2*dim];
+      double Vi_[2*dim], Vj_[2*dim];
 
-			/* ---------- Node i ---------- */
-			if(iActive)
-			{
-				// TODO: add porosity
+      /* ---------- Node i ---------- */
+      if(iActive)
+      {
+        // TODO: add porosity
 
-				for(int k=0; k<dim; k++) Vi_[k]     = V[i][k] + 0.5*ddVij[k];
-				for(int k=0; k<dim; k++) Vi_[k+dim] = V[i][k] + 0.5*ddVij[k];
+        for(int k=0; k<dim; k++) Vi_[k]     = V[i][k] + 0.5*ddVij[k];
+        for(int k=0; k<dim; k++) Vi_[k+dim] = V[i][k] + 0.5*ddVij[k];
 
-				higherOrderFSI->extrapolateToWall_1(l, i, fluidId[i], varFcn, V, ngrad, Vi_, X, xWall, Xij, V_e);
+        higherOrderFSI->extrapolateToWall_1(l, i, fluidId[i], varFcn, V, ngrad, Vi_, X, xWall, Xij, V_e);
 
-				riemann.computeFSIRiemannSolution(V_e, vWall, nWall_o, varFcn, Vstar, j, fluidId[i]);
+        riemann.computeFSIRiemannSolution(V_e, vWall, nWall_o, varFcn, Vstar, j, fluidId[i]);
 
-				for(int k=0; k<dim; k++) Vext[j][k] = V[i][k] + ddVij[k];
+        for(int k=0; k<dim; k++) Vext[j][k] = V[i][k] + ddVij[k];
 
-				if(it > 0) for(int k=0; k<dim; k++) Vstarij[l][k] = Vstar[k];
+        if(it > 0) for(int k=0; k<dim; k++) Vstarij[l][k] = Vstar[k];
 
-				higherOrderFSI->interpolateToSI(l, i, fluidId[i], varFcn, V, Vstar, ngrad, X, xWall, Xij, V_si);
+        higherOrderFSI->interpolateToSI(l, i, fluidId[i], varFcn, V, Vstar, ngrad, X, xWall, Xij, V_si);
 
-				if(masterFlag[l])
-				{
-					fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi_, V_si, fluxi, fluidId[i], false);
+        if(masterFlag[l])
+        {
+          fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi_, V_si, fluxi, fluidId[i], false);
 
-					for(int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
-				}
-			}
+          for(int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
+        }
+      }
 
-			/* ---------- Node j ---------- */
-			if(jActive)
-			{
-				// TODO: add porosity
+      /* ---------- Node j ---------- */
+      if(jActive)
+      {
+        // TODO: add porosity
 
-				for(int k=0; k<dim; k++) Vj_[k]     = V[j][k] - 0.5*ddVji[k];
-				for(int k=0; k<dim; k++) Vj_[k+dim] = V[j][k] - 0.5*ddVji[k];
+        for(int k=0; k<dim; k++) Vj_[k]     = V[j][k] - 0.5*ddVji[k];
+        for(int k=0; k<dim; k++) Vj_[k+dim] = V[j][k] - 0.5*ddVji[k];
 
-				higherOrderFSI->extrapolateToWall_1(l, j, fluidId[j], varFcn, V, ngrad, Vj_, X, xWall, Xij, V_e);
+        higherOrderFSI->extrapolateToWall_1(l, j, fluidId[j], varFcn, V, ngrad, Vj_, X, xWall, Xij, V_e);
 
-				riemann.computeFSIRiemannSolution(V_e, vWall, nWall_o, varFcn, Vstar, i, fluidId[j]);
+        riemann.computeFSIRiemannSolution(V_e, vWall, nWall_o, varFcn, Vstar, i, fluidId[j]);
 
-				for(int k=0; k<dim; k++) Vext[i][k] = V[j][k] + ddVji[k];
+        for(int k=0; k<dim; k++) Vext[i][k] = V[j][k] + ddVji[k];
 
-				if(it > 0) for(int k=0; k<dim; k++)	Vstarji[l][k] = Vstar[k];
+        if(it > 0) for(int k=0; k<dim; k++)	Vstarji[l][k] = Vstar[k];
 
-				higherOrderFSI->interpolateToSI(l, j, fluidId[j], varFcn, V, Vstar, ngrad, X, xWall, Xij, V_si);
+        higherOrderFSI->interpolateToSI(l, j, fluidId[j], varFcn, V, Vstar, ngrad, X, xWall, Xij, V_si);
 
-				if (masterFlag[l])
-				{
-					fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], V_si, Vj_, fluxj, fluidId[j], false);
+        if (masterFlag[l])
+        {
+          fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], V_si, Vj_, fluxj, fluidId[j], false);
 
-					for(int k=0; k<dim; k++) fluxes[j][k] -= fluxj[k];
-				}
-			}
-		}
+          for(int k=0; k<dim; k++) fluxes[j][k] -= fluxj[k];
+        }
+      }
+    }
 
-	} //EoE
+  } //EoE
 
-	return ierr;
+  return ierr;
 
 }
 
@@ -3748,15 +3748,15 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 template<int dim>
 int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locToGlobNodeMap,
                                      FluxFcn** fluxFcn, RecFcn* recFcn, ElemSet& elems,
-				     GeoState& geoState, SVec<double,3>& X, SVec<double,dim>& V,
-				     SVec<double,dim>& Wstarij, SVec<double,dim>& Wstarji,
-				     Vec<int>& countWstarij, Vec<int>& countWstarji,
-				     LevelSetStructure &LSS, bool linRecAtInterface,
-				     Vec<int> &fluidId, int Nriemann,
-				     double dt, double alpha, NodalGrad<dim>& ngrad,
-				     EdgeGrad<dim>* egrad, SVec<double,dim>& fluxes, int it,
+             GeoState& geoState, SVec<double,3>& X, SVec<double,dim>& V,
+             SVec<double,dim>& Wstarij, SVec<double,dim>& Wstarji,
+             Vec<int>& countWstarij, Vec<int>& countWstarji,
+             LevelSetStructure &LSS, bool linRecAtInterface,
+             Vec<int> &fluidId, int Nriemann,
+             double dt, double alpha, NodalGrad<dim>& ngrad,
+             EdgeGrad<dim>* egrad, SVec<double,dim>& fluxes, int it,
                                      SVec<int,2>& tag, int failsafe, int rshift,
-				     V6NodeData (*v6data)[2])
+             V6NodeData (*v6data)[2])
 {
 
   int farfieldFluid = 0;
@@ -3814,8 +3814,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       egrad->compute(l, i, j, elems, X, V, dVdx, dVdy, dVdz, fluidId, ddVij, ddVji, LSS);
     } else {
       for (int k=0; k<dim; ++k) {
-	ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
-	ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
+  ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
+  ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
       }
     }
 
@@ -3828,18 +3828,18 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
           Vj[k] = V[j][k];
         }
       else { // linRec at interface using Wstar
-		if (iActive) {
-		  LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0,l,true);
-		  for (int k=0; k<dim; k++) Vi[k] = V[i][k]+(1.0-resij.alpha)*ddVij[k];
-		}
-		else
-		  for (int k=0; k<dim; k++) Vi[k] = V[i][k];
-		if (jActive) {
-		  LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0,l,false);
-		  for (int k=0; k<dim; k++) Vj[k] = V[j][k]-(1.0-resji.alpha)*ddVji[k];
-		}
-		else
-		  for (int k=0; k<dim; k++) Vj[k] = V[j][k];
+    if (iActive) {
+      LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0,l,true);
+      for (int k=0; k<dim; k++) Vi[k] = V[i][k]+(1.0-resij.alpha)*ddVij[k];
+    }
+    else
+      for (int k=0; k<dim; k++) Vi[k] = V[i][k];
+    if (jActive) {
+      LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0,l,false);
+      for (int k=0; k<dim; k++) Vj[k] = V[j][k]-(1.0-resji.alpha)*ddVji[k];
+    }
+    else
+      for (int k=0; k<dim; k++) Vj[k] = V[j][k];
       }
     }
 
@@ -3881,9 +3881,9 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
         if (jActive && fluidId[i]==fluidId[j] && resij.porosity > 0.0)  iPorous = true;
 
-	double xstar[3] = {X[i][0] + dx[0]*(1.0-resij.alpha),
-			   X[i][1] + dx[1]*(1.0-resij.alpha),
-			   X[i][2] + dx[2]*(1.0-resij.alpha)};
+  double xstar[3] = {X[i][0] + dx[0]*(1.0-resij.alpha),
+         X[i][1] + dx[1]*(1.0-resij.alpha),
+         X[i][2] + dx[2]*(1.0-resij.alpha)};
 
         switch (Nriemann) {
           case 0: //structure normal
@@ -3898,64 +3898,64 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         }
         if(std::abs(1.0-normalDir.norm())>0.1)
           fprintf(stderr,"KW: normalDir.norm = %e. This is too bad...\n", normalDir.norm());
-	if (1)//countWstarij[l] == 0)
+  if (1)//countWstarij[l] == 0)
           riemann.computeFSIRiemannSolution(Vi,resij.normVel,normalDir,varFcn,Wstar,j,fluidId[i]);
-		else {
-		  for (int k=0; k<dim; k++) Wstar[k] = Wstarij[l][k];
-		  double dVdU[dim*dim], Jacx[dim*dim], Jacy[dim*dim], Jacz[dim*dim];
-		  double axisnrm[3];
-		  for (int k=0; k<dim*dim; k++) dVdU[k] = 0.0;
-		  for (int k=0; k<dim*dim; k++) Jacx[k] = 0.0;
-		  for (int k=0; k<dim*dim; k++) Jacy[k] = 0.0;
-		  for (int k=0; k<dim*dim; k++) Jacz[k] = 0.0;
-		  varFcn->getVarFcnBase(fluidId[i])->computedVdU(Wstar,dVdU);
-		  axisnrm[0] = 1.0; axisnrm[1] = 0.0; axisnrm[2] = 0.0;
-		  varFcn->getVarFcnBase(fluidId[i])->computedFdV(axisnrm,Wstar,Jacx);
-		  axisnrm[0] = 0.0; axisnrm[1] = 1.0; axisnrm[2] = 0.0;
-		  varFcn->getVarFcnBase(fluidId[i])->computedFdV(axisnrm,Wstar,Jacy);
-		  axisnrm[0] = 0.0; axisnrm[1] = 0.0; axisnrm[2] = 1.0;
-		  varFcn->getVarFcnBase(fluidId[i])->computedFdV(axisnrm,Wstar,Jacz);
-		  for (int k=0; k<dim; k++)
-		    for (int k1=0; k1<dim; k1++)
-			  for (int k2=0; k2<dim; k2++)
-		        Wstar[k] -= dt*(dVdU[k*dim+k1]*Jacx[k1*dim+k2]*dVdx[i][k2]+
-		  	  	  		        dVdU[k*dim+k1]*Jacy[k1*dim+k2]*dVdy[i][k2]+
-		  	  			        dVdU[k*dim+k1]*Jacz[k1*dim+k2]*dVdz[i][k2]);
-		}
-		if (it>0) {
-		  for (int k=0; k<dim; k++) Wstarij[l][k] = Wstar[k];
-		  countWstarij[l] += 1;
-		}
+    else {
+      for (int k=0; k<dim; k++) Wstar[k] = Wstarij[l][k];
+      double dVdU[dim*dim], Jacx[dim*dim], Jacy[dim*dim], Jacz[dim*dim];
+      double axisnrm[3];
+      for (int k=0; k<dim*dim; k++) dVdU[k] = 0.0;
+      for (int k=0; k<dim*dim; k++) Jacx[k] = 0.0;
+      for (int k=0; k<dim*dim; k++) Jacy[k] = 0.0;
+      for (int k=0; k<dim*dim; k++) Jacz[k] = 0.0;
+      varFcn->getVarFcnBase(fluidId[i])->computedVdU(Wstar,dVdU);
+      axisnrm[0] = 1.0; axisnrm[1] = 0.0; axisnrm[2] = 0.0;
+      varFcn->getVarFcnBase(fluidId[i])->computedFdV(axisnrm,Wstar,Jacx);
+      axisnrm[0] = 0.0; axisnrm[1] = 1.0; axisnrm[2] = 0.0;
+      varFcn->getVarFcnBase(fluidId[i])->computedFdV(axisnrm,Wstar,Jacy);
+      axisnrm[0] = 0.0; axisnrm[1] = 0.0; axisnrm[2] = 1.0;
+      varFcn->getVarFcnBase(fluidId[i])->computedFdV(axisnrm,Wstar,Jacz);
+      for (int k=0; k<dim; k++)
+        for (int k1=0; k1<dim; k1++)
+        for (int k2=0; k2<dim; k2++)
+            Wstar[k] -= dt*(dVdU[k*dim+k1]*Jacx[k1*dim+k2]*dVdx[i][k2]+
+                          dVdU[k*dim+k1]*Jacy[k1*dim+k2]*dVdy[i][k2]+
+                        dVdU[k*dim+k1]*Jacz[k1*dim+k2]*dVdz[i][k2]);
+    }
+    if (it>0) {
+      for (int k=0; k<dim; k++) Wstarij[l][k] = Wstar[k];
+      countWstarij[l] += 1;
+    }
 
-	  if (v6data==NULL) {
-	    for (int k=0; k<dim; k++) Wstar[k] = V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k]);
-	  }
-	  else {
-	    int idxTet = v6data[l][0].tet;
-	    int idxFace = v6data[l][0].face;
-	    double face_r = v6data[l][0].r;
-	    double face_t = v6data[l][0].t;
-	    if (1.0-resij.alpha > alpha) {
-	      //if (1.0-resij.alpha > alpha)
-		for (int k=0; k<dim; k++) Wstar[k] = V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k]);
-	    }
-	    else if ((idxTet<0)||(idxTet>=elems.size())||notAllActive(elems[idxTet],idxFace,LSS)) {
-	      for (int k=0; k<dim; k++) Wstar[k] = V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k]);
-	    }
-	    else
-	      extendedLinearExtrapolationToIntersection<dim>(elems,idxTet,idxFace,face_r,face_t,
-							     X,V,Wstar,resij.alpha,length,i);
-	  }
+    if (v6data==NULL) {
+      for (int k=0; k<dim; k++) Wstar[k] = V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k]);
+    }
+    else {
+      int idxTet = v6data[l][0].tet;
+      int idxFace = v6data[l][0].face;
+      double face_r = v6data[l][0].r;
+      double face_t = v6data[l][0].t;
+      if (1.0-resij.alpha > alpha) {
+        //if (1.0-resij.alpha > alpha)
+    for (int k=0; k<dim; k++) Wstar[k] = V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k]);
+      }
+      else if ((idxTet<0)||(idxTet>=elems.size())||notAllActive(elems[idxTet],idxFace,LSS)) {
+        for (int k=0; k<dim; k++) Wstar[k] = V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k]);
+      }
+      else
+        extendedLinearExtrapolationToIntersection<dim>(elems,idxTet,idxFace,face_r,face_t,
+                   X,V,Wstar,resij.alpha,length,i);
+    }
 
         varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Wstar);
-	//if (1.0-resij.alpha > alpha)
-	  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxi, fluidId[i], false);
+  //if (1.0-resij.alpha > alpha)
+    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxi, fluidId[i], false);
           if (iPorous) {
             fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[i]);
             for (int k=0; k<dim; k++) fluxi[k] = (1.0 - resij.porosity)*fluxi[k] + resij.porosity*flux[k];
           }
-	//else
-	//  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], V[i], Wstar, fluxi, fluidId[i], false);
+  //else
+  //  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], V[i], Wstar, fluxi, fluidId[i], false);
 //		double fluxnrm[3] = {normal[l][0],normal[l][1],normal[l][2]};
 //		varFcn->getVarFcnBase(fluidId[i])->computeFofV(fluxnrm,Wstar,fluxi);
         for (int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
@@ -3963,9 +3963,9 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       if(jActive){// for node j
         LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
         if (iActive && fluidId[i]==fluidId[j] && resji.porosity > 0.0)  jPorous = true;
-	double xstar[3] = {X[j][0] - dx[0]*(1.0-resji.alpha),
-			   X[j][1] - dx[1]*(1.0-resji.alpha),
-			   X[j][2] - dx[2]*(1.0-resji.alpha)};
+  double xstar[3] = {X[j][0] - dx[0]*(1.0-resji.alpha),
+         X[j][1] - dx[1]*(1.0-resji.alpha),
+         X[j][2] - dx[2]*(1.0-resji.alpha)};
         switch (Nriemann) {
           case 0: //structure normal
             normalDir = (dx[0]*resji.gradPhi[0]+dx[1]*resji.gradPhi[1]+dx[2]*resji.gradPhi[2]>=0.0) ? resji.gradPhi : -1.0*resji.gradPhi;
@@ -3979,68 +3979,68 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         }
         if(std::abs(1.0-normalDir.norm())>0.1)
           fprintf(stderr,"KW: normalDir.norm = %e. This is too bad...\n", normalDir.norm());
-	if (1)//{countWstarji[l] == 0)
+  if (1)//{countWstarji[l] == 0)
           riemann.computeFSIRiemannSolution(Vj,resji.normVel,normalDir,varFcn,Wstar,i,fluidId[j]);
-		else {
-		  for (int k=0; k<dim; k++) Wstar[k] = Wstarji[l][k];
-		  double dVdU[dim*dim], Jacx[dim*dim], Jacy[dim*dim], Jacz[dim*dim];
-		  double axisnrm[3];
-		  for (int k=0; k<dim*dim; k++) dVdU[k] = 0.0;
-		  for (int k=0; k<dim*dim; k++) Jacx[k] = 0.0;
-		  for (int k=0; k<dim*dim; k++) Jacy[k] = 0.0;
-		  for (int k=0; k<dim*dim; k++) Jacz[k] = 0.0;
-		  varFcn->getVarFcnBase(fluidId[j])->computedVdU(Wstar,dVdU);
-		  axisnrm[0] = 1.0; axisnrm[1] = 0.0; axisnrm[2] = 0.0;
-		  varFcn->getVarFcnBase(fluidId[j])->computedFdV(axisnrm,Wstar,Jacx);
-		  axisnrm[0] = 0.0; axisnrm[1] = 1.0; axisnrm[2] = 0.0;
-		  varFcn->getVarFcnBase(fluidId[j])->computedFdV(axisnrm,Wstar,Jacy);
-		  axisnrm[0] = 0.0; axisnrm[1] = 0.0; axisnrm[2] = 1.0;
-		  varFcn->getVarFcnBase(fluidId[j])->computedFdV(axisnrm,Wstar,Jacz);
-		  for (int k=0; k<dim; k++)
-		    for (int k1=0; k1<dim; k1++)
-			  for (int k2=0; k2<dim; k2++)
-		        Wstar[k] -= dt*(dVdU[k*dim+k1]*Jacx[k1*dim+k2]*dVdx[j][k2]+
-		  	  	  		        dVdU[k*dim+k1]*Jacy[k1*dim+k2]*dVdy[j][k2]+
-		  	  			        dVdU[k*dim+k1]*Jacz[k1*dim+k2]*dVdz[j][k2]);
-		}
-		if (it>0) {
-		  for (int k=0; k<dim; k++) Wstarji[l][k] = Wstar[k];
-		  countWstarji[l] += 1;
-		}
+    else {
+      for (int k=0; k<dim; k++) Wstar[k] = Wstarji[l][k];
+      double dVdU[dim*dim], Jacx[dim*dim], Jacy[dim*dim], Jacz[dim*dim];
+      double axisnrm[3];
+      for (int k=0; k<dim*dim; k++) dVdU[k] = 0.0;
+      for (int k=0; k<dim*dim; k++) Jacx[k] = 0.0;
+      for (int k=0; k<dim*dim; k++) Jacy[k] = 0.0;
+      for (int k=0; k<dim*dim; k++) Jacz[k] = 0.0;
+      varFcn->getVarFcnBase(fluidId[j])->computedVdU(Wstar,dVdU);
+      axisnrm[0] = 1.0; axisnrm[1] = 0.0; axisnrm[2] = 0.0;
+      varFcn->getVarFcnBase(fluidId[j])->computedFdV(axisnrm,Wstar,Jacx);
+      axisnrm[0] = 0.0; axisnrm[1] = 1.0; axisnrm[2] = 0.0;
+      varFcn->getVarFcnBase(fluidId[j])->computedFdV(axisnrm,Wstar,Jacy);
+      axisnrm[0] = 0.0; axisnrm[1] = 0.0; axisnrm[2] = 1.0;
+      varFcn->getVarFcnBase(fluidId[j])->computedFdV(axisnrm,Wstar,Jacz);
+      for (int k=0; k<dim; k++)
+        for (int k1=0; k1<dim; k1++)
+        for (int k2=0; k2<dim; k2++)
+            Wstar[k] -= dt*(dVdU[k*dim+k1]*Jacx[k1*dim+k2]*dVdx[j][k2]+
+                          dVdU[k*dim+k1]*Jacy[k1*dim+k2]*dVdy[j][k2]+
+                        dVdU[k*dim+k1]*Jacz[k1*dim+k2]*dVdz[j][k2]);
+    }
+    if (it>0) {
+      for (int k=0; k<dim; k++) Wstarji[l][k] = Wstar[k];
+      countWstarji[l] += 1;
+    }
 
-	  if (v6data==NULL) {
-	    for (int k=0; k<dim; k++) Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
-	  }
-	  else {
-	    int idxTet = v6data[l][1].tet;
-	    int idxFace = v6data[l][1].face;
-	    double face_r = v6data[l][1].r;
-	    double face_t = v6data[l][1].t;
-	    if ( 1.0-resji.alpha > alpha) {
+    if (v6data==NULL) {
+      for (int k=0; k<dim; k++) Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
+    }
+    else {
+      int idxTet = v6data[l][1].tet;
+      int idxFace = v6data[l][1].face;
+      double face_r = v6data[l][1].r;
+      double face_t = v6data[l][1].t;
+      if ( 1.0-resji.alpha > alpha) {
 
-	      for (int k=0; k<dim; k++) Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
-	    }
-	    else if ((idxTet<0)||(idxTet>=elems.size())||notAllActive(elems[idxTet],idxFace,LSS)) {
-	      //
-	      for (int k=0; k<dim; k++) Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
-	      //
-	    }
-	    else
-	      extendedLinearExtrapolationToIntersection<dim>(elems,idxTet,idxFace,face_r,face_t,
-							     X,V,Wstar,resji.alpha,length,j);
-	  }
+        for (int k=0; k<dim; k++) Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
+      }
+      else if ((idxTet<0)||(idxTet>=elems.size())||notAllActive(elems[idxTet],idxFace,LSS)) {
+        //
+        for (int k=0; k<dim; k++) Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
+        //
+      }
+      else
+        extendedLinearExtrapolationToIntersection<dim>(elems,idxTet,idxFace,face_r,face_t,
+                   X,V,Wstar,resji.alpha,length,j);
+    }
         varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Wstar);
-	//if (  1.0-resji.alpha > alpha)
-	  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxj, fluidId[j], false);
+  //if (  1.0-resji.alpha > alpha)
+    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxj, fluidId[j], false);
           if (jPorous) {
             fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[j]);
             for (int k=0; k<dim; k++) fluxj[k] = (1.0 - resji.porosity)*fluxj[k] + resji.porosity*flux[k];
           }
-	  //else
-	  //  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, V[j], fluxj, fluidId[j], false);
+    //else
+    //  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, V[j], fluxj, fluidId[j], false);
 
-	//	double fluxnrm[3] = {normal[l][0],normal[l][1],normal[l][2]};
-	//	varFcn->getVarFcnBase(fluidId[j])->computeFofV(fluxnrm,Wstar,fluxj);
+  //	double fluxnrm[3] = {normal[l][0],normal[l][1],normal[l][2]};
+  //	varFcn->getVarFcnBase(fluidId[j])->computeFofV(fluxnrm,Wstar,fluxj);
         for (int k=0; k<dim; k++)  fluxes[j][k] -= fluxj[k];
       }
     }
@@ -4055,9 +4055,9 @@ template<int dim, int dimLS>
 void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFcn* recFcnLS,
                                       ElemSet& elems, GeoState& geoState, SVec<double,3>& X,
                                       SVec<double,dim>& V, Vec<int>& fluidId,
-				      NodalGrad<dim>& ngrad,     EdgeGrad<dim>* egrad,
+              NodalGrad<dim>& ngrad,     EdgeGrad<dim>* egrad,
                                       NodalGrad<dimLS> &ngradLS, EdgeGrad<dimLS>* egradLS,
-				      SVec<double,dimLS>& Phi, SVec<double,dimLS>& PhiF,
+              SVec<double,dimLS>& Phi, SVec<double,dimLS>& PhiF,
                                       LevelSetStructure *LSS, int order)
 {
 
@@ -4112,8 +4112,8 @@ void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFc
       egradLS->compute(l, i, j, elems, X, Phi, dPhidx, dPhidy, dPhidz, ddPij, ddPji);
     else {
       for (k=0; k<dimLS; ++k) {
-	ddPij[k] = dx[0]*dPhidx[i][k] + dx[1]*dPhidy[i][k] + dx[2]*dPhidz[i][k];
-	ddPji[k] = dx[0]*dPhidx[j][k] + dx[1]*dPhidy[j][k] + dx[2]*dPhidz[j][k];
+  ddPij[k] = dx[0]*dPhidx[i][k] + dx[1]*dPhidy[i][k] + dx[2]*dPhidz[i][k];
+  ddPji[k] = dx[0]*dPhidx[j][k] + dx[1]*dPhidy[j][k] + dx[2]*dPhidz[j][k];
       }
     }
 
@@ -4180,26 +4180,26 @@ void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFc
           PhiF[j][k] -= Phia;
         } else {
 
-	  double iloc[3];
-	  // Step 1: Compute the intersection location (where the 0-contour of the level
-	  // set crosses this edge.
-	  double s = Phi[j][k]/(Phi[j][k]-Phi[i][k]);
+    double iloc[3];
+    // Step 1: Compute the intersection location (where the 0-contour of the level
+    // set crosses this edge.
+    double s = Phi[j][k]/(Phi[j][k]-Phi[i][k]);
           double betai = 1.0,betaj = 1.0;
-	  for (int kk=0; kk<3; kk++)
-	    iloc[kk] = X[i][kk]*s+X[j][kk]*(1.0-s);
+    for (int kk=0; kk<3; kk++)
+      iloc[kk] = X[i][kk]*s+X[j][kk]*(1.0-s);
           for (int kk = 0; kk < dim; ++kk) {
-	    Wi[kk] = V[i][kk]+
-	      (dVdx[i][kk]*(iloc[0]-X[i][0])+
-	       dVdy[i][kk]*(iloc[1]-X[i][1])+
-	       dVdz[i][kk]*(iloc[2]-X[i][2]))*betai;
-	  }
+      Wi[kk] = V[i][kk]+
+        (dVdx[i][kk]*(iloc[0]-X[i][0])+
+         dVdy[i][kk]*(iloc[1]-X[i][1])+
+         dVdz[i][kk]*(iloc[2]-X[i][2]))*betai;
+    }
 
           for (int kk = 0; kk < dim; ++kk) {
-	    Wj[kk] = V[j][kk]+
-	      (dVdx[j][kk]*(iloc[0]-X[j][0])+
-	       dVdy[j][kk]*(iloc[1]-X[j][1])+
-	       dVdz[j][kk]*(iloc[2]-X[j][2]))*betaj;
-	  }
+      Wj[kk] = V[j][kk]+
+        (dVdx[j][kk]*(iloc[0]-X[j][0])+
+         dVdy[j][kk]*(iloc[1]-X[j][1])+
+         dVdz[j][kk]*(iloc[2]-X[j][2]))*betaj;
+    }
 
           double uinterface[3] = {(Vi[1] + Vj[1])*0.5,
                                   (Vi[2] + Vj[2])*0.5,
@@ -4207,17 +4207,17 @@ void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFc
 
           double Phia;
           if (s < 0.5) {
-	    for (int kk = 0; kk < dim; ++kk) {
-	      Vi[kk] = (V[i][kk]*(0.5-s)+Wi[kk]*(0.5))/(1.0-s)*betai +
-	       (1.0-betai)*Wi[kk];
+      for (int kk = 0; kk < dim; ++kk) {
+        Vi[kk] = (V[i][kk]*(0.5-s)+Wi[kk]*(0.5))/(1.0-s)*betai +
+         (1.0-betai)*Wi[kk];
             }
             Phia = Pi[k]*(Vi[1]*normal[l][0] + Vi[2]*normal[l][1] +
                           Vi[3]*normal[l][2]  - normalVel[l] );
           }
           else {
-	    for (int kk = 0; kk < dim; ++kk) {
-	      Vj[kk] = (V[j][kk]*(-0.5+s)+Wj[kk]*(0.5))/s*betaj +
-	        (1.0-betaj)*Wj[kk];
+      for (int kk = 0; kk < dim; ++kk) {
+        Vj[kk] = (V[j][kk]*(-0.5+s)+Wj[kk]*(0.5))/s*betaj +
+          (1.0-betaj)*Wj[kk];
             }
             Phia = Pj[k]*(Vj[1]*normal[l][0] + Vj[2]*normal[l][1] +
                           Vj[3]*normal[l][2] - normalVel[l]  );
@@ -4373,12 +4373,12 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, GeoState &geoSt
       Aji = A.getElem_ji(l);
 
       if (Aij && Aji) {
-	double voli = 1.0 / ctrlVol[i];
-	double volj = 1.0 / ctrlVol[j];
-	for (k=0; k<neq*neq; ++k) {
-	  Aij[k] += dfdUj[k] * voli;
-	  Aji[k] -= dfdUi[k] * volj;
-	}
+  double voli = 1.0 / ctrlVol[i];
+  double volj = 1.0 / ctrlVol[j];
+  for (k=0; k<neq*neq; ++k) {
+    Aij[k] += dfdUj[k] * voli;
+    Aji[k] -= dfdUi[k] * volj;
+  }
       }
 
      }
@@ -4528,7 +4528,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
       fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, fluidId[i]);
      } else {
       //ngradLS returns nodal gradients of phi
-		  //ngradLS returns nodal gradients of phi
+      //ngradLS returns nodal gradients of phi
       // need fluidSelector to determine which level set to look at knowing which two fluids are considered at this interface
       int lsdim = fluidSelector.getLevelSetDim(fluidId[i],fluidId[j]);
       if (mfRiemannNormal == MF_RIEMANN_NORMAL_REAL) {
@@ -4578,7 +4578,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
         Vj[k+5] = Vj[k];
       }
       errorHandler->localErrors[ErrorHandler::BAD_RIEMANN] +=riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
-											    Wi,Wj,i,j,l,dx,lsdim,false);
+                          Wi,Wj,i,j,l,dx,lsdim,false);
       riemann.computeRiemannJacobian(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
                                      Wi,Wj,i,j,l,dx,dWidWi, dWidWj,dWjdWi, dWjdWj );
       varFcn->postMultiplyBydVdU(Vi, dWidWi, dWidUi,fluidId[i]);
@@ -4602,18 +4602,18 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
       Ajj = A.getElem_ii(j);
 
       if (fluidId[i]==fluidId[j]) {
-	for (k=0; k<neq*neq; ++k) {
-	  Aii[k] += (dfdUi[k]);
-	  Ajj[k] -= (dfdUj[k]);
-	}
+  for (k=0; k<neq*neq; ++k) {
+    Aii[k] += (dfdUi[k]);
+    Ajj[k] -= (dfdUj[k]);
+  }
       } else {
-	DenseMatrixOp<double, neq, neq*neq>::applyToDenseMatrix(&dfdUk,0,&dUidUi, 0, &dii,0);
-	DenseMatrixOp<double, neq, neq*neq>::applyToDenseMatrix(&dfdUl,0,&dUjdUj, 0, &djj,0);
+  DenseMatrixOp<double, neq, neq*neq>::applyToDenseMatrix(&dfdUk,0,&dUidUi, 0, &dii,0);
+  DenseMatrixOp<double, neq, neq*neq>::applyToDenseMatrix(&dfdUl,0,&dUjdUj, 0, &djj,0);
 
-	for (k=0; k<neq*neq; ++k) {
-	  Aii[k] += (dfdUi[k]+dii[k]);
-	  Ajj[k] -= (dfdUj[k]+djj[k]);
-	}
+  for (k=0; k<neq*neq; ++k) {
+    Aii[k] += (dfdUi[k]+dii[k]);
+    Ajj[k] -= (dfdUj[k]+djj[k]);
+  }
       }
     }
 
@@ -4624,17 +4624,17 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
       double volj = 1.0 / ctrlVol[j];
 
       if (fluidId[i]==fluidId[j]) {
-	for (k=0; k<neq*neq; ++k) {
-	  Aij[k] += (dfdUj[k])*voli;
-	  Aji[k] -= (dfdUi[k])*volj;
-	}
+  for (k=0; k<neq*neq; ++k) {
+    Aij[k] += (dfdUj[k])*voli;
+    Aji[k] -= (dfdUi[k])*volj;
+  }
       } else {
-	DenseMatrixOp<double, neq, neq*neq>::applyToDenseMatrix(&dfdUk,0,&dUidUj,0,&dii,0);
-	DenseMatrixOp<double, neq, neq*neq>::applyToDenseMatrix(&dfdUl,0,&dUjdUi,0,&djj,0);
-	for (k=0; k<neq*neq; ++k) {
-	  Aij[k] += (dii[k]) * voli;
-	  Aji[k] -= (djj[k]) * volj;
-	}
+  DenseMatrixOp<double, neq, neq*neq>::applyToDenseMatrix(&dfdUk,0,&dUidUj,0,&dii,0);
+  DenseMatrixOp<double, neq, neq*neq>::applyToDenseMatrix(&dfdUl,0,&dUjdUi,0,&djj,0);
+  for (k=0; k<neq*neq; ++k) {
+    Aij[k] += (dii[k]) * voli;
+    Aji[k] -= (djj[k]) * volj;
+  }
       }
     }
 
@@ -4723,13 +4723,13 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 
       if (mfRiemannNormal == MF_RIEMANN_NORMAL_REAL) {
         gphii[0] = -dPdx[i][lsdim];
-	gphii[1] = -dPdy[i][lsdim];
-	gphii[2] = -dPdz[i][lsdim];
-	gphij[0] = -dPdx[j][lsdim];
-	gphij[1] = -dPdy[j][lsdim];
-	gphij[2] = -dPdz[j][lsdim];
-	for (int k=0; k<3; k++)
-	  gradphi[k] = 0.5*(gphii[k]+gphij[k]);
+  gphii[1] = -dPdy[i][lsdim];
+  gphii[2] = -dPdz[i][lsdim];
+  gphij[0] = -dPdx[j][lsdim];
+  gphij[1] = -dPdy[j][lsdim];
+  gphij[2] = -dPdz[j][lsdim];
+  for (int k=0; k<3; k++)
+    gradphi[k] = 0.5*(gphii[k]+gphij[k]);
       }
       else if (mfRiemannNormal == MF_RIEMANN_NORMAL_MESH) {
         if(fluidId[i] == riemann.fluid2(fluidId[i],fluidId[j])) {
@@ -4740,21 +4740,21 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
         }
       }
       else {
-  	gphii[0] = -dPdx[i][lsdim];
-	gphii[1] = -dPdy[i][lsdim];
-	gphii[2] = -dPdz[i][lsdim];
-	gphij[0] = -dPdx[j][lsdim];
-	gphij[1] = -dPdy[j][lsdim];
-	gphij[2] = -dPdz[j][lsdim];
+    gphii[0] = -dPdx[i][lsdim];
+  gphii[1] = -dPdy[i][lsdim];
+  gphii[2] = -dPdz[i][lsdim];
+  gphij[0] = -dPdx[j][lsdim];
+  gphij[1] = -dPdy[j][lsdim];
+  gphij[2] = -dPdz[j][lsdim];
         double t[3];
-	for (int k=0; k<3; k++)
-	  t[k] = 0.5*(gphii[k]+gphij[k]);
+  for (int k=0; k<3; k++)
+    t[k] = 0.5*(gphii[k]+gphij[k]);
         for (int k=0; k<3; k++)
-	  gradphi[k] = normal[l][k];
+    gradphi[k] = normal[l][k];
 
         if (t[0]*gradphi[0]+t[1]*gradphi[1]+t[2]*gradphi[2] < 0.0) {
-	  for (int k=0; k<3; k++)
-	    gradphi[k] = -gradphi[k];
+    for (int k=0; k<3; k++)
+      gradphi[k] = -gradphi[k];
         }
       }
       double normgradphi = sqrt(gradphi[0]*gradphi[0]+gradphi[1]*gradphi[1]+gradphi[2]*gradphi[2]);
@@ -4769,7 +4769,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
       }
       varFcn  = fluxFcn[BC_INTERNAL]->getVarFcn();
       errorHandler->localErrors[ErrorHandler::BAD_RIEMANN] +=riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
-											    Wi,Wj,i,j,l,dx,lsdim,false);
+                          Wi,Wj,i,j,l,dx,lsdim,false);
 
       riemann.computeRiemannJacobian(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
                                      Wi,Wj,i,j,l,dx,dWidWi, dWidWj,dWjdWi, dWjdWj );
@@ -4802,17 +4802,17 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
         Aii = A.getElem_ii(i);
         Ajj = A.getElem_ii(j);
 
-	if (sameFluid) {
-	  for (k=0; k<neq*neq; ++k) {
-	    Aii[k] += dfdUi[k];
-	    Ajj[k] -= dfdUj[k];
-	  }
-	} else {
-	  for (k=0; k<neq*neq; ++k) {
-	    Aii[k] += dfdUi[k]+dii[k];
-	    Ajj[k] -= dfdUj[k]+djj[k];
-	  }
-	}
+  if (sameFluid) {
+    for (k=0; k<neq*neq; ++k) {
+      Aii[k] += dfdUi[k];
+      Ajj[k] -= dfdUj[k];
+    }
+  } else {
+    for (k=0; k<neq*neq; ++k) {
+      Aii[k] += dfdUi[k]+dii[k];
+      Ajj[k] -= dfdUj[k]+djj[k];
+    }
+  }
 
       }
 
@@ -4820,19 +4820,19 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
       Aji = A.getElem_ji(l);
 
       if (Aij && Aji) {
-	double voli = 1.0 / ctrlVol[i];
-	double volj = 1.0 / ctrlVol[j];
-	if (sameFluid) {
-	  for (k=0; k<neq*neq; ++k) {
-	    Aij[k] += dfdUj[k] * voli;
-	    Aji[k] -= dfdUi[k] * volj;
-	  }
-	} else {
-	  for (k=0; k<neq*neq; ++k) {
-	    Aij[k] += (dfdUj[k]+dij[k]) * voli;
-	    Aji[k] -= (dfdUi[k]+dji[k]) * volj;
-	  }
-	}
+  double voli = 1.0 / ctrlVol[i];
+  double volj = 1.0 / ctrlVol[j];
+  if (sameFluid) {
+    for (k=0; k<neq*neq; ++k) {
+      Aij[k] += dfdUj[k] * voli;
+      Aji[k] -= dfdUi[k] * volj;
+    }
+  } else {
+    for (k=0; k<neq*neq; ++k) {
+      Aij[k] += (dfdUj[k]+dij[k]) * voli;
+      Aji[k] -= (dfdUi[k]+dji[k]) * volj;
+    }
+  }
       }
 
      }
@@ -4849,13 +4849,13 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
         Aii = A.getElem_ii(i);
         Ajj = A.getElem_ii(j);
 
-	if (sameFluid) {
-	  for (k=0; k<neq*neq; k++)
-	    Aii[k] += dfdUi[k];
-	} else {
-	  for (k=0; k<neq*neq; k++)
-	    Aii[k] += dfdUi[k]+dii[k];
-	}
+  if (sameFluid) {
+    for (k=0; k<neq*neq; k++)
+      Aii[k] += dfdUi[k];
+  } else {
+    for (k=0; k<neq*neq; k++)
+      Aii[k] += dfdUi[k]+dii[k];
+  }
 
         for (k=0; k<neq; k++)
           Ajj[k*(neq+1)] = 1.0*ctrlVol[j];
@@ -4866,17 +4866,17 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 
       if (Aij && Aji) {
         double voli = 1.0 / ctrlVol[i];
-	if (sameFluid) {
-	  for (k=0; k<neq*neq; k++) {
-	    Aij[k] += dfdUj[k] * voli;
-	    Aji[k] = 0.0;
-	  }
-	} else {
-	  for (k=0; k<neq*neq; k++) {
-	    Aij[k] += (dfdUj[k]+dij[k]) * voli;
-	    Aji[k] = 0.0;
-	  }
-	}
+  if (sameFluid) {
+    for (k=0; k<neq*neq; k++) {
+      Aij[k] += dfdUj[k] * voli;
+      Aji[k] = 0.0;
+    }
+  } else {
+    for (k=0; k<neq*neq; k++) {
+      Aij[k] += (dfdUj[k]+dij[k]) * voli;
+      Aji[k] = 0.0;
+    }
+  }
       }
 
     }
@@ -4888,13 +4888,13 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
         Aii = A.getElem_ii(i);
         Ajj = A.getElem_ii(j);
 
-	if (sameFluid) {
-	  for (k=0; k<neq*neq; k++)
-	    Ajj[k] -= dfdUj[k];
-	} else {
-	  for (k=0; k<neq*neq; k++)
-	    Ajj[k] -= dfdUj[k]+djj[k];
-	}
+  if (sameFluid) {
+    for (k=0; k<neq*neq; k++)
+      Ajj[k] -= dfdUj[k];
+  } else {
+    for (k=0; k<neq*neq; k++)
+      Ajj[k] -= dfdUj[k]+djj[k];
+  }
 
         for (k=0; k<neq; k++)
           Aii[k*(neq+1)] = 1.0 * ctrlVol[i];
@@ -4905,17 +4905,17 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 
       if (Aij && Aji) {
         double volj = 1.0 / ctrlVol[j];
-	if (sameFluid) {
-	  for (k=0; k<neq*neq; k++){
-	    Aij[k] = 0.0;
-	    Aji[k] -= dfdUi[k] * volj;
-	  }
-	} else {
-	  for (k=0; k<neq*neq; k++){
-	    Aij[k] = 0.0;
-	    Aji[k] -= (dfdUi[k]+dji[k]) * volj;
-	  }
-	}
+  if (sameFluid) {
+    for (k=0; k<neq*neq; k++){
+      Aij[k] = 0.0;
+      Aji[k] -= dfdUi[k] * volj;
+    }
+  } else {
+    for (k=0; k<neq*neq; k++){
+      Aij[k] = 0.0;
+      Aji[k] -= (dfdUi[k]+dji[k]) * volj;
+    }
+  }
       }
 
    }
@@ -5002,13 +5002,13 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
     if( !iActive ) {
       Aii = A.getElem_ii(i);
       for (k=0; k<neq; ++k)
-	Aii[k+k*neq] = 1.0*ctrlVol[i];
+  Aii[k+k*neq] = 1.0*ctrlVol[i];
     }
 
     if( !jActive ) {
       Ajj = A.getElem_ii(j);
       for (k=0; k<neq; ++k)
-	Ajj[k+k*neq] = 1.0*ctrlVol[j];
+  Ajj[k+k*neq] = 1.0*ctrlVol[j];
     }
 
     double edgeirey = 0.5*(irey[i]+irey[j]);
@@ -5030,12 +5030,12 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
     if (!intersect) {  // same fluid
 
       if(!(iActive && jActive)) {
-	fprintf(stderr,"Really odd too... \n");
+  fprintf(stderr,"Really odd too... \n");
         //fprintf(stderr,"Really odd too... (-(%d),-(%d): intersect = %d;
         //        iSwept = %d, jSwept = %d, iOccluded = %d, jOcculded = %d, model = %d/%d.\n",
         //        iActive, jActive, intersect, LSS.isSwept(0.0,i), LSS.isSwept(0.0,j),
         //        LSS.isOccluded(0.0,i), LSS.isOccluded(0.0,j),
-	//	LSS.fluidModel(0.0,i), LSS.fluidModel(0.0,j));
+  //	LSS.fluidModel(0.0,i), LSS.fluidModel(0.0,j));
         continue;
       }
 
@@ -5047,7 +5047,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
       if (masterFlag[l]) {
         for (k=0; k<neq*neq; ++k) {
           Aii[k] += dfdUi[k];
-	  Ajj[k] -= dfdUj[k];
+    Ajj[k] -= dfdUj[k];
         }
       }
 
@@ -5058,9 +5058,9 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
         double volj = 1.0 / ctrlVol[j];
 
         for (k=0; k<neq*neq; ++k) {
-	  Aij[k] += dfdUj[k] * voli;
-	  Aji[k] -= dfdUi[k] * volj;
-	}
+    Aij[k] += dfdUj[k] * voli;
+    Aji[k] -= dfdUi[k] * volj;
+  }
       }
 
     } else if (masterFlag[l]) {
@@ -5070,8 +5070,8 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
         LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
 
         if (jActive && fluidId[i]==fluidId[j] && resij.porosity > 0.0){
-	  iPorous = true;
-	}
+    iPorous = true;
+  }
 
         switch (Nriemann) {
           case 0: //structure normal
@@ -5097,8 +5097,8 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
           riemann.computeFSIRiemannJacobian(Vi, resij.normVel, normalDir, varFcn, Wstar, j, dWdW, fluidId[i]);
 
           for (k=0; k<neq*neq; ++k) {
-	    dW1dW1[k] = dWdW[k + (dim-neq)*int(k/neq)];
-	  }
+      dW1dW1[k] = dWdW[k + (dim-neq)*int(k/neq)];
+    }
 
           fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[i])->getVarFcnBase()->postMultiplyBydVdU(Vi, dW1dW1, dWdU);
           fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[i])->getVarFcnBase()->preMultiplyBydUdV(Wstar, dWdU, dUdU);
@@ -5172,8 +5172,8 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
         if (neq > 2) {
           riemann.computeFSIRiemannJacobian(Vj,resji.normVel,normalDir,varFcn,Wstar,i,dWdW,fluidId[j]);
           for (k=0; k<neq*neq; ++k) {
-	    dW1dW1[k] = dWdW[k + (dim-neq)*int(k/neq)];
-	  }
+      dW1dW1[k] = dWdW[k + (dim-neq)*int(k/neq)];
+    }
 
           fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[j])->getVarFcnBase()->postMultiplyBydVdU(Vj, dW1dW1, dWdU);
           fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[j])->getVarFcnBase()->preMultiplyBydUdV(Wstar, dWdU, dUdU);
@@ -5235,202 +5235,202 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                              GenMat<Scalar,neq>& A)
 {
 
-	Vec<Vec3D>&  normal    = geoState.getEdgeNormal();
-	Vec<double>& normalVel = geoState.getEdgeNormalVel();
+  Vec<Vec3D>&  normal    = geoState.getEdgeNormal();
+  Vec<double>& normalVel = geoState.getEdgeNormalVel();
 
-	double Vi[2*dim], Vj[2*dim], Vstar[2*dim], V_e[2*dim], V_si[2*dim];
+  double Vi[2*dim], Vj[2*dim], Vstar[2*dim], V_e[2*dim], V_si[2*dim];
 
-	double  dkk[neq*neq], dfdUi[neq*neq], dfdUj[neq*neq];
-	double dUdU[neq*neq],  dVdV[neq*neq],  dVdU[neq*neq];
+  double  dkk[neq*neq], dfdUi[neq*neq], dfdUj[neq*neq];
+  double dUdU[neq*neq],  dVdV[neq*neq],  dVdU[neq*neq];
 
-	double dVstar_dV[dim*dim];
+  double dVstar_dV[dim*dim];
 
-	Scalar *Aii, *Ajj, *Aij, *Aji;
+  Scalar *Aii, *Ajj, *Aij, *Aji;
 
-	VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
+  VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
 
-	double length;
-	Vec3D nWall_o;
+  double length;
+  Vec3D nWall_o;
 
-	for(int l=0; l<numEdges; ++l)
-	{
-		double area = normal[l].norm();
+  for(int l=0; l<numEdges; ++l)
+  {
+    double area = normal[l].norm();
 
-		if(area < 1e-18) continue;
+    if(area < 1e-18) continue;
 
-		int i = ptr[l][0];
-		int j = ptr[l][1];
+    int i = ptr[l][0];
+    int j = ptr[l][1];
 
-		bool withSI  = LSS.edgeWithSI(l);
-		bool iActive = LSS.isActive(0.0, i);
-		bool jActive = LSS.isActive(0.0, j);
+    bool withSI  = LSS.edgeWithSI(l);
+    bool iActive = LSS.isActive(0.0, i);
+    bool jActive = LSS.isActive(0.0, j);
 
-		if(!iActive)
-		{
-			Aii = A.getElem_ii(i);
-			for(int k=0; k<neq; ++k) Aii[k+k*neq] = 1.0*ctrlVol[i];
-		}
+    if(!iActive)
+    {
+      Aii = A.getElem_ii(i);
+      for(int k=0; k<neq; ++k) Aii[k+k*neq] = 1.0*ctrlVol[i];
+    }
 
-		if(!jActive)
-		{
-			Ajj = A.getElem_ii(j);
-			for(int k=0; k<neq; ++k) Ajj[k+k*neq] = 1.0*ctrlVol[j];
-		}
+    if(!jActive)
+    {
+      Ajj = A.getElem_ii(j);
+      for(int k=0; k<neq; ++k) Ajj[k+k*neq] = 1.0*ctrlVol[j];
+    }
 
-		if(!iActive && !jActive) continue;
+    if(!iActive && !jActive) continue;
 
-		double dx[3] = {X[j][0] - X[i][0],
-							 X[j][1] - X[i][1],
-							 X[j][2] - X[i][2]};
+    double dx[3] = {X[j][0] - X[i][0],
+               X[j][1] - X[i][1],
+               X[j][2] - X[i][2]};
 
-		length = sqrt( dx[0]*dx[0] + dx[1]*dx[1] + dx[2]*dx[2] );
+    length = sqrt( dx[0]*dx[0] + dx[1]*dx[1] + dx[2]*dx[2] );
 
-		for(int k=0; k<dim; k++)
-		{
-			Vi[k]     = V[i][k];
-			Vj[k]     = V[j][k];
-			Vi[k+dim] = Vi[k];
-			Vj[k+dim] = Vj[k];
-		}
+    for(int k=0; k<dim; k++)
+    {
+      Vi[k]     = V[i][k];
+      Vj[k]     = V[j][k];
+      Vi[k+dim] = Vi[k];
+      Vj[k+dim] = Vj[k];
+    }
 
       /*  ---------------------------------- Same Phase ---------------------------------- */
-		if(!withSI)
-		{
-			if(!iActive || !jActive)
-			{
-				fprintf(stderr, " *** Error: edge with no SI has inactive nodes. Edge=%d, i=%d, j=%d, iActive=%d, jActive=%d, intesect=%d\n",
-						  l, i, j, iActive, jActive, LSS.edgeIntersectsStructure(0,l));
-				exit(-1);
-			}
+    if(!withSI)
+    {
+      if(!iActive || !jActive)
+      {
+        fprintf(stderr, " *** Error: edge with no SI has inactive nodes. Edge=%d, i=%d, j=%d, iActive=%d, jActive=%d, intesect=%d\n",
+              l, i, j, iActive, jActive, LSS.edgeIntersectsStructure(0,l));
+        exit(-1);
+      }
 
-			fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Vi, Vj, dfdUi, dfdUj, fluidId[i]);
+      fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Vi, Vj, dfdUi, dfdUj, fluidId[i]);
 
-			Aii = A.getElem_ii(i);
-			Ajj = A.getElem_ii(j);
+      Aii = A.getElem_ii(i);
+      Ajj = A.getElem_ii(j);
 
-			if(masterFlag[l])
-			{
-				for(int k=0; k<neq*neq; ++k)
-				{
-					Aii[k] += dfdUi[k];
-					Ajj[k] -= dfdUj[k];
-				}
-			}
+      if(masterFlag[l])
+      {
+        for(int k=0; k<neq*neq; ++k)
+        {
+          Aii[k] += dfdUi[k];
+          Ajj[k] -= dfdUj[k];
+        }
+      }
 
-			Aij = A.getElem_ij(l);
-			Aji = A.getElem_ji(l);
+      Aij = A.getElem_ij(l);
+      Aji = A.getElem_ji(l);
 
-			if(Aij && Aji)
-			{
-				double voli = 1.0 / ctrlVol[i];
-				double volj = 1.0 / ctrlVol[j];
+      if(Aij && Aji)
+      {
+        double voli = 1.0 / ctrlVol[i];
+        double volj = 1.0 / ctrlVol[j];
 
-				for(int k=0; k<neq*neq; ++k)
-				{
-					Aij[k] += dfdUj[k] * voli;
-					Aji[k] -= dfdUi[k] * volj;
-				}
-			}
+        for(int k=0; k<neq*neq; ++k)
+        {
+          Aij[k] += dfdUj[k] * voli;
+          Aji[k] -= dfdUi[k] * volj;
+        }
+      }
 
-		}
-  	   /*  ---------------------------------- IB treatment ---------------------------------- */
-		else
-		{
-			if(!masterFlag[l]) continue;
+    }
+       /*  ---------------------------------- IB treatment ---------------------------------- */
+    else
+    {
+      if(!masterFlag[l]) continue;
 
-			if(iActive == jActive)
-			{
-				fprintf(stderr, " *** Error: edge with SI has both nodes (in)active; Edge=%d, i=%d, j=%d, iActive=%d, jActive=%d, intesect=%d\n",
-						  l, i, j, iActive, jActive, LSS.edgeIntersectsStructure(0,l));
-				exit(-1);
-			}
+      if(iActive == jActive)
+      {
+        fprintf(stderr, " *** Error: edge with SI has both nodes (in)active; Edge=%d, i=%d, j=%d, iActive=%d, jActive=%d, intesect=%d\n",
+              l, i, j, iActive, jActive, LSS.edgeIntersectsStructure(0,l));
+        exit(-1);
+      }
 
-			Vec3D xWall, nWall, vWall;
-			LSS.xWallWithSI(l, xWall); // position
-			LSS.nWallWithSI(l, nWall); // normal vec.
-			LSS.vWallWithSI(l, vWall); // velocity
+      Vec3D xWall, nWall, vWall;
+      LSS.xWallWithSI(l, xWall); // position
+      LSS.nWallWithSI(l, nWall); // normal vec.
+      LSS.vWallWithSI(l, vWall); // velocity
 
-			Vec3D Xij;
-			for(int k=0; k<3; ++k) Xij[k] = 0.5*(X[i][k] + X[j][k]);
+      Vec3D Xij;
+      for(int k=0; k<3; ++k) Xij[k] = 0.5*(X[i][k] + X[j][k]);
 
-			Vec3D dWall;
-			for(int k=0; k<3; ++k) dWall[k] = Xij[k] - xWall[k];
+      Vec3D dWall;
+      for(int k=0; k<3; ++k) dWall[k] = Xij[k] - xWall[k];
 
-			// Normal for the half-Riemann problem
-			switch(Nriemann)
-			{
-			   case 0: // structure normal
-				{
-					double ntest = dWall*nWall;
-					nWall_o = (ntest >= 0.0) ? nWall : -1.0*nWall;
-					break;
-				}
-			   default:
-				{
-					fprintf(stderr, " *** ERROR: Unknown Riemann Normal code!\n");
-					exit(-1);
-				}
-			}
+      // Normal for the half-Riemann problem
+      switch(Nriemann)
+      {
+         case 0: // structure normal
+        {
+          double ntest = dWall*nWall;
+          nWall_o = (ntest >= 0.0) ? nWall : -1.0*nWall;
+          break;
+        }
+         default:
+        {
+          fprintf(stderr, " *** ERROR: Unknown Riemann Normal code!\n");
+          exit(-1);
+        }
+      }
 
-			/* ---------- Node i ---------- */
-			if(iActive)
-			{
-				riemann.computeFSIRiemannSolution(Vi, vWall, nWall_o, varFcn, Vstar, j, fluidId[i]);
+      /* ---------- Node i ---------- */
+      if(iActive)
+      {
+        riemann.computeFSIRiemannSolution(Vi, vWall, nWall_o, varFcn, Vstar, j, fluidId[i]);
 
-				if(neq > 2)
-				{
-					riemann.computeFSIRiemannJacobian(Vi, vWall, nWall_o, varFcn, Vstar, j, dVstar_dV, fluidId[i]);
+        if(neq > 2)
+        {
+          riemann.computeFSIRiemannJacobian(Vi, vWall, nWall_o, varFcn, Vstar, j, dVstar_dV, fluidId[i]);
 
-					for(int k=0; k<neq*neq; ++k)
-						dVdV[k] = dVstar_dV[k + (dim-neq)*int(k/neq)];
+          for(int k=0; k<neq*neq; ++k)
+            dVdV[k] = dVstar_dV[k + (dim-neq)*int(k/neq)];
 
-					fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[i])->getVarFcnBase()->postMultiplyBydVdU(Vi, dVdV, dVdU);
-					fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[i])->getVarFcnBase()->preMultiplyBydUdV(Vstar, dVdU, dUdU);
-				}
-				else
-				{
-					for(int k=0; k<neq*neq; ++k) dUdU[k] = 0.0; //?
-				}
+          fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[i])->getVarFcnBase()->postMultiplyBydVdU(Vi, dVdV, dVdU);
+          fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[i])->getVarFcnBase()->preMultiplyBydUdV(Vstar, dVdU, dUdU);
+        }
+        else
+        {
+          for(int k=0; k<neq*neq; ++k) dUdU[k] = 0.0; //?
+        }
 
-				fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Vi, Vstar, dfdUi, dfdUj, fluidId[i], false);
+        fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Vi, Vstar, dfdUi, dfdUj, fluidId[i], false);
 
-				DenseMatrixOp<double, neq, neq*neq>::applyToDenseMatrix(&dfdUj, 0, &dUdU, 0, &dkk, 0);
+        DenseMatrixOp<double, neq, neq*neq>::applyToDenseMatrix(&dfdUj, 0, &dUdU, 0, &dkk, 0);
 
-				Aii = A.getElem_ii(i);
+        Aii = A.getElem_ii(i);
 
-				for(int k=0; k<neq*neq; ++k) Aii[k] += dfdUi[k] + dkk[k];
-			}
+        for(int k=0; k<neq*neq; ++k) Aii[k] += dfdUi[k] + dkk[k];
+      }
 
-			/* ---------- Node j ---------- */
-			if(jActive)
-			{
-				riemann.computeFSIRiemannSolution(Vj, vWall, nWall_o, varFcn, Vstar, i, fluidId[j]);
+      /* ---------- Node j ---------- */
+      if(jActive)
+      {
+        riemann.computeFSIRiemannSolution(Vj, vWall, nWall_o, varFcn, Vstar, i, fluidId[j]);
 
-				if(neq > 2)
-				{
-					riemann.computeFSIRiemannJacobian(Vj, vWall, nWall_o, varFcn, Vstar, i, dVstar_dV, fluidId[j]);
+        if(neq > 2)
+        {
+          riemann.computeFSIRiemannJacobian(Vj, vWall, nWall_o, varFcn, Vstar, i, dVstar_dV, fluidId[j]);
 
-					for(int k=0; k<neq*neq; ++k)
-						dVdV[k] = dVstar_dV[k + (dim-neq)*int(k/neq)];
+          for(int k=0; k<neq*neq; ++k)
+            dVdV[k] = dVstar_dV[k + (dim-neq)*int(k/neq)];
 
-					fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[j])->getVarFcnBase()->postMultiplyBydVdU(Vj, dVdV, dVdU);
-					fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[j])->getVarFcnBase()->preMultiplyBydUdV(Vstar, dVdU, dUdU);
-				}
-				else
-				{
-					for(int k=0; k<neq*neq; ++k) dUdU[k] = 0.0; // ???
-				}
+          fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[j])->getVarFcnBase()->postMultiplyBydVdU(Vj, dVdV, dVdU);
+          fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[j])->getVarFcnBase()->preMultiplyBydUdV(Vstar, dVdU, dUdU);
+        }
+        else
+        {
+          for(int k=0; k<neq*neq; ++k) dUdU[k] = 0.0; // ???
+        }
 
-				fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Vstar, Vj, dfdUi, dfdUj, fluidId[j], false);
+        fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Vstar, Vj, dfdUi, dfdUj, fluidId[j], false);
 
-				DenseMatrixOp<double, neq, neq*neq>::applyToDenseMatrix(&dfdUi, 0, &dUdU, 0, &dkk, 0);
+        DenseMatrixOp<double, neq, neq*neq>::applyToDenseMatrix(&dfdUi, 0, &dUdU, 0, &dkk, 0);
 
-				Ajj = A.getElem_ii(j);
+        Ajj = A.getElem_ii(j);
 
-				for(int k=0; k<neq*neq; ++k) Ajj[k] -= dfdUj[k] + dkk[k];
-			}
-		}
-	} // EoE
+        for(int k=0; k<neq*neq; ++k) Ajj[k] -= dfdUj[k] + dkk[k];
+      }
+    }
+  } // EoE
 
 }
 //------------------------------------------------------------------------------
@@ -5585,13 +5585,13 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,i
 
         if (mfRiemannNormal == MF_RIEMANN_NORMAL_REAL) {
           gphii[0] = -dPdx[i][lsdim];
-  	  gphii[1] = -dPdy[i][lsdim];
-	  gphii[2] = -dPdz[i][lsdim];
-	  gphij[0] = -dPdx[j][lsdim];
-	  gphij[1] = -dPdy[j][lsdim];
-	  gphij[2] = -dPdz[j][lsdim];
-	  for (int k=0; k<3; k++)
-	    gradphi[k] = 0.5*(gphii[k]+gphij[k]);
+      gphii[1] = -dPdy[i][lsdim];
+    gphii[2] = -dPdz[i][lsdim];
+    gphij[0] = -dPdx[j][lsdim];
+    gphij[1] = -dPdy[j][lsdim];
+    gphij[2] = -dPdz[j][lsdim];
+    for (int k=0; k<3; k++)
+      gradphi[k] = 0.5*(gphii[k]+gphij[k]);
         }
         else if (mfRiemannNormal == MF_RIEMANN_NORMAL_MESH) {
           if(fluidId[i] == riemann.fluid2(fluidId[i],fluidId[j])) {
@@ -5602,21 +5602,21 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,i
           }
         }
         else {
-    	  gphii[0] = -dPdx[i][lsdim];
-	  gphii[1] = -dPdy[i][lsdim];
-	  gphii[2] = -dPdz[i][lsdim];
-	  gphij[0] = -dPdx[j][lsdim];
-	  gphij[1] = -dPdy[j][lsdim];
-	  gphij[2] = -dPdz[j][lsdim];
+        gphii[0] = -dPdx[i][lsdim];
+    gphii[1] = -dPdy[i][lsdim];
+    gphii[2] = -dPdz[i][lsdim];
+    gphij[0] = -dPdx[j][lsdim];
+    gphij[1] = -dPdy[j][lsdim];
+    gphij[2] = -dPdz[j][lsdim];
           double t[3];
-	  for (int k=0; k<3; k++)
-	    t[k] = 0.5*(gphii[k]+gphij[k]);
+    for (int k=0; k<3; k++)
+      t[k] = 0.5*(gphii[k]+gphij[k]);
           for (int k=0; k<3; k++)
-	    gradphi[k] = normal[l][k];
+      gradphi[k] = normal[l][k];
 
           if (t[0]*gradphi[0]+t[1]*gradphi[1]+t[2]*gradphi[2] < 0.0) {
-	   for (int k=0; k<3; k++)
-	     gradphi[k] = -gradphi[k];
+     for (int k=0; k<3; k++)
+       gradphi[k] = -gradphi[k];
           }
 
         }
@@ -5625,7 +5625,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,i
           gradphi[k] /= normgradphi;
 
         errorHandler->localErrors[ErrorHandler::BAD_RIEMANN] +=riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
-											      Wi,Wj,i,j,l,dx,lsdim,false);
+                            Wi,Wj,i,j,l,dx,lsdim,false);
         riemann.computeRiemannJacobian(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
                                        Wi,Wj,i,j,l,dx,dWidWi, dWidWj,dWjdWi, dWjdWj );
         varFcn->postMultiplyBydVdU(Vi, dWidWi, dWidUi,fluidId[i]);
@@ -5652,18 +5652,18 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,i
         Ajj = A.getElem_ii(j);
 
         if (fluidId[i]==fluidId[j]) {
-  	  for (k=0; k<neq*neq; ++k) {
-	    Aii[k] += (dfdUi[k]);
-	    Ajj[k] -= (dfdUj[k]);
-	  }
+      for (k=0; k<neq*neq; ++k) {
+      Aii[k] += (dfdUi[k]);
+      Ajj[k] -= (dfdUj[k]);
+    }
         } else {
-  	  DenseMatrixOp<double, neq, neq*neq>::applyToDenseMatrix(&dfdUk,0,&dUidUi, 0, &dii,0);
-	  DenseMatrixOp<double, neq, neq*neq>::applyToDenseMatrix(&dfdUl,0,&dUjdUj, 0, &djj,0);
+      DenseMatrixOp<double, neq, neq*neq>::applyToDenseMatrix(&dfdUk,0,&dUidUi, 0, &dii,0);
+    DenseMatrixOp<double, neq, neq*neq>::applyToDenseMatrix(&dfdUl,0,&dUjdUj, 0, &djj,0);
 
-	  for (k=0; k<neq*neq; ++k) {
-	    Aii[k] += (dfdUi[k]+dii[k]);
-	    Ajj[k] -= (dfdUj[k]+djj[k]);
-	  }
+    for (k=0; k<neq*neq; ++k) {
+      Aii[k] += (dfdUi[k]+dii[k]);
+      Ajj[k] -= (dfdUj[k]+djj[k]);
+    }
         }
       }
 
@@ -5674,17 +5674,17 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,i
         double volj = 1.0 / ctrlVol[j];
 
         if (fluidId[i]==fluidId[j]) {
-	  for (k=0; k<neq*neq; ++k) {
-	    Aij[k] += (dfdUj[k])*voli;
-	    Aji[k] -= (dfdUi[k])*volj;
-	  }
+    for (k=0; k<neq*neq; ++k) {
+      Aij[k] += (dfdUj[k])*voli;
+      Aji[k] -= (dfdUi[k])*volj;
+    }
         } else {
-	  DenseMatrixOp<double, neq, neq*neq>::applyToDenseMatrix(&dfdUk,0,&dUidUj,0,&dii,0);
-	  DenseMatrixOp<double, neq, neq*neq>::applyToDenseMatrix(&dfdUl,0,&dUjdUi,0,&djj,0);
-	  for (k=0; k<neq*neq; ++k) {
-	    Aij[k] += (dii[k]) * voli;
-	    Aji[k] -= (djj[k]) * volj;
-	  }
+    DenseMatrixOp<double, neq, neq*neq>::applyToDenseMatrix(&dfdUk,0,&dUidUj,0,&dii,0);
+    DenseMatrixOp<double, neq, neq*neq>::applyToDenseMatrix(&dfdUl,0,&dUjdUi,0,&djj,0);
+    for (k=0; k<neq*neq; ++k) {
+      Aij[k] += (dii[k]) * voli;
+      Aji[k] -= (djj[k]) * volj;
+    }
         }
       }
     }
@@ -5693,12 +5693,12 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,i
 
 template<class Scalar, int dim, int dimLS>
 void EdgeSet::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS,
-						GeoState& geoState, SVec<double,3>& X,
-						SVec<double,dim>& V, NodalGrad<dim>& ngrad,
-						NodalGrad<dimLS> &ngradLS,
-						EdgeGrad<dim>* egrad,
-						Vec<double> &ctrlVol, SVec<double,dimLS>& Phi,
-						GenMat<Scalar,dimLS> &A,LevelSetStructure* LSS)
+            GeoState& geoState, SVec<double,3>& X,
+            SVec<double,dim>& V, NodalGrad<dim>& ngrad,
+            NodalGrad<dimLS> &ngradLS,
+            EdgeGrad<dim>* egrad,
+            Vec<double> &ctrlVol, SVec<double,dimLS>& Phi,
+            GenMat<Scalar,dimLS> &A,LevelSetStructure* LSS)
 {
   int k;
   Vec<Vec3D>& normal = geoState.getEdgeNormal();
@@ -5760,37 +5760,37 @@ void EdgeSet::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS
 
         double uav = 0.5*(Uni+Unj);
         if (uav > 0)
-	  df[0] = uav;
+    df[0] = uav;
         else if (uav < 0)
-	  df[1] = uav;
+    df[1] = uav;
 
         if (masterFlag[l]) {
-	  Scalar* Aii = A.getElem_ii(i);
-	  Scalar* Ajj = A.getElem_ii(j);
-	  Aii[k*dimLS+k] += df[0];
-	  Ajj[k*dimLS+k] += -df[1];
+    Scalar* Aii = A.getElem_ii(i);
+    Scalar* Ajj = A.getElem_ii(j);
+    Aii[k*dimLS+k] += df[0];
+    Ajj[k*dimLS+k] += -df[1];
         }
 
         Scalar* Aij = A.getElem_ij(l);
         Scalar* Aji = A.getElem_ji(l);
         if (Aij && Aji) {
-  	  double voli = 1.0 / ctrlVol[i];
-	  double volj = 1.0 / ctrlVol[j];
-	  Aji[k*dimLS+k] += (-df[0])*volj;
-	  Aij[k*dimLS+k] += (df[1])*voli;
+      double voli = 1.0 / ctrlVol[i];
+    double volj = 1.0 / ctrlVol[j];
+    Aji[k*dimLS+k] += (-df[0])*volj;
+    Aij[k*dimLS+k] += (df[1])*voli;
         }
       }
     } else {
       if(!iCovered) {
         if (masterFlag[l]) {
-	  Scalar* Aii = A.getElem_ii(i);
+    Scalar* Aii = A.getElem_ii(i);
           for(k=0; k<dimLS; k++)
             Aii[k*dimLS+k] += 0.0;//0.5*Uni;
         }
       }
       if(!jCovered) {
         if (masterFlag[l]) {
-	  Scalar* Ajj = A.getElem_ii(j);
+    Scalar* Ajj = A.getElem_ii(j);
           for(k=0; k<dimLS; k++)
             Ajj[k*dimLS+k] -= 0.0;//0.5*Unj;
         }
@@ -5819,9 +5819,9 @@ void EdgeSet::TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Ph
 //------------------------------------------------------------------------------
 template<int dimLS>
 void EdgeSet::pseudoFastMarchingMethodInitialization(SVec<double,3>& X,
-				Vec<int> &Tag, SVec<double,dimLS> &d2wall,
-				Vec<int> &sortedNodes, int &nSortedNodes,
-				LevelSetStructure *LSS)
+        Vec<int> &Tag, SVec<double,dimLS> &d2wall,
+        Vec<int> &sortedNodes, int &nSortedNodes,
+        LevelSetStructure *LSS)
 {
   assert(LSS);
   bool intersect;
@@ -5853,7 +5853,7 @@ void EdgeSet::pseudoFastMarchingMethodInitialization(SVec<double,3>& X,
         Tag[i]  = 1;
         // Active nodes belonging to an edge cut by the structure are projected exactly on the surface.
         LevelSetResult resij = LSS->getLevelSetDataAtEdgeCenter(0.0, l, true);
-	      d2wall[i][0] = LSS->isPointOnSurface(X[i],resij.trNodes[0],resij.trNodes[1],resij.trNodes[2]);
+        d2wall[i][0] = LSS->isPointOnSurface(X[i],resij.trNodes[0],resij.trNodes[1],resij.trNodes[2]);
       }
       if(jActive && Tag[j] < 0) {
         sortedNodes[nSortedNodes] = j;
@@ -5861,7 +5861,7 @@ void EdgeSet::pseudoFastMarchingMethodInitialization(SVec<double,3>& X,
         Tag[j]  = 1;
         // Active nodes belonging to an edge cut by the structure are projected exactly on the surface.
         LevelSetResult resji = LSS->getLevelSetDataAtEdgeCenter(0.0, l, false);
-	      d2wall[j][0] = LSS->isPointOnSurface(X[j],resji.trNodes[0],resji.trNodes[1],resji.trNodes[2]);
+        d2wall[j][0] = LSS->isPointOnSurface(X[j],resji.trNodes[0],resji.trNodes[1],resji.trNodes[2]);
       }
     }
   }
