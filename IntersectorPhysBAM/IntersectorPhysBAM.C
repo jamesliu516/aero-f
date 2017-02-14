@@ -133,6 +133,7 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iodata,
     init(struct_mesh, struct_restart_pos, XScale);
   }
   setPorosity();
+  setActuatorDisk();
   makerotationownership();
   updatebc();
 
@@ -535,6 +536,60 @@ void DistIntersectorPhysBAM::setPorosity() {
 }
 
 //----------------------------------------------------------------------------
+void DistIntersectorPhysBAM::setActuatorDisk() {
+  map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
+  map<int,BoundaryData *> &bcMap = iod.bc.bcMap.dataMap;
+
+  actuatorDiskPressureJump = new double[numStElems];
+  actuatorDiskReconstructionMethod = new int[numStElems];
+  isCorrectedMethod = new bool[numStElems];
+  for(int i=0; i<numStElems; i++) {
+	  actuatorDiskPressureJump[i] = 0.0;
+	  actuatorDiskReconstructionMethod[i] = -1;
+	  isCorrectedMethod[i] = false;
+  }
+  gamma = iod.eqs.fluidModel.gasModel.specificHeatRatio;
+  if(faceID) {
+    for(int i=0; i<numStElems; i++) {
+      map<int,SurfaceData*>::iterator it = surfaceMap.find(faceID[i]);
+      if (it != surfaceMap.end()) {
+        map<int,BoundaryData *>::iterator it2 = bcMap.find(it->second->bcID);
+        if(it2 != bcMap.end()) { // the bc data have been defined
+          if(it2->second->type == BoundaryData::ACTUATORDISK ) {
+        	  actuatorDiskPressureJump[i] = it2->second->pressureJump;
+        	  if(it2->second->velocityReconstructionMethod == BoundaryData::AVERAGE){
+        		  actuatorDiskReconstructionMethod[i] = 1;
+        	  }
+        	  else if(it2->second->velocityReconstructionMethod == BoundaryData::FIRSTORDER){
+        		  actuatorDiskReconstructionMethod[i] = 2;
+        	  }
+        	  else if(it2->second->velocityReconstructionMethod == BoundaryData::SECONDORDER){
+        		  actuatorDiskReconstructionMethod[i] = 3;
+        	  }
+        	  else{
+        		  com->fprintf(stderr, "!!! WARNING: no actuator disk method specified, defaulting to Average\n\n");
+        		  actuatorDiskReconstructionMethod[i] = 1;
+        	  }
+        	  if(it2->second->sourceTermExpression==BoundaryData::OLD){
+        		  isCorrectedMethod[i] = false;
+        	  }
+        	  else if(it2->second->sourceTermExpression==BoundaryData::CORRECTED){
+        		  isCorrectedMethod[i] = true;
+        	  }
+        	  else{
+        		  com->fprintf(stderr, "!!! WARNING: no Source term method specified for the actuator Disk, defaulting to Corrected\n\n");
+        		  isCorrectedMethod[i] = true;
+        	  }
+          }
+        }
+      }
+    }
+  }
+}
+//----------------------------------------------------------------------------
+
+
+
 void DistIntersectorPhysBAM::setdXdSb(int N, double* dxdS, double* dydS, double* dzdS){
 
   if(N != numStNodes) {
@@ -2053,6 +2108,13 @@ IntersectorPhysBAM::getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j, 
                    + lsRes.xi[2]*distIntersector.Xsdot[lsRes.trNodes[2]]; 
 
   lsRes.porosity   = distIntersector.porosity[trueTriangleID];
+  lsRes.intersectedSurfaceId = distIntersector.faceID[trueTriangleID];
+  lsRes.actuatorDiskPressureJump = distIntersector.actuatorDiskPressureJump[trueTriangleID];
+  lsRes.isCorrectedMethod = distIntersector.isCorrectedMethod[trueTriangleID];
+  lsRes.gamma = distIntersector.gamma;
+  lsRes.actuatorDiskReconstructionMethod = distIntersector.actuatorDiskReconstructionMethod[trueTriangleID];
+
+
 
   if(!distIntersector.interpolatedNormal){
 
