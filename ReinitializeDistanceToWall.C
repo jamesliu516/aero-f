@@ -26,45 +26,45 @@ ReinitializeDistanceToWall<dimLS>::~ReinitializeDistanceToWall()
 //------------------------------------------------------------------------------
 
 template<int dimLS>
-void ReinitializeDistanceToWall<dimLS>::ComputeWallFunction(DistLevelSetStructure& LSS, 
-																				DistSVec<double,3>& X, 
+void ReinitializeDistanceToWall<dimLS>::ComputeWallFunction(DistLevelSetStructure& LSS,
+																				DistSVec<double,3>& X,
 																				DistGeoState& distGeoState)
 {
-	if(iod.eqs.tc.tm.d2wall.type ==  WallDistanceMethodData::ITERATIVE) 
+	if(iod.eqs.tc.tm.d2wall.type ==  WallDistanceMethodData::ITERATIVE)
 	{
 		DistanceToClosestPointOnMovingStructure(LSS, X, distGeoState);
 
     GetLevelsFromInterfaceAndMarchForward(LSS,X,distGeoState);
   }
-	else if(iod.eqs.tc.tm.d2wall.type ==  WallDistanceMethodData::NONITERATIVE) 
+	else if(iod.eqs.tc.tm.d2wall.type ==  WallDistanceMethodData::NONITERATIVE)
 	{
     PseudoFastMarchingMethod(LSS,X,distGeoState,0);
   }
-	else if(iod.eqs.tc.tm.d2wall.type ==  WallDistanceMethodData::HYBRID) 
+	else if(iod.eqs.tc.tm.d2wall.type ==  WallDistanceMethodData::HYBRID)
 	{
     int iterativeLevel = 0;
 
-		if(iod.eqs.tc.tm.d2wall.iterativelvl > 1) 
-		{ 
+		if(iod.eqs.tc.tm.d2wall.iterativelvl > 1)
+		{
       DistanceToClosestPointOnMovingStructure(LSS,X,distGeoState);
       GetLevelsFromInterfaceAndMarchForward(LSS,X,distGeoState);
       iterativeLevel = iod.eqs.tc.tm.d2wall.iterativelvl;
     }
     PseudoFastMarchingMethod(LSS,X,distGeoState,iterativeLevel);
   }
-	else 
+	else
 	{
     fprintf(stderr," *** Error ***, Unknown wall distance method\n");
     exit(1);
   }
 
 #pragma omp parallel for
-	for(int iSub = 0; iSub < dom.getNumLocSub(); ++iSub) 
+	for(int iSub = 0; iSub < dom.getNumLocSub(); ++iSub)
 	{
       for (int i = 0; i < distGeoState(iSub).getDistanceToWall().size(); ++i)
           distGeoState(iSub).getDistanceToWall()[i]=d2wall(iSub)[i][0];
   }
-  
+
 #ifdef ERROR_CHECK
   computeExactErrors(LSS,X,distGeoState);
 #endif
@@ -74,15 +74,15 @@ void ReinitializeDistanceToWall<dimLS>::ComputeWallFunction(DistLevelSetStructur
 //------------------------------------------------------------------------------
 
 template<int dimLS>
-void ReinitializeDistanceToWall<dimLS>::DistanceToClosestPointOnMovingStructure(DistLevelSetStructure& LSS, 
-																										  DistSVec<double,3>& X, 
+void ReinitializeDistanceToWall<dimLS>::DistanceToClosestPointOnMovingStructure(DistLevelSetStructure& LSS,
+																										  DistSVec<double,3>& X,
 																										  DistGeoState& distGeoState)
 {
   done=false;
   tag=0;
 
 #pragma omp parallel for
-	for(int iSub = 0; iSub < dom.getNumLocSub(); ++iSub) 
+	for(int iSub = 0; iSub < dom.getNumLocSub(); ++iSub)
 	{
 
 // Fill with initial guess
@@ -109,9 +109,9 @@ void ReinitializeDistanceToWall<dimLS>::DistanceToClosestPointOnMovingStructure(
 //------------------------------------------------------------------------------
 
 template<int dimLS>
-void ReinitializeDistanceToWall<dimLS>::InitializeWallFunction(SubDomain& subD, 
-																					LevelSetStructure& LSS, 
-																					Vec<bool>& done, SVec<double,3>& X, 
+void ReinitializeDistanceToWall<dimLS>::InitializeWallFunction(SubDomain& subD,
+																					LevelSetStructure& LSS,
+																					Vec<bool>& done, SVec<double,3>& X,
 																					SVec<double,1>& d2w, Vec<int>& tag)
 {
   int (*ptrEdge)[2]=subD.getEdges().getPtr();
@@ -131,7 +131,7 @@ void ReinitializeDistanceToWall<dimLS>::InitializeWallFunction(SubDomain& subD,
 
 			// ---
 
-			done[j] = true; 
+			done[j] = true;
 			tag[j] = 1;
 
       LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
@@ -144,7 +144,7 @@ void ReinitializeDistanceToWall<dimLS>::InitializeWallFunction(SubDomain& subD,
 
 template<int dimLS>
 void ReinitializeDistanceToWall<dimLS>::GetLevelsFromInterfaceAndMarchForward(DistLevelSetStructure& LSS,
-																										DistSVec<double,3>& X, 
+																										DistSVec<double,3>& X,
 																										DistGeoState& distGeoState)
 {
 
@@ -156,13 +156,13 @@ void ReinitializeDistanceToWall<dimLS>::GetLevelsFromInterfaceAndMarchForward(Di
 
    // Tag every level
 	while(min_level <= 0)
-	{ 
+	{
     dom.TagInterfaceNodes(0,tag,dummyPhi,level,&LSS);
     min_level=1;
 
 		for(int iSub = 0; iSub < dom.getNumLocSub(); ++iSub)
 		{
-			for(int i = 0; i < done(iSub).len ; ++i) 
+			for(int i = 0; i < done(iSub).len ; ++i)
 			{
 	            min_level=min(min_level,tag(iSub)[i]);
                 max_level=max(max_level,tag(iSub)[i]);
@@ -173,15 +173,15 @@ void ReinitializeDistanceToWall<dimLS>::GetLevelsFromInterfaceAndMarchForward(Di
   }
   dom.getCommunicator()->globalMax(1,&max_level);
 
-  if (iod.eqs.tc.tm.d2wall.type ==  WallDistanceMethodData::HYBRID && 
-      iod.eqs.tc.tm.d2wall.iterativelvl > 1) 
+  if (iod.eqs.tc.tm.d2wall.type ==  WallDistanceMethodData::HYBRID &&
+      iod.eqs.tc.tm.d2wall.iterativelvl > 1)
     max_level = min(iod.eqs.tc.tm.d2wall.iterativelvl,max_level);
 
 // Propagate information outwards
 
   MultiFluidData::CopyCloseNodes copy=MultiFluidData::FALSE;
   bool printwarning = false;
-  double maxres = -FLT_MAX; 
+  double maxres = -FLT_MAX;
   int maxreslvl = 1;
 
 	for(int ilvl=2; ilvl<=max_level; ++ilvl)
@@ -201,10 +201,10 @@ void ReinitializeDistanceToWall<dimLS>::GetLevelsFromInterfaceAndMarchForward(Di
       res = fabs((resn-resnm1)/(resn+resnm1));
     }
 
-		if(res>iod.eqs.tc.tm.d2wall.eps) 
+		if(res>iod.eqs.tc.tm.d2wall.eps)
 		{
       printwarning = true;
-			if(res > maxres) 
+			if(res > maxres)
 			{
 	maxres = res;
 	maxreslvl = ilvl;
@@ -212,7 +212,7 @@ void ReinitializeDistanceToWall<dimLS>::GetLevelsFromInterfaceAndMarchForward(Di
     }
   }
 
-	if(printwarning) dom.getCommunicator()->fprintf(stderr, "*** Warning: Distance to wall computation (Max residual: %e at level: %d, target: %e)\n", 
+	if(printwarning) dom.getCommunicator()->fprintf(stderr, "*** Warning: Distance to wall computation (Max residual: %e at level: %d, target: %e)\n",
 																	maxres,maxreslvl,iod.eqs.tc.tm.d2wall.eps);
 
 }
@@ -223,17 +223,17 @@ template<int dimLS>
 void ReinitializeDistanceToWall<dimLS>::PseudoFastMarchingMethod(
 	DistLevelSetStructure& LSS,DistSVec<double,3>& X,DistGeoState& distGeoState,int iterativeLevel)
 {
-  // The following is an adaptation of the Fast Marching Method to Embedded Turbulent computation. 
+  // The following is an adaptation of the Fast Marching Method to Embedded Turbulent computation.
   // Adam 2012.09
   sortedNodes  =-1;
   int nSub     = dom.getNumLocSub();
-  if (iterativeLevel == 0) { 
+  if (iterativeLevel == 0) {
     d2wall       = 1.0e10;
     tag          = -1;
   }
   int isDone   = 0;
 
-  int level   =  iterativeLevel; // Level 0 (inActive nodes) and 1 (Embedded surface neighbors) 
+  int level   =  iterativeLevel; // Level 0 (inActive nodes) and 1 (Embedded surface neighbors)
   while(isDone == 0){ // Tag every level
     dom.pseudoFastMarchingMethod<1>(tag,X,d2wall,level,iterativeLevel,sortedNodes,nSortedNodes,firstCheckedNode,&LSS);
     // I don't think it is a good idea to OMP parallelize this loop. nSub should be small, though!
@@ -261,22 +261,22 @@ void ReinitializeDistanceToWall<dimLS>::computeExactErrors(DistLevelSetStructure
   errors = new double*[nSub];
   masterFlag = new bool*[nSub];
 
-#pragma omp parallel for 
+#pragma omp parallel for
   for (int iSub=0;iSub<nSub;++iSub) {
     errors[iSub]     = new double[3];
-    errors[iSub][0] = 0.0; 
+    errors[iSub][0] = 0.0;
     errors[iSub][1] = 0.0;
     errors[iSub][2] = 0.0;
     masterFlag[iSub] = d2wall.info().getMasterFlag(iSub);
-    nDofs[iSub]      = 0; 
+    nDofs[iSub]      = 0;
     for (int i=0; i<distGeoState(iSub).getDistanceToWall().size();++i) {
       if(LSS(iSub).isActive(0.0,i) && masterFlag[iSub][i]) {
 	nDofs[iSub]++;
         localError = fabs(
-		     d2wall(iSub)[i][0] 
+		     d2wall(iSub)[i][0]
 		   - sqrt(X(iSub)[i][0]*X(iSub)[i][0]+
 			  X(iSub)[i][1]*X(iSub)[i][1]+
-			  X(iSub)[i][2]*X(iSub)[i][2]) 
+			  X(iSub)[i][2]*X(iSub)[i][2])
 		   + 1.0);
 	errors[iSub][0] += localError;
 	errors[iSub][1] += localError*localError;
@@ -286,8 +286,8 @@ void ReinitializeDistanceToWall<dimLS>::computeExactErrors(DistLevelSetStructure
   }
 
   for(int iSub=1;iSub<nSub;++iSub) {
-    errors[0][0] += errors[iSub][0]; 
-    errors[0][1] += errors[iSub][1]; 
+    errors[0][0] += errors[iSub][0];
+    errors[0][1] += errors[iSub][1];
     errors[0][2]  = errors[iSub][2]>errors[0][2]?errors[iSub][2]:errors[0][2];
     nDofs [0]    += nDofs[iSub];
   }
@@ -303,7 +303,7 @@ void ReinitializeDistanceToWall<dimLS>::computeExactErrors(DistLevelSetStructure
   dom.getCommunicator()->fprintf(stderr,"Distance to the wall computation Error for the Embedded Cylinder\n d2wall Error: %12.8e %12.8e %12.8e\n",errors[0][0],errors[0][1],errors[0][2]);
   for(int iSub=0;iSub<nSub;iSub++) delete[] errors[iSub];
   delete[] errors;
-  return; 
+  return;
 }
 //------------------------------------------------------------------------------
 
