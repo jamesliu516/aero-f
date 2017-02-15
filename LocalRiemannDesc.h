@@ -3887,6 +3887,9 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_tait_grad(double rho, double u,
 template<int dim>
 class LocalRiemannActuatorDisk : public LocalRiemann {
 
+    bool prec;
+    double mach, stabil_alpha, viscous_switch;
+
 public:
     LocalRiemannActuatorDisk()
             : LocalRiemann(), stabil_alpha(0.0), viscous_switch(0.0), prec(false) { fluid1 = fluid2 = 0; }
