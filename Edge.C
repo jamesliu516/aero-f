@@ -5994,7 +5994,7 @@ void EdgeSet::ComputeAndAddActuatorDiskSourceTerm(Vec3D structureNormal, Vec3D f
 	  }
 	  for (int k=0; k<dim; k++) fluxi[k] += sourceTerm[k];
 	  if(false){//debug output if needed
-		  fprintf(stderr,"\n\n cosineBetweenNormals : %f\n controlVolumeArea : %f\n normalDir Term : %f , %f, %f\n HalfSpeed Term : %f , %f, %f\n Source Term : %f , %f, %f, %f, %f\n Fluxi Term : %f , %f, %f, %f, %f\n",cosineBetweenNormals,controlVolumeArea,normalDir[0],normalDir[1],normalDir[2],VelocityReconstructed[0],VelocityReconstructed[1],VelocityReconstructed[2],sourceTerm[0],sourceTerm[1],sourceTerm[2],sourceTerm[3],sourceTerm[4],sourceTerm[5],fluxi[0],fluxi[1],fluxi[2],fluxi[3],fluxi[4],fluxi[5]);
+		  fprintf(stderr,"\n\n cosineBetweenNormals : %f\n controlVolumeArea : %f\n normalDir Term : %f , %f, %f\n HalfSpeed Term : %f , %f, %f\n Source Term : %f , %f, %f, %f, %f\n Fluxi Term : %f , %f, %f, %f, %f\n",cosineBetweenNormals,controlVolumeArea,normalDir[0],normalDir[1],normalDir[2],VelocityReconstructed[0],VelocityReconstructed[1],VelocityReconstructed[2],sourceTerm[0],sourceTerm[1],sourceTerm[2],sourceTerm[3],sourceTerm[4],fluxi[0],fluxi[1],fluxi[2],fluxi[3],fluxi[4]);
 	  }
 }
 //------------------------------------------------------------------------------
