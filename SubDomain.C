@@ -6547,7 +6547,7 @@ void SubDomain::computeXP(PostFcn *postFcn, SVec<double,dim> &V, SVec<double,3> 
   double phi = 1.0;
   int fluidId = 0;
   for (int i=0; i<Q.size(); ++i) {
-    if (nodeType[i] == BC_ADIABATIC_WALL_MOVING  || BC_ISOTHERMAL_WALL_MOVING)  {
+    if (nodeType[i] == BC_ADIABATIC_WALL_MOVING || nodeType[i] == BC_ISOTHERMAL_WALL_MOVING)  {
       Q[i] = postFcn->computeNodeScalarQuantity(PostFcn::DIFFPRESSURE, V[i], X[i], &phi, fluidId);
       Q[i] *= X[i][dir];
     }
@@ -6703,7 +6703,7 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U, LevelSetStruct
 		{
       varFcn->conservativeToPrimitive(U[i], V);
     }
-    // Even if doVerification returns true, no we still check for negative density and pressure in
+    // Even if doVerification returns true, we still check for negative density and pressure in
     // case CheckSolution is used. However, by convention we don't print the error message to stderr.
     rho = varFcn->getDensity(V);
     p = varFcn->checkPressure(V);
@@ -7037,8 +7037,8 @@ int SubDomain::clipSolution(TsData::Clipping ctype, BcsWallData::Integration wty
 	  }
 	  if (ctype == TsData::ABS_VALUE)
 	    U[i][dim-neq+k] = fabs(U[i][dim-neq+k]);
-					//else if (ctype == TsData::FREESTREAM)
-					//U[i][dim-neq+k] = Uin[dim-neq+k];
+	 else if (ctype == TsData::FREESTREAM)
+	    U[i][dim-neq+k] = Uin[dim-neq+k];
 	  else if (ctype == TsData::CUTOFF)
 	    U[i][dim-neq+k] = 0.0;
 	}
