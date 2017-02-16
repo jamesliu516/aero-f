@@ -5609,17 +5609,15 @@ template<int dim>
 void Domain::setupUVolumesInitialConditions(const int volid, double UU[dim],
                                             DistSVec<double,dim> &U)
 {
-
-  // It is assumed that the initialization using volumes is only
-  // called to distinguish nodes that are separated by a material
-  // interface (structure). Thus one node cannot be at
-  // the boundary of two fluids. A fluid node then gets its
-  // id from the element id and there cannot be any problem
-  // for parallelization.
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->setupUVolumesInitialConditions(volid, UU, U(iSub));
-
+  #pragma omp parallel for
+  for(int iSub = 0; iSub < numLocSub; ++iSub) {
+    subDomain[iSub]->setupUVolumesInitialConditions_Step1(volid, UU, U(iSub), *vecPat);
+  }
+  vecPat->exchange();
+  #pragma omp parallel for
+  for(int iSub = 0; iSub < numLocSub; ++iSub) {
+    subDomain[iSub]->setupUVolumesInitialConditions_Step2(*vecPat, U(iSub));
+  }
 }
 
 template<int dim>

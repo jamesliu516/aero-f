@@ -7248,24 +7248,51 @@ void SubDomain::zeroMeshMotionBCDofs(SVec<double,dim> &x, int* DofType)
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::setupUVolumesInitialConditions(const int volid, double UU[dim],
-                                               SVec<double,dim> &U){
+void SubDomain::setupUVolumesInitialConditions_Step1(const int volid, double UU[dim],
+                                                     SVec<double, dim>& U,
+                                                     CommPattern<double>& sp) {
+  Vec<bool> flag(nodes.size());
+  flag = false;
 
-  for (int iElem = 0; iElem < elems.size(); iElem++)  
-  {
-	  if (elems[iElem].getVolumeID() == volid)  
-	  {
+  for(int iElem = 0; iElem < elems.size(); iElem++) {
+    if(elems[iElem].getVolumeID() == volid) {
       int *nodeNums = elems[iElem].nodeNum();
-      for (int iNode = 0; iNode < elems[iElem].numNodes(); iNode++)
-		  {
-        for (int idim = 0; idim<dim; idim++)
-			  {
+      for(int iNode = 0; iNode < elems[iElem].numNodes(); iNode++) {
+        flag[nodeNums[iNode]] = true;
+        for(int idim = 0; idim < dim; idim++) {
           U[nodeNums[iNode]][idim] = UU[idim];
+        }
+      }
     }
   }
-	  }
-  }
 
+  for(int iSub = 0; iSub < numNeighb; ++iSub) {
+    SubRecInfo<double> sInfo = sp.getSendBuffer(sndChannel[iSub]);
+    double(*buffer)[dim] = reinterpret_cast<double(*)[dim]>(sInfo.data);
+    for(int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode) {
+      for(int j = 0; j < dim; ++j) {
+        buffer[iNode][j] = (flag[iNode]) ? U[(*sharedNodes)[iSub][iNode]][j] : -std::numeric_limits<double>::infinity();
+      }
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::setupUVolumesInitialConditions_Step2(CommPattern<double>& sp,
+                                                     SVec<double, dim>& U) {
+
+  for(int iSub = 0; iSub < numNeighb; ++iSub) {
+    SubRecInfo<double> sInfo = sp.recData(rcvChannel[iSub]);
+    double(*buffer)[dim] = reinterpret_cast<double(*)[dim]>(sInfo.data);
+    for(int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode) {
+      for(int j = 0; j < dim; ++j) {
+        if(buffer[iNode][j] > -std::numeric_limits<double>::infinity())
+          U[(*sharedNodes)[iSub][iNode]][j] = buffer[iNode][j];
+      }
+    }
+  }
 }
 
 //------------------------------------------------------------------------------

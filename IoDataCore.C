@@ -3082,7 +3082,7 @@ TsData::TsData()
 
   type = IMPLICIT;
   typeTimeStep = AUTO;
-  typeClipping = FREESTREAM;
+  typeClipping = NONE;
   timeStepCalculation = CFL;
   dualtimestepping = OFF;
 
