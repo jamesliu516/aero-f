@@ -2108,7 +2108,6 @@ IntersectorPhysBAM::getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j, 
                    + lsRes.xi[2]*distIntersector.Xsdot[lsRes.trNodes[2]]; 
 
   lsRes.porosity   = distIntersector.porosity[trueTriangleID];
-  lsRes.intersectedSurfaceId = distIntersector.faceID[trueTriangleID];
   lsRes.actuatorDiskPressureJump = distIntersector.actuatorDiskPressureJump[trueTriangleID];
   lsRes.isCorrectedMethod = distIntersector.isCorrectedMethod[trueTriangleID];
   lsRes.gamma = distIntersector.gamma;
