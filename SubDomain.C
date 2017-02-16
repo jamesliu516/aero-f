@@ -5349,9 +5349,9 @@ void SubDomain::maxRcvDataAndCountUpdates(CommPattern<Scalar> &sp, Scalar (*w)[d
       for (int j = 0; j < dim; ++j) {
         if (buffer[iNode][j] > w[sharedNodeID][j]) {
           w[sharedNodeID][j]        = buffer[iNode][j];
-    sortedNodes[nSortedNodes] = sharedNodeID;
-    nSortedNodes++;
-  }
+          sortedNodes[nSortedNodes] = sharedNodeID;
+          nSortedNodes++;
+        }
       }
     }
   }
