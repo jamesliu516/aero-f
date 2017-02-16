@@ -1046,7 +1046,7 @@ Assigner *BoundaryData::getAssigner()  {
                                  "Average", AVERAGE, "FirstOrder", FIRSTORDER, "SecondOrder", SECONDORDER);
   new ClassToken<BoundaryData>(ca, "ActuatorDiskMethod", this,
                                (int BoundaryData::*)(&BoundaryData::actuatorDiskMethod), 2,
-                               "SourceTerm", SOURCETERM, "RimannSolver", RIEMANNSOLVER);
+                               "SourceTerm", SOURCETERM, "RiemannSolver", RIEMANNSOLVER);
   new ClassToken<BoundaryData>(ca, "SourceTermExpression", this,
                                   (int BoundaryData::*)(&BoundaryData::sourceTermExpression), 2,
                                    "Old", OLD, "Corrected", CORRECTED);
