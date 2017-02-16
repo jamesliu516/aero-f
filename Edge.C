@@ -3215,6 +3215,10 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
     // ------------------------------------------------
     //  Reconstruction without crossing the interface.
+    //  Reconstruct the primitive state variables, for these edges without crossing the interface.
+    //  their states are linear reconstructed or constant reconstructed
+    //  for these edges crossing interface , their states are reconstructed with constant reconstruction
+    //  Save the reconstructed value in Vi and Vj
     // ------------------------------------------------
     double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
     length = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
@@ -3293,11 +3297,84 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       }     
 
     }else{ // interface
+      //////////////////////////////////////////////////////////////
+      /// Get Intersector results in resij and resji
+      ///////////////////////////////////////////////////////////////
+      LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
+      LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
+      /////////////////////////////////////////////////////////////
+      /// Reconstruction primitive state variables in Vi and Vj
+      /// if higherorder reconstruction is used Vi is the Alex Main's linear reconstructed value,
+      /// which use limiter betai and betaj
+      /// otherwise the state value at node i V[i] is used
+      ////////////////////////////////////////////////////////////////
+      double betai[dim], betaj[dim];
+
+      if (higherOrderFSI) {
+        if (iActive) {
+
+          double ri[dim];
+          higherOrderFSI->estimateR(l, 0, i, V, ngrad, X, fluidId, ri); // BUG corrected d2d: i<-j
+
+          for (int k = 0; k < dim; ++k) {
+            betai[k] = betaj[k] = 1.0;
+          }
+
+          if (higherOrderFSI->limitExtrapolation()) {
+            if (V[i][1] * dx[0] + V[i][2] * dx[1] + V[i][3] * dx[2] < 0.0) {
+              for (int k = 0; k < dim; ++k) {
+                betai[k] = std::min<double>(betai[k], ri[k]);
+              }
+            }
+          }
+
+          for (int k = 0; k < dim; k++) {
+            Vi[k] = V[i][k] + (1.0 - resij.alpha) * ddVij[k] * betai[k];
+          }
+
+          varFcn->getVarFcnBase(fluidId[i])->verification(0, Udummy, Vi);
+
+        }
+
+        if (jActive) {
+
+          double rj[dim];
+          higherOrderFSI->estimateR(l, 1, j, V, ngrad, X, fluidId, rj); // Limited fsi i(!active), j(active)
+
+          for (int k = 0; k < dim; ++k) {
+            betai[k] = betaj[k] = 1.0;
+          }
+
+          if (higherOrderFSI->limitExtrapolation()) {
+            if (V[j][1] * dx[0] + V[j][2] * dx[1] + V[j][3] * dx[2] > 0.0) {
+              for (int k = 0; k < dim; ++k) {
+                betaj[k] = std::min<double>(betaj[k], rj[k]);
+              }
+            }
+          }
+
+          for (int k = 0; k < dim; k++) {
+            Vj[k] = V[j][k] - (1.0 - resji.alpha) * ddVji[k] * betaj[k];
+          }
+
+          varFcn->getVarFcnBase(fluidId[j])->verification(0, Udummy, Vj);
+
+        }
+      }
+      //////////////////////////////////////////////////////
+      /// Start compute interface fluxes
+      /// Interface, there are several cases
+      /// structure wall(no-slip condition)
+      /// symmetry plane(slip condition)
+      /// actuator disk
+      /// porous material
+      /// ....
+      /////////////////////////////////////////////////////////////
 
       // for node i
       if(iActive) {
 
-        LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
+
 
         if (jActive && fluidId[i]==fluidId[j] && resij.porosity > 0.0){
 	  iPorous = true;
@@ -3315,10 +3392,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                iActuatorDisk = true;
                reconstructionMethod = resij.actuatorDiskReconstructionMethod;//see intersector for mapping
         }
-	Vec3D GradPhi;
-        GradPhi[0] = resij.gradPhi[0];
-        GradPhi[1] = resij.gradPhi[1];
-        GradPhi[2] = resij.gradPhi[2];
+	  Vec3D GradPhi = resij.gradPhi[0];
+
         switch (Nriemann) {
           case 0: //structure normal
             normalDir = (dx[0]*resij.gradPhi[0]+dx[1]*resij.gradPhi[1]+dx[2]*resij.gradPhi[2]>=0.0) ? -1.0*resij.gradPhi : resij.gradPhi;
@@ -3335,32 +3410,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
           fprintf(stderr,"KW: normalDir.norm = %e. This is too bad...\n", normalDir.norm());
 
 	//*************************************
-	double betai[dim], betaj[dim];
 
-	if (higherOrderFSI) {
-
-	  double ri[dim], rj[dim];
-	  higherOrderFSI->estimateR(l, 0, i, V, ngrad, X, fluidId, ri); // BUG corrected d2d: i<-j
-	  
-	  for (int k = 0; k < dim; ++k) {
-	    betai[k] = betaj[k] = 1.0;
-	  }
-
-	  if (higherOrderFSI->limitExtrapolation()) {
-	    if (V[i][1]*dx[0]+V[i][2]*dx[1]+V[i][3]*dx[2] < 0.0) {
-	      for (int k = 0; k < dim; ++k) {
-		betai[k] = std::min<double>(betai[k],ri[k]);
-	      }
-	    }
-	  }
-
-	  for (int k=0; k<dim; k++) {
-	    Vi[k] = V[i][k] + (1.0 - resij.alpha)*ddVij[k]*betai[k];
-	  }
-
-	  varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Vi);
-
-	}
 	//*************************************
 	if(!iActuatorDisk){//no need to solve the reimann problem for an actuator Disk
         	riemann.computeFSIRiemannSolution(Vi, resij.normVel, normalDir, varFcn, Wstar, j, fluidId[i]);
@@ -3441,7 +3491,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       // for node j
       if(jActive){
 
-        LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
+
 
         if (iActive && fluidId[i]==fluidId[j] && resji.porosity > 0.0){
 	  jPorous = true;
@@ -3460,10 +3510,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
            jActuatorDisk = true;
            reconstructionMethod = resji.actuatorDiskReconstructionMethod;//see intersector for mapping
          }
-	Vec3D GradPhi;
-	GradPhi[0] = resji.gradPhi[0];  
-        GradPhi[1] = resji.gradPhi[1];
-        GradPhi[2] = resji.gradPhi[2];
+	    Vec3D GradPhi = resji.gradPhi[0];
+
 
         switch (Nriemann) {
 
@@ -3482,32 +3530,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
           fprintf(stderr,"KW: normalDir.norm = %e. This is too bad...\n", normalDir.norm());
 
 	//*************************************
-	double betai[dim], betaj[dim];
 
-	if (higherOrderFSI) {
-
-	  double ri[dim],rj[dim];
-	  higherOrderFSI->estimateR(l, 1, j, V, ngrad, X, fluidId, rj); // Limited fsi i(!active), j(active)
-	  
-	  for (int k = 0; k < dim; ++k) {
-	    betai[k] = betaj[k] = 1.0;
-	  }
-	  
-	  if (higherOrderFSI->limitExtrapolation()) {
-	    if (V[j][1]*dx[0]+V[j][2]*dx[1]+V[j][3]*dx[2] > 0.0) {
-	      for (int k = 0; k < dim; ++k) {
-		betaj[k] = std::min<double>(betaj[k],rj[k]);
-	      }
-	    }
-	  }
-	  
-	  for (int k=0; k<dim; k++) {
-	    Vj[k] = V[j][k]-(1.0-resji.alpha)*ddVji[k]*betaj[k];
-	  }
-
-	  varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Vj);
-
-	}
 	//*************************************
 	if(!jActuatorDisk){
         	riemann.computeFSIRiemannSolution(Vj,resji.normVel,normalDir,varFcn,Wstar,i,fluidId[j]);
