@@ -21,7 +21,6 @@ struct LevelSetResult {
   Vec3D gradPhi;
   Vec3D normVel; //NOTE: this is the velocity, NOT normal velocity.
   double porosity;
-  int intersectedSurfaceId;
   double actuatorDiskPressureJump;
   double gamma;
   bool isCorrectedMethod;
@@ -35,7 +34,6 @@ struct LevelSetResult {
     trNodes[0] = trNodes[1] = trNodes[2] = -1;
     gradPhi = normVel = dnds = 0.0;
     porosity = 0.0;
-    intersectedSurfaceId = 0;
     actuatorDiskPressureJump = 0.0;
     actuatorDiskReconstructionMethod = -1;
     gamma = 0.0;//error value
@@ -51,7 +49,6 @@ struct LevelSetResult {
 		    xi[0] = xi[1] = xi[2] = -1.0;
 		    trNodes[0] = trNodes[1] = trNodes[2] = -1;
 		    porosity = 0.0;
-                    intersectedSurfaceId =0;
                     actuatorDiskPressureJump = 0.0;
                     actuatorDiskReconstructionMethod = -1;
                     gamma = 0.0;//error value
