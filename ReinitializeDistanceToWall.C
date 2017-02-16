@@ -212,7 +212,6 @@ void ReinitializeDistanceToWall<dimLS>::GetLevelsFromInterfaceAndMarchForward(Di
 
     // sjg, 02/2017: debugging output number of iterations
     dom.getCommunicator()->fprintf(stderr,"Wall distance performed %d iterations at level %d of %d\n",--it,ilvl,max_level);
-
   }
 
   if(printwarning) dom.getCommunicator()->fprintf(stderr,
@@ -264,10 +263,9 @@ void ReinitializeDistanceToWall<dimLS>::computeExactErrors(DistLevelSetStructure
   int nSub = dom.getNumLocSub();
   double **errors;
   int      nDofs[nSub];
-  bool   **masterFlag;
   errors = new double*[nSub];
-  masterFlag = new bool*[nSub];
 
+  double localErrorEx = 0.0;
   double **errorsEx;
   errorsEx = new double*[nSub];
 
@@ -276,20 +274,23 @@ void ReinitializeDistanceToWall<dimLS>::computeExactErrors(DistLevelSetStructure
 
   DistSVec<double,1> d2wall_comp = d2wall;
 
-  if(iod.eqs.tc.tm.d2wall.type ==  WallDistanceMethodData::NONITERATIVE)
-  {
+  // if(iod.eqs.tc.tm.d2wall.type ==  WallDistanceMethodData::NONITERATIVE)
+  // {
+    int iterativeTemp = iod.eqs.tc.tm.d2wall.iterativelvl;
+    iod.eqs.tc.tm.d2wall.iterativelvl = 100;
     DistanceToClosestPointOnMovingStructure(LSS,X,distGeoState);
     GetLevelsFromInterfaceAndMarchForward(LSS,X,distGeoState);
-    dom.getCommunicator()->fprintf(stderr,"Comparing specified wall distance computation to iterative method\n");
-  }
-  else if(iod.eqs.tc.tm.d2wall.type ==  WallDistanceMethodData::ITERATIVE)
-  {
-    PseudoFastMarchingMethod(LSS,X,distGeoState,0);
-    dom.getCommunicator()->fprintf(stderr,"Comparing specified wall distance computation to non-iterative method\n");
-  }
+    dom.getCommunicator()->fprintf(stderr,"Comparing specified wall distance computation to iterative method with 100 maximum iterations.\n");
+    iod.eqs.tc.tm.d2wall.iterativelvl = iterativeTemp;
+  // }
+  // else if(iod.eqs.tc.tm.d2wall.type ==  WallDistanceMethodData::ITERATIVE)
+  // {
+  //   PseudoFastMarchingMethod(LSS,X,distGeoState,0);
+  //   dom.getCommunicator()->fprintf(stderr,"Comparing specified wall distance computation to non-iterative method.\n");
+  // }
   DistSVec<double,1> d2wall_ref = d2wall;
 
-#pragma omp parallel for
+// #pragma omp parallel for
   for (int iSub=0;iSub<nSub;++iSub) {
     errors[iSub]     = new double[4];
     errors[iSub][0] = 0.0;
@@ -303,46 +304,44 @@ void ReinitializeDistanceToWall<dimLS>::computeExactErrors(DistLevelSetStructure
     errorsEx[iSub][2] = 0.0;
     errorsEx[iSub][3] = 0.0;
 
-    masterFlag[iSub] = d2wall.info().getMasterFlag(iSub);
     nDofs[iSub]      = 0;
     for (int i=0; i<distGeoState(iSub).getDistanceToWall().size();++i) {
-      if(LSS(iSub).isActive(0.0,i) && masterFlag[iSub][i]) {
+      if(LSS(iSub).isActive(0.0,i)) {
         nDofs[iSub]++;
-        localError = fabs(
-          d2wall_ref(iSub)[i][0] - d2wall_comp(iSub)[i][0])/d2wall_ref(iSub)[i][0];
+        localError = fabs(d2wall_ref(iSub)[i][0] - d2wall_comp(iSub)[i][0]);
         errors[iSub][0] += localError;
         errors[iSub][1] += localError*localError;
-        errors[iSub][3] = errors[iSub][2]<localError?d2wall_ref(iSub)[i][0]:errors[iSub][3];
-        errors[iSub][2] = errors[iSub][2]<localError?localError:errors[iSub][2];
+        if (localError>errors[iSub][2]) {
+          errors[iSub][2] = localError;
+          errors[iSub][3] = d2wall_ref(iSub)[i][0];
+        }
 
-        localError = fabs(
-          d2wall_ref(iSub)[i][0] - d2wall_comp(iSub)[i][0]);
-        errorsEx[iSub][0] += localError;
-        errorsEx[iSub][1] += localError*localError;
-        errorsEx[iSub][3] = errorsEx[iSub][2]<localError?d2wall_ref(iSub)[i][0]:errorsEx[iSub][3];
-        errorsEx[iSub][2] = errorsEx[iSub][2]<localError?localError:errorsEx[iSub][2];
+        localErrorEx = fabs(d2wall_ref(iSub)[i][0] - d2wall_comp(iSub)[i][0])/d2wall_ref(iSub)[i][0];
+        errorsEx[iSub][0] += localErrorEx;
+        errorsEx[iSub][1] += localErrorEx*localErrorEx;
+        if (localErrorEx>errorsEx[iSub][2]) {
+          errorsEx[iSub][2] = localErrorEx;
+          errorsEx[iSub][3] = d2wall_ref(iSub)[i][0];
+        }
       }
     }
   }
   for(int iSub=1;iSub<nSub;++iSub) {
+    nDofs[0]    += nDofs[iSub];
     errors[0][0] += errors[iSub][0];
     errors[0][1] += errors[iSub][1];
-    errors[0][3]  = errors[iSub][2]>errors[0][2]?errors[iSub][3]:errors[0][3];
-    errors[0][2]  = errors[iSub][2]>errors[0][2]?errors[iSub][2]:errors[0][2];
-    nDofs [0]    += nDofs[iSub];
+    if (errors[iSub][2]>errors[0][2]) {
+      errors[0][2] = errors[iSub][2];
+      errors[0][3] = errors[iSub][3];
+    }
 
     errorsEx[0][0] += errorsEx[iSub][0];
     errorsEx[0][1] += errorsEx[iSub][1];
-    errorsEx[0][3]  = errorsEx[iSub][2]>errorsEx[0][2]?errorsEx[iSub][3]:errorsEx[0][3];
-    errorsEx[0][2]  = errorsEx[iSub][2]>errorsEx[0][2]?errorsEx[iSub][2]:errorsEx[0][2];
+    if (errorsEx[iSub][2]>errorsEx[0][2]) {
+      errorsEx[0][2] = errorsEx[iSub][2];
+      errorsEx[0][3] = errorsEx[iSub][3];
+    }
   }
-
-  dom.getCommunicator()->globalSum(1,nDofs);
-  dom.getCommunicator()->globalSum(2,errors[0]);
-  dom.getCommunicator()->globalMax(1,errors[0]+3);
-
-  dom.getCommunicator()->globalSum(2,errorsEx[0]);
-  dom.getCommunicator()->globalMax(1,errorsEx[0]+3);
 
   errors[0][0] /= nDofs[0];
   errors[0][1] /= nDofs[0];
@@ -352,11 +351,11 @@ void ReinitializeDistanceToWall<dimLS>::computeExactErrors(DistLevelSetStructure
   errorsEx[0][1] /= nDofs[0];
   errorsEx[0][1] = sqrt(errorsEx[0][1]);
 
-  dom.getCommunicator()->fprintf(stderr,"Relative d2wall Error: %12.8e, %12.8e, %12.8e at %12.8e\n",errors[0][0],errors[0][1],errors[0][2],errors[0][3]);
+  dom.getCommunicator()->fprintf(stderr,"Absolute d2wall Error: %12.8e, %12.8e, %12.8e at %12.8e\n",errors[0][0],errors[0][1],errors[0][2],errors[0][3]);
+  dom.getCommunicator()->fprintf(stderr,"Relative d2wall Error: %12.8e, %12.8e, %12.8e at %12.8e\n",errorsEx[0][0],errorsEx[0][1],errorsEx[0][2],errorsEx[0][3]);
+
   for(int iSub=0;iSub<nSub;iSub++) delete[] errors[iSub];
   delete[] errors;
-
-  dom.getCommunicator()->fprintf(stderr,"Absolute d2wall Error: %12.8e, %12.8e, %12.8e at %12.8e\n",errorsEx[0][0],errorsEx[0][1],errorsEx[0][2],errorsEx[0][3]);
   for(int iSub=0;iSub<nSub;iSub++) delete[] errorsEx[iSub];
   delete[] errorsEx;
 
