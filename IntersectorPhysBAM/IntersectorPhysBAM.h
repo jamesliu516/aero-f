@@ -91,6 +91,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     Vec<Vec3D> *solidXdS; //pointer to dXdSb
 
     int *faceID;
+	int *structureType;
     double *porosity;
     double *actuatorDiskPressureJump;
     int *actuatorDiskReconstructionMethod;//method used to compute the velocity at the interface. 1 : vi+Vj/2 2:vi 3 Vi*grad (extrapolation)
@@ -151,6 +152,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     void init(char *meshfile, char *restartfile, double XScale);
     void init(int nNodes, double *xyz, int nElems, int (*abc)[3], char *restartSolidSurface);
     void setPorosity();
+	void setStructureType();
     void setActuatorDisk();
     void makerotationownership();
     void updatebc();

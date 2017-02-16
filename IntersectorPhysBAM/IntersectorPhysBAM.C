@@ -132,6 +132,7 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iodata,
     double XScale = (iod.problem.mode==ProblemData::NON_DIMENSIONAL) ? 1.0 : iod.ref.rv.length;
     init(struct_mesh, struct_restart_pos, XScale);
   }
+  setStructureType();
   setPorosity();
   setActuatorDisk();
   makerotationownership();
@@ -529,6 +530,28 @@ void DistIntersectorPhysBAM::setPorosity() {
           if(it2->second->type == BoundaryData::POROUSWALL ) {
             porosity[i] = it2->second->porosity;
           }
+        }
+      }
+    }
+  }
+}
+//----------------------------------------------------------------------------
+void DistIntersectorPhysBAM::setStructureType() {
+  map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
+  map<int,BoundaryData *> &bcMap = iod.bc.bcMap.dataMap;
+
+  structureType = new int[numStElems];
+  for(int i=0; i<numStElems; i++) {
+    structureType[i] = 1;
+  }
+
+  if(faceID) {
+    for(int i=0; i<numStElems; i++) {
+      map<int,SurfaceData*>::iterator it = surfaceMap.find(faceID[i]);
+      if (it != surfaceMap.end()) {
+        map<int,BoundaryData *>::iterator it2 = bcMap.find(it->second->bcID);
+        if(it2 != bcMap.end()) { // the bc data have been defined
+          structureType[i] = it2->second->type;
         }
       }
     }
@@ -2108,7 +2131,7 @@ IntersectorPhysBAM::getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j, 
                    + lsRes.xi[2]*distIntersector.Xsdot[lsRes.trNodes[2]]; 
 
   lsRes.porosity   = distIntersector.porosity[trueTriangleID];
-  lsRes.intersectedSurfaceId = distIntersector.faceID[trueTriangleID];
+  lsRes.structureType   = distIntersector.structureType[trueTriangleID];
   lsRes.actuatorDiskPressureJump = distIntersector.actuatorDiskPressureJump[trueTriangleID];
   lsRes.isCorrectedMethod = distIntersector.isCorrectedMethod[trueTriangleID];
   lsRes.gamma = distIntersector.gamma;
