@@ -605,6 +605,7 @@ struct BoundaryData  {
   double epsilon;
   double porosity;
   enum VelocityReconstructionMethod {AVERAGE = 1, FIRSTORDER = 2, SECONDORDER = 3} velocityReconstructionMethod;
+  enum ActuatorDiskMethod { SOURCETERM = 1, RIEMANNSOLVER= 2} actuatorDiskMethod;
   double pressureJump;
   double massFlow;
   enum SourceTermExpression {OLD = 1,CORRECTED = 2} sourceTermExpression;

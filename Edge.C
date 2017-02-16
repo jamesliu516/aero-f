@@ -3381,7 +3381,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         /// normalDir: is either structure normal or Fluid normal, but the direction is changed
         /// and always points to the fluid
         ///////////////////////////////////////////////////////////////
-        Vec3D GradPhi = resij.gradPhi[0];
+        Vec3D GradPhi = resij.gradPhi;
         switch (Nriemann) {
           case 0: //structure normal
             normalDir = (dx[0]*resij.gradPhi[0]+dx[1]*resij.gradPhi[1]+dx[2]*resij.gradPhi[2]>=0.0) ? -1.0*resij.gradPhi : resij.gradPhi;
@@ -3478,7 +3478,9 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
           case BoundaryData::ACTUATORDISK:
             assert(iActuatorDisk);
                 //This is an actuator Disk : We compute the usual roe flux and we will addd a source term
-                if (iActuatorDisk) {
+                if (iActuatorDisk && resij.actuatorDiskMethod == BoundaryData::SOURCETERM) {
+                  
+                  
                   fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, fluxi, fluidId[i],
                                                 false);
                   if (resij.alpha >= 0.5) {
@@ -3511,7 +3513,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         /// normalDir: is either structure normal or Fluid normal, but the direction is changed
         /// and always points to the fluid
         ///////////////////////////////////////////////////////////////
-        Vec3D GradPhi = resji.gradPhi[0];
+        Vec3D GradPhi = resji.gradPhi;
         switch (Nriemann) {
           case 0: //structure normal
             normalDir = (dx[0]*resji.gradPhi[0]+dx[1]*resji.gradPhi[1]+dx[2]*resji.gradPhi[2]>=0.0) ? resji.gradPhi : -1.0*resji.gradPhi;
@@ -3599,9 +3601,11 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                 break;
           case BoundaryData::ACTUATORDISK:
             assert(jActuatorDisk);
-                if (jActuatorDisk) {//Actuator Disk
+                if (jActuatorDisk && resji.actuatorDiskMethod == BoundaryData::SOURCETERM) {//Actuator Disk
+                  
                   fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, fluxj, fluidId[j]);
                   if (resji.alpha > 0.5) {
+                  
                     //TODO The first think is to calculate projected area of the actuator disk
                     Vec3D structureNormal = (dx[0] * GradPhi[0] + dx[1] * GradPhi[1] + dx[2] * GradPhi[2] >= 0.0)
                                             ? GradPhi : -1.0 * GradPhi;
