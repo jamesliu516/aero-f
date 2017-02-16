@@ -1005,6 +1005,7 @@ BoundaryData::BoundaryData()
   epsilon = -1.0;
   porosity = 0.0;
   velocityReconstructionMethod = (VelocityReconstructionMethod) AVERAGE;
+  actuatorDiskMethod = (ActuatorDiskMethod)SOURCETERM;
   sourceTermExpression = (SourceTermExpression)OLD;
   pressureJump = 0.0;
   massFlow = 0.0;
@@ -1043,6 +1044,9 @@ Assigner *BoundaryData::getAssigner()  {
   new ClassToken<BoundaryData>(ca, "VelocityReconstructionMethod", this,
                                 (int BoundaryData::*)(&BoundaryData::velocityReconstructionMethod), 3,
                                  "Average", AVERAGE, "FirstOrder", FIRSTORDER, "SecondOrder", SECONDORDER);
+  new ClassToken<BoundaryData>(ca, "ActuatorDiskMethod", this,
+                               (int BoundaryData::*)(&BoundaryData::actuatorDiskMethod), 2,
+                               "SourceTerm", SOURCETERM, "RimannSolver", RIEMANNSOLVER);
   new ClassToken<BoundaryData>(ca, "SourceTermExpression", this,
                                   (int BoundaryData::*)(&BoundaryData::sourceTermExpression), 2,
                                    "Old", OLD, "Corrected", CORRECTED);

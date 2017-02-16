@@ -23,6 +23,7 @@ struct LevelSetResult {
   int structureType;
   double porosity;
   double actuatorDiskPressureJump;
+	int actuatorDiskMethod;
   double gamma;
   bool isCorrectedMethod;
   int actuatorDiskReconstructionMethod;
@@ -37,6 +38,7 @@ struct LevelSetResult {
       structureType = 1;
     porosity = 0.0;
     actuatorDiskPressureJump = 0.0;
+	  actuatorDiskMethod = 1;
     actuatorDiskReconstructionMethod = -1;
     gamma = 0.0;//error value
     isCorrectedMethod = false;
@@ -52,6 +54,7 @@ struct LevelSetResult {
 		    trNodes[0] = trNodes[1] = trNodes[2] = -1;
 		    porosity = 0.0;
 	        structureType = 1;
+	   actuatorDiskMethod = 1;
                     actuatorDiskPressureJump = 0.0;
                     actuatorDiskReconstructionMethod = -1;
                     gamma = 0.0;//error value
