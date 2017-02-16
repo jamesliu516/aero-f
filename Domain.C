@@ -5545,7 +5545,7 @@ void Domain::computeDistanceCloseNodes(int lsdim, DistVec<int> &Tag, DistSVec<do
   volPat->exchange();
 
 #pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub){
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
     //subDomain[iSub]->minRcvData(*phiVecPat, Psi.subData(iSub));
     subDomain[iSub]->minRcvData(*volPat, Psi.subData(iSub));
     subDomain[iSub]->recomputeDistanceCloseNodes(lsdim, Tag(iSub), X(iSub), lsgrad(iSub), Phi(iSub), Psi(iSub));
@@ -5559,7 +5559,8 @@ void Domain::computeDistanceCloseNodes(int lsdim, DistVec<int> &Tag, DistSVec<do
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     //subDomain[iSub]->minRcvData(*phiVecPat, Psi.subData(iSub));
     subDomain[iSub]->minRcvData(*volPat, Psi.subData(iSub));
-  }else{
+  }
+  else {
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->copyCloseNodes(lsdim, 1,Tag(iSub),Phi(iSub),Psi(iSub));
@@ -5575,8 +5576,7 @@ void Domain::computeDistanceLevelNodes(int lsdim, DistVec<int> &Tag, int level,
 {
   double res(_res);
 
-  if(copy == MultiFluidData::TRUE && level==2)
-  { //KW: why?
+  if(copy == MultiFluidData::TRUE && level==2) { //KW: why?
 #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub)
       subDomain[iSub]->copyCloseNodes(lsdim, 2,Tag(iSub),Phi(iSub),Psi(iSub));
@@ -5585,8 +5585,7 @@ void Domain::computeDistanceLevelNodes(int lsdim, DistVec<int> &Tag, int level,
 
 double locRes = 0.0;
 #pragma omp parallel for reduction(+: locRes)
-  for(int iSub = 0; iSub < numLocSub; ++iSub)
-  {
+  for(int iSub = 0; iSub < numLocSub; ++iSub) {
     locRes += subDomain[iSub]->computeDistanceLevelNodes(lsdim, Tag(iSub), level, X(iSub), Psi(iSub),Phi(iSub));
     //subDomain[iSub]->sndData(*phiVecPat, Psi.subData(iSub));
     subDomain[iSub]->sndData(*volPat, Psi.subData(iSub));
@@ -5596,9 +5595,10 @@ double locRes = 0.0;
   volPat->exchange();
 
 #pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
     //subDomain[iSub]->minRcvData(*phiVecPat, Psi.subData(iSub));
     subDomain[iSub]->minRcvData(*volPat, Psi.subData(iSub));
+  }
 
   com->globalSum(1, &res);
   _res = sqrt(res);

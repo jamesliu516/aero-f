@@ -65,9 +65,9 @@ void ReinitializeDistanceToWall<dimLS>::ComputeWallFunction(DistLevelSetStructur
           distGeoState(iSub).getDistanceToWall()[i]=d2wall(iSub)[i][0];
   }
 
-#ifdef ERROR_CHECK
+// #ifdef ERROR_CHECK
   computeExactErrors(LSS,X,distGeoState);
-#endif
+// #endif
   return;
 }
 
@@ -147,14 +147,13 @@ void ReinitializeDistanceToWall<dimLS>::GetLevelsFromInterfaceAndMarchForward(Di
                                                     DistSVec<double,3>& X,
                                                     DistGeoState& distGeoState)
 {
-
   int max_level = 1;
   int min_level = 0;
   int level = 1;
 
   dummyPhi = 1.0;
 
-   // Tag every level
+  // Tag every level
   while(min_level <= 0)
   {
     dom.TagInterfaceNodes(0,tag,dummyPhi,level,&LSS);
@@ -165,7 +164,7 @@ void ReinitializeDistanceToWall<dimLS>::GetLevelsFromInterfaceAndMarchForward(Di
       for(int i = 0; i < done(iSub).len ; ++i)
       {
               min_level=min(min_level,tag(iSub)[i]);
-                max_level=max(max_level,tag(iSub)[i]);
+              max_level=max(max_level,tag(iSub)[i]);
       }
     }
     dom.getCommunicator()->globalMin(1,&min_level);
@@ -177,7 +176,7 @@ void ReinitializeDistanceToWall<dimLS>::GetLevelsFromInterfaceAndMarchForward(Di
       iod.eqs.tc.tm.d2wall.iterativelvl > 1)
     max_level = min(iod.eqs.tc.tm.d2wall.iterativelvl,max_level);
 
-// Propagate information outwards
+  // Propagate information outwards
 
   MultiFluidData::CopyCloseNodes copy=MultiFluidData::FALSE;
   bool printwarning = false;
@@ -206,14 +205,19 @@ void ReinitializeDistanceToWall<dimLS>::GetLevelsFromInterfaceAndMarchForward(Di
       printwarning = true;
       if(res > maxres)
       {
-  maxres = res;
-  maxreslvl = ilvl;
+        maxres = res;
+        maxreslvl = ilvl;
       }
     }
+
+    // sjg, 02/2017: debugging output number of iterations
+    dom.getCommunicator()->fprintf(stderr,"Wall distance performed %d iterations at level %d of %d\n",--it,ilvl,max_level);
+
   }
 
-  if(printwarning) dom.getCommunicator()->fprintf(stderr, "*** Warning: Distance to wall computation (Max residual: %e at level: %d, target: %e)\n",
-                                  maxres,maxreslvl,iod.eqs.tc.tm.d2wall.eps);
+  if(printwarning) dom.getCommunicator()->fprintf(stderr,
+    "*** Warning: Distance to wall computation (Max residual: %e at level: %d, target: %e)\n",
+    maxres,maxreslvl,iod.eqs.tc.tm.d2wall.eps);
 
 }
 
@@ -264,48 +268,202 @@ void ReinitializeDistanceToWall<dimLS>::computeExactErrors(DistLevelSetStructure
   errors = new double*[nSub];
   masterFlag = new bool*[nSub];
 
+  double **errorsEx;
+  errorsEx = new double*[nSub];
+  // int      nDofsEx[nSub];
+
+  // sjg, 02/2017: instead of computing error for embedded cylinder, compute relative
+  // error of iterative and noniterative methods
+
+  DistSVec<double,1> d2wall_comp = d2wall;
+
+  if(iod.eqs.tc.tm.d2wall.type ==  WallDistanceMethodData::NONITERATIVE)
+  {
+    DistanceToClosestPointOnMovingStructure(LSS,X,distGeoState);
+    GetLevelsFromInterfaceAndMarchForward(LSS,X,distGeoState);
+    dom.getCommunicator()->fprintf(stderr,"Comparing specified wall distance computation to iterative method\n");
+  }
+  else if(iod.eqs.tc.tm.d2wall.type ==  WallDistanceMethodData::ITERATIVE)
+  {
+    PseudoFastMarchingMethod(LSS,X,distGeoState,0);
+    dom.getCommunicator()->fprintf(stderr,"Comparing specified wall distance computation to non-iterative method\n");
+  }
+  DistSVec<double,1> d2wall_ref = d2wall;
+
+
+// //****************************************************************************//
+
+//   // Exact wall distance implementation
+//   DistSVec<double,1> d2wall_exact(dom.getNodeDistInfo());
+
+//   // Fill with initial guess
+//   d2wall_exact=1e10;
+
+// #pragma omp parallel for
+//   for(int iSub = 0; iSub < nSub; ++iSub)
+//   {
+//     SubDomain subD = *dom.getSubDomain()[iSub];
+//     // LevelSetStructure* subLSS = &(*LSS)(iSub);
+
+//     int (*ptrEdge)[2]=subD.getEdges().getPtr();
+
+//     for(int l=0; l<subD.getEdges().size(); ++l)
+//     {
+//       // if(subLSS->edgeIntersectsStructure(0,l))
+//       // {
+//         int i = ptrEdge[l][0];
+//         int j = ptrEdge[l][1];
+
+//         bool iActive = LSS(iSub).isActive(0.0,i);
+//         bool jActive = LSS(iSub).isActive(0.0,j);
+//         if(iActive) {
+//           LevelSetResult resij = LSS(iSub).getLevelSetDataAtEdgeCenter(0.0, l, true);
+//           d2wall_exact(iSub)[i][0] = LSS(iSub).isPointOnSurface(X(iSub)[i],resij.trNodes[0],resij.trNodes[1],resij.trNodes[2]);
+//         }
+
+//         // ---
+
+//         if(jActive) {
+//           LevelSetResult resji = LSS(iSub).getLevelSetDataAtEdgeCenter(0.0, l, false);
+//           d2wall_exact(iSub)[j][0] = LSS(iSub).isPointOnSurface(X(iSub)[j],resji.trNodes[0],resji.trNodes[1],resji.trNodes[2]);
+//         }
+//       // }
+//     }
+//     dom.getSubDomain()[iSub]->sndData(*dom.getVolPat(),d2wall(iSub).data());
+//     //   subDomain[iSub]->sndData(*levelPat, reinterpret_cast<int (*)[1]>(Tag.subData(iSub)));
+//     //   subDomain[iSub]->sndData(*volPat, reinterpret_cast<double (*)[dimLS]>(d2wall.subData(iSub)));
+//   }
+
+//   dom.getVolPat()->exchange();
+//   // levelPat->exchange();
+//   // volPat->exchange();
+
+// #pragma omp parallel for
+//   for(int iSub = 0; iSub < nSub; ++iSub)
+//     dom.getSubDomain()[iSub]->minRcvData(*dom.getVolPat(), d2wall(iSub).data());
+
+// // #pragma omp parallel for
+// //   for (iSub = 0; iSub < numLocSub; ++iSub) {
+// //     subDomain[iSub]->maxRcvDataAndCountUpdates(*levelPat, reinterpret_cast<int (*)[1]>(Tag.subData(iSub)),nSortedNodes[iSub],sortedNodes(iSub));
+// //     subDomain[iSub]->minRcvData(*volPat, reinterpret_cast<double (*)[dimLS]>(d2wall.subData(iSub)));
+// //   }
+
+// //****************************************************************************//
+
 #pragma omp parallel for
   for (int iSub=0;iSub<nSub;++iSub) {
-    errors[iSub]     = new double[3];
+    errors[iSub]     = new double[4];
     errors[iSub][0] = 0.0;
     errors[iSub][1] = 0.0;
     errors[iSub][2] = 0.0;
+    errors[iSub][3] = 0.0;
+
+    errorsEx[iSub]     = new double[4];
+    errorsEx[iSub][0] = 0.0;
+    errorsEx[iSub][1] = 0.0;
+    errorsEx[iSub][2] = 0.0;
+    errorsEx[iSub][3] = 0.0;
+
     masterFlag[iSub] = d2wall.info().getMasterFlag(iSub);
     nDofs[iSub]      = 0;
     for (int i=0; i<distGeoState(iSub).getDistanceToWall().size();++i) {
       if(LSS(iSub).isActive(0.0,i) && masterFlag[iSub][i]) {
-  nDofs[iSub]++;
+        nDofs[iSub]++;
         localError = fabs(
-         d2wall(iSub)[i][0]
-       - sqrt(X(iSub)[i][0]*X(iSub)[i][0]+
-        X(iSub)[i][1]*X(iSub)[i][1]+
-        X(iSub)[i][2]*X(iSub)[i][2])
-       + 1.0);
-  errors[iSub][0] += localError;
-  errors[iSub][1] += localError*localError;
+          d2wall_ref(iSub)[i][0] - d2wall_comp(iSub)[i][0])/d2wall_ref(iSub)[i][0];
+          // - sqrt(X(iSub)[i][0]*X(iSub)[i][0]+
+          // X(iSub)[i][1]*X(iSub)[i][1]+
+          // X(iSub)[i][2]*X(iSub)[i][2])
+          // + 1.0);
+        errors[iSub][0] += localError;
+        errors[iSub][1] += localError*localError;
+        errors[iSub][3] = errors[iSub][2]<localError?d2wall_ref(iSub)[i][0]:errors[iSub][3];
         errors[iSub][2] = errors[iSub][2]<localError?localError:errors[iSub][2];
+
+        localError = fabs(
+          d2wall_ref(iSub)[i][0] - d2wall_comp(iSub)[i][0]);
+        errorsEx[iSub][0] += localError;
+        errorsEx[iSub][1] += localError*localError;
+        errorsEx[iSub][3] = errorsEx[iSub][2]<localError?d2wall_ref(iSub)[i][0]:errorsEx[iSub][3];
+        errorsEx[iSub][2] = errorsEx[iSub][2]<localError?localError:errorsEx[iSub][2];
       }
     }
   }
-
   for(int iSub=1;iSub<nSub;++iSub) {
     errors[0][0] += errors[iSub][0];
     errors[0][1] += errors[iSub][1];
+    errors[0][3]  = errors[iSub][2]>errors[0][2]?errors[iSub][3]:errors[0][3];
     errors[0][2]  = errors[iSub][2]>errors[0][2]?errors[iSub][2]:errors[0][2];
     nDofs [0]    += nDofs[iSub];
+
+    errorsEx[0][0] += errorsEx[iSub][0];
+    errorsEx[0][1] += errorsEx[iSub][1];
+    errorsEx[0][3]  = errorsEx[iSub][2]>errorsEx[0][2]?errorsEx[iSub][3]:errorsEx[0][3];
+    errorsEx[0][2]  = errorsEx[iSub][2]>errorsEx[0][2]?errorsEx[iSub][2]:errorsEx[0][2];
   }
 
   dom.getCommunicator()->globalSum(1,nDofs);
   dom.getCommunicator()->globalSum(2,errors[0]);
-  dom.getCommunicator()->globalMax(1,errors[0]+2);
+  dom.getCommunicator()->globalMax(1,errors[0]+3);
+
+  dom.getCommunicator()->globalSum(2,errorsEx[0]);
+  dom.getCommunicator()->globalMax(1,errorsEx[0]+3);
 
   errors[0][0] /= nDofs[0];
   errors[0][1] /= nDofs[0];
   errors[0][1] = sqrt(errors[0][1]);
 
-  dom.getCommunicator()->fprintf(stderr,"Distance to the wall computation Error for the Embedded Cylinder\n d2wall Error: %12.8e %12.8e %12.8e\n",errors[0][0],errors[0][1],errors[0][2]);
+  errorsEx[0][0] /= nDofs[0];
+  errorsEx[0][1] /= nDofs[0];
+  errorsEx[0][1] = sqrt(errorsEx[0][1]);
+
+  // dom.getCommunicator()->fprintf(stderr,"Distance to the wall computation Error for the Embedded Cylinder\n d2wall Error: %12.8e %12.8e %12.8e\n",errors[0][0],errors[0][1],errors[0][2]);
+  dom.getCommunicator()->fprintf(stderr,"Relative d2wall Error: %12.8e, %12.8e, %12.8e at %12.8e\n",errors[0][0],errors[0][1],errors[0][2],errors[0][3]);
   for(int iSub=0;iSub<nSub;iSub++) delete[] errors[iSub];
   delete[] errors;
+
+  dom.getCommunicator()->fprintf(stderr,"Absolute d2wall Error: %12.8e, %12.8e, %12.8e at %12.8e\n",errorsEx[0][0],errorsEx[0][1],errorsEx[0][2],errorsEx[0][3]);
+  for(int iSub=0;iSub<nSub;iSub++) delete[] errorsEx[iSub];
+  delete[] errorsEx;
+
+// #pragma omp parallel for
+//   for (int iSub=0;iSub<nSub;++iSub) {
+//     errorsExact[iSub]     = new double[3];
+//     errorsExact[iSub][0] = 0.0;
+//     errorsExact[iSub][1] = 0.0;
+//     errorsExact[iSub][2] = 0.0;
+//     masterFlag[iSub] = d2wall.info().getMasterFlag(iSub);
+//     nDofsEx[iSub]      = 0;
+//     for (int i=0; i<distGeoState(iSub).getDistanceToWall().size();++i) {
+//       if(LSS(iSub).isActive(0.0,i) && masterFlag[iSub][i]) {
+//         nDofsEx[iSub]++;
+//         localError = fabs(
+//           d2wall_exact(iSub)[i][0] - d2wall_comp(iSub)[i][0])/d2wall_exact(iSub)[i][0];
+//         errorsExact[iSub][0] += localError;
+//         errorsExact[iSub][1] += localError*localError;
+//         errorsExact[iSub][2] = errorsExact[iSub][2]<localError?localError:errorsExact[iSub][2];
+//       }
+//     }
+//   }
+//   for(int iSub=1;iSub<nSub;++iSub) {
+//     errorsExact[0][0] += errorsExact[iSub][0];
+//     errorsExact[0][1] += errorsExact[iSub][1];
+//     errorsExact[0][2]  = errorsExact[iSub][2]>errorsExact[0][2]?errorsExact[iSub][2]:errorsExact[0][2];
+//     nDofsEx [0]    += nDofsEx[iSub];
+//   }
+
+//   dom.getCommunicator()->globalSum(1,nDofsEx);
+//   dom.getCommunicator()->globalSum(2,errorsExact[0]);
+//   dom.getCommunicator()->globalMax(1,errorsExact[0]+2);
+
+//   errorsExact[0][0] /= nDofsEx[0];
+//   errorsExact[0][1] /= nDofsEx[0];
+//   errorsExact[0][1] = sqrt(errorsExact[0][1]);
+
+//   dom.getCommunicator()->fprintf(stderr,"Wall distance error: specified method vs. exact\n d2wall Error: %12.8e %12.8e %12.8e\n",errorsExact[0][0],errorsExact[0][1],errorsExact[0][2]);
+//   for(int iSub=0;iSub<nSub;iSub++) delete[] errorsExact[iSub];
+//   delete[] errorsExact;
+
   return;
 }
 //------------------------------------------------------------------------------
