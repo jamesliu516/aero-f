@@ -3887,26 +3887,12 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_tait_grad(double rho, double u,
 template<int dim>
 class LocalRiemannActuatorDisk : public LocalRiemann {
 
-    bool prec;
-    double mach, stabil_alpha, viscous_switch;
-
 public:
-    LocalRiemannActuatorDisk()
-            : LocalRiemann(), stabil_alpha(0.0), viscous_switch(0.0), prec(false) { fluid1 = fluid2 = 0; }
+    LocalRiemannActuatorDisk() : LocalRiemann() { fluid1 = fluid2 = 0; }
 
-    LocalRiemannActuatorDisk(VarFcn *vf) : LocalRiemann(vf, 0, 0), stabil_alpha(0.0), viscous_switch(0.0),
-                                           prec(false) { fluid1 = fluid2 = 0; }
+    LocalRiemannActuatorDisk(VarFcn *vf) : LocalRiemann(vf, 0, 0){ fluid1 = fluid2 = 0; }
 
     virtual ~LocalRiemannActuatorDisk() { vf_ = 0; }
-
-    void setStabilAlpha(double a) { stabil_alpha = a; }
-
-    void setViscousSwitch(double v) { viscous_switch = v; }
-
-    void setPreconditioner(double beta) {
-        prec = true;
-        mach = beta;
-    }
 
 
     int computeRiemannSolution(double *Vi, double *Vj,double dp,
@@ -3979,7 +3965,7 @@ int LocalRiemannActuatorDisk<dim>::computeRiemannSolution(double *Vi, double *Vj
     switch (vf->getType(Id)) {
         case VarFcnBase::STIFFENEDGAS:
 
-
+            fprintf(stderr, "ERROR: NO IMPLEMENTATION FOR ACTUATOR DISK FOR STIFFENEDGAS use the one for PERFECTGAS!\n");
         case VarFcnBase::PERFECTGAS:
             riemannActuatorDisk(rho_l, v_l, p_l, rho_r, v_r, p_r, dp, vf, Id, rho_a, v_a, p_a,err);
             break;
@@ -3990,14 +3976,14 @@ int LocalRiemannActuatorDisk<dim>::computeRiemannSolution(double *Vi, double *Vj
 
     if (err)
         return err;
-
+    //The velocity is no-slip condition boundary
     W_Ri[0] = W_Rj[0] = rho_a;
-    W_Ri[1] = v_a * n_s[0] + viscous_switch * v_ti[0] + (1.0 - viscous_switch) * (1.0 - stabil_alpha) * v_ti[0];
-    W_Ri[2] = v_a * n_s[1] + viscous_switch * v_ti[1] + (1.0 - viscous_switch) * (1.0 - stabil_alpha) * v_ti[1];
-    W_Ri[3] = v_a * n_s[2] + viscous_switch * v_ti[2] + (1.0 - viscous_switch) * (1.0 - stabil_alpha) * v_ti[2];
-    W_Rj[1] = v_a * n_s[0] + viscous_switch * v_tj[0] + (1.0 - viscous_switch) * (1.0 - stabil_alpha) * v_tj[0];
-    W_Rj[2] = v_a * n_s[1] + viscous_switch * v_tj[1] + (1.0 - viscous_switch) * (1.0 - stabil_alpha) * v_tj[1];
-    W_Rj[3] = v_a * n_s[2] + viscous_switch * v_tj[2] + (1.0 - viscous_switch) * (1.0 - stabil_alpha) * v_tj[2];
+    W_Ri[1] = v_a * n_s[0] + v_ti[0] ;
+    W_Ri[2] = v_a * n_s[1] + v_ti[1] ;
+    W_Ri[3] = v_a * n_s[2] + v_ti[2] ;
+    W_Rj[1] = v_a * n_s[0] + v_tj[0] ;
+    W_Rj[2] = v_a * n_s[1] + v_tj[1] ;
+    W_Rj[3] = v_a * n_s[2] + v_tj[2] ;
     if (iIsUpstream) { //  l  -> +dp r
         W_Ri[4] = p_a;
         W_Rj[4] = p_a + dp;
