@@ -270,7 +270,6 @@ void ReinitializeDistanceToWall<dimLS>::computeExactErrors(DistLevelSetStructure
 
   double **errorsEx;
   errorsEx = new double*[nSub];
-  // int      nDofsEx[nSub];
 
   // sjg, 02/2017: instead of computing error for embedded cylinder, compute relative
   // error of iterative and noniterative methods
@@ -289,66 +288,6 @@ void ReinitializeDistanceToWall<dimLS>::computeExactErrors(DistLevelSetStructure
     dom.getCommunicator()->fprintf(stderr,"Comparing specified wall distance computation to non-iterative method\n");
   }
   DistSVec<double,1> d2wall_ref = d2wall;
-
-
-// //****************************************************************************//
-
-//   // Exact wall distance implementation
-//   DistSVec<double,1> d2wall_exact(dom.getNodeDistInfo());
-
-//   // Fill with initial guess
-//   d2wall_exact=1e10;
-
-// #pragma omp parallel for
-//   for(int iSub = 0; iSub < nSub; ++iSub)
-//   {
-//     SubDomain subD = *dom.getSubDomain()[iSub];
-//     // LevelSetStructure* subLSS = &(*LSS)(iSub);
-
-//     int (*ptrEdge)[2]=subD.getEdges().getPtr();
-
-//     for(int l=0; l<subD.getEdges().size(); ++l)
-//     {
-//       // if(subLSS->edgeIntersectsStructure(0,l))
-//       // {
-//         int i = ptrEdge[l][0];
-//         int j = ptrEdge[l][1];
-
-//         bool iActive = LSS(iSub).isActive(0.0,i);
-//         bool jActive = LSS(iSub).isActive(0.0,j);
-//         if(iActive) {
-//           LevelSetResult resij = LSS(iSub).getLevelSetDataAtEdgeCenter(0.0, l, true);
-//           d2wall_exact(iSub)[i][0] = LSS(iSub).isPointOnSurface(X(iSub)[i],resij.trNodes[0],resij.trNodes[1],resij.trNodes[2]);
-//         }
-
-//         // ---
-
-//         if(jActive) {
-//           LevelSetResult resji = LSS(iSub).getLevelSetDataAtEdgeCenter(0.0, l, false);
-//           d2wall_exact(iSub)[j][0] = LSS(iSub).isPointOnSurface(X(iSub)[j],resji.trNodes[0],resji.trNodes[1],resji.trNodes[2]);
-//         }
-//       // }
-//     }
-//     dom.getSubDomain()[iSub]->sndData(*dom.getVolPat(),d2wall(iSub).data());
-//     //   subDomain[iSub]->sndData(*levelPat, reinterpret_cast<int (*)[1]>(Tag.subData(iSub)));
-//     //   subDomain[iSub]->sndData(*volPat, reinterpret_cast<double (*)[dimLS]>(d2wall.subData(iSub)));
-//   }
-
-//   dom.getVolPat()->exchange();
-//   // levelPat->exchange();
-//   // volPat->exchange();
-
-// #pragma omp parallel for
-//   for(int iSub = 0; iSub < nSub; ++iSub)
-//     dom.getSubDomain()[iSub]->minRcvData(*dom.getVolPat(), d2wall(iSub).data());
-
-// // #pragma omp parallel for
-// //   for (iSub = 0; iSub < numLocSub; ++iSub) {
-// //     subDomain[iSub]->maxRcvDataAndCountUpdates(*levelPat, reinterpret_cast<int (*)[1]>(Tag.subData(iSub)),nSortedNodes[iSub],sortedNodes(iSub));
-// //     subDomain[iSub]->minRcvData(*volPat, reinterpret_cast<double (*)[dimLS]>(d2wall.subData(iSub)));
-// //   }
-
-// //****************************************************************************//
 
 #pragma omp parallel for
   for (int iSub=0;iSub<nSub;++iSub) {
@@ -371,10 +310,6 @@ void ReinitializeDistanceToWall<dimLS>::computeExactErrors(DistLevelSetStructure
         nDofs[iSub]++;
         localError = fabs(
           d2wall_ref(iSub)[i][0] - d2wall_comp(iSub)[i][0])/d2wall_ref(iSub)[i][0];
-          // - sqrt(X(iSub)[i][0]*X(iSub)[i][0]+
-          // X(iSub)[i][1]*X(iSub)[i][1]+
-          // X(iSub)[i][2]*X(iSub)[i][2])
-          // + 1.0);
         errors[iSub][0] += localError;
         errors[iSub][1] += localError*localError;
         errors[iSub][3] = errors[iSub][2]<localError?d2wall_ref(iSub)[i][0]:errors[iSub][3];
@@ -417,7 +352,6 @@ void ReinitializeDistanceToWall<dimLS>::computeExactErrors(DistLevelSetStructure
   errorsEx[0][1] /= nDofs[0];
   errorsEx[0][1] = sqrt(errorsEx[0][1]);
 
-  // dom.getCommunicator()->fprintf(stderr,"Distance to the wall computation Error for the Embedded Cylinder\n d2wall Error: %12.8e %12.8e %12.8e\n",errors[0][0],errors[0][1],errors[0][2]);
   dom.getCommunicator()->fprintf(stderr,"Relative d2wall Error: %12.8e, %12.8e, %12.8e at %12.8e\n",errors[0][0],errors[0][1],errors[0][2],errors[0][3]);
   for(int iSub=0;iSub<nSub;iSub++) delete[] errors[iSub];
   delete[] errors;
@@ -425,44 +359,6 @@ void ReinitializeDistanceToWall<dimLS>::computeExactErrors(DistLevelSetStructure
   dom.getCommunicator()->fprintf(stderr,"Absolute d2wall Error: %12.8e, %12.8e, %12.8e at %12.8e\n",errorsEx[0][0],errorsEx[0][1],errorsEx[0][2],errorsEx[0][3]);
   for(int iSub=0;iSub<nSub;iSub++) delete[] errorsEx[iSub];
   delete[] errorsEx;
-
-// #pragma omp parallel for
-//   for (int iSub=0;iSub<nSub;++iSub) {
-//     errorsExact[iSub]     = new double[3];
-//     errorsExact[iSub][0] = 0.0;
-//     errorsExact[iSub][1] = 0.0;
-//     errorsExact[iSub][2] = 0.0;
-//     masterFlag[iSub] = d2wall.info().getMasterFlag(iSub);
-//     nDofsEx[iSub]      = 0;
-//     for (int i=0; i<distGeoState(iSub).getDistanceToWall().size();++i) {
-//       if(LSS(iSub).isActive(0.0,i) && masterFlag[iSub][i]) {
-//         nDofsEx[iSub]++;
-//         localError = fabs(
-//           d2wall_exact(iSub)[i][0] - d2wall_comp(iSub)[i][0])/d2wall_exact(iSub)[i][0];
-//         errorsExact[iSub][0] += localError;
-//         errorsExact[iSub][1] += localError*localError;
-//         errorsExact[iSub][2] = errorsExact[iSub][2]<localError?localError:errorsExact[iSub][2];
-//       }
-//     }
-//   }
-//   for(int iSub=1;iSub<nSub;++iSub) {
-//     errorsExact[0][0] += errorsExact[iSub][0];
-//     errorsExact[0][1] += errorsExact[iSub][1];
-//     errorsExact[0][2]  = errorsExact[iSub][2]>errorsExact[0][2]?errorsExact[iSub][2]:errorsExact[0][2];
-//     nDofsEx [0]    += nDofsEx[iSub];
-//   }
-
-//   dom.getCommunicator()->globalSum(1,nDofsEx);
-//   dom.getCommunicator()->globalSum(2,errorsExact[0]);
-//   dom.getCommunicator()->globalMax(1,errorsExact[0]+2);
-
-//   errorsExact[0][0] /= nDofsEx[0];
-//   errorsExact[0][1] /= nDofsEx[0];
-//   errorsExact[0][1] = sqrt(errorsExact[0][1]);
-
-//   dom.getCommunicator()->fprintf(stderr,"Wall distance error: specified method vs. exact\n d2wall Error: %12.8e %12.8e %12.8e\n",errorsExact[0][0],errorsExact[0][1],errorsExact[0][2]);
-//   for(int iSub=0;iSub<nSub;iSub++) delete[] errorsExact[iSub];
-//   delete[] errorsExact;
 
   return;
 }
