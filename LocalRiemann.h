@@ -66,7 +66,9 @@ public:
 				     double *n_s, double *n_f, VarFcn *vf,
 				     int it, double *Wi, double *Wj,int Id = 0){return 0;}
 
-
+  virtual  void computeSourceTerm(double *Vi, double *Vj,double dp,
+                          double *n_s, double *n_f, VarFcn *vf,
+                          double *flux, bool method = true, int Id = 0){};
 };
 
 //----------------------------------------------------------------------------
