@@ -83,7 +83,7 @@ class ExactRiemannSolver{
   void reset(int it);
   void resetInterfacialW(int edgeNum);
 	// for actuator disk  riemann problem
-	int computeActuatorDiskRiemannSolution(double *Vi, double *Vj,double dp,double *n_s, double *n_f, VarFcn *vf,
+	int computeActuatorDiskRiemannSolution(double *Vi, double *Vj, double *Vstar,double dp,double *n_s, double *n_f, VarFcn *vf,
 										   double *Wi, double *Wj,int Id = 0);
 	void computeActuatorDiskSourceTerm(double *Vi, double *Vj,double dp,double *n_s,
 															   double *n_f, VarFcn *vf,

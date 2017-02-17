@@ -358,11 +358,11 @@ int ExactRiemannSolver<dim>::getRiemannSolverId(int i, int j) const {
 }
 //------------------------------------------------------------------------------
 template<int dim>
-int ExactRiemannSolver<dim>::computeActuatorDiskRiemannSolution(double *Vi, double *Vj,double dp,double *n_s,
+int ExactRiemannSolver<dim>::computeActuatorDiskRiemannSolution(double *Vi, double *Vj, double *Vstar, double dp,double *n_s,
                                                                 double *n_f, VarFcn *vf,
                                                                 double *Wi, double *Wj,int Id)
 
-{   return actuatorDiskRiemann->computeRiemannSolution(Vi, Vj,dp, n_s, n_f, vf, iteration, Wi, Wj,Id);
+{   return actuatorDiskRiemann->computeRiemannSolution(Vi, Vj, Vstar,dp, n_s, n_f, vf, iteration, Wi, Wj,Id);
 
 }
 
