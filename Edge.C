@@ -3501,7 +3501,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
                         }else if (resij.actuatorDiskMethod == BoundaryData::RIEMANNSOLVER) {
 
-                            riemann.computeActuatorDiskRiemannSolution(Vi, Vj, resij.actuatorDiskPressureJump,GradPhi.v,
+                            riemann.computeActuatorDiskRiemannSolution(Vi, Vj, resij.normVel, resij.actuatorDiskPressureJump,GradPhi.v,
                                                                        dx, varFcn, Wstarij[l], Wstarji[l],fluidId[i]);
                             fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstarij[l], fluxi, fluidId[i]);
 
@@ -3639,7 +3639,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                             }
                         } else if(resji.actuatorDiskMethod == BoundaryData::RIEMANNSOLVER){
 
-                            riemann.computeActuatorDiskRiemannSolution(Vi, Vj, resij.actuatorDiskPressureJump,GradPhi.v,
+                            riemann.computeActuatorDiskRiemannSolution(Vi, Vj, resji.normVel, resij.actuatorDiskPressureJump,GradPhi.v,
                                                                        dx, varFcn, Wstarij[l], Wstarji[l],fluidId[j]);
                             fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstarji[l], Vj,  fluxj, fluidId[j]);
                         }else{//This is Daniel Huang's Implementation of Actuator Disk of Source Term, which is wrapped in Rieman mehtod
