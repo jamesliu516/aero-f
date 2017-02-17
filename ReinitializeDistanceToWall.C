@@ -276,12 +276,12 @@ void ReinitializeDistanceToWall<dimLS>::computeExactErrors(DistLevelSetStructure
 
   // if(iod.eqs.tc.tm.d2wall.type ==  WallDistanceMethodData::NONITERATIVE)
   // {
-    int iterativeTemp = iod.eqs.tc.tm.d2wall.iterativelvl;
-    iod.eqs.tc.tm.d2wall.iterativelvl = 100;
+    int iterativeTemp = iod.eqs.tc.tm.d2wall.maxIts;
+    iod.eqs.tc.tm.d2wall.maxIts = 100;
     DistanceToClosestPointOnMovingStructure(LSS,X,distGeoState);
     GetLevelsFromInterfaceAndMarchForward(LSS,X,distGeoState);
     dom.getCommunicator()->fprintf(stderr,"Comparing specified wall distance computation to iterative method with 100 maximum iterations.\n");
-    iod.eqs.tc.tm.d2wall.iterativelvl = iterativeTemp;
+    iod.eqs.tc.tm.d2wall.maxIts = iterativeTemp;
   // }
   // else if(iod.eqs.tc.tm.d2wall.type ==  WallDistanceMethodData::ITERATIVE)
   // {
