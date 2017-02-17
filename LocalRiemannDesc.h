@@ -3900,6 +3900,9 @@ public:
                                int it, double *Wi, double *Wj,int Id = 0);
 
 
+    void computeSourceTerm(double *Vi, double *Vj,double dp,
+                                                              double *n_s, double *n_f, VarFcn *vf,
+                                                              double *flux, bool method = true, int Id = 0);
 
 private:
 
@@ -3929,7 +3932,13 @@ inline
 int LocalRiemannActuatorDisk<dim>::computeRiemannSolution(double *Vi, double *Vj,double dp,
                                                           double *n_s, double *n_f, VarFcn *vf,
                                                           int it, double *W_Ri, double *W_Rj,int Id) {
-
+    /* Vi Vj are two fluid primitive state variables
+     * dp pressure jump
+     * n_s is unit structure normal, n_f is fluid normal(can be non unit)
+     * vf state of equation function
+     * W_Ri,WRj riemann primitive state variables on both side of actuator disk, near i and j
+     * Id fluid id
+     */
     //---------------------------------------------------------------
 
     double v_ni = Vi[1] * n_s[0] + Vi[2] * n_s[1] + Vi[3] * n_s[2]; //normal velocity of node i
@@ -4009,7 +4018,44 @@ int LocalRiemannActuatorDisk<dim>::computeRiemannSolution(double *Vi, double *Vj
     return err;
 }
 
+template<int dim>
+inline
+void LocalRiemannActuatorDisk<dim>::computeSourceTerm(double *Vi, double *Vj,double dp,
+                                                          double *n_s, double *n_f, VarFcn *vf,
+                                                          double *flux, bool method, int Id) {
+    /* Vi Vj are two fluid primitive state variables
+     * dp pressure jump value
+     * n_s is unit structure normal, n_f is fluid edge area normal(non unit)
+     * vf state of equation function
+     * flux source term
+     * method, true for corrected one and false for traditional one
+     * Id fluid id
+     */
 
+
+  double gamma = vf->getGamma(Id);
+  double Vel[3] = {(Vi[1]+Vj[1])/2.0,(Vi[2]+Vj[2])/2.0,(Vi[3]+Vj[3])/2.0};//use average velocity
+  double faceArea = abs(n_s[0]*n_f[0] +n_s[1]*n_f[1] +n_s[2]*n_f[2]);
+  double normal[3] = {faceArea*n_s[0], faceArea*n_s[1],faceArea*n_s[2]};//use structure normal
+  flux[0] = 0;
+  flux[1] = dp*normal[0];
+  flux[2] = dp*normal[1];
+  flux[3] = dp*normal[2];
+
+  double normalVelocity = Vel[0]*normal[0] + Vel[1]*normal[1] + Vel[2]*normal[2];
+  flux[4] = method? gamma/(gamma-1)*dp*normalVelocity: dp*normalVelocity;
+    /*
+  fprintf(stderr, " ***ERROR: Actuator disk SourceTerm\n");
+  fprintf(stderr, " ***ERROR: Actuator disk Vi %.10f,%.10f,%.10f,%.10f,%.10f, Vj %.10f,%.10f,%.10f,%.10f,%.10f\n",
+                                               Vi[0],Vi[1],Vi[2],Vi[3],Vi[4],      Vj[0],Vj[1],Vj[2],Vj[3],Vj[4]);
+  fprintf(stderr, " ***ERROR: n_s %.10f,%.10f,%.10f, n_f %.10f,%.10f,%.10f \n", n_s[0],n_s[1],n_s[2],n_f[0],n_f[1],n_f[2]);
+  fprintf(stderr, " ***ERROR: normal  %.10f,%.10f,%.10f\n", normal[0],normal[1],normal[2]);
+  fprintf(stderr, " ***ERROR: dp  %.10f\n", dp);
+  fprintf(stderr, " ***ERROR: normalVelocity  %.10f\n", normalVelocity);
+  fprintf(stderr, " ***ERROR: Actuator disk flux %.10f,%.10f,%.10f,%.10f,%.10f,\n\n",flux[0],flux[1],flux[2],flux[3],flux[4]);
+*/
+
+  }
 //------------------------------------------------------------------------------
 template<int dim>
 inline

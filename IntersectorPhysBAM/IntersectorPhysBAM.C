@@ -560,68 +560,71 @@ void DistIntersectorPhysBAM::setStructureType() {
 
 //----------------------------------------------------------------------------
 void DistIntersectorPhysBAM::setActuatorDisk() {
-  map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
-  map<int,BoundaryData *> &bcMap = iod.bc.bcMap.dataMap;
-  actuatorDiskMethod = new int[numStElems];
-  actuatorDiskPressureJump = new double[numStElems];
-  actuatorDiskReconstructionMethod = new int[numStElems];
-  isCorrectedMethod = new bool[numStElems];
-  for(int i=0; i<numStElems; i++) {
-    actuatorDiskMethod[i] = 1;
-	  actuatorDiskPressureJump[i] = 0.0;
-	  actuatorDiskReconstructionMethod[i] = -1;
-	  isCorrectedMethod[i] = false;
-  }
-  gamma = iod.eqs.fluidModel.gasModel.specificHeatRatio;
-  if(faceID) {
+    map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
+    map<int,BoundaryData *> &bcMap = iod.bc.bcMap.dataMap;
+    actuatorDiskMethod = new int[numStElems];
+    actuatorDiskPressureJump = new double[numStElems];
+    actuatorDiskReconstructionMethod = new int[numStElems];
+    isCorrectedMethod = new bool[numStElems];
     for(int i=0; i<numStElems; i++) {
-      map<int,SurfaceData*>::iterator it = surfaceMap.find(faceID[i]);
-      if (it != surfaceMap.end()) {
-        map<int,BoundaryData *>::iterator it2 = bcMap.find(it->second->bcID);
-        if(it2 != bcMap.end()) { // the bc data have been defined
-          if(it2->second->type == BoundaryData::ACTUATORDISK ) {
-        	  actuatorDiskPressureJump[i] = it2->second->pressureJump;
-            //--------------------------------
-            if(it2->second->actuatorDiskMethod == BoundaryData::SOURCETERM){
-              actuatorDiskMethod[i] = 1;
-            }
-            else if(it2->second->actuatorDiskMethod == BoundaryData::RIEMANNSOLVER){
-              actuatorDiskMethod[i] = 2;
-            }else{
-              com->fprintf(stderr, "!!! WARNING: no actuator disk method specified, defaulting to SOURCETERM\n\n");
-              actuatorDiskMethod[i] = 1;
-            }
-
-            //--------------------------------
-        	  if(it2->second->velocityReconstructionMethod == BoundaryData::AVERAGE){
-        		  actuatorDiskReconstructionMethod[i] = 1;
-        	  }
-        	  else if(it2->second->velocityReconstructionMethod == BoundaryData::FIRSTORDER){
-        		  actuatorDiskReconstructionMethod[i] = 2;
-        	  }
-        	  else if(it2->second->velocityReconstructionMethod == BoundaryData::SECONDORDER){
-        		  actuatorDiskReconstructionMethod[i] = 3;
-        	  }
-                //--------------------------------
-        	  else{
-        		  com->fprintf(stderr, "!!! WARNING: no actuator disk method specified, defaulting to Average\n\n");
-        		  actuatorDiskReconstructionMethod[i] = 1;
-        	  }
-        	  if(it2->second->sourceTermExpression==BoundaryData::OLD){
-        		  isCorrectedMethod[i] = false;
-        	  }
-        	  else if(it2->second->sourceTermExpression==BoundaryData::CORRECTED){
-        		  isCorrectedMethod[i] = true;
-        	  }
-        	  else{
-        		  com->fprintf(stderr, "!!! WARNING: no Source term method specified for the actuator Disk, defaulting to Corrected\n\n");
-        		  isCorrectedMethod[i] = true;
-        	  }
-          }
-        }
-      }
+        actuatorDiskMethod[i] = 1;
+        actuatorDiskPressureJump[i] = 0.0;
+        actuatorDiskReconstructionMethod[i] = -1;
+        isCorrectedMethod[i] = false;
     }
-  }
+    gamma = iod.eqs.fluidModel.gasModel.specificHeatRatio;
+    if(faceID) {
+        for(int i=0; i<numStElems; i++) {
+            map<int,SurfaceData*>::iterator it = surfaceMap.find(faceID[i]);
+            if (it != surfaceMap.end()) {
+                map<int,BoundaryData *>::iterator it2 = bcMap.find(it->second->bcID);
+                if(it2 != bcMap.end()) { // the bc data have been defined
+                    if(it2->second->type == BoundaryData::ACTUATORDISK ) {
+                        actuatorDiskPressureJump[i] = it2->second->pressureJump;
+                        if (iod.problem.mode == ProblemData::DIMENSIONAL)
+                            actuatorDiskPressureJump[i]/= iod.ref.rv.pressure;
+
+                        //--------------------------------
+                        if(it2->second->actuatorDiskMethod == BoundaryData::SOURCETERM){
+                            actuatorDiskMethod[i] = 1;
+                        }
+                        else if(it2->second->actuatorDiskMethod == BoundaryData::RIEMANNSOLVER){
+                            actuatorDiskMethod[i] = 2;
+                        }else{
+                            com->fprintf(stderr, "!!! WARNING: no actuator disk method specified, defaulting to SOURCETERM\n\n");
+                            actuatorDiskMethod[i] = 1;
+                        }
+
+                        //--------------------------------
+                        if(it2->second->velocityReconstructionMethod == BoundaryData::AVERAGE){
+                            actuatorDiskReconstructionMethod[i] = 1;
+                        }
+                        else if(it2->second->velocityReconstructionMethod == BoundaryData::FIRSTORDER){
+                            actuatorDiskReconstructionMethod[i] = 2;
+                        }
+                        else if(it2->second->velocityReconstructionMethod == BoundaryData::SECONDORDER){
+                            actuatorDiskReconstructionMethod[i] = 3;
+                        }
+                            //--------------------------------
+                        else{
+                            com->fprintf(stderr, "!!! WARNING: no actuator disk method specified, defaulting to Average\n\n");
+                            actuatorDiskReconstructionMethod[i] = 1;
+                        }
+                        if(it2->second->sourceTermExpression==BoundaryData::OLD){
+                            isCorrectedMethod[i] = false;
+                        }
+                        else if(it2->second->sourceTermExpression==BoundaryData::CORRECTED){
+                            isCorrectedMethod[i] = true;
+                        }
+                        else{
+                            com->fprintf(stderr, "!!! WARNING: no Source term method specified for the actuator Disk, defaulting to Corrected\n\n");
+                            isCorrectedMethod[i] = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 //----------------------------------------------------------------------------
 
