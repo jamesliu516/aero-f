@@ -5,8 +5,8 @@
 
 // sjg, 02/2017: flags for testing and error calculations
 #define DELTA_CHECK
-#define ERROR_CHECK
-#define PRINT_VERB
+// #define ERROR_CHECK
+// #define PRINT_VERB
 
 //------------------------------------------------------------------------------
 
