@@ -2647,7 +2647,7 @@ void TsOutput<dim>::writeMaterialVolumesToDisk(int it, double t, DistVec<double>
 
   if (com->cpuNum() !=0 ) return;
 
-  double length3 = length*length*length;
+  double length3 = refVal->length*refVal->length*refVal->length;
   for(int i=0; i<myLength; i++)
     Vol[i] *= length3; //dimensionalize                                                                                                                                                   
 
@@ -2697,11 +2697,13 @@ void TsOutput<dim>::writeMaterialConservationScalarsToDisk(int it, double t,Dist
     domain->computeMaterialConservationScalars(Mass,MomentumX, MomentumY, MomentumZ, Energy, myLength,U, A,fluidId); //computes Mass
 
     if (com->cpuNum() !=0 ) return;
+    double lenRef = refVal->length;
 
 //todo dimensional non- dimensional
-    double massScale   = (refVal->mode == RefVal::DIMENSIONAL)? length*length*length*refVal->density: length*length*length;
-    double energyScale =  (refVal->mode == RefVal::DIMENSIONAL)? refVal->energy:length*length*length;
-    double momentumScale = (refVal->mode == RefVal::DIMENSIONAL)? length*length*length*refVal->density*refVal->velocity:length*length*length;
+    double massScale   = (refVal->mode == RefVal::DIMENSIONAL)? lenRef*lenRef*lenRef*refVal->density: lenRef*lenRef*lenRef;
+    double energyScale =  (refVal->mode == RefVal::DIMENSIONAL)? refVal->energy:lenRef*lenRef*lenRef;
+    double momentumScale = (refVal->mode == RefVal::DIMENSIONAL)? lenRef*lenRef*lenRef*refVal->density*refVal->velocity:lenRef*lenRef*lenRef;
+
     for(int i=0; i<myLength; i++) {
         Mass[i] *= massScale; //dimensionalize
         MomentumX[i] *= momentumScale;
@@ -2715,7 +2717,7 @@ void TsOutput<dim>::writeMaterialConservationScalarsToDisk(int it, double t,Dist
     fprintf(fpMaterialConservationScalars, "%d %e ", it, (refVal->time)*t);
 
     for(int i=0; i<numFluidPhases+1; i++) {
-        fprintf(fpMaterialConservationScalars, "%15.10E %15.10E %15.10E %15.10E %15.10E", Mass[i], MomentumX[i], MomentumY[i], MomentumZ[i], Energy[i]);
+        fprintf(fpMaterialConservationScalars, "%15.10E %15.10E %15.10E %15.10E %15.10E ", Mass[i], MomentumX[i], MomentumY[i], MomentumZ[i], Energy[i]);
     }
 
 
