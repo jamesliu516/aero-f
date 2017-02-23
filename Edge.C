@@ -3156,512 +3156,516 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                                      SVec<int,2>& tag, int failsafe, int rshift)
 {
 
-    int farfieldFluid = 0;
+  int farfieldFluid = 0;
 
-    Vec<Vec3D>&     normal = geoState.getEdgeNormal();
-    Vec<double>& normalVel = geoState.getEdgeNormalVel();
+  Vec<Vec3D>&     normal = geoState.getEdgeNormal();
+  Vec<double>& normalVel = geoState.getEdgeNormalVel();
 
-    SVec<double,dim>& dVdx = ngrad.getX();
-    SVec<double,dim>& dVdy = ngrad.getY();
-    SVec<double,dim>& dVdz = ngrad.getZ();
+  SVec<double,dim>& dVdx = ngrad.getX();
+  SVec<double,dim>& dVdy = ngrad.getY();
+  SVec<double,dim>& dVdz = ngrad.getZ();
 
-    double ddVij[dim], ddVji[dim], Udummy[dim];
-    double Vi[2*dim], Vj[2*dim], Wstar[2*dim];
+  double ddVij[dim], ddVji[dim], Udummy[dim];
+  double Vi[2*dim], Vj[2*dim], Wstar[2*dim];
 
-    double flux[dim], fluxi[dim], fluxj[dim];
+  double flux[dim], fluxi[dim], fluxj[dim];
 
-    Vec3D normalDir;
+  Vec3D normalDir;
 
-    double length;
-    double alpha = 0.1;
+  double length;
+  double alpha = 0.1;
 
-    int ierr = 0;
-    riemann.reset(it);
+  int ierr = 0;
+  riemann.reset(it);
 
-    VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
-    for (int i=0; i<dim; i++) fluxi[i] = fluxj[i] = 0.0;
+  VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
+  for (int i=0; i<dim; i++) fluxi[i] = fluxj[i] = 0.0;
 
-    for (int l=0; l<numEdges; ++l) {
-        if (!masterFlag[l]) continue; //not a master edge
+  for (int l=0; l<numEdges; ++l) {
+    if (!masterFlag[l]) continue; //not a master edge
 
 
-        double area = normal[l].norm();
-        if (area < 1e-18) continue;
+    double area = normal[l].norm();
+    if (area < 1e-18) continue;
 
-        int i = ptr[l][0];
-        int j = ptr[l][1];
+    int i = ptr[l][0];
+    int j = ptr[l][1];
 
-        bool intersect = LSS.edgeIntersectsStructure(0,l);
+    bool intersect = (LSS.edgeIntersectsStructure(0,l)||LSS.edgeIntersectsConstraint(0,l));//Take care of the actuatorDisk
 
-        bool iActive = LSS.isActive(0.0,i);
-        bool jActive = LSS.isActive(0.0,j);
+    bool iActive = LSS.isActive(0.0,i);
+    bool jActive = LSS.isActive(0.0,j);
 
-        bool iPorous = false;
-        bool jPorous = false;
+    bool iPorous = false;
+    bool jPorous = false;
 
-        bool iActuatorDisk = false;
-        bool jActuatorDisk = false;
-        int reconstructionMethod =0;
+    bool iActuatorDisk = false;
+    bool jActuatorDisk = false;
+    int reconstructionMethod =0;
 
-        if( !iActive && !jActive ) {
+    if( !iActive && !jActive ) {
 
-            //clean-up Wstar
-            if(it>0) {
-                for(int k=0; k<dim; k++){
-                    Wstarij[l][k] = Wstarji[l][k] = 0.0;
-                }
-            }
-
-            continue;
+      //clean-up Wstar
+      if(it>0) {
+        for(int k=0; k<dim; k++){
+          Wstarij[l][k] = Wstarji[l][k] = 0.0;
         }
+      }
 
-        // ------------------------------------------------
-        //  Reconstruction without crossing the interface.
-        //  Reconstruct the primitive state variables, for these edges without crossing the interface.
-        //  their states are linear reconstructed or constant reconstructed
-        //  for these edges crossing interface , their states are reconstructed with constant reconstruction
-        //  Save the reconstructed value in Vi and Vj
-        // ------------------------------------------------
-        double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
-        length = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
+      continue;
+    }
 
-        // d2d
-        if (egrad){
-            egrad->compute(l, i, j, elems, X, V, dVdx, dVdy, dVdz, fluidId, ddVij, ddVji, LSS);
-        }else{
-            for (int k=0; k<dim; ++k) {
-                ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
-                ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
-            }
-        }
+    // ------------------------------------------------
+    //  Reconstruction without crossing the interface.
+    //  Reconstruct the primitive state variables, for these edges without crossing the interface.
+    //  their states are linear reconstructed or constant reconstructed
+    //  for these edges crossing interface , their states are reconstructed with constant reconstruction
+    //  Save the reconstructed value in Vi and Vj
+    // ------------------------------------------------
+    double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+    length = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
 
-        if (iActive && jActive && !intersect){
-            //Vi and Vj are reconstructed states
-            recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
-        } else {
+    // d2d
+    if (egrad){
+      egrad->compute(l, i, j, elems, X, V, dVdx, dVdy, dVdz, fluidId, ddVij, ddVji, LSS);
+    }else{
+      for (int k=0; k<dim; ++k) {
+        ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
+        ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
+      }
+    }
 
-            for(int k=0; k<dim; k++) {
-                Vi[k] = V[i][k];
-                Vj[k] = V[j][k];
-            }
-        }
+    if (iActive && jActive && !intersect){
+      //Vi and Vj are reconstructed states
+      recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
+    } else {
 
-        varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Vi);
-        varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Vj);
+      for(int k=0; k<dim; k++) {
+        Vi[k] = V[i][k];
+        Vj[k] = V[j][k];
+      }
+    }
 
-        if(it > 0) {
-            for(int k=0; k<dim; k++){
-                Wstarij[l][k] = Wstarji[l][k] = 0.0;
-            }
-        }
+    varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Vi);
+    varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Vj);
 
-        // check for negative pressure or density
-        // also checking reconstructed values acrossinterface.
-        if (!rshift)
-            ierr += checkReconstructedValues(i, j, Vi, Vj, varFcn, locToGlobNodeMap,
-                                             failsafe, tag, V[i], V[j], fluidId[i], fluidId[j]);
+    if(it > 0) {
+      for(int k=0; k<dim; k++){
+        Wstarij[l][k] = Wstarji[l][k] = 0.0;
+      }
+    }
 
-        if (ierr) continue;
+    // check for negative pressure or density
+    // also checking reconstructed values acrossinterface.
+    if (!rshift)
+      ierr += checkReconstructedValues(i, j, Vi, Vj, varFcn, locToGlobNodeMap,
+                                       failsafe, tag, V[i], V[j], fluidId[i], fluidId[j]);
 
+    if (ierr) continue;
+
+    for (int k=0; k<dim; ++k) {
+      Vi[k+dim] = V[i][k];
+      Vj[k+dim] = V[j][k];
+    }
+
+    // --------------------------------------------------------
+    //                   Compute fluxes
+    // --------------------------------------------------------
+
+    if (!intersect) {  // same fluid
+
+
+
+      if(!(iActive && jActive)) {
+        fprintf(stderr, "Really odd! Node %i ", i);
+        fprintf(stdout, "%s", iActive ? "true" : "false");
+        fprintf(stdout, " Node %i ", j);
+        fprintf(stdout, "%s\n", jActive ? "true" : "false");
+        exit(-1);
+      }
+
+      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[i]);
+
+      if (dynamic_cast<MultiGridLevelSetStructure*>(&LSS) == 0) {
         for (int k=0; k<dim; ++k) {
-            Vi[k+dim] = V[i][k];
-            Vj[k+dim] = V[j][k];
+          fluxes[i][k] += flux[k];
+          fluxes[j][k] -= flux[k];
+        }
+      } else {
+        for (int k=0; k<dim; ++k) {
+          fluxes[i][k] += flux[k];
+          fluxes[j][k] -= flux[k];
+        }
+      }
+
+    }else{ // interface
+      //////////////////////////////////////////////////////////////
+      /// Get Intersector results in resij and resji
+      ///////////////////////////////////////////////////////////////
+      LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
+      LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
+      /////////////////////////////////////////////////////////////
+      /// Reconstruction primitive state variables in Vi and Vj
+      /// if higherorder reconstruction is used Vi is the Alex Main's linear reconstructed value,
+      /// which use limiter betai and betaj
+      /// otherwise the state value at node i V[i] is used
+      ////////////////////////////////////////////////////////////////
+      double betai[dim], betaj[dim];
+
+      if (higherOrderFSI) {
+        if (iActive) {
+
+          double ri[dim];
+          higherOrderFSI->estimateR(l, 0, i, V, ngrad, X, fluidId, ri); // BUG corrected d2d: i<-j
+
+          for (int k = 0; k < dim; ++k) {
+            betai[k] = betaj[k] = 1.0;
+          }
+
+          if (higherOrderFSI->limitExtrapolation()) {
+            if (V[i][1] * dx[0] + V[i][2] * dx[1] + V[i][3] * dx[2] < 0.0) {
+              for (int k = 0; k < dim; ++k) {
+                betai[k] = std::min<double>(betai[k], ri[k]);
+              }
+            }
+          }
+
+          for (int k = 0; k < dim; k++) {
+            Vi[k] = V[i][k] + (1.0 - resij.alpha) * ddVij[k] * betai[k];
+          }
+
+          varFcn->getVarFcnBase(fluidId[i])->verification(0, Udummy, Vi);
+
         }
 
-        // --------------------------------------------------------
-        //                   Compute fluxes
-        // --------------------------------------------------------
+        if (jActive) {
 
-        if (!intersect) {  // same fluid
+          double rj[dim];
+          higherOrderFSI->estimateR(l, 1, j, V, ngrad, X, fluidId, rj); // Limited fsi i(!active), j(active)
 
+          for (int k = 0; k < dim; ++k) {
+            betai[k] = betaj[k] = 1.0;
+          }
 
+          if (higherOrderFSI->limitExtrapolation()) {
+            if (V[j][1] * dx[0] + V[j][2] * dx[1] + V[j][3] * dx[2] > 0.0) {
+              for (int k = 0; k < dim; ++k) {
+                betaj[k] = std::min<double>(betaj[k], rj[k]);
+              }
+            }
+          }
 
-            if(!(iActive && jActive)) {
-                fprintf(stderr, "Really odd! Node %i ", i);
-                fprintf(stdout, "%s", iActive ? "true" : "false");
-                fprintf(stdout, " Node %i ", j);
-                fprintf(stdout, "%s\n", jActive ? "true" : "false");
+          for (int k = 0; k < dim; k++) {
+            Vj[k] = V[j][k] - (1.0 - resji.alpha) * ddVji[k] * betaj[k];
+          }
+
+          varFcn->getVarFcnBase(fluidId[j])->verification(0, Udummy, Vj);
+
+        }
+      }
+      //////////////////////////////////////////////////////
+      /// Start compute interface fluxes
+      /// Interface, there are several cases
+      /// structure wall(no-slip condition)
+      /// symmetry plane(slip condition)
+      /// actuator disk
+      /// porous material
+      /// ....
+      /////////////////////////////////////////////////////////////
+
+      // for node i
+      if(iActive) {
+        //////////////////////////////////////////////////////////////
+        /// get different normal,
+        /// GradPhi:  is the structure normal, the one in level set
+        /// normalDir: is either structure normal or Fluid normal, but the direction is changed
+        /// and always points to the fluid
+        ///////////////////////////////////////////////////////////////
+        Vec3D GradPhi = resij.gradPhi;
+        switch (Nriemann) {
+          case 0: //structure normal
+            normalDir = (dx[0]*resij.gradPhi[0]+dx[1]*resij.gradPhi[1]+dx[2]*resij.gradPhi[2]>=0.0) ? -1.0*resij.gradPhi : resij.gradPhi;
+                break;
+          case 1: //fluid normal
+            normalDir = -1.0/(normal[l].norm())*normal[l];
+                break;
+          default:
+            fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
                 exit(-1);
-            }
+        }
+        if(std::abs(1.0-normalDir.norm())>0.1)
+          fprintf(stderr,"KW: normalDir.norm = %e. This is too bad...\n", normalDir.norm());
 
-            fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[i]);
+        //////////////////////////////////////////////////////////////////////////////////////////
+        /// get material property, can be structure wall(no-slip condition), symmetry plane(slip condition), actuator disk porous material ......
+        ////////////////////////////////////////////////////////////////
+        int structureType = resij.structureType;
 
-            if (dynamic_cast<MultiGridLevelSetStructure*>(&LSS) == 0) {
-                for (int k=0; k<dim; ++k) {
-                    fluxes[i][k] += flux[k];
-                    fluxes[j][k] -= flux[k];
+
+
+        if (jActive && fluidId[i]==fluidId[j] && resij.porosity > 0.0){
+          iPorous = true;
+        }
+        if(fabs(resij.actuatorDiskPressureJump) > 0.0){
+          if (!jActive){
+            fprintf(stdout, "the node %d is active, the node %d is not and their edge is across an actuator Disk ! Exiting simulation", i,j);
+            exit(1);
+          }
+          if(fluidId[i]!=fluidId[j]){
+            fprintf(stdout, "the nodes %d and %d are linked by an edge intersected by an actuator disk but are not from the same fluid ! their Fluid Id are %d and %d ! Exiting simulation", i,j,fluidId[i],fluidId[j]);
+            exit(1);
+          }
+          //normal case
+          iActuatorDisk = true;
+          reconstructionMethod = resij.actuatorDiskReconstructionMethod;//see intersector for mapping
+        }
+
+
+        switch (structureType) {
+          case BoundaryData::DIRECTSTATE:
+          case BoundaryData::SYMMETRYPLANE:
+          case BoundaryData::POROUSWALL:
+            if (structureType == BoundaryData::SYMMETRYPLANE)
+              riemann.computeSymmetryPlaneRiemannSolution(Vi, resij.normVel, normalDir, varFcn, Wstar, j, fluidId[i]);
+            else
+              riemann.computeFSIRiemannSolution(Vi, resij.normVel, normalDir, varFcn, Wstar, j, fluidId[i]);
+
+
+                if (it > 0) {
+                  //if it>0 (i.e. not called in computeResidualNorm), store Wstarij.
+                  for (int k = 0; k < dim; k++) Wstarij[l][k] = Wstar[k];
                 }
-            } else {
-                for (int k=0; k<dim; ++k) {
-                    fluxes[i][k] += flux[k];
-                    fluxes[j][k] -= flux[k];
-                }
-            }
 
-        }else{ // interface
-            //////////////////////////////////////////////////////////////
-            /// Get Intersector results in resij and resji
-            ///////////////////////////////////////////////////////////////
-            LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
-            LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
-            /////////////////////////////////////////////////////////////
-            /// Reconstruction primitive state variables in Vi and Vj
-            /// if higherorder reconstruction is used Vi is the Alex Main's linear reconstructed value,
-            /// which use limiter betai and betaj
-            /// otherwise the state value at node i V[i] is used
-            ////////////////////////////////////////////////////////////////
-            double betai[dim], betaj[dim];
+                if (!higherOrderFSI) {
+                  //compute the flux
+                  //This is a real wall, and we use the value from the solution of the reimann problem
 
-            if (higherOrderFSI) {
-                if (iActive) {
+                  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi, fluidId[i],
+                                                false);
 
-                    double ri[dim];
-                    higherOrderFSI->estimateR(l, 0, i, V, ngrad, X, fluidId, ri); // BUG corrected d2d: i<-j
+                  if (structureType == BoundaryData::POROUSWALL && jActive) {
+                    assert(iPorous);
+                    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[i]);
+                    for (int k = 0; k < dim; k++)
+                      fluxi[k] = (1.0 - resij.porosity) * fluxi[k] + resij.porosity * flux[k];
+                  }
 
-                    for (int k = 0; k < dim; ++k) {
-                        betai[k] = betaj[k] = 1.0;
-                    }
+                } else {
 
-                    if (higherOrderFSI->limitExtrapolation()) {
-                        if (V[i][1] * dx[0] + V[i][2] * dx[1] + V[i][3] * dx[2] < 0.0) {
-                            for (int k = 0; k < dim; ++k) {
-                                betai[k] = std::min<double>(betai[k], ri[k]);
-                            }
-                        }
-                    }
-
+                  //*************************************
+                  V6NodeData (*v6data)[2] = higherOrderFSI->getV6Data();
+                  if (v6data == NULL) {
                     for (int k = 0; k < dim; k++) {
-                        Vi[k] = V[i][k] + (1.0 - resij.alpha) * ddVij[k] * betai[k];
+                      Wstar[k] = V[i][k] + (0.5 / max(1.0 - resij.alpha, alpha)) * (Wstar[k] - V[i][k]);
                     }
+                  } else {
+                    higherOrderFSI->extrapolateV6(l, 0, i, V, Vi, Wstar, X, resij.alpha, length, fluidId, betai);
+                    memcpy(Wstar, Vi, sizeof(double) * dim);
+                  }
+                  varFcn->getVarFcnBase(fluidId[i])->verification(0, Udummy, Wstar);
+                  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxi, fluidId[i],
+                                                false);
 
-                    varFcn->getVarFcnBase(fluidId[i])->verification(0, Udummy, Vi);
+                  if (structureType == BoundaryData::POROUSWALL && jActive) {
+                    assert(iPorous);
+                    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[i]);
+                    for (int k = 0; k < dim; k++)
+                      fluxi[k] = (1.0 - resij.porosity) * fluxi[k] + resij.porosity * flux[k];
+                  }
 
                 }
+                break;
+          case BoundaryData::ACTUATORDISK:
+            assert(iActuatorDisk);
+                //This is an actuator Disk : We compute the usual roe flux and we will addd a source term
+                if (resij.actuatorDiskMethod == BoundaryData::SOURCETERM) {
+                  
+                  
+                  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, fluxi, fluidId[i],
+                                                false);
+                  if (resij.alpha >= 0.5) {
+                    //Here, we compute the fluid and structure normal to compute their products
+                    Vec3D structureNormal = (dx[0] * GradPhi[0] + dx[1] * GradPhi[1] + dx[2] * GradPhi[2] >= 0.0) ?
+                                            -1.0 * GradPhi : GradPhi;
+                    Vec3D fluidNormal = -1.0 / (normal[l].norm()) * normal[l];
+                    //next, we need to compute the Velocity we will use at this intersection
+                    double VelocityReconstructed[3];
+                    bool invertedEdge = (dx[0] * GradPhi[0] + dx[1] * GradPhi[1] + dx[2] * GradPhi[2] >= 0.0) ? false
+                                                                                                              : true;
+                    ComputeActuatorVelocity(VelocityReconstructed, reconstructionMethod, Vi, Vj, resij.alpha, ddVij,
+                                            ddVji);
+                    ComputeAndAddActuatorDiskSourceTerm(structureNormal, fluidNormal, normalDir, area, invertedEdge,
+                                                        resij.actuatorDiskPressureJump, VelocityReconstructed, fluxi,
+                                                        i, resij.isCorrectedMethod, resij.gamma);
+                  }
+                }else if (resij.actuatorDiskMethod == BoundaryData::RIEMANNSOLVER) {
+                	riemann.computeActuatorDiskRiemannSolution(Vi, Vj, resij.normVel, resij.actuatorDiskPressureJump,GradPhi.v,
+                			dx, varFcn, Wstarij[l], Wstarji[l],fluidId[i]);
+                	fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstarij[l], fluxi, fluidId[i]);
 
-                if (jActive) {
+                }else {//This is Daniel Huang's Implementation of Actuator Disk of Source Term, which is wrapped in Rieman mehtod,not used
+                	fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, fluxi, fluidId[i]);
+                	if (resij.alpha >= 0.5) { //i is closed nodes
+                		riemann.computeActuatorDiskSourceTerm(Vi, Vj, resij.actuatorDiskPressureJump, GradPhi.v,
+                				normal[l], varFcn, flux, resij.isCorrectedMethod,
+								fluidId[i]);
+                		for (int k = 0; k < dim; k++)
+                			fluxi[k] -= flux[k];//fluxi compute flux leaving cell i, so there is '-' sign
+                	}
+                }
+                break;
+                //*************************************
+        }//switch
+        for (int k = 0; k < dim; k++) fluxes[i][k] += fluxi[k];
+      } //iActive
 
-                    double rj[dim];
-                    higherOrderFSI->estimateR(l, 1, j, V, ngrad, X, fluidId, rj); // Limited fsi i(!active), j(active)
+      // for node j
+      if(jActive){
+        //////////////////////////////////////////////////////////////
+        /// get different normal,
+        /// GradPhi:  is the structure normal, the one in level set
+        /// normalDir: is either structure normal or Fluid normal, but the direction is changed
+        /// and always points to the fluid
+        ///////////////////////////////////////////////////////////////
+        Vec3D GradPhi = resji.gradPhi;
+        switch (Nriemann) {
+          case 0: //structure normal
+            normalDir = (dx[0]*resji.gradPhi[0]+dx[1]*resji.gradPhi[1]+dx[2]*resji.gradPhi[2]>=0.0) ? resji.gradPhi : -1.0*resji.gradPhi;
+                break;
+          case 1: //fluid normal
+            normalDir = 1.0/(normal[l].norm())*normal[l];
+                break;
+          default:
+            fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
+                exit(-1);
+        }
+        if(std::abs(1.0-normalDir.norm())>0.1)
+          fprintf(stderr,"KW: normalDir.norm = %e. This is too bad...\n", normalDir.norm());
 
-                    for (int k = 0; k < dim; ++k) {
-                        betai[k] = betaj[k] = 1.0;
-                    }
+        //////////////////////////////////////////////////////////////////////////////////////////
+        /// get material property, can be structure wall(no-slip condition), symmetry plane(slip condition), actuator disk porous material ......
+        ////////////////////////////////////////////////////////////////
+        int structureType = resji.structureType;
 
-                    if (higherOrderFSI->limitExtrapolation()) {
-                        if (V[j][1] * dx[0] + V[j][2] * dx[1] + V[j][3] * dx[2] > 0.0) {
-                            for (int k = 0; k < dim; ++k) {
-                                betaj[k] = std::min<double>(betaj[k], rj[k]);
-                            }
-                        }
-                    }
 
+        if (iActive && fluidId[i]==fluidId[j] && resji.porosity > 0.0){
+          jPorous = true;
+        }
+
+        if(abs(resji.actuatorDiskPressureJump) > 0.0){
+          if (!iActive){
+            fprintf(stdout, "the node %d is active, the node %d is not and their edge is across an actuator Disk ! Exiting simulation", j,i);
+            exit(1);
+          }
+          if(fluidId[i]!=fluidId[j]){
+            fprintf(stdout, "the nodes %d and %d are linked by an edge intersected by an actuator disk but are not from the same fluid ! their Fluid Id are %d and %d ! Exiting simulation", i,j,fluidId[i],fluidId[j]);
+            exit(1);
+          }
+          //normal case
+          jActuatorDisk = true;
+          reconstructionMethod = resji.actuatorDiskReconstructionMethod;//see intersector for mapping
+        }
+
+
+        switch (structureType) {
+          case BoundaryData::DIRECTSTATE:
+          case BoundaryData::SYMMETRYPLANE:
+          case BoundaryData::POROUSWALL:
+            if (structureType == BoundaryData::SYMMETRYPLANE)
+              riemann.computeSymmetryPlaneRiemannSolution(Vj, resji.normVel, normalDir, varFcn, Wstar, i, fluidId[j]);
+            else
+              riemann.computeFSIRiemannSolution(Vj, resji.normVel, normalDir, varFcn, Wstar, i, fluidId[j]);
+
+                if (it > 0) for (int k = 0; k < dim; k++) Wstarji[l][k] = Wstar[k];
+
+                if (!higherOrderFSI) {
+                  //Not an actuator Disk
+                  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj, fluidId[j], false);
+                  if (structureType == BoundaryData::POROUSWALL && iActive) {
+                    assert(jPorous);
+                    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[j]);
+                    for (int k = 0; k < dim; k++)
+                      fluxj[k] = (1.0 - resji.porosity) * fluxj[k] + resji.porosity * flux[k];
+                  }
+                } else {// Alex main's high order FSI
+                  V6NodeData (*v6data)[2] = higherOrderFSI->getV6Data();
+                  if (v6data == NULL) {
                     for (int k = 0; k < dim; k++) {
-                        Vj[k] = V[j][k] - (1.0 - resji.alpha) * ddVji[k] * betaj[k];
+                      Wstar[k] = V[j][k] + (0.5 / max(1.0 - resji.alpha, alpha)) * (Wstar[k] - V[j][k]);
                     }
+                  } else {
+                    higherOrderFSI->extrapolateV6(l, 1, j, V, Vj, Wstar, X, 1.0 - resji.alpha, length, fluidId, betaj);
+                    memcpy(Wstar, Vj, sizeof(double) * dim);
+                  }
+                  varFcn->getVarFcnBase(fluidId[j])->verification(0, Udummy, Wstar);
+                  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxj, fluidId[j],
+                                                false);
 
-                    varFcn->getVarFcnBase(fluidId[j])->verification(0, Udummy, Vj);
-
-                }
-            }
-            //////////////////////////////////////////////////////
-            /// Start compute interface fluxes
-            /// Interface, there are several cases
-            /// structure wall(no-slip condition)
-            /// symmetry plane(slip condition)
-            /// actuator disk
-            /// porous material
-            /// ....
-            /////////////////////////////////////////////////////////////
-
-            // for node i
-            if(iActive) {
-                //////////////////////////////////////////////////////////////
-                /// get different normal,
-                /// GradPhi:  is the structure normal, the one in level set
-                /// normalDir: is either structure normal or Fluid normal, but the direction is changed
-                /// and always points to the fluid
-                ///////////////////////////////////////////////////////////////
-                Vec3D GradPhi = resij.gradPhi;
-                switch (Nriemann) {
-                    case 0: //structure normal
-                        normalDir = (dx[0]*resij.gradPhi[0]+dx[1]*resij.gradPhi[1]+dx[2]*resij.gradPhi[2]>=0.0) ? -1.0*resij.gradPhi : resij.gradPhi;
-                        break;
-                    case 1: //fluid normal
-                        normalDir = -1.0/(normal[l].norm())*normal[l];
-                        break;
-                    default:
-                        fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
-                        exit(-1);
-                }
-                if(std::abs(1.0-normalDir.norm())>0.1)
-                    fprintf(stderr,"KW: normalDir.norm = %e. This is too bad...\n", normalDir.norm());
-
-                //////////////////////////////////////////////////////////////////////////////////////////
-                /// get material property, can be structure wall(no-slip condition), symmetry plane(slip condition), actuator disk porous material ......
-                ////////////////////////////////////////////////////////////////
-                int structureType = resij.structureType;
-
-
-
-                if (jActive && fluidId[i]==fluidId[j] && resij.porosity > 0.0){
-                    iPorous = true;
-                }
-                if(abs(resij.actuatorDiskPressureJump) > 0.0){
-                    if (!jActive){
-                        fprintf(stdout, "the node %d is active, the node %d is not and their edge is across an actuator Disk ! Exiting simulation", i,j);
-                        exit(1);
+                  if (structureType == BoundaryData::POROUSWALL && iActive) {
+                    assert(jPorous);
+                    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[j]);
+                    for (int k = 0; k < dim; k++) {
+                      fluxj[k] = (1.0 - resji.porosity) * fluxj[k] + resji.porosity * flux[k];
                     }
-                    if(fluidId[i]!=fluidId[j]){
-                        fprintf(stdout, "the nodes %d and %d are linked by an edge intersected by an actuator disk but are not from the same fluid ! their Fluid Id are %d and %d ! Exiting simulation", i,j,fluidId[i],fluidId[j]);
-                        exit(1);
+                  }
+
+
+                }
+
+                break;
+          case BoundaryData::ACTUATORDISK:
+            assert(jActuatorDisk);
+                if (resji.actuatorDiskMethod == BoundaryData::SOURCETERM) {//Actuator Disk
+                  
+                  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, fluxj, fluidId[j]);
+                  if (resji.alpha > 0.5) {
+                  
+                    //TODO The first think is to calculate projected area of the actuator disk
+                    Vec3D structureNormal = (dx[0] * GradPhi[0] + dx[1] * GradPhi[1] + dx[2] * GradPhi[2] >= 0.0)
+                                            ? GradPhi : -1.0 * GradPhi;
+                    Vec3D fluidNormal = 1.0 / (normal[l].norm()) * normal[l];
+                    //next, we need to compute the Velocity we will use at this intersecton
+                    double VelocityReconstructed[3];
+                    double invddVji[dim];
+                    double invddVij[dim];
+                    for (int var = 0; var < dim; var++) {
+                      invddVji[var] = -ddVji[var];
+                      invddVij[var] = -ddVij[var];
                     }
-                    //normal case
-                    iActuatorDisk = true;
-                    reconstructionMethod = resij.actuatorDiskReconstructionMethod;//see intersector for mapping
-                }
+                    bool invertedEdge = (dx[0] * GradPhi[0] + dx[1] * GradPhi[1] + dx[2] * GradPhi[2] >= 0.0) ? true
+                                                                                                              : false;
+                    ComputeActuatorVelocity(VelocityReconstructed, reconstructionMethod, Vj, Vi, resji.alpha,
+                                            invddVji, invddVij);
+                    ComputeAndAddActuatorDiskSourceTerm(-structureNormal, -fluidNormal, -normalDir, area,
+                                                        invertedEdge, resji.actuatorDiskPressureJump,
+                                                        VelocityReconstructed, fluxj, j, resji.isCorrectedMethod,
+                                                        resji.gamma);
+                  }
+               } else if(resji.actuatorDiskMethod == BoundaryData::RIEMANNSOLVER){
+
+            	   riemann.computeActuatorDiskRiemannSolution(Vi, Vj, resji.normVel, resij.actuatorDiskPressureJump,GradPhi.v,
+            			   dx, varFcn, Wstarij[l], Wstarji[l],fluidId[j]);
+            	   fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstarji[l], Vj,  fluxj, fluidId[j]);
+               }else{//This is Daniel Huang's Implementation of Actuator Disk of Source Term, which is wrapped in Rieman mehtod
+            	   fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, fluxj, fluidId[j]);
+            	   if (resji.alpha > 0.5) {//j is the close node
+            		   riemann.computeActuatorDiskSourceTerm(Vi, Vj, resij.actuatorDiskPressureJump,GradPhi.v,
+            				   normal[l], varFcn, flux,resji.isCorrectedMethod, fluidId[i]);
+            		   for (int k = 0; k < dim; k++) fluxj[k] += flux[k];
+            	   }
+               }
 
 
-                switch (structureType) {
-                    case BoundaryData::DIRECTSTATE:
-                    case BoundaryData::SYMMETRYPLANE:
-                    case BoundaryData::POROUSWALL:
-                        if (structureType == BoundaryData::SYMMETRYPLANE)
-                            riemann.computeSymmetryPlaneRiemannSolution(Vi, resij.normVel, normalDir, varFcn, Wstar, j, fluidId[i]);
-                        else
-                            riemann.computeFSIRiemannSolution(Vi, resij.normVel, normalDir, varFcn, Wstar, j, fluidId[i]);
+                //*************************************
+        }//switch
+        for (int k = 0; k < dim; k++) fluxes[j][k] -= fluxj[k];
+      } //jActive
 
+    } // interface
 
-                        if (it > 0) {
-                            //if it>0 (i.e. not called in computeResidualNorm), store Wstarij.
-                            for (int k = 0; k < dim; k++) Wstarij[l][k] = Wstar[k];
-                        }
+  } //edges
 
-                        if (!higherOrderFSI) {
-                            //compute the flux
-                            //This is a real wall, and we use the value from the solution of the reimann problem
-
-                            fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi, fluidId[i],
-                                                          false);
-
-                            if (structureType == BoundaryData::POROUSWALL && jActive) {
-                                assert(iporous);
-                                fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[i]);
-                                for (int k = 0; k < dim; k++)
-                                    fluxi[k] = (1.0 - resij.porosity) * fluxi[k] + resij.porosity * flux[k];
-                            }
-
-                        } else {
-
-                            //*************************************
-                            V6NodeData (*v6data)[2] = higherOrderFSI->getV6Data();
-                            if (v6data == NULL) {
-                                for (int k = 0; k < dim; k++) {
-                                    Wstar[k] = V[i][k] + (0.5 / max(1.0 - resij.alpha, alpha)) * (Wstar[k] - V[i][k]);
-                                }
-                            } else {
-                                higherOrderFSI->extrapolateV6(l, 0, i, V, Vi, Wstar, X, resij.alpha, length, fluidId, betai);
-                                memcpy(Wstar, Vi, sizeof(double) * dim);
-                            }
-                            varFcn->getVarFcnBase(fluidId[i])->verification(0, Udummy, Wstar);
-                            fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxi, fluidId[i],
-                                                          false);
-
-                            if (structureType == BoundaryData::POROUSWALL && jActive) {
-                                assert(iporous);
-                                fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[i]);
-                                for (int k = 0; k < dim; k++)
-                                    fluxi[k] = (1.0 - resij.porosity) * fluxi[k] + resij.porosity * flux[k];
-                            }
-
-                        }
-                        break;
-                    case BoundaryData::ACTUATORDISK:
-                        assert(iActuatorDisk);
-                        //This is an actuator Disk : We compute the usual roe flux and we will addd a source term
-                        if (resij.actuatorDiskMethod == BoundaryData::SOURCETERM) {
-
-
-                            fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, fluxi, fluidId[i]);
-
-                            if (resij.alpha >= 0.5) {
-                                //Here, we compute the fluid and structure normal to compute their products
-                                Vec3D structureNormal = (dx[0] * GradPhi[0] + dx[1] * GradPhi[1] + dx[2] * GradPhi[2] >= 0.0) ?
-                                                        -1.0 * GradPhi : GradPhi;
-                                Vec3D fluidNormal = -1.0 / (normal[l].norm()) * normal[l];
-                                //next, we need to compute the Velocity we will use at this intersection
-                                double VelocityReconstructed[3];
-                                bool invertedEdge = (dx[0] * GradPhi[0] + dx[1] * GradPhi[1] + dx[2] * GradPhi[2] >= 0.0) ? true:false;
-                                ComputeActuatorVelocity(VelocityReconstructed, reconstructionMethod, Vi, Vj, resij.alpha, ddVij,
-                                                        ddVji);
-                                ComputeAndAddActuatorDiskSourceTerm(structureNormal, fluidNormal, normalDir, area, invertedEdge,
-                                                                    resij.actuatorDiskPressureJump, VelocityReconstructed, fluxi,
-                                                                    i, resij.isCorrectedMethod, resij.gamma);
-                            }
-
-
-                        }else if (resij.actuatorDiskMethod == BoundaryData::RIEMANNSOLVER) {
-
-                            riemann.computeActuatorDiskRiemannSolution(Vi, Vj, resij.normVel, resij.actuatorDiskPressureJump,GradPhi.v,
-                                                                       dx, varFcn, Wstarij[l], Wstarji[l],fluidId[i]);
-                            fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstarij[l], fluxi, fluidId[i]);
-
-                        }else {//This is Daniel Huang's Implementation of Actuator Disk of Source Term, which is wrapped in Rieman mehtod,not used
-                            fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, fluxi, fluidId[i]);
-                            if (resij.alpha >= 0.5) { //i is closed nodes
-                                riemann.computeActuatorDiskSourceTerm(Vi, Vj, resij.actuatorDiskPressureJump, GradPhi.v,
-                                                                      normal[l], varFcn, flux, resij.isCorrectedMethod,
-                                                                      fluidId[i]);
-                                for (int k = 0; k < dim; k++)
-                                    fluxi[k] -= flux[k];//fluxi compute flux leaving cell i, so there is '-' sign
-                            }
-                        }
-
-                        break;
-                        //*************************************
-                }//switch
-                for (int k = 0; k < dim; k++) fluxes[i][k] += fluxi[k];
-            } //iActive
-
-            // for node j
-            if(jActive){
-                //////////////////////////////////////////////////////////////
-                /// get different normal,
-                /// GradPhi:  is the structure normal, the one in level set
-                /// normalDir: is either structure normal or Fluid normal, but the direction is changed
-                /// and always points to the fluid
-                ///////////////////////////////////////////////////////////////
-                Vec3D GradPhi = resji.gradPhi;
-                switch (Nriemann) {
-                    case 0: //structure normal
-                        normalDir = (dx[0]*resji.gradPhi[0]+dx[1]*resji.gradPhi[1]+dx[2]*resji.gradPhi[2]>=0.0) ? resji.gradPhi : -1.0*resji.gradPhi;
-                        break;
-                    case 1: //fluid normal
-                        normalDir = 1.0/(normal[l].norm())*normal[l];
-                        break;
-                    default:
-                        fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
-                        exit(-1);
-                }
-                if(std::abs(1.0-normalDir.norm())>0.1)
-                    fprintf(stderr,"KW: normalDir.norm = %e. This is too bad...\n", normalDir.norm());
-
-                //////////////////////////////////////////////////////////////////////////////////////////
-                /// get material property, can be structure wall(no-slip condition), symmetry plane(slip condition), actuator disk porous material ......
-                ////////////////////////////////////////////////////////////////
-                int structureType = resji.structureType;
-
-
-                if (iActive && fluidId[i]==fluidId[j] && resji.porosity > 0.0){
-                    jPorous = true;
-                }
-
-                if(abs(resji.actuatorDiskPressureJump) > 0.0){
-                    if (!iActive){
-                        fprintf(stdout, "the node %d is active, the node %d is not and their edge is across an actuator Disk ! Exiting simulation", j,i);
-                        exit(1);
-                    }
-                    if(fluidId[i]!=fluidId[j]){
-                        fprintf(stdout, "the nodes %d and %d are linked by an edge intersected by an actuator disk but are not from the same fluid ! their Fluid Id are %d and %d ! Exiting simulation", i,j,fluidId[i],fluidId[j]);
-                        exit(1);
-                    }
-                    //normal case
-                    jActuatorDisk = true;
-                    reconstructionMethod = resji.actuatorDiskReconstructionMethod;//see intersector for mapping
-                }
-
-                switch (structureType) {
-                    case BoundaryData::DIRECTSTATE:
-                    case BoundaryData::SYMMETRYPLANE:
-                    case BoundaryData::POROUSWALL:
-                        if (structureType == BoundaryData::SYMMETRYPLANE)
-                            riemann.computeSymmetryPlaneRiemannSolution(Vj, resji.normVel, normalDir, varFcn, Wstar, i, fluidId[j]);
-                        else
-                            riemann.computeFSIRiemannSolution(Vj, resji.normVel, normalDir, varFcn, Wstar, i, fluidId[j]);
-
-                        if (it > 0) for (int k = 0; k < dim; k++) Wstarji[l][k] = Wstar[k];
-
-                        if (!higherOrderFSI) {
-                            //Not an actuator Disk
-                            fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj, fluidId[j], false);
-                            if (structureType == BoundaryData::POROUSWALL && iActive) {
-                                assert(jPorous);
-                                fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[j]);
-                                for (int k = 0; k < dim; k++)
-                                    fluxj[k] = (1.0 - resji.porosity) * fluxj[k] + resji.porosity * flux[k];
-                            }
-                        } else {// Alex main's high order FSI
-                            V6NodeData (*v6data)[2] = higherOrderFSI->getV6Data();
-                            if (v6data == NULL) {
-                                for (int k = 0; k < dim; k++) {
-                                    Wstar[k] = V[j][k] + (0.5 / max(1.0 - resji.alpha, alpha)) * (Wstar[k] - V[j][k]);
-                                }
-                            } else {
-                                higherOrderFSI->extrapolateV6(l, 1, j, V, Vj, Wstar, X, 1.0 - resji.alpha, length, fluidId, betaj);
-                                memcpy(Wstar, Vj, sizeof(double) * dim);
-                            }
-                            varFcn->getVarFcnBase(fluidId[j])->verification(0, Udummy, Wstar);
-                            fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxj, fluidId[j],
-                                                          false);
-
-                            if (structureType == BoundaryData::POROUSWALL && iActive) {
-                                assert(jPorous);
-                                fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[j]);
-                                for (int k = 0; k < dim; k++) {
-                                    fluxj[k] = (1.0 - resji.porosity) * fluxj[k] + resji.porosity * flux[k];
-                                }
-                            }
-                        }
-                        break;
-                    case BoundaryData::ACTUATORDISK:
-                        assert(jActuatorDisk);
-                        if (resji.actuatorDiskMethod == BoundaryData::SOURCETERM) {//Actuator Disk
-                            fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, fluxj, fluidId[j]);
-                            if (resji.alpha > 0.5) {
-                                //TODO The first think is to calculate projected area of the actuator disk
-                                Vec3D structureNormal = (dx[0] * GradPhi[0] + dx[1] * GradPhi[1] + dx[2] * GradPhi[2] >= 0.0)
-                                                        ? GradPhi : -1.0 * GradPhi;
-                                Vec3D fluidNormal = 1.0 / (normal[l].norm()) * normal[l];
-                                //next, we need to compute the Velocity we will use at this intersecton
-                                double VelocityReconstructed[3];
-                                double invddVji[dim];
-                                double invddVij[dim];
-                                for (int var = 0; var < dim; var++) {
-                                    invddVji[var] = -ddVji[var];
-                                    invddVij[var] = -ddVij[var];
-                                }
-                                bool invertedEdge = (dx[0] * GradPhi[0] + dx[1] * GradPhi[1] + dx[2] * GradPhi[2] >= 0.0) ? false:true;
-                                ComputeActuatorVelocity(VelocityReconstructed, reconstructionMethod, Vj, Vi, resji.alpha,
-                                                        invddVji, invddVij);
-                                ComputeAndAddActuatorDiskSourceTerm(-structureNormal, -fluidNormal, -normalDir, area,
-                                                                    invertedEdge, resji.actuatorDiskPressureJump,
-                                                                    VelocityReconstructed, fluxj, j, resji.isCorrectedMethod,
-                                                                    resji.gamma);
-                            }
-                        } else if(resji.actuatorDiskMethod == BoundaryData::RIEMANNSOLVER){
-
-                            riemann.computeActuatorDiskRiemannSolution(Vi, Vj, resji.normVel, resij.actuatorDiskPressureJump,GradPhi.v,
-                                                                       dx, varFcn, Wstarij[l], Wstarji[l],fluidId[j]);
-                            fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstarji[l], Vj,  fluxj, fluidId[j]);
-                        }else{//This is Daniel Huang's Implementation of Actuator Disk of Source Term, which is wrapped in Rieman mehtod
-                            fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, fluxj, fluidId[j]);
-                            if (resji.alpha > 0.5) {//j is the close node
-                                riemann.computeActuatorDiskSourceTerm(Vi, Vj, resij.actuatorDiskPressureJump,GradPhi.v,
-                                                                      normal[l], varFcn, flux,resji.isCorrectedMethod, fluidId[i]);
-                                for (int k = 0; k < dim; k++) fluxj[k] += flux[k];
-                            }
-                        }
-                        break;
-
-                        //*************************************
-                }//switch
-                for (int k = 0; k < dim; k++) fluxes[j][k] -= fluxj[k];
-            } //jActive
-
-        } // interface
-
-    } //edges
-
-    return ierr;
+  return ierr;
 
 }
 
@@ -3842,7 +3846,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 			/* ---------- Node i ---------- */
 			if(iActive)
 			{
-				// TODO: add porosity
+				// TODO: add porosity and actuator disk
 
 				for(int k=0; k<dim; k++) Vi_[k]     = V[i][k] + 0.5*ddVij[k];
 				for(int k=0; k<dim; k++) Vi_[k+dim] = V[i][k] + 0.5*ddVij[k];
@@ -3868,7 +3872,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 			/* ---------- Node j ---------- */
 			if(jActive)
 			{
-				// TODO: add porosity
+				// TODO: add porosity and actuator disk
 
 				for(int k=0; k<dim; k++) Vj_[k]     = V[j][k] - 0.5*ddVji[k];
 				for(int k=0; k<dim; k++) Vj_[k+dim] = V[j][k] - 0.5*ddVji[k];
@@ -3946,11 +3950,15 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     if (!masterFlag[l]) continue; //not a master edge
     int i = ptr[l][0];
     int j = ptr[l][1];
-    bool intersect = LSS.edgeIntersectsStructure(0,l);
+    bool intersect = (LSS.edgeIntersectsStructure(0,l)||LSS.edgeIntersectsConstraint(0,l));
     bool iActive = LSS.isActive(0.0,i);
     bool jActive = LSS.isActive(0.0,j);
     bool iPorous = false;
     bool jPorous = false;
+    //Used to know if we intersected a actuator disk
+    bool iActuatorDisk = false;
+    bool jActuatorDisk = false;
+    int reconstructionMethod = -1;
 
     if( !iActive && !jActive ) {
       if(it>0) for(int k=0;k<dim;k++) Wstarij[l][k] = Wstarji[l][k] = 0.0; //clean-up Wstar
@@ -4035,7 +4043,20 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       if(iActive) {// for node i
         LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
         if (jActive && fluidId[i]==fluidId[j] && resij.porosity > 0.0)  iPorous = true;
-
+        if(fabs(resij.actuatorDiskPressureJump) > 0.0){
+                   if (!jActive){
+                	   fprintf(stdout, "the node %d is active, the node %d is not and their edge is across an actuator Disk ! Exiting simulation", i,j);
+                	   exit(1);
+                   }
+                   if(fluidId[i]!=fluidId[j]){
+                       fprintf(stdout, "the nodes %d and %d are linked by an edge intersected by an actuator disk but are not from the same fluid ! their Fluid Id are %d and %d ! Exiting simulation", i,j,fluidId[i],fluidId[j]);
+                       exit(1);
+                   }
+                        	//normal case
+                   iActuatorDisk = true;
+                   reconstructionMethod = resij.actuatorDiskReconstructionMethod;//see intersector for mapping
+       }
+        Vec3D GradPhi = resij.gradPhi;
 	double xstar[3] = {X[i][0] + dx[0]*(1.0-resij.alpha),
 			   X[i][1] + dx[1]*(1.0-resij.alpha),
 			   X[i][2] + dx[2]*(1.0-resij.alpha)};
@@ -4104,8 +4125,23 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
         varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Wstar);
 	//if (1.0-resij.alpha > alpha)
+        if(iActuatorDisk){
+        			  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, fluxi, fluidId[i]);
+        			 if(resij.alpha>=0.5){//The actuatorDisk fall in this dual cell
+        				 //TODO The first think is to calculate projected area of the actuator disk
+        				 Vec3D structureNormal = (dx[0]*GradPhi[0]+dx[1]*GradPhi[1]+dx[2]*GradPhi[2]>=0.0) ? -1.0*GradPhi : GradPhi;
+        				 Vec3D fluidNormal = -1.0/(normal[l].norm())*normal[l];
+        				 //next, we need to compute the Velocity we will use at this intersecton
+        				 double VelocityReconstructed[3];
+        				 bool invertedEdge = (dx[0]*GradPhi[0]+dx[1]*GradPhi[1]+dx[2]*GradPhi[2]>=0.0) ? false : true;
+        				 ComputeActuatorVelocity(VelocityReconstructed,reconstructionMethod,Vi,Vj,resij.alpha,ddVij,ddVji);
+        				 ComputeAndAddActuatorDiskSourceTerm(structureNormal, fluidNormal,normalDir,area,invertedEdge, resij.actuatorDiskPressureJump,VelocityReconstructed,fluxi,i,resij.isCorrectedMethod,resij.gamma);
+        			 }
+        		  }
+        else{
 	  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxi, fluidId[i], false);
-          if (iPorous) {
+        }
+	  if (iPorous) {
             fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[i]);
             for (int k=0; k<dim; k++) fluxi[k] = (1.0 - resij.porosity)*fluxi[k] + resij.porosity*flux[k];
           }
@@ -4118,9 +4154,23 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       if(jActive){// for node j
         LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
         if (iActive && fluidId[i]==fluidId[j] && resji.porosity > 0.0)  jPorous = true;
+        if(abs(resji.actuatorDiskPressureJump) > 0.0){
+                	if (!iActive){
+                		fprintf(stdout, "the node %d is active, the node %d is not and their edge is across an actuator Disk ! Exiting simulation", j,i);
+                		exit(1);
+                	}
+                	if(fluidId[i]!=fluidId[j]){
+                		fprintf(stdout, "the nodes %d and %d are linked by an edge intersected by an actuator disk but are not from the same fluid ! their Fluid Id are %d and %d ! Exiting simulation", i,j,fluidId[i],fluidId[j]);
+                		exit(1);
+                	}
+                	//normal case
+                	jActuatorDisk = true;
+                	reconstructionMethod = resji.actuatorDiskReconstructionMethod;//see intersector for mapping
+       }
 	double xstar[3] = {X[j][0] - dx[0]*(1.0-resji.alpha),
 			   X[j][1] - dx[1]*(1.0-resji.alpha),
 			   X[j][2] - dx[2]*(1.0-resji.alpha)};
+	Vec3D GradPhi = resji.gradPhi;
         switch (Nriemann) {
           case 0: //structure normal
             normalDir = (dx[0]*resji.gradPhi[0]+dx[1]*resji.gradPhi[1]+dx[2]*resji.gradPhi[2]>=0.0) ? resji.gradPhi : -1.0*resji.gradPhi;
@@ -4186,8 +4236,29 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	  }
         varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Wstar);
 	//if (  1.0-resji.alpha > alpha)
+        if(jActuatorDisk)	{//Actuator Disk
+                	fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, fluxj, fluidId[j]);
+                	if(resji.alpha>0.5){
+                    	//TODO The first think is to calculate projected area of the actuator disk
+                    	Vec3D structureNormal = (dx[0]*GradPhi[0]+dx[1]*GradPhi[1]+dx[2]*GradPhi[2]>=0.0) ? GradPhi : -1.0*GradPhi;
+                    	Vec3D fluidNormal = 1.0/(normal[l].norm())*normal[l];
+                    	//next, we need to compute the Velocity we will use at this intersecton
+            			double VelocityReconstructed[3];
+            			double invddVji[dim];
+            							  double invddVij[dim];
+            							  for(int var = 0; var<dim;var++){
+            								  invddVji[var] = -ddVji[var];
+            								  invddVij[var] = -ddVij[var];
+            							  }
+            			bool invertedEdge = (dx[0]*GradPhi[0]+dx[1]*GradPhi[1]+dx[2]*GradPhi[2]>=0.0) ? true : false;
+            			ComputeActuatorVelocity(VelocityReconstructed,reconstructionMethod,Vj,Vi,resji.alpha,invddVji,invddVij);
+                		ComputeAndAddActuatorDiskSourceTerm(structureNormal, fluidNormal,normalDir,area,invertedEdge, resji.actuatorDiskPressureJump,VelocityReconstructed,fluxj,j,resji.isCorrectedMethod,resji.gamma);
+                	}
+                }
+        else{
 	  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxj, fluidId[j], false);
-          if (jPorous) {
+        }
+	  if (jPorous) {
             fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[j]);
             for (int k=0; k<dim; k++) fluxj[k] = (1.0 - resji.porosity)*fluxj[k] + resji.porosity*flux[k];
           }
@@ -5147,10 +5218,6 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
     int j = ptr[l][1];
 
     bool intersect = LSS.edgeIntersectsStructure(0,l);
-    if(intersect){
-       bool isAnActuatorDisk = abs(LSS.getLevelSetDataAtEdgeCenter(0,l,false).actuatorDiskPressureJump)>0;
-       intersect = intersect&&(!isAnActuatorDisk);
-    }
 
     bool iActive = LSS.isActive(0.0,i);
     bool jActive = LSS.isActive(0.0,j);
@@ -5249,10 +5316,14 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
         if(std::abs(1.0-normalDir.norm())>0.1)
           fprintf(stderr,"KW: normalDir.norm = %e. This is too bad...\n", normalDir.norm());
 
-        riemann.computeFSIRiemannSolution(Vi, resij.normVel, normalDir, varFcn, Wstar, j, fluidId[i]);
-
+        if(resij.structureType==BoundaryData::SYMMETRYPLANE){
+        	riemann.computeSymmetryPlaneRiemannSolution(Vi, resij.normVel, normalDir, varFcn, Wstar, j, fluidId[i]);
+        }
+        else{
+        	riemann.computeFSIRiemannSolution(Vi, resij.normVel, normalDir, varFcn, Wstar, j, fluidId[i]);
+        }
         if (neq > 2) {
-
+        	//TODO : modify for the symmetry plane
           riemann.computeFSIRiemannJacobian(Vi, resij.normVel, normalDir, varFcn, Wstar, j, dWdW, fluidId[i]);
 
           for (k=0; k<neq*neq; ++k) {
@@ -5326,9 +5397,14 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
         if(std::abs(1.0-normalDir.norm())>0.1)
           fprintf(stderr,"KW: normalDir.norm = %e. This is too bad...\n", normalDir.norm());
   
-        riemann.computeFSIRiemannSolution(Vj,resji.normVel,normalDir,varFcn,Wstar,i,fluidId[j]);
-
+        if(resji.structureType ==BoundaryData::SYMMETRYPLANE ){
+        	riemann.computeSymmetryPlaneRiemannSolution(Vj, resji.normVel, normalDir, varFcn, Wstar, i, fluidId[j]);
+        }
+        else{
+        	riemann.computeFSIRiemannSolution(Vj,resji.normVel,normalDir,varFcn,Wstar,i,fluidId[j]);
+        }
         if (neq > 2) {
+        	//TODO : modify for the symmetry plane
           riemann.computeFSIRiemannJacobian(Vj,resji.normVel,normalDir,varFcn,Wstar,i,dWdW,fluidId[j]);
           for (k=0; k<neq*neq; ++k) {
 	    dW1dW1[k] = dWdW[k + (dim-neq)*int(k/neq)];
@@ -5645,10 +5721,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,i
     int i = ptr[l][0];
     int j = ptr[l][1];
     bool intersect = LSS.edgeIntersectsStructure(0,l);
-    if(intersect){
-       bool isAnActuatorDisk = abs(LSS.getLevelSetDataAtEdgeCenter(0,l,false).actuatorDiskPressureJump)>0;
-       intersect = intersect&&(!isAnActuatorDisk);
-    }
+
     bool iActive = LSS.isActive(0.0,i);
     bool jActive = LSS.isActive(0.0,j);
 
@@ -5694,7 +5767,13 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,i
             exit(-1);
         }
 
-        riemann.computeFSIRiemannSolution(Vi,resij.normVel,normalDir,varFcn,Wstar,j,fluidId[i]);
+        if(resij.structureType==BoundaryData::SYMMETRYPLANE){
+                	riemann.computeSymmetryPlaneRiemannSolution(Vi, resij.normVel, normalDir, varFcn, Wstar, j, fluidId[i]);
+        }
+        else{
+        	riemann.computeFSIRiemannSolution(Vi,resij.normVel,normalDir,varFcn,Wstar,j,fluidId[i]);
+        }
+        //TODO Make a version for the symmetry
         riemann.computeFSIRiemannJacobian(Vi,resij.normVel,normalDir,varFcn,Wstar,j,dWdW,fluidId[i]);
         
         varFcn->postMultiplyBydVdU(Vi, dWdW, dWdU,fluidId[i]);
@@ -5723,7 +5802,13 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,i
             fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
             exit(-1);
         }
-        riemann.computeFSIRiemannSolution(Vj,resji.normVel,normalDir,varFcn,Wstar,i,fluidId[j]);
+        if(resji.structureType ==BoundaryData::SYMMETRYPLANE ){
+                	riemann.computeSymmetryPlaneRiemannSolution(Vj, resji.normVel, normalDir, varFcn, Wstar, i, fluidId[j]);
+                }
+        else{
+        	riemann.computeFSIRiemannSolution(Vj,resji.normVel,normalDir,varFcn,Wstar,i,fluidId[j]);
+        }
+        //TODO
         riemann.computeFSIRiemannJacobian(Vj,resji.normVel,normalDir,varFcn,Wstar,i,dWdW,fluidId[j]);
         
         varFcn->postMultiplyBydVdU(Vj, dWdW, dWdU,fluidId[j]);
@@ -6062,15 +6147,14 @@ void EdgeSet::ComputeAndAddActuatorDiskSourceTerm(Vec3D structureNormal, Vec3D f
 		  }
 	  }
 	  for (int k=0; k<dim; k++) fluxi[k] += sourceTerm[k];
-
 	  if(false){//debug output if needed
 		  fprintf(stderr,"\n\n cosineBetweenNormals : %.10f\n controlVolumeArea : %.10f\n normalDir Term : %.10f , %.10f, %.10f\n "
-                          "HalfSpeed Term : %.10f , %.10f, %.10f\n "
-                  "Source Term : %.10f , %.10f, %.10f, %.10f, %.10f\n Fluxi Term : %.10f , %.10f, %.10f, %.10f, %.10f\n",
-                  cosineBetweenNormals,controlVolumeArea,normalDir[0],normalDir[1], normalDir[2],
-                  VelocityReconstructed[0],VelocityReconstructed[1],VelocityReconstructed[2],
-                  sourceTerm[0],sourceTerm[1],sourceTerm[2], sourceTerm[3],sourceTerm[4],
-                  fluxi[0],fluxi[1],fluxi[2],fluxi[3],fluxi[4]);
+				  "HalfSpeed Term : %.10f , %.10f, %.10f\n "
+				  "Source Term : %.10f , %.10f, %.10f, %.10f, %.10f\n Fluxi Term : %.10f , %.10f, %.10f, %.10f, %.10f\n",
+				  cosineBetweenNormals,controlVolumeArea,normalDir[0],normalDir[1], normalDir[2],
+				  VelocityReconstructed[0],VelocityReconstructed[1],VelocityReconstructed[2],
+				  sourceTerm[0],sourceTerm[1],sourceTerm[2], sourceTerm[3],sourceTerm[4],
+				  fluxi[0],fluxi[1],fluxi[2],fluxi[3],fluxi[4]);
 	  }
 }
 //------------------------------------------------------------------------------

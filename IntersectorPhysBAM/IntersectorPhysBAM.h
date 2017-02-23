@@ -51,6 +51,9 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
   using DistLevelSetStructure::is_active;
   using DistLevelSetStructure::is_occluded;
   using DistLevelSetStructure::edge_intersects;
+  using DistLevelSetStructure::edge_intersects_embedded_constraint;
+  using DistLevelSetStructure::edge_intersects_constraint;
+  using DistLevelSetStructure::Embedded_Constraint_Alpha;
 
   using DistLevelSetStructure::edge_SI;
   using DistLevelSetStructure::xi_SI;
@@ -74,6 +77,8 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
 
     FloodFill* floodFill;
 
+    int EmbeddedConstraintNormal;
+
     // closest point to CFD grid-points
     DistVec<ClosestPoint> *closest;
 
@@ -93,6 +98,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     int *faceID;
 	int *structureType;
     double *porosity;
+    bool *isSymmetryPlane;//Embedded plane
 	int * actuatorDiskMethod;
     double *actuatorDiskPressureJump;
     int *actuatorDiskReconstructionMethod;//method used to compute the velocity at the interface. 1 : vi+Vj/2 2:vi 3 Vi*grad (extrapolation)
@@ -109,6 +115,12 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     Vec3D *Xsdot; //velocity
 
     CrackingSurface *cracking; //only a pointer.
+    //embedded Constraint
+    //added by arthur Morlot, February 2016
+    bool ContainsAnEmbeddedConstraint;
+    int ConstraintType;//0 is no Constraint, 1 is symmetry, 2 is inlet
+    int ConstraintNormal;//0 is Nx, 1 is Ny, 2 is Nz
+    double ConstraintPosition;//value to dompletely define the plane
 
     double interface_thickness;
 
@@ -154,6 +166,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     void init(int nNodes, double *xyz, int nElems, int (*abc)[3], char *restartSolidSurface);
     void setPorosity();
 	void setStructureType();
+    void setSymmetry();
     void setActuatorDisk();
     void makerotationownership();
     void updatebc();
@@ -215,6 +228,9 @@ class IntersectorPhysBAM : public LevelSetStructure {
   using LevelSetStructure::is_active;
   using LevelSetStructure::is_occluded;
   using LevelSetStructure::edge_intersects;
+  using LevelSetStructure::edge_intersects_constraint;
+  using LevelSetStructure::edge_intersects_embedded_constraint;
+  using LevelSetStructure::Embedded_Constraint_Alpha;
 
   using LevelSetStructure::edge_SI;
   using LevelSetStructure::xi_SI;
@@ -233,6 +249,9 @@ class IntersectorPhysBAM : public LevelSetStructure {
 
     int locIndex,globIndex;
     int *locToGlobNodeMap;
+
+    //added by arthur Morlot : THings used for the embedded symmetry plane (not the embedded constraint)
+    int EmbeddedConstraintNormal;
  
     std::map<int,IntersectionResult<double> > CrossingEdgeRes;
     std::map<int,IntersectionResult<double> > ReverseCrossingEdgeRes;
@@ -256,6 +275,8 @@ class IntersectorPhysBAM : public LevelSetStructure {
     ARRAY<int> reverse_mapping,forward_mapping;
     ARRAY<VECTOR<double,3> > xyz;
     ARRAY<VECTOR<double,3> > xyz_n;
+
+    int findIntersectionsEmbeddedConstraint(SVec<double,3>& X);
 
     bool testIsActive(double t, int n) const {return (status[n] >= 0 && status[n]!=OUTSIDECOLOR);}
     int hasCloseTriangle(SVec<double,3>& X,SVec<double,3>& Xn,SVec<double,3> &boxMin, SVec<double,3> &boxMax, Vec<bool> &tId);

@@ -5207,7 +5207,7 @@ EmbeddedFramework::EmbeddedFramework() {
 
 void EmbeddedFramework::setup(const char *name) {
 
-  ClassAssigner *ca = new ClassAssigner(name, 13, 0); //father);
+  ClassAssigner *ca = new ClassAssigner(name, 14, 0); //father);
   new ClassToken<EmbeddedFramework> (ca, "Intersector", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::intersectorName), 2,
                                       "PhysBAM", 0, "FRG", 1);
   new ClassToken<EmbeddedFramework> (ca, "StructureNormal", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::structNormal), 2,
@@ -5264,8 +5264,52 @@ void EmbeddedFramework::setup(const char *name) {
      reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::prec), 2,
      "NonPreconditioned", 0, "LowMach", 1);
 
+	//embeded constraint
+	//added by Arthur Morlot (February 2016)
+	//
+	Embedded_Constraint.setup("EmbeddedConstraint",ca);
 
 }
+
+//------------------------------------------------------------------------------
+EmbeddedConstraint::EmbeddedConstraint() {
+
+ConstraintType = NOCONSTRAINT;
+
+}
+//------------------------------------------------------------------------------
+void EmbeddedConstraint::setup(const char *name, ClassAssigner *father) {
+
+ ClassAssigner *ca = new ClassAssigner(name, 3, father);
+ new ClassToken<EmbeddedConstraint> (ca, "ConstraintType", this, reinterpret_cast<int EmbeddedConstraint::*>(&EmbeddedConstraint::ConstraintType), 3,
+                                      "NoConstraint", 0,"Symmetry", 1, "Inlet", 2);
+
+ Symmetry_Constraint.setup("SymmetryConstraint",ca);
+ Inlet_Constraint.setup("InletConstraint",ca);
+}
+
+
+//------------------------------------------------------------------------------
+
+void SymmetryConstraint::setup(const char *name, ClassAssigner *father) {
+
+
+ ClassAssigner *ca = new ClassAssigner(name, 2, father);
+ new ClassToken<SymmetryConstraint> (ca, "Normal", this, reinterpret_cast<int SymmetryConstraint::*>(&SymmetryConstraint::Normal), 3,
+                       "Nx", 0, "Ny", 1,"Nz", 2);
+ new ClassDouble<SymmetryConstraint>(ca, "PlanePosition", this, &SymmetryConstraint::planeposition);
+}
+
+//------------------------------------------------------------------------------
+void InletConstraint::setup(const char *name, ClassAssigner *father) {
+
+ ClassAssigner *ca = new ClassAssigner(name, 3, father);
+ new ClassToken<InletConstraint> (ca, "Normal", this, reinterpret_cast<int InletConstraint::*>(&InletConstraint::Normal), 3,
+                       "Nx", 0, "Ny", 1,"Nz", 2);
+ new ClassDouble<InletConstraint>(ca, "PlanePosition", this, &InletConstraint::planeposition);
+ //to be implemented when we know what kind of inlet we want to work with
+}
+
 
 //------------------------------------------------------------------------------
 OneDimensionalInfo::OneDimensionalInfo(){

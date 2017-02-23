@@ -7787,22 +7787,73 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
         }
 
 // Update velocity
-        for (int k=1; k<4; ++k) {
-	  Vj[k] = ((resij.normVel)[k-1] - alpha*Vi[k])/(1.0-alpha);
-          weights[k] = (1.0-alpha)*(1.0-alpha);
+
+        //If we have a symmetry plane, the velocity must be refelected in the normal direction
+        if(!resij.structureType==BoundaryData::SYMMETRYPLANE){
+			for (int k=1; k<4; ++k) {
+		  Vj[k] = ((resij.normVel)[k-1] - alpha*Vi[k])/(1.0-alpha);
+			  weights[k] = (1.0-alpha)*(1.0-alpha);
+			}
+
+		if (dim==6) {  // One Equation Turbulent Model
+		  Vj[5] = 0.0;//-alpha*Vi[5]/(1.0-alpha);
+			  weights[5] = 1.0;//(1.0-alpha)*(1.0-alpha);
+		}
+		else if (dim==7) { // Two Equations Turbulent Model
+		  Vj[5] = -alpha*Vi[5]/(1.0-alpha);
+		  Vj[6] = -alpha*Vi[6]/(1.0-alpha);
+			  weights[5] = (1.0-alpha)*(1.0-alpha);
+			  weights[6] = (1.0-alpha)*(1.0-alpha);
+			}
         }
-
-	if (dim==6) {  // One Equation Turbulent Model
-	  Vj[5] = 0.0;//-alpha*Vi[5]/(1.0-alpha);
-          weights[5] = 1.0;//(1.0-alpha)*(1.0-alpha);
-	}
-	else if (dim==7) { // Two Equations Turbulent Model
-	  Vj[5] = -alpha*Vi[5]/(1.0-alpha);
-	  Vj[6] = -alpha*Vi[6]/(1.0-alpha);
-          weights[5] = (1.0-alpha)*(1.0-alpha);
-          weights[6] = (1.0-alpha)*(1.0-alpha);
-	}
-
+        else{
+        	//how is the boundary condition treated in the case of a symmetry plane :
+        	//
+        	//0)Desnsity : Density is not used to compute the NS flux, and is therefore not populated here.
+        	//
+        	//1)Normal velocity (With respect to the plane) : The normal velocity must be 0 at the interface.
+        	//This information is used o linearly extrapolate the normal velocity
+        	//
+        	//2)Tangeantial Velocity : As there is no specific constraint at the interface, we extrapolate the value in the ghost point using
+        	//the nodal gradient
+        	//
+        	//3)Temperature : As it is a symmetry plane, the temperature gradient must be 0, so we use constant approximation to populate the cell
+        	//TODO : update this to support the new definition of embedded con
+        	Vec3D vPoint;
+        	Vec3D vParallel;
+        	Vec3D vOrthogonal;
+        	Vec3D vGhostParallel;
+        	Vec3D vGhostOrthogonal;
+        	Vec3D vStructureParallel;
+        	Vec3D vStructureOrthogonal;
+        	Vec3D normal = resij.gradPhi;
+        	Vec3D vStructure = resij.normVel;
+        	for (int var = 0;var<3;var++){
+        		vPoint[var] = Vi[var+1];//+1 as V is (rho,u,v,w,P)
+        		vParallel[var] = vPoint[var] * normal[var];
+        		vStructureParallel[var] = vStructure[var] * normal[var];
+        	}
+        	vOrthogonal = vPoint-vParallel;
+        	vStructureOrthogonal = vStructure - vStructureParallel;
+        	vGhostParallel = (vStructureParallel - alpha*vPoint)/(1-alpha);
+        	vGhostOrthogonal = vOrthogonal;
+        	for (int k=1; k<3; k++) {
+        		Vj[k] = vGhostParallel[k-1] + vGhostOrthogonal[k-1];
+        		weights[k] = (1.0-alpha)*(1.0-alpha);//Weight as we have more than one edge linked to the ghost point
+        	}
+        	Vj[4] = Vi[4];//Constant Temperature reconstruction
+        	weights[4] = (1.0-alpha)*(1.0-alpha);
+        	if (dim==6) {  // One Equation Turbulent Model
+        		  Vj[5] = 0.0;//-alpha*Vi[5]/(1.0-alpha);
+        	          weights[5] = 1.0;//(1.0-alpha)*(1.0-alpha);
+        	}
+        	else if (dim==7) { // Two Equations Turbulent Model
+        		Vj[5] = Vi[5];
+        		Vj[6] = Vi[6];
+        		weights[5] = (1.0-alpha)*(1.0-alpha);
+        		weights[6] = (1.0-alpha)*(1.0-alpha);
+        	}
+        }
         if(!ghostPoints[j]) // GP has not been created
         {ghostPoints[j]=new GhostPoint<dim>(varFcn);}
 
@@ -7832,21 +7883,75 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
         }
 
 // Update velocity
-        for (int k=1; k<4; ++k) {
-	  Vi[k] = ((resji.normVel)[k-1] - alpha*Vj[k])/(1.0-alpha);
-          weights[k] = (1.0-alpha)*(1.0-alpha);
-        }
+        //In case of an embedded Constraint, the velocity must be reflcted only in the normal direction
+if(!resji.structureType==BoundaryData::SYMMETRYPLANE){
+	for (int k=1; k<4; ++k) {
+		Vi[k] = ((resji.normVel)[k-1] - alpha*Vj[k])/(1.0-alpha);
+		weights[k] = (1.0-alpha)*(1.0-alpha);
+	}
 
+			if (dim==6) {  // One Equation Turbulent Model
+				Vi[5] = 0.0;//-alpha*Vj[5]/(1.0-alpha);
+				weights[5] = 1.0;//(1.0-alpha)*(1.0-alpha);
+			}
+			else if (dim==7) { // Two Equations Turbulent Model
+				Vi[5] = -alpha*Vj[5]/(1.0-alpha);
+				Vi[6] = -alpha*Vj[6]/(1.0-alpha);
+				weights[5] = (1.0-alpha)*(1.0-alpha);
+				weights[6] = (1.0-alpha)*(1.0-alpha);
+			}
+	}
+else{
+	//We are in the case of an embedded constraint.Right now that means that we use a symmetry plane, so only the normal velocity must be reflected
+	//how is the boundary condition treated in the case of a symmetry plane :
+	//
+	//0)Desnsity : Density is not used to compute the NS flux, and is therefore not populated here.
+	//
+	//1)Normal velocity (With respect to the plane) : The normal velocity must be 0 at the interface.
+	//This information is used o linearly extrapolate the normal velocity
+	//                                                                                                //
+	//2)Tangeantial Velocity : As there is no specific constraint at the interface, we extrapolate the value in the ghost point using
+	//the nodal gradient
+	//
+	//3)Temperature : As it is a symmetry plane, the temperature gradient must be 0, so we use constant approximation to populate the cell
+
+	//we have to compute Vparallel and Vothogonal separately
+	Vec3D vPoint;
+	Vec3D vParallel;
+	Vec3D vOrthogonal;
+	Vec3D vGhostParallel;
+	Vec3D vGhostOrthogonal;
+	Vec3D vStructureParallel;
+	Vec3D vStructureOrthogonal;
+	Vec3D normal = resji.gradPhi;
+	Vec3D vStructure = resji.normVel;
+	for (int var = 0;var<3;var++){
+		vPoint[var] = Vj[var+1];//+1 as V is (rho,u,v,w,P)
+		vParallel[var] = vPoint[var] * normal[var];
+		vStructureParallel[var] = vStructure[var] * normal[var];
+	}
+	vOrthogonal = vPoint-vParallel;
+	vStructureOrthogonal = vStructure - vStructureParallel;
+	vGhostParallel = (vStructureParallel - alpha*vPoint)/(1-alpha);
+	vGhostOrthogonal = vOrthogonal;
+	for (int k=1; k<3; k++) {
+		Vi[k] = vGhostParallel[k-1] + vGhostOrthogonal[k-1];
+		weights[k] = (1.0-alpha)*(1.0-alpha);//Weight as we have more than one edge linked to the ghost point
+
+	}
+	Vi[4] = Vj[4];//No Temperature Gradient
+	weights[4] = (1.0-alpha)*(1.0-alpha);
 	if (dim==6) {  // One Equation Turbulent Model
-	  Vi[5] = 0.0;//-alpha*Vj[5]/(1.0-alpha);
-          weights[5] = 1.0;//(1.0-alpha)*(1.0-alpha);
+		  Vi[5] = 0.0;//-alpha*Vj[5]/(1.0-alpha);
+	          weights[5] = 1.0;//(1.0-alpha)*(1.0-alpha);
 	}
-	else if (dim==7) { // Two Equations Turbulent Model
-	  Vi[5] = -alpha*Vj[5]/(1.0-alpha);
-	  Vi[6] = -alpha*Vj[6]/(1.0-alpha);
-          weights[5] = (1.0-alpha)*(1.0-alpha);
-          weights[6] = (1.0-alpha)*(1.0-alpha);
+	else if (dim==7) {
+		Vi[5] = Vj[5];
+		Vi[6] = Vj[6];
+		weights[5] = (1.0-alpha)*(1.0-alpha);
+		weights[6] = (1.0-alpha)*(1.0-alpha);
 	}
+}
 
         if(!ghostPoints[i]) // GP has not been created
         {ghostPoints[i]=new GhostPoint<dim>(varFcn);}

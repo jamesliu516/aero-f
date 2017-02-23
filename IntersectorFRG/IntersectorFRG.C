@@ -1483,6 +1483,9 @@ DistIntersectorFRG::initialize(Domain *d, DistSVec<double,3> &X, DistSVec<double
   is_active = new DistVec<bool>(domain->getNodeDistInfo());
   is_occluded = new DistVec<bool>(domain->getNodeDistInfo());
   edge_intersects = new DistVec<bool>(domain->getEdgeDistInfo());
+  edge_intersects_embedded_constraint = new DistVec<bool>(domain->getEdgeDistInfo());
+  edge_intersects_constraint = new DistVec<bool>(domain->getEdgeDistInfo());
+  Embedded_Constraint_Alpha = new DistVec<double>(domain->getEdgeDistInfo());
 
   edge_SI  = new DistVec<bool>(domain->getEdgeDistInfo());
 
@@ -2613,8 +2616,7 @@ IntersectorFRG::IntersectorFRG(SubDomain &sub, SVec<double,3> &X,
                                Vec<int> &stat0, DistIntersectorFRG &distInt) :
     LevelSetStructure((*distInt.status)(sub.getLocSubNum()),(*distInt.distance)(sub.getLocSubNum()),
                       (*distInt.is_swept)(sub.getLocSubNum()),(*distInt.is_active)(sub.getLocSubNum()),
-                      (*distInt.is_occluded)(sub.getLocSubNum()),(*distInt.edge_intersects)(sub.getLocSubNum()),
-							 (*distInt.edge_SI)(sub.getLocSubNum()),
+                      (*distInt.is_occluded)(sub.getLocSubNum()),(*distInt.edge_intersects)(sub.getLocSubNum()),(*distInt.edge_intersects_embedded_constraint)(sub.getLocSubNum()),(*distInt.edge_intersects_constraint)(sub.getLocSubNum()),(*distInt.Embedded_Constraint_Alpha)(sub.getLocSubNum()), (*distInt.edge_SI)(sub.getLocSubNum()),
 							 (*distInt.xi_SI)(sub.getLocSubNum()),(*distInt.eta_SI)(sub.getLocSubNum()),
 		                (*distInt.nWall_SI)(sub.getLocSubNum()),
 							 (*distInt.TriID_SI)(sub.getLocSubNum()),
@@ -2645,6 +2647,9 @@ IntersectorFRG::IntersectorFRG(SubDomain &sub, SVec<double,3> &X,
   is_active = false;
   is_occluded = false;
   edge_intersects = false;
+  edge_intersects_embedded_constraint = false;
+  edge_intersects_constraint = false;
+  Embedded_Constraint_Alpha = 2;
   edge_SI = false;
 
 }
@@ -2682,6 +2687,9 @@ void IntersectorFRG::reset(const bool retry)
   is_swept = false;
   is_active = false;
   edge_intersects = false;
+  edge_intersects_embedded_constraint = false;
+  edge_intersects_constraint = false;
+  Embedded_Constraint_Alpha = 2;
   edge_SI = false;
 }
 
