@@ -8908,24 +8908,24 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
     firstCheckedNode = 0;
     for(int i=0;i<Tag.size();++i) {
       if(Tag[i] < iterativeLevel-1) {
-	sortedNodes[nSortedNodes] = i;
-	nSortedNodes++;
+        sortedNodes[nSortedNodes] = i;
+        nSortedNodes++;
       }
     }
     for(int i=0;i<Tag.size();++i) {
       if(Tag[i] == iterativeLevel-1) {
-	sortedNodes[nSortedNodes] = i;
-	nSortedNodes++;
+        sortedNodes[nSortedNodes] = i;
+        nSortedNodes++;
       }
       firstCheckedNode = nSortedNodes;
     }
     for(int i=0;i<Tag.size();++i) {
       if(Tag[i] == iterativeLevel) {
-	sortedNodes[nSortedNodes] = i;
-	nSortedNodes++;
+        sortedNodes[nSortedNodes] = i;
+        nSortedNodes++;
       }
       if(Tag[i] > iterativeLevel) {
-	Tag[i] = -1;
+	      Tag[i] = -1;
       }
     }
   }
@@ -8935,10 +8935,10 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
     for(int i=0;i<Tag.size();++i) {
       if(!LSS->isActive(0.0,i))
       {
-	d2wall[i][0] = 0.0;
-	Tag[i]       = 0;
-	sortedNodes[nSortedNodes] = i;
-	nSortedNodes++;
+        d2wall[i][0] = 0.0;
+        Tag[i]       = 0;
+        sortedNodes[nSortedNodes] = i;
+        nSortedNodes++;
       }
     }
   }
