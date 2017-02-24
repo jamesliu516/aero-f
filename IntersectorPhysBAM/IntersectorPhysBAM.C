@@ -631,6 +631,8 @@ void DistIntersectorPhysBAM::setActuatorDisk() {
         if(it2 != bcMap.end()) { // the bc data have been defined
           if(it2->second->type == BoundaryData::ACTUATORDISK ) {
         	  actuatorDiskPressureJump[i] = it2->second->pressureJump;
+        	  if (iod.problem.mode == ProblemData::DIMENSIONAL)
+        		  actuatorDiskPressureJump[i]/= iod.ref.rv.pressure;
             //--------------------------------
             if(it2->second->actuatorDiskMethod == BoundaryData::SOURCETERM){
               actuatorDiskMethod[i] = 1;
