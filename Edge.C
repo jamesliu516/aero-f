@@ -3156,74 +3156,74 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                                      SVec<int,2>& tag, int failsafe, int rshift)
 {
 
-  int farfieldFluid = 0;
+    int farfieldFluid = 0;
 
-  Vec<Vec3D>&     normal = geoState.getEdgeNormal();
-  Vec<double>& normalVel = geoState.getEdgeNormalVel();
+      Vec<Vec3D>&     normal = geoState.getEdgeNormal();
+      Vec<double>& normalVel = geoState.getEdgeNormalVel();
 
-  SVec<double,dim>& dVdx = ngrad.getX();
-  SVec<double,dim>& dVdy = ngrad.getY();
-  SVec<double,dim>& dVdz = ngrad.getZ();
+      SVec<double,dim>& dVdx = ngrad.getX();
+      SVec<double,dim>& dVdy = ngrad.getY();
+      SVec<double,dim>& dVdz = ngrad.getZ();
 
-  double ddVij[dim], ddVji[dim], Udummy[dim];
-  double Vi[2*dim], Vj[2*dim], Wstar[2*dim];
+      double ddVij[dim], ddVji[dim], Udummy[dim];
+      double Vi[2*dim], Vj[2*dim], Wstar[2*dim];
 
-  double flux[dim], fluxi[dim], fluxj[dim];
+      double flux[dim], fluxi[dim], fluxj[dim];
 
-  Vec3D normalDir;
+      Vec3D normalDir;
 
-  double length;
-  double alpha = 0.1;
+      double length;
+      double alpha = 0.1;
 
-  int ierr = 0;
-  riemann.reset(it);
+      int ierr = 0;
+      riemann.reset(it);
 
-  VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
-  for (int i=0; i<dim; i++) fluxi[i] = fluxj[i] = 0.0;
+      VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
+      for (int i=0; i<dim; i++) fluxi[i] = fluxj[i] = 0.0;
 
-  for (int l=0; l<numEdges; ++l) {
-    if (!masterFlag[l]) continue; //not a master edge
+      for (int l=0; l<numEdges; ++l) {
+          if (!masterFlag[l]) continue; //not a master edge
 
 
-    double area = normal[l].norm();
-    if (area < 1e-18) continue;
+          double area = normal[l].norm();
+          if (area < 1e-18) continue;
 
-    int i = ptr[l][0];
-    int j = ptr[l][1];
+          int i = ptr[l][0];
+          int j = ptr[l][1];
 
-    bool intersect = (LSS.edgeIntersectsStructure(0,l)||LSS.edgeIntersectsConstraint(0,l));//Take care of the actuatorDisk
+          bool intersect = (LSS.edgeIntersectsStructure(0,l)||LSS.edgeIntersectsConstraint(0,l));//Take care of the actuatorDisk
 
-    bool iActive = LSS.isActive(0.0,i);
-    bool jActive = LSS.isActive(0.0,j);
+          bool iActive = LSS.isActive(0.0,i);
+          bool jActive = LSS.isActive(0.0,j);
 
-    bool iPorous = false;
-    bool jPorous = false;
+          bool iPorous = false;
+          bool jPorous = false;
 
-    bool iActuatorDisk = false;
-    bool jActuatorDisk = false;
-    int reconstructionMethod =0;
+          bool iActuatorDisk = false;
+    	  bool jActuatorDisk = false;
+    	  int reconstructionMethod =0;
 
-    if( !iActive && !jActive ) {
+    	  if( !iActive && !jActive ) {
 
-      //clean-up Wstar
-      if(it>0) {
-        for(int k=0; k<dim; k++){
-          Wstarij[l][k] = Wstarji[l][k] = 0.0;
-        }
-      }
+    		  //clean-up Wstar
+    		  if(it>0) {
+    			  for(int k=0; k<dim; k++){
+    				  Wstarij[l][k] = Wstarji[l][k] = 0.0;
+    			  }
+    		  }
 
-      continue;
-    }
+    		continue;
+    	}
 
-    // ------------------------------------------------
-    //  Reconstruction without crossing the interface.
-    //  Reconstruct the primitive state variables, for these edges without crossing the interface.
-    //  their states are linear reconstructed or constant reconstructed
-    //  for these edges crossing interface , their states are reconstructed with constant reconstruction
-    //  Save the reconstructed value in Vi and Vj
-    // ------------------------------------------------
-    double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
-    length = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
+		// ------------------------------------------------
+		//  Reconstruction without crossing the interface.
+		//  Reconstruct the primitive state variables, for these edges without crossing the interface.
+		//  their states are linear reconstructed or constant reconstructed
+		//  for these edges crossing interface , their states are reconstructed with constant reconstruction
+		//  Save the reconstructed value in Vi and Vj
+		// ------------------------------------------------
+		double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+		length = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
 
     // d2d
     if (egrad){
@@ -3479,8 +3479,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
             assert(iActuatorDisk);
                 //This is an actuator Disk : We compute the usual roe flux and we will addd a source term
                 if (resij.actuatorDiskMethod == BoundaryData::SOURCETERM) {
-                  
-                  
+
+
                   fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, fluxi, fluidId[i],
                                                 false);
                   if (resij.alpha >= 0.5) {
@@ -3616,10 +3616,10 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
           case BoundaryData::ACTUATORDISK:
             assert(jActuatorDisk);
                 if (resji.actuatorDiskMethod == BoundaryData::SOURCETERM) {//Actuator Disk
-                  
+
                   fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, fluxj, fluidId[j]);
                   if (resji.alpha > 0.5) {
-                  
+
                     //TODO The first think is to calculate projected area of the actuator disk
                     Vec3D structureNormal = (dx[0] * GradPhi[0] + dx[1] * GradPhi[1] + dx[2] * GradPhi[2] >= 0.0)
                                             ? GradPhi : -1.0 * GradPhi;
@@ -6221,3 +6221,4 @@ void EdgeSet::TagInterfaceNodes(int lsdim, Vec<int> &Tag1, Vec<int> &Tag2, SVec<
 }
 */
 //------------------------------------------------------------------------------
+:q€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd€kd:Q:q:q:q
