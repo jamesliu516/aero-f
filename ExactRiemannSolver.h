@@ -91,6 +91,8 @@ class ExactRiemannSolver{
 	// for symmetryPlane  riemann problem
 	int computeSymmetryPlaneRiemannSolution(double *Vi, double *Vstar, double *nphi,
 											VarFcn *vf, double *Wstar, int nodej, int Id = 0);
+	void computeSymmetryRiemannJacobian(double *Vi, double *Vstar, double *nphi,
+            VarFcn *vf, double *Wstar, int nodej, double* dWdW,int Id = 0);
 
 
 };

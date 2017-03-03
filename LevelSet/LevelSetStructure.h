@@ -27,6 +27,7 @@ struct LevelSetResult {
   double gamma;
   bool isCorrectedMethod;
   int actuatorDiskReconstructionMethod;
+  double massInflow;
 
   Vec3D dnds;
   double dads;
@@ -42,6 +43,7 @@ struct LevelSetResult {
     actuatorDiskReconstructionMethod = -1;
     gamma = 0.0;//error value
     isCorrectedMethod = false;
+    massInflow = 0.0;
     dads = 0.0;
    }
   
@@ -54,11 +56,12 @@ struct LevelSetResult {
 		    trNodes[0] = trNodes[1] = trNodes[2] = -1;
 		    porosity = 0.0;
 	        structureType = 1;
-	   actuatorDiskMethod = 1;
-                    actuatorDiskPressureJump = 0.0;
-                    actuatorDiskReconstructionMethod = -1;
-                    gamma = 0.0;//error value
-                    isCorrectedMethod = false;
+	        actuatorDiskMethod = 1;
+	        actuatorDiskPressureJump = 0.0;
+	        actuatorDiskReconstructionMethod = -1;
+	        gamma = 0.0;//error value
+	        isCorrectedMethod = false;
+	        massInflow = 0.0;
 		    dnds = 0.0;
 		    dads = 0.0;
 		   }

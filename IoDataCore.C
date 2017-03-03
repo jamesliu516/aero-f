@@ -474,7 +474,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 86, father); 
+  ClassAssigner *ca = new ClassAssigner(name, 101, father);
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
 
