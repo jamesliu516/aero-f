@@ -161,6 +161,7 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iodata,
   setPorosity();
   setSymmetry();
   setActuatorDisk();
+  setMassInflow();
   makerotationownership();
   updatebc();
 
@@ -607,7 +608,31 @@ void DistIntersectorPhysBAM::setStructureType() {
     }
   }
 }
+//----------------------------------------------------------------------------
+void DistIntersectorPhysBAM::setMassInflow(){
+	  map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
+	  map<int,BoundaryData *> &bcMap = iod.bc.bcMap.dataMap;
 
+	  massJump = new double[numStElems];
+	  for(int i=0; i<numStElems; i++) {
+		  massJump[i] = 0.0;
+	  }
+	  gamma = iod.eqs.fluidModel.gasModel.specificHeatRatio;
+	  if(faceID) {
+	    for(int i=0; i<numStElems; i++) {
+	      map<int,SurfaceData*>::iterator it = surfaceMap.find(faceID[i]);
+	      if (it != surfaceMap.end()) {
+	        map<int,BoundaryData *>::iterator it2 = bcMap.find(it->second->bcID);
+	        if(it2 != bcMap.end()) { // the bc data have been defined
+	          if(it2->second->type == BoundaryData::MASSINFLOW ) {
+	        	  massJump[i] = it2->second->massFlow;
+	        	  actuatorDiskReconstructionMethod[i] = 1;//average
+	          }
+	        }
+	      }
+	    }
+	  }
+	}
 //----------------------------------------------------------------------------
 void DistIntersectorPhysBAM::setActuatorDisk() {
   map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
@@ -2157,6 +2182,9 @@ int IntersectorPhysBAM::findIntersections(SVec<double,3>&X,Vec<bool>& tId,Commun
     	    if(fabs(distIntersector.actuatorDiskPressureJump[CrossingEdgeRes[l].triangleID-1])>0){//this edge itesects an actuator disk
     		  edge_intersects_constraint[l]=true;
     	   }
+    	    if(fabs(distIntersector.massJump[CrossingEdgeRes[l].triangleID-1])>0){
+    	    	edge_intersects_constraint[l]=true;
+    	    }
           }	  
 
 	  if (distIntersector.cracking) {
@@ -2283,7 +2311,7 @@ if(notAnEmbeddedPlane){
   lsRes.isCorrectedMethod = distIntersector.isCorrectedMethod[trueTriangleID];
   lsRes.gamma = distIntersector.gamma;
   lsRes.actuatorDiskReconstructionMethod = distIntersector.actuatorDiskReconstructionMethod[trueTriangleID];
-
+  lsRes.massInflow = distIntersector.massJump[trueTriangleID];
 
 
   if(!distIntersector.interpolatedNormal){

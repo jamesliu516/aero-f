@@ -3203,6 +3203,9 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     	  bool jActuatorDisk = false;
     	  int reconstructionMethod =0;
 
+    	  bool iMassInflow = false;
+    	  bool jMassInflow = false;
+
     	  if( !iActive && !jActive ) {
 
     		  //clean-up Wstar
@@ -3420,6 +3423,20 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
           reconstructionMethod = resij.actuatorDiskReconstructionMethod;//see intersector for mapping
         }
 
+        if(fabs(resij.massInflow) > 0.0){
+          if (!jActive){
+            fprintf(stdout, "the node %d is active, the node %d is not and their edge is across an actuator Disk ! Exiting simulation", i,j);
+            exit(1);
+          }
+          if(fluidId[i]!=fluidId[j]){
+            fprintf(stdout, "the nodes %d and %d are linked by an edge intersected by an actuator disk but are not from the same fluid ! their Fluid Id are %d and %d ! Exiting simulation", i,j,fluidId[i],fluidId[j]);
+            exit(1);
+          }
+          //normal case
+          reconstructionMethod = resij.actuatorDiskReconstructionMethod;//see intersector for mapping
+          iMassInflow = true;
+        }
+
 
         switch (structureType) {
           case BoundaryData::DIRECTSTATE:
@@ -3514,6 +3531,29 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                 	}
                 }
                 break;
+          case BoundaryData::MASSINFLOW :
+        	  assert(iMassInflow);
+        	  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, fluxi, fluidId[i],
+        			  false);
+        	  if (resij.alpha >= 0.5) {
+        		  //Here, we compute the fluid and structure normal to compute their products
+        		  Vec3D structureNormal = (dx[0] * GradPhi[0] + dx[1] * GradPhi[1] + dx[2] * GradPhi[2] >= 0.0) ?
+        				  -1.0 * GradPhi : GradPhi;
+        		  Vec3D fluidNormal = -1.0 / (normal[l].norm()) * normal[l];
+        		  //next, we need to compute the Velocity we will use at this intersection
+        		  double VelocityReconstructed[3];
+        		  bool invertedEdge = (dx[0] * GradPhi[0] + dx[1] * GradPhi[1] + dx[2] * GradPhi[2] >= 0.0) ? false: true;
+        		  ComputeActuatorVelocity(VelocityReconstructed, reconstructionMethod, Vi, Vj, resij.alpha, ddVij,
+        				  ddVji);
+        	      double Ti = varFcn->computeTemperature(Vj,tag[i][1]);
+        	      ComputeAndAddMassInflowSourceTerm(structureNormal, fluidNormal,
+        	    		  normalDir,area,false,resij.massInflow,
+						  VelocityReconstructed,fluxi,i,resij.gamma,
+						  Ti);
+        	                      //ComputeAndAddActuatorDiskSourceTerm(structureNormal, fluidNormal, normalDir, area, invertedEdge,
+        	                      //                                    resij.actuatorDiskPressureJump, VelocityReconstructed, fluxi,
+        	                      //                                   i, resij.isCorrectedMethod, resij.gamma);
+        	     }
                 //*************************************
         }//switch
         for (int k = 0; k < dim; k++) fluxes[i][k] += fluxi[k];
@@ -3566,6 +3606,19 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
           reconstructionMethod = resji.actuatorDiskReconstructionMethod;//see intersector for mapping
         }
 
+        if(fabs(resji.massInflow) > 0.0){
+          if (!iActive){
+            fprintf(stdout, "the node %d is active, the node %d is not and their edge is across an actuator Disk ! Exiting simulation", i,j);
+            exit(1);
+          }
+          if(fluidId[i]!=fluidId[j]){
+            fprintf(stdout, "the nodes %d and %d are linked by an edge intersected by an actuator disk but are not from the same fluid ! their Fluid Id are %d and %d ! Exiting simulation", i,j,fluidId[i],fluidId[j]);
+            exit(1);
+          }
+          //normal case
+          reconstructionMethod = resji.actuatorDiskReconstructionMethod;//see intersector for mapping
+          jMassInflow = true;
+        }
 
         switch (structureType) {
           case BoundaryData::DIRECTSTATE:
@@ -3654,8 +3707,40 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
             		   for (int k = 0; k < dim; k++) fluxj[k] += flux[k];
             	   }
                }
+                break;
+          case BoundaryData::MASSINFLOW ://beware ! adding DeltaM is now the same as supressing deltam
+        	  assert(jMassInflow);
+        	  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, fluxj, fluidId[j]);
+        	  if (resji.alpha > 0.5) {
 
+        	  //TODO The first think is to calculate projected area of the actuator disk
+        		  Vec3D structureNormal = (dx[0] * GradPhi[0] + dx[1] * GradPhi[1] + dx[2] * GradPhi[2] >= 0.0)
+        	                                            				  ? GradPhi : -1.0 * GradPhi;
+        		  Vec3D fluidNormal = 1.0 / (normal[l].norm()) * normal[l];
+        		  //next, we need to compute the Velocity we will use at this intersecton
+        		  double VelocityReconstructed[3];
+        		  double invddVji[dim];
+        		  double invddVij[dim];
+        		  for (int var = 0; var < dim; var++) {
+        			  invddVji[var] = -ddVji[var];
+        			  invddVij[var] = -ddVij[var];
+        		  }
+        		  bool invertedEdge = (dx[0] * GradPhi[0] + dx[1] * GradPhi[1] + dx[2] * GradPhi[2] >= 0.0) ? true
+        				  : false;
+        		  invertedEdge = !invertedEdge;
+        		  ComputeActuatorVelocity(VelocityReconstructed, reconstructionMethod, Vj, Vi, resji.alpha,
+        				  invddVji, invddVij);
+        		  double Tj = varFcn->computeTemperature(Vj,tag[j][1]);
+        		  ComputeAndAddMassInflowSourceTerm(structureNormal, fluidNormal,
+        				  normalDir,area,true,resji.massInflow,
+						  VelocityReconstructed,fluxj,j,resji.gamma,
+						  Tj);
 
+        		  //ComputeAndAddActuatorDiskSourceTerm(-structureNormal, -fluidNormal, -normalDir, area,
+        			//	  invertedEdge, resji.actuatorDiskPressureJump,
+					//	  VelocityReconstructed, fluxj, j, resji.isCorrectedMethod,
+					//	  resji.gamma);
+        	  }
                 //*************************************
         }//switch
         for (int k = 0; k < dim; k++) fluxes[j][k] -= fluxj[k];
@@ -5218,6 +5303,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
     int j = ptr[l][1];
 
     bool intersect = LSS.edgeIntersectsStructure(0,l);
+    bool intersectConstraint = LSS.edgeIntersectsConstraint(0,l);
 
     bool iActive = LSS.isActive(0.0,i);
     bool jActive = LSS.isActive(0.0,j);
@@ -5288,6 +5374,77 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 	  Aji[k] -= dfdUi[k] * volj;
 	}
       }
+      //a2m : in case of an actuator Disk, we must modify the jacobian
+      if(intersectConstraint){
+    	  LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
+    	  LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
+    	  bool isActuatorDisk = (resij.structureType == BoundaryData::ACTUATORDISK);
+    	  if(isActuatorDisk){
+    		  //first, we find in which cell the actuator disk falls :
+    		  if(resij.alpha>0.5){//the actuator disk falls in the i cell
+    		        switch (Nriemann) {
+    		          case 0: //structure normal
+    		            normalDir = (dx[0]*resij.gradPhi[0]+dx[1]*resij.gradPhi[1]+dx[2]*resij.gradPhi[2]>=0.0) ? -1.0*resij.gradPhi : resij.gradPhi;
+    		            break;
+    		          case 1: //fluid normal
+    		            normalDir = -1.0/(normal[l].norm())*normal[l];
+    		            break;
+    		          default:
+    		            fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
+    		            exit(-1);
+    		        }
+    		        double VelocityReconstructed[3];
+    		        double VelocityNormalProduct = 0 ;
+    		        //assumes average velocity reconstruction
+    		        for (int var=0;var<3;var++){
+    		        	VelocityReconstructed[var] = (Vi[var+1]+Vj[var+1])/2;
+    		        	VelocityNormalProduct += VelocityReconstructed[var]*normalDir[var];
+    		        }
+    		        double deltap = resij.actuatorDiskPressureJump;
+    		        bool invertedEdge = (dx[0]*resij.gradPhi[0]+dx[1]*resij.gradPhi[1]+dx[2]*resij.gradPhi[2]>=0.0) ? false : true;
+    		        if(invertedEdge){
+    		        	deltap = - deltap;
+    		        }
+    		        double gamma= resij.gamma;
+    		        //and now we can add the jacobian of the source term to the jacobian
+    		        Aij[neq*(neq-1)]-= gamma/(gamma-1)*area*deltap/Vi[0]*VelocityNormalProduct;
+    		        Aij[neq*(neq-1)+1]+= gamma/(gamma-1)*area*deltap/Vi[0]*normalDir[0];
+    		        Aij[neq*(neq-1)+2]+= gamma/(gamma-1)*area*deltap/Vi[0]*normalDir[1];
+    		        Aij[neq*(neq-1)+3]+= gamma/(gamma-1)*area*deltap/Vi[0]*normalDir[2];
+    		  }
+    		  else{//The intersection is in the cell j
+    		        switch (Nriemann) {
+    		          case 0: //structure normal
+    		            normalDir = (dx[0]*resji.gradPhi[0]+dx[1]*resji.gradPhi[1]+dx[2]*resji.gradPhi[2]>=0.0) ? resji.gradPhi : -1.0*resji.gradPhi;
+    		            break;
+    		          case 1: //fluid normal
+    		            normalDir = 1.0/(normal[l].norm())*normal[l];
+    		            break;
+    		          default:
+    		            fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
+    		            exit(-1);
+    		        }
+    		        double VelocityReconstructed[3];
+    		        double VelocityNormalProduct = 0 ;
+    		        //assumes average velocity reconstruction
+    		        for (int var=0;var<3;var++){
+    		        	VelocityReconstructed[var] = (Vi[var+1]+Vj[var+1])/2;
+    		        	VelocityNormalProduct += VelocityReconstructed[var]*(-1*normalDir[var]);
+    		        }
+    		        double deltap = resij.actuatorDiskPressureJump;
+    		        bool invertedEdge = (dx[0]*resji.gradPhi[0]+dx[1]*resji.gradPhi[1]+dx[2]*resji.gradPhi[2]>=0.0) ? true : false;
+    		        if(invertedEdge){
+    		        	deltap = -deltap;
+    		        }
+    		        double gamma = resji.gamma;
+    		        //and now we can add the jacobian of the source term to the jacobian
+    		        Aji[neq*(neq-1)]-= gamma/(gamma-1)*area*deltap/Vi[0]*VelocityNormalProduct;
+    		        Aji[neq*(neq-1)+1]+= gamma/(gamma-1)*area*deltap/Vi[0]*(-1*normalDir[0]);
+    		        Aji[neq*(neq-1)+2]+= gamma/(gamma-1)*area*deltap/Vi[0]*(-1*normalDir[1]);
+    		        Aji[neq*(neq-1)+3]+= gamma/(gamma-1)*area*deltap/Vi[0]*(-1*normalDir[2]);
+    		  }
+    	  }
+      }//End of actuator disk treatement
 
     } else if (masterFlag[l]) {
 
@@ -5324,8 +5481,12 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
         }
         if (neq > 2) {
         	//TODO : modify for the symmetry plane
+        	if(resij.structureType==BoundaryData::SYMMETRYPLANE){
+        	        	riemann.computeSymmetryRiemannJacobian(Vi, resij.normVel, normalDir, varFcn, Wstar, j, dWdW, fluidId[i]);
+        	        }
+        	else{
           riemann.computeFSIRiemannJacobian(Vi, resij.normVel, normalDir, varFcn, Wstar, j, dWdW, fluidId[i]);
-
+        	}
           for (k=0; k<neq*neq; ++k) {
 	    dW1dW1[k] = dWdW[k + (dim-neq)*int(k/neq)];
 	  }
@@ -5405,7 +5566,12 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
         }
         if (neq > 2) {
         	//TODO : modify for the symmetry plane
+        	if(resji.structureType ==BoundaryData::SYMMETRYPLANE ){
+        		riemann.computeSymmetryRiemannJacobian(Vj,resji.normVel,normalDir,varFcn,Wstar,i,dWdW,fluidId[j]);
+        	}
+        	else{
           riemann.computeFSIRiemannJacobian(Vj,resji.normVel,normalDir,varFcn,Wstar,i,dWdW,fluidId[j]);
+        	}
           for (k=0; k<neq*neq; ++k) {
 	    dW1dW1[k] = dWdW[k + (dim-neq)*int(k/neq)];
 	  }
@@ -6148,10 +6314,60 @@ void EdgeSet::ComputeAndAddActuatorDiskSourceTerm(Vec3D structureNormal, Vec3D f
 	  }
 	  for (int k=0; k<dim; k++) fluxi[k] += sourceTerm[k];
 	  if(false){//debug output if needed
-		  fprintf(stderr,"\n\n cosineBetweenNormals : %.10f\n controlVolumeArea : %.10f\n normalDir Term : %.10f , %.10f, %.10f\n "
+		  fprintf(stderr,"\n\n isJ :%d \n cosineBetweenNormals : %.10f\n controlVolumeArea : %.10f\n normalDir Term : %.10f , %.10f, %.10f\n "
 				  "HalfSpeed Term : %.10f , %.10f, %.10f\n "
 				  "Source Term : %.10f , %.10f, %.10f, %.10f, %.10f\n Fluxi Term : %.10f , %.10f, %.10f, %.10f, %.10f\n",
-				  cosineBetweenNormals,controlVolumeArea,normalDir[0],normalDir[1], normalDir[2],
+				  invertedEdge,cosineBetweenNormals,controlVolumeArea,normalDir[0],normalDir[1], normalDir[2],
+				  VelocityReconstructed[0],VelocityReconstructed[1],VelocityReconstructed[2],
+				  sourceTerm[0],sourceTerm[1],sourceTerm[2], sourceTerm[3],sourceTerm[4],
+				  fluxi[0],fluxi[1],fluxi[2],fluxi[3],fluxi[4]);
+	  }
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void EdgeSet::ComputeAndAddMassInflowSourceTerm(Vec3D structureNormal, Vec3D fluidNormal,Vec3D normalDir,double controlVolumeArea,bool isJ, double massInflow,double VelocityReconstructed[3],double (&fluxi)[dim],int i,double gamma,double Temperature){
+
+	//The first think is to calculate projected area of the actuator disk
+	  double cosineBetweenNormals = abs(structureNormal*fluidNormal);
+	  double projectedSurface = cosineBetweenNormals;//Per unit surface
+	  //Now we can compute the surfaces :
+	  int cosineSign;
+	  	  if(isJ){
+	  		  cosineSign = -1;
+	  	  }
+	 	  else{
+	 		  cosineSign = 1;//-1
+	    }
+	  double sourceTerm[dim];
+	  for (int k=0; k<dim; k++){
+		  sourceTerm[k]=0.0;
+	  }
+	  double vTimesN=0.0;
+	  double vSquare=0.0;
+	  for (int var=0;var<3;var++){
+		  vTimesN+=normalDir[var]*VelocityReconstructed[var]*cosineSign;
+		  vSquare+=VelocityReconstructed[var]*VelocityReconstructed[var];
+	  }
+	  //sourceTerm[0] = -massInflow*vTimesN;
+	  //sourceTerm[1] = -normalDir[0]*(gamma-1)*massInflow*Temperature*projectedSurface*controlVolumeArea*cosineSign-massInflow*VelocityReconstructed[0]*vTimesN;
+	  //sourceTerm[2] = -normalDir[1]*(gamma-1)*massInflow*Temperature*projectedSurface*controlVolumeArea*cosineSign-massInflow*VelocityReconstructed[1]*vTimesN;
+	  //sourceTerm[3] = -normalDir[2]*(gamma-1)*massInflow*Temperature*projectedSurface*controlVolumeArea*cosineSign-massInflow*VelocityReconstructed[2]*vTimesN;
+	  //sourceTerm[4] = 0;
+	  sourceTerm[0] = -massInflow*cosineSign*projectedSurface*controlVolumeArea;
+	  sourceTerm[1] = -massInflow*cosineSign*projectedSurface*controlVolumeArea*VelocityReconstructed[0];
+	  sourceTerm[2] = -massInflow*cosineSign*projectedSurface*controlVolumeArea*VelocityReconstructed[2];
+	  sourceTerm[3] = -massInflow*cosineSign*projectedSurface*controlVolumeArea*VelocityReconstructed[3];
+	  sourceTerm[4] = -massInflow*(gamma*Temperature + vSquare/2)*cosineSign*projectedSurface*controlVolumeArea;
+
+	  //for (int var=0;var<3;var++){
+		//sourceTerm[4]-=massInflow*(gamma*Temperature + vSquare/2+(gamma-1)*Temperature)*normalDir[var]*VelocityReconstructed[var]*cosineSign;
+	  //}
+	  for (int k=0; k<dim; k++) fluxi[k] += sourceTerm[k];
+	  if(false){//debug output if needed
+		  fprintf(stderr,"\n\n isJ : %d \ncosineBetweenNormals : %.10f\n controlVolumeArea : %.10f\n normalDir Term : %.10f , %.10f, %.10f\n "
+				  "HalfSpeed Term : %.10f , %.10f, %.10f\n "
+				  "Source Term : %.10f , %.10f, %.10f, %.10f, %.10f\n Fluxi Term : %.10f , %.10f, %.10f, %.10f, %.10f\n",
+				  isJ,cosineBetweenNormals,controlVolumeArea,normalDir[0],normalDir[1], normalDir[2],
 				  VelocityReconstructed[0],VelocityReconstructed[1],VelocityReconstructed[2],
 				  sourceTerm[0],sourceTerm[1],sourceTerm[2], sourceTerm[3],sourceTerm[4],
 				  fluxi[0],fluxi[1],fluxi[2],fluxi[3],fluxi[4]);
@@ -6192,7 +6408,7 @@ void EdgeSet::ComputeActuatorVelocity(double (&VelocityReconstructed)[3],int rec
 			 		}
 			 		break;
 			 	 default :
-			 		fprintf(stderr,"unknown reconstruction code for the actuator Disk interface. Exiting \n");
+			 		fprintf(stderr,"unknown reconstruction code for the actuator Disk interface : %d. Exiting \n",reconstructionMethod);
 			 		exit(1);
 			 		break;
 			 }

@@ -102,7 +102,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
 	int * actuatorDiskMethod;
     double *actuatorDiskPressureJump;
     int *actuatorDiskReconstructionMethod;//method used to compute the velocity at the interface. 1 : vi+Vj/2 2:vi 3 Vi*grad (extrapolation)
-    double *massInflow;
+    double *massJump;
     bool* isCorrectedMethod;//For the actuatorDisk
     double gamma;//Value of Gamma, used for the actuatorDiskComputaion
 
@@ -167,6 +167,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     void setPorosity();
 	void setStructureType();
     void setSymmetry();
+    void setMassInflow();
     void setActuatorDisk();
     void makerotationownership();
     void updatebc();
