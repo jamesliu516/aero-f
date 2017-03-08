@@ -267,3 +267,38 @@ void EdgeSet::attachTriangulatedInterfaceLSS(LevelSetStructure* LSS) {
 
   triangulatedLSS = LSS;
 }
+//-----------------------------------------------------------------------------------------------------
+void EdgeSet::SetupStructureType(bool isOtherNodeActive,
+		int fluidIdi,int fluidIdj,LevelSetResult res,bool* Porous,
+		bool* ActuatorDisk,bool* MassInflow,int* reconstructionMethod,int i, int j){
+		if (isOtherNodeActive && fluidIdi==fluidIdj && res.porosity > 0.0){
+	          *Porous = true;
+	        }
+		if(abs(res.actuatorDiskPressureJump) > 0.0){
+	        if (!isOtherNodeActive){
+	            fprintf(stdout, "the node %d is active, the node %d is not and their edge is across an actuator Disk ! Exiting simulation", j,i);
+	            exit(1);
+	        }
+	        if(fluidIdi!=fluidIdj){
+	            fprintf(stdout, "the nodes %d and %d are linked by an edge intersected by an actuator disk but are not from the same fluid ! their Fluid Id are %d and %d ! Exiting simulation", i,j,fluidIdi,fluidIdj);
+	            exit(1);
+	        }
+	        //normal case
+	        *ActuatorDisk = true;
+	        *reconstructionMethod = res.actuatorDiskReconstructionMethod;//see intersector for mapping
+	        }
+
+	    if(fabs(res.massInflow) > 0.0){
+	        if (!isOtherNodeActive){
+	            fprintf(stdout, "the node %d is active, the node %d is not and their edge is across an actuator Disk ! Exiting simulation", i,j);
+	            exit(1);
+	        }
+	        if(fluidIdi!=fluidIdj){
+	            fprintf(stdout, "the nodes %d and %d are linked by an edge intersected by an actuator disk but are not from the same fluid ! their Fluid Id are %d and %d ! Exiting simulation", i,j,fluidIdi,fluidIdj);
+	            exit(1);
+	        }
+	          //normal case
+	        *reconstructionMethod = res.actuatorDiskReconstructionMethod;//see intersector for mapping
+	        *MassInflow = true;
+	}
+}
