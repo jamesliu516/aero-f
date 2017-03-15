@@ -3444,7 +3444,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                                                           false);
 
                             if (structureType == BoundaryData::POROUSWALL && jActive) {
-                                assert(iporous);
+                                assert(iPorous);
                                 fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[i]);
                                 for (int k = 0; k < dim; k++)
                                     fluxi[k] = (1.0 - resij.porosity) * fluxi[k] + resij.porosity * flux[k];
@@ -3467,7 +3467,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                                                           false);
 
                             if (structureType == BoundaryData::POROUSWALL && jActive) {
-                                assert(iporous);
+                                assert(iPorous);
                                 fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[i]);
                                 for (int k = 0; k < dim; k++)
                                     fluxi[k] = (1.0 - resij.porosity) * fluxi[k] + resij.porosity * flux[k];
