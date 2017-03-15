@@ -2843,6 +2843,7 @@ MatVecProd_dRdX<dim,Scalar,neq>::MatVecProd_dRdX
     dRdXop->dForcedGradP[iSub] = subDomain[iSub]->template create_NodeBaseddRdXoperators<3,3>();
     dRdXop->dForcedX[iSub] = subDomain[iSub]->template create_NodeBaseddRdXoperators<3,3>();
     dRdXop->dForcedV[iSub] = subDomain[iSub]->template create_NodeBaseddRdXoperators<dim,3>();
+    dRdXop->dForcedS[iSub] = subDomain[iSub]->template create_NodeToConstantBaseddRdXoperators<3,3>();
     dRdXop->dVdU[iSub] = subDomain[iSub]->template create_NodeBaseddRdXoperators<dim,dim>();
     dRdXop->dVdPstiff[iSub] = subDomain[iSub]->template create_NodeToConstantBaseddRdXoperators<1,dim>();
     size += double(dRdXop->dMidGradP[iSub]->numNonZeroBlocks()*3*3*sizeof(double)) / (1024.*1024.);
@@ -2886,7 +2887,7 @@ MatVecProd_dRdX<dim,Scalar,neq>::MatVecProd_dRdX
     size += double(dRdXop->dForcedGradP[iSub]->numNonZeroBlocks()*3*3*sizeof(double)) / (1024.*1024.);
     size += double(dRdXop->dForcedX[iSub]->numNonZeroBlocks()*3*3*sizeof(double)) / (1024.*1024.);
     size += double(dRdXop->dForcedV[iSub]->numNonZeroBlocks()*dim*3*sizeof(double)) / (1024.*1024.);
-    size += double(dRdXop->dForcedS[iSub]->numNonZeroBlocks()*3*3*sizeof(double)) / (1024.*1024.);
+    size += double(dRdXop->dForcedS[iSub]->numNonZeroBlocks()*3*3*sizeof(double)) / (1024.*1024.);//TODO BUGHUNY bug here
     size += double(dRdXop->dVdU[iSub]->numNonZeroBlocks()*dim*dim*sizeof(double)) / (1024.*1024.);
     size += double(dRdXop->dVdPstiff[iSub]->numNonZeroBlocks()*dim*sizeof(double)) / (1024.*1024.);
   }

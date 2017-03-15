@@ -555,19 +555,45 @@ void StructExc::sendForce(DistSVec<double,3> &F, bool applyScale)
 
     double (*forces)[3] = reinterpret_cast<double (*)[3]>(buffer);
 
-    if(F.info().masterFlag) {
+//TODO BUGHUNT YUNGSOOS VERSION
+//    if(F.info().masterFlag) {
+//#pragma omp parallel for reduction (+: norm)
+//      for (int iSub = 0; iSub < numLocSub; ++iSub) {
+//        SVec<double,3> &f = F(iSub);
+//        if(applyScale) {
+//          norm += f*f * fscale*fscale;
+//          matchNodes[iSub]->send(fscale, f.data(), forces); // for the direct sensitivity analysis
+//        } else {
+//          int locOffset = F.info().subOffset[iSub];
+//          int locLen = F.info().subLen[iSub];
+//          norm += f*f;
+//          matchNodes[iSub]->sendWithMasterFlag(1, f.data(), forces, F.info().masterFlag, locOffset);  // for the adjoint sensitivity analysis
+//
+//        }
+//      }
+//    }
+
+    //if(F.info().masterFlag) {
+    if(true) {
 #pragma omp parallel for reduction (+: norm)
       for (int iSub = 0; iSub < numLocSub; ++iSub) {
         SVec<double,3> &f = F(iSub);
         if(applyScale) {
           norm += f*f * fscale*fscale;
           matchNodes[iSub]->send(fscale, f.data(), forces); // for the direct sensitivity analysis
-        } else {
+        }
+        else if(F.info().masterFlag)
+	{
           int locOffset = F.info().subOffset[iSub];
           int locLen = F.info().subLen[iSub];
           norm += f*f;
           matchNodes[iSub]->sendWithMasterFlag(1, f.data(), forces, F.info().masterFlag, locOffset);  // for the adjoint sensitivity analysis
 
+        }
+        else
+        {
+          std::cout<<"Cannot send when masterflag is NULL"<<std::endl;//TODO delete line
+          exit(-1);
         }
       }
     }

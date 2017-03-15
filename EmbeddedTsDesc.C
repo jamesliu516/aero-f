@@ -308,7 +308,8 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
   dFs = 0;
   if(ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
-     ioData.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_)
+     ioData.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
+	 ioData.problem.alltype == ProblemData::_SENSITIVITY_ANALYSIS_)
     dFs = new (*this->com) double[totStructNodes][3];
 
 //-------------------------------------------------------------

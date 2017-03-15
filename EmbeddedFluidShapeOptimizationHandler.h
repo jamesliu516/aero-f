@@ -173,7 +173,11 @@ public:
 
   void fsoPrintTextOnScreen(const char *);
 
+  void fsaPrintTextOnScreen(const char *);
+
   bool getdXdSb(int);
+
+  Communicator* getComm(){return this->com;};//TODO HACK
 
 };
 

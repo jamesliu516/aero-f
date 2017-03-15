@@ -29,14 +29,14 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   X = new DistSVec<double,3>(getVecInfo());
   A = new DistVec<double>(getVecInfo());
   Xs = new DistSVec<double,3>(getVecInfo());
- 
+
   // Initialize the values
   *X = 0.0;
   *A = 0.0;
   *Xs = 0.0;
 
   fluidIdDummy = 0;
- 
+
   Uic = new DistSVec<double,dim>(getVecInfo());
   V = new DistSVec<double,dim>(getVecInfo());
   F = new DistSVec<double,dim>(getVecInfo());
@@ -71,16 +71,16 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
        ioData.problem.type[ProblemData::ROLL] ||
        ioData.problem.type[ProblemData::RBM] ||
        ioData.problem.alltype==ProblemData::_STEADY_)) {
-    if (strcmp(input->displacements,"")!=0 && strcmp(input->positions,"")==0) {  
+    if (strcmp(input->displacements,"")!=0 && strcmp(input->positions,"")==0) {
       // read initial displacement of full mesh
-      geoState->setupInitialDisplacement(input->displacements, X, A); 
+      geoState->setupInitialDisplacement(input->displacements, X, A);
       mems = 0;
     } else {
       geoState->setup1(input->positions, X, A);
       moveMesh(ioData, geoSource);
     }
   } else {
-    if ((input->displacements && strcmp(input->displacements,"")!=0) && (!input->positions || strcmp(input->positions,"")==0)) {  
+    if ((input->displacements && strcmp(input->displacements,"")!=0) && (!input->positions || strcmp(input->positions,"")==0)) {
       // read initial displacement of full mesh
       geoState->setupInitialDisplacement(input->displacements, X, A);
       mems = 0;
@@ -125,11 +125,11 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
     fixSol = 1;
 
   timeState = 0;
-  mmh = 0; 
+  mmh = 0;
 
   isMultigridTsDesc = false;
   outputOnlySpatialResidualBool = ioData.output.rom.outputOnlySpatialResidual==ROMOutputData::OUTPUT_ONLY_SPATIAL_RES_ON;
-   
+
   interpolatedICWeights.clear();
 }
 
@@ -174,7 +174,7 @@ void TsDesc<dim>::moveMesh(IoData &ioData, GeoSource &geoSource)
 //      mems = new TetMeshMotionSolver(ioData.dmesh, 0, domain, 0);
       domain->readVectorFromFile(input->wallsurfacedisplac, 0, 0, dXb);
       mems->solve(dXb, *X);
-      *Xs = *X; 
+      *Xs = *X;
       if(X->norm() == 0.0)
       {
         this->com->fprintf(stderr, "\n *** ERROR *** No Mesh Perturbation \n\n");
@@ -185,13 +185,13 @@ void TsDesc<dim>::moveMesh(IoData &ioData, GeoSource &geoSource)
 /*      double tag = 0.0;
       for(int i=0; i<1; ++i) {
         com->fprintf(stderr," *** mesh sensitivity has been computed 0.\n");
-        bool readOK = domain->readVectorFromFile(this->input->shapederivatives, 0, &tag, *dXdSb0); 
+        bool readOK = domain->readVectorFromFile(this->input->shapederivatives, 0, &tag, *dXdSb0);
         com->fprintf(stderr," *** mesh sensitivity has been computed 1.\n");
         if(readOK) {
           // Checking if dXdSb0 has entries different from zero at the interior of the mesh
 //          this->postOp->checkVec(*dXdSb0);
           com->fprintf(stderr," *** mesh sensitivity has been computed 2.\n");
-    
+
           if (dXdSb0->norm() == 0.0)
           {
             this->com->fprintf(stderr, "\n *** WARNING *** No Mesh Perturbation \n\n");
@@ -204,7 +204,7 @@ void TsDesc<dim>::moveMesh(IoData &ioData, GeoSource &geoSource)
         com->fprintf(stderr," *** mesh sensitivity has been computed 4.\n");
         *dXdS0 -= *this->X;
       }
-*/ 
+*/
       char temp[1]; temp[0] = '\0';
       geoState->setup3(temp, X, A);
       if(ioData.output.restart.positions[0] != 0) {
@@ -213,7 +213,7 @@ void TsDesc<dim>::moveMesh(IoData &ioData, GeoSource &geoSource)
         sprintf(posFile, "%s%s", ioData.output.restart.prefix, ioData.output.restart.positions);
         com->fprintf(stderr, " ... Writing Fluid mesh positions to %s\n", posFile);
         domain->writeVectorToFile(posFile, 0, 0.0, *X);
-        delete [] posFile;        
+        delete [] posFile;
       }
     } else {
       mems = 0;
@@ -273,14 +273,14 @@ DistBcData<dim> *TsDesc<dim>::createBcData(IoData &ioData)
 
   DistBcData<dim> *bc = 0;
 
-  if (ioData.eqs.type == EquationsData::NAVIER_STOKES && 
+  if (ioData.eqs.type == EquationsData::NAVIER_STOKES &&
       ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY) {
     if (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
         ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES)
       bc = new DistBcDataSA<dim>(ioData, varFcn, domain, *X);
     else if (ioData.eqs.tc.tm.type == TurbulenceModelData::TWO_EQUATION_KE)
       bc = new DistBcDataKE<dim>(ioData, varFcn, domain, *X);
-  } 
+  }
   else
     bc = new DistBcDataEuler<dim>(ioData, varFcn, domain, *X);
 
@@ -486,15 +486,15 @@ void TsDesc<dim>::formInterpolationWeights(IoData &iod) {
       _n = fscanf(paramsFile, "%lf", &(solutionsParameters[iData][iParam]));
       minParamValues[iParam] = (solutionsParameters[iData][iParam] < minParamValues[iParam]) ? solutionsParameters[iData][iParam]: minParamValues[iParam];
       maxParamValues[iParam] = (solutionsParameters[iData][iParam] > maxParamValues[iParam]) ? solutionsParameters[iData][iParam]: minParamValues[iParam];
-    } 
+    }
   }
   fclose(paramsFile);
 
   for (int iData=0; iData < nData; ++iData) {
     for (int iParam=0; iParam < nParams; ++iParam) {
       double paramRange = maxParamValues[iParam] - minParamValues[iParam];
-      solutionsParameters[iData][iParam] = (paramRange>1e-15) ? (solutionsParameters[iData][iParam] - minParamValues[iParam]) / paramRange : 0; 
-    } 
+      solutionsParameters[iData][iParam] = (paramRange>1e-15) ? (solutionsParameters[iData][iParam] - minParamValues[iParam]) / paramRange : 0;
+    }
   }
 
   // read parameters for current simulation
@@ -518,7 +518,7 @@ void TsDesc<dim>::formInterpolationWeights(IoData &iod) {
     _n = fscanf(inParams, "%lf", &(parameters[iParam]));
     com->fprintf(stdout," ... current operating point: param #%d = %e\n",iParam,parameters[iParam]);
     double paramRange = maxParamValues[iParam] - minParamValues[iParam];
-    parameters[iParam] = (paramRange>1e-15) ? (parameters[iParam] - minParamValues[iParam]) / paramRange : 0; 
+    parameters[iParam] = (paramRange>1e-15) ? (parameters[iParam] - minParamValues[iParam]) / paramRange : 0;
   }
 
   // determine weighting
@@ -553,7 +553,7 @@ void TsDesc<dim>::formInterpolationWeights(IoData &iod) {
     }
   }
 
-  
+
   if (maxInterpolatedSolutions>0 && maxInterpolatedSolutions<nData) {
     std::vector<double> sortedDistances(distances);
     std::stable_sort(sortedDistances.begin(), sortedDistances.end());
@@ -570,7 +570,7 @@ void TsDesc<dim>::formInterpolationWeights(IoData &iod) {
 
   interpolatedICWeights.resize(nData, 0.0);
 
-  if (reproductiveOperatingPoint<0) {  
+  if (reproductiveOperatingPoint<0) {
     //rbf_interp_nd_test04( ); // can use radial basis functions if necessary
     double weightSum = 0.0;
     for (int iData=0; iData<nData; ++iData) {
@@ -579,7 +579,7 @@ void TsDesc<dim>::formInterpolationWeights(IoData &iod) {
     }
     for (int iData=0; iData<nData; ++iData) {
       interpolatedICWeights[iData] = interpolatedICWeights[iData]/weightSum;
-    } 
+    }
   } else {
     com->fprintf(stdout, " ... using the training solution corresponding to the current operating point...\n");
     interpolatedICWeights[reproductiveOperatingPoint]=1.0;
@@ -647,10 +647,10 @@ void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
   char * name = new char[500];
 
   geoState->setup2(timeState->getData());
-  if (iod.input.solutions[0] == 0 && iod.input.multiSolutionsParams[0] != 0) { 
+  if (iod.input.solutions[0] == 0 && iod.input.multiSolutionsParams[0] != 0) {
     // interpolate stored solutions to find an appropriate initial condition
     double icInterpTime = timer->getTime();
-    if (interpolatedICWeights.size()==0) formInterpolationWeights(iod); 
+    if (interpolatedICWeights.size()==0) formInterpolationWeights(iod);
     this->formInterpolatedInitialCondition(U, iod);// modifies U
     timer->addICInterpTime(icInterpTime);
     timeState->setup("", *X, *U, *U, iod); // pass modified U instead of Ufarfield, name=NULL ensures this state is used
@@ -674,7 +674,7 @@ void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
 
   if (_mmh)
     _mmh->setup(&restart->frequency, &data->maxTime, postOp, *X, *U);
-  else if (_dmmh) 
+  else if (_dmmh)
     _dmmh->setup(*X);
   else if (_hmmh)
     _hmmh->setup(*X);
@@ -718,7 +718,7 @@ double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim>
 
   if(timeStepCalculation == TsData::ERRORESTIMATION && it == 1) {
     this->timeState->setDtMin(dt * data->getCflMinOverCfl0());
-  } 
+  }
 
   if (problemType[ProblemData::UNSTEADY])
     com->printf(5, "Global dt: %g (remaining subcycles = %d)\n", dt*refVal->time, numSubCycles);
@@ -770,10 +770,10 @@ double TsDesc<dim>::computePositionVector(bool *lastIt, int it, double t, DistSV
   //this->com->printf(9, "deubgging: entering computePositionVector()\n");
   if (mmh && mmh->structureSubcycling()) {
     double dtleft = 0.0;
-    double dtf = this->computeTimeStep(it+1, &dtleft, U); 
+    double dtf = this->computeTimeStep(it+1, &dtleft, U);
     mmh->storeFluidSuggestedTimestep(dtf);
   }
-    
+
   if (mmh) {
     double t0 = timer->getTime();
     dt = mmh->updateStep1(lastIt, it, t, bcData->getVelocityVector(), *Xs, &data->maxTime);
@@ -824,7 +824,7 @@ void TsDesc<dim>::receiveBoundaryPositionSensitivityVector(DistSVec<double,3> &d
 //------------------------------------------------------------------------------
 
 template<int dim>
-void TsDesc<dim>::negotiate() 
+void TsDesc<dim>::negotiate()
 {
   if (mmh)  mmh->negotiate();
 }
@@ -866,10 +866,10 @@ void TsDesc<dim>::computeMeshMetrics(int it)
     timer->addFluidSolutionTime(t0);
   }
 
-  if (mmh || hth) { 
+  if (mmh || hth) {
     bcData->update(*X);
   }
- 
+
 }
 
 //------------------------------------------------------------------------------
@@ -881,7 +881,7 @@ void TsDesc<dim>::updateStateVectors(DistSVec<double,dim> &U, int it)
   geoState->update(*X, *A);
   timeState->update(U);
 
-  spaceOp->updateFixes(); 
+  spaceOp->updateFixes();
 }
 
 //------------------------------------------------------------------------------
@@ -934,10 +934,10 @@ int TsDesc<dim>::checkSolution(DistSVec<double,dim> &U)
   int ierr = 0;
 
   if (dim == 6)
-    ierr = domain->template 
+    ierr = domain->template
       clipSolution<dim,1>(clippingType, wallType, varFcn, bcData->getInletConservativeState(), U);
   else if (dim == 7)
-    ierr = domain->template 
+    ierr = domain->template
       clipSolution<dim,2>(clippingType, wallType, varFcn, bcData->getInletConservativeState(), U);
   else
     ierr = domain->checkSolution(varFcn, U);
@@ -949,19 +949,19 @@ int TsDesc<dim>::checkSolution(DistSVec<double,dim> &U)
 //------------------------------------------------------------------------------
 
 // Included (MB)
-template<int dim> 
+template<int dim>
 void TsDesc<dim>::fixSolution(DistSVec<double,dim> &U, DistSVec<double,dim> &dU)
-{        
-          
+{
+
   if (fixSol == 1)
     domain->fixSolution(varFcn, U, dU);
-    
-}   
+
+}
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double t, 
+void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double t,
                                     DistSVec<double,dim> &U)
 {
   if (it == data->maxIts) {
@@ -969,7 +969,7 @@ void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double
   } else if (!ioData.sa.fsiFlag) {
     monitorInitialState(it, U);
   }
- 
+
   output->setMeshMotionHandler(ioData, mmh);
   output->openAsciiFiles();
   timer->setSetupTime();
@@ -1008,7 +1008,7 @@ void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double
 //------------------------------------------------------------------------------
 
 template<int dim>
-void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, int itNl, 
+void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, int itNl,
                                double t, double dt, DistSVec<double,dim> &U)
 {
 
@@ -1044,7 +1044,7 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
   if (*lastIt) {
 
     if (strcmp(ioData.input.convergence_file,"") != 0) {
-      
+
       this->varFcn->conservativeToPrimitive(U, *this->V);
       computeConvergenceInformation(ioData,ioData.input.convergence_file,*this->V);
     }
@@ -1055,9 +1055,10 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
       timer->print(domain->getStrTimer());
     }
 
-    if(ioData.problem.alltype != ProblemData::_SHAPE_OPTIMIZATION_ && 
+    if(ioData.problem.alltype != ProblemData::_SHAPE_OPTIMIZATION_ &&
        ioData.problem.alltype != ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ &&
-       ioData.problem.alltype != ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
+       ioData.problem.alltype != ProblemData::_ROM_SHAPE_OPTIMIZATION_ &&
+       ioData.problem.alltype != ProblemData::_SENSITIVITY_ANALYSIS_ ) { //TODO CHECK if really needed
       output->closeAsciiFiles();
     }
   }
@@ -1067,7 +1068,7 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
 //------------------------------------------------------------------------------
 
 template<int dim>
-void TsDesc<dim>::outputForces(IoData &ioData, bool* lastIt, int it, int itSc, int itNl, 
+void TsDesc<dim>::outputForces(IoData &ioData, bool* lastIt, int it, int itSc, int itNl,
                                double t, double dt, DistSVec<double,dim> &U)  {
 
   double cpu = timer->getRunTime();
@@ -1093,7 +1094,7 @@ void TsDesc<dim>::outputPositionVectorToDisk(DistSVec<double,dim> &U)
   domain->writeVectorToFile(restart->positions[0], 0, 0.0, *Xs, &(refVal->tlength));
 
   if(mmh && mmh->getAlgNum() == 1) {
-    output->writeDisplacementVectorToDisk(1, 1.0, *X, U); 
+    output->writeDisplacementVectorToDisk(1, 1.0, *X, U);
   }
 
   timer->setRunTime();
@@ -1141,7 +1142,7 @@ void TsDesc<dim>::resetOutputToStructure(DistSVec<double,dim> &U)
 {
 
   AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(mmh);
-  if (_mmh) 
+  if (_mmh)
     _mmh->resetOutputToStructure(postOp, *X, U);
 
 }
@@ -1185,13 +1186,13 @@ double TsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
   if (data->resType == -1){
     res = (*R)*(*R);
 
- 
-  }else{ 
+
+  }else{
     int iSub;
     const DistInfo& distInfo = R->info();
 #ifndef MPI_OMP_REDUCTION
     double* allres = reinterpret_cast<double*>(alloca(sizeof(double) * distInfo.numGlobSub));
-    for (iSub=0; iSub<distInfo.numGlobSub; ++iSub) 
+    for (iSub=0; iSub<distInfo.numGlobSub; ++iSub)
       allres[iSub] = 0.0;
 #endif
 
@@ -1220,7 +1221,7 @@ double TsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
 #else
     distInfo.com->globalSum(distInfo.numGlobSub, allres);
     res = 0.0;
-    for (iSub=0; iSub<distInfo.numGlobSub; ++iSub) 
+    for (iSub=0; iSub<distInfo.numGlobSub; ++iSub)
       res += allres[iSub];
 #endif
   }
@@ -1246,7 +1247,7 @@ void TsDesc<dim>::monitorInitialState(int it, DistSVec<double,dim> &U)
     else
       com->printf(2, "Spatial residual norm[%d] = %.12e\n", data->resType, data->residual);
     com->printf(2, "Time for one residual evaluation: %f s\n", trhs);
-  } 
+  }
 
   com->printf(2, "\n");
 
@@ -1258,17 +1259,17 @@ template<int dim>
 bool TsDesc<dim>::monitorConvergence(int it, DistSVec<double,dim> &U)
 {
 
-  // For multigrid, monitorConvergence() was already called in the 
+  // For multigrid, monitorConvergence() was already called in the
   // smoothing process.  It was called with it == 0
   // in this case we do not need to recompute it
-  // 
+  //
   if (!isMultigridTsDesc || it == 0)
     data->residual = computeResidualNorm(U);
 
   if ((problemType[ProblemData::AERO] || problemType[ProblemData::THERMO]) && (it == 1 || it == 2))
     restart->residual = data->residual;
 
-  if (data->residual == 0.0 || data->residual < data->eps * restart->residual || data->residual < data->epsabs) 
+  if (data->residual == 0.0 || data->residual < data->eps * restart->residual || data->residual < data->epsabs)
     return true;
   else
     return false;
@@ -1286,7 +1287,7 @@ bool TsDesc<dim>::monitorForceConvergence(IoData &ioData, int it, DistSVec<doubl
   double resForce;
 
   int nSurfs = postOp->getNumSurf();
-    
+
   Vec3D x0, F, M;
 
   Vec3D *Fi = new Vec3D[nSurfs];
@@ -1302,7 +1303,7 @@ bool TsDesc<dim>::monitorForceConvergence(IoData &ioData, int it, DistSVec<doubl
 
   F = 0.0;
   M = 0.0;
-  
+
   F = Fi[0] + Fv[0];
   M = Mi[0] + Mv[0];
 
@@ -1414,8 +1415,8 @@ void TsDesc<dim>::printNodalDebug(int globNodeId, int identifier, DistSVec<doubl
   for(int iSub=0; iSub<nSub; iSub++) {
     int* locToGlob = sub[iSub]->getNodeMap();
     for(int i=0; i<(*U)(iSub).size(); i++)
-      if(locToGlob[i]+1==globNodeId) { 
-        fprintf(stderr,"*** %d Node %d: U = %e %e %e %e %e ", identifier, globNodeId, 
+      if(locToGlob[i]+1==globNodeId) {
+        fprintf(stderr,"*** %d Node %d: U = %e %e %e %e %e ", identifier, globNodeId,
                 (*U)(iSub)[i][0], (*U)(iSub)[i][1], (*U)(iSub)[i][2], (*U)(iSub)[i][3], (*U)(iSub)[i][4]);
         if(Id)
           fprintf(stderr,", Id = %d ", (*Id)(iSub)[i]);
@@ -1483,7 +1484,7 @@ template<int dim>
 void TsDesc<dim>::computeConvergenceInformation(IoData &ioData, const char* file, DistSVec<double,dim>& U) {
 
   DistSVec<double,dim> Uexact(U);
-  OneDimensional::read1DSolution(ioData,file, Uexact, 
+  OneDimensional::read1DSolution(ioData,file, Uexact,
 				 (DistSVec<double,1>*)0,
 				 NULL,//&fluidSelector,
 				 spaceOp->getVarFcn(),
@@ -1517,7 +1518,7 @@ void TsDesc<dim>::computeConvergenceInformation(IoData &ioData, const char* file
   }
   this->domain->getCommunicator()->fprintf(stdout,"Linf error (total): %lf\n", tot_error);
 
-  
+
 }
 
 //----------------------------------------------------------------------------
@@ -1536,4 +1537,3 @@ void TsDesc<dim>::readICFromDisk(char * solnFile, int iData, int nData, DistSVec
     com->fprintf(stdout,"\n\n\nInitial condition %d of %d (%s)\n", iData+1, nData, solnFile);
     domain->readVectorFromFile(solnFile, 0, 0, U);
 }
-

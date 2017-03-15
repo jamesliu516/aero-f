@@ -1325,6 +1325,13 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoPrintTextOnScreen(const char
 //------------------------------------------------------------------------------
 
 template<int dim>
+void EmbeddedFluidShapeOptimizationHandler<dim>::fsaPrintTextOnScreen(const char *Text){
+   this->com->fprintf(stderr, Text);
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 bool EmbeddedFluidShapeOptimizationHandler<dim>::getdXdSb(int istep){
 
   bool found = false;

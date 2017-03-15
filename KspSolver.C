@@ -490,6 +490,156 @@ target);
   return iter;
 
 }
+
+
+
+
+template<class VecType, class MatVecProdOp, class PrecOp, class IoOp, class ScalarT>
+int
+GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::solveNew(VecType &b, VecType &x)
+{
+
+  int typePrec = 2;
+  //int typePrec = 0;
+  double beta, l2res, target, res0;
+
+  int iter = 0;
+  int exitLoop = 0;
+
+  int numOutputVecs = 0;
+
+  if (!this->pcOp)
+    typePrec = 0;
+
+  this->ioOp->printf(10, "preconditioner type is %d", typePrec);
+  do {
+
+    this->mvpOp->applyTranspose(x, w);
+    r = b - w;
+
+    if (typePrec == 1) { this->pcOp->applyT(r, w); r = w; }
+
+    beta = r.norm();
+
+    if (iter == 0) {
+      target = this->eps * (res0 = b.norm()); // beta;
+      if (this->output) this->ioOp->fprintf(this->output, "Gmres(%d) iterations:\n", numVec);
+      if (this->output) this->ioOp->fprintf(this->output, "  %d %e %e (%e)  \n", 0, beta, target, this->eps);
+    }
+    else
+      if (this->output) this->ioOp->fprintf(this->output, "  --- restart ---\n");
+
+    if (beta == 0.0) return 0;
+
+    V[0] = (1.0/beta) * r;
+
+    g = 0.0;
+    g[0] = beta;
+
+    int j;
+    for (j=0; j<numVec; ++j) {
+
+      switch (typePrec) {
+      case 0: { this->mvpOp->applyTranspose(V[j], w); } break;
+      case 1: { this->mvpOp->applyTranspose(V[j], r); this->pcOp->applyT(r, w); } break;
+      case 2: { this->pcOp->applyT(V[j], r); this->mvpOp->applyTranspose(r, w); } break;
+      }
+
+
+
+      for (int i=0; i<=j; ++i) {
+        // For complex vectors, w has to not be conjugated in the definition
+        // of the dot product
+        H[i][j] = w * V[i];
+        w -= H[i][j] * V[i];
+      }
+
+      H[j+1][j] = w.norm();
+
+      if (H[j+1][j] == 0.0) {
+
+        applyPreviousRotations(j, H, cs);
+        applyNewRotation(j, H, cs, g);
+
+        ++iter; exitLoop = 1; break;
+
+      }
+
+      V[j+1] = (1./H[j+1][j]) * w;
+
+      applyPreviousRotations(j, H, cs);
+      applyNewRotation(j, H, cs, g);
+
+      l2res = sqrt(sqNorm(g[j+1]));
+
+      ++iter;
+
+      if (this->output)
+	this->ioOp->fprintf(this->output, "  %d %e %e \n", iter, l2res, target);
+
+      if (l2res <= target || iter >= this->maxits ||
+          l2res <= this->absoluteEps) { exitLoop = 1; break; }
+
+    }
+
+    if (j == numVec) --j;
+
+    backwardSolve(j, H, g, y);
+
+    w = 0.0;
+
+    for (int m=0; m<=j; ++m) w += y[m] * V[m];
+
+    if (typePrec == 2) { this->pcOp->applyT(w, r); w = r; }
+
+    x += w;
+
+    numOutputVecs = j+1;
+
+  } while (exitLoop == 0);
+
+
+  if (this->checkFinalRes) {
+    this->mvpOp->applyTranspose(x, w);
+    r = b - w;
+    if (typePrec == 1) {
+      this->pcOp->applyT(r, w);
+      r = w;
+    }
+    if (this->output)
+      this->ioOp->fprintf(this->output, "  %d %e (actual residual norm)\n", iter, r.norm());
+    if (r.norm() > target)  {
+      if (this->output)
+        this->ioOp->fprintf(this->output, "  %d %e (actual residual norm) vs l2res: %e, target:%e\n", iter, r.norm(), l2res,
+target);
+      iter = -999;
+    }
+
+  }
+
+//  this->ioOp->printf(5, "Gmres(%d) solver: its=%d, res=%.2e, target=%.2e\n", numVec, iter, l2res, target);
+//  if (iter == this->maxits && l2res > target && outputConvergenceInfo) {
+//    this->ioOp->printf(1, "*** Warning: Gmres(%d) solver reached %d its", numVec, this->maxits);
+//    this->ioOp->printf(1, " (initial=%.2e, res=%.2e, target=%.2e, ratio = %.2e)\n", res0, l2res, target, l2res/target);
+//  }
+//
+//  if (this->kspBinaryOutput) {
+//    if (typePrec == 2) {  //apply preconditioner before outputting
+//      for (int iVec=0; iVec<numOutputVecs; ++iVec) {
+//        this->pcOp->applyTranspose(V[iVec], r);
+//        V[iVec] = r;
+//      }
+//    }
+//    this->kspBinaryOutput->writeKrylovVectors(V, y, numOutputVecs);
+//  }
+
+  return iter;
+
+}
+
+
+
+
 //------------------------------------------------------------------------------
 template<class VecType, class MatVecProdOp, class PrecOp, class IoOp, class ScalarT>
 int
@@ -601,16 +751,18 @@ target);
 
 template<class VecType, class MatVecProdOp, class PrecOp, class IoOp, class ScalarT>
 int
-GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp,ScalarT>::solveT(VecType &b,
-                VecType &x)
+GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp,ScalarT>::solveT(VecType &b, VecType &x)
 {
 
-  int typePrec = 2;
+  int typePrec = 2;//WTF
 
-  double beta, l2res, target;
+  double beta, l2res, target, res0;//TODO res0 is new
+  res0 = b.norm();
 
   int iter = 0;
   int exitLoop = 0;
+
+  int numOutputVecs = 0;//TODO new
 
   do {
 
@@ -618,17 +770,19 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp,ScalarT>::solveT(VecType &b,
 
     r = b - w;
 
-    if (typePrec == 1) { this->pcOp->applyTranspose(r, w); r = w; }
+    if (typePrec == 1) { this->pcOp->applyT(r, w); r = w; }
 
     beta = r.norm();
 
     if (iter == 0) {
-      target = this->eps * b.norm(); // beta;
- //     if (this->output) ioOp->fprintf(this->output, "GmRES iterations:\n");
- //     if (this->output) ioOp->fprintf(this->output, "  %d %e %e\n", 0, beta, target);
+      //target = this->eps * b.norm(); // TODO BUGHUNT ori
+      target = this->eps * beta;
+      //target = this->eps * (res0 = b.norm());//TODO BUGHUNT modified
+      if (this->output) this->ioOp->fprintf(this->output, "GmRES iterations:\n");
+      if (this->output) this->ioOp->fprintf(this->output, "  %d %e %e\n", 0, beta, target);
     }
-//    else
-//      if (this->output) ioOp->fprintf(this->output, "  --- restart ---\n");
+    else
+      if (this->output) this->ioOp->fprintf(this->output, "  --- restart ---\n");
 
     if (beta == 0.0) return 0;
 
@@ -641,9 +795,8 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp,ScalarT>::solveT(VecType &b,
 
       switch (typePrec) {
       case 0: { this->mvpOp->applyTranspose(V[j], w); } break;
-      case 1: { this->mvpOp->applyTranspose(V[j], r); this->pcOp->applyTranspose(r, w); } break;
-      case 2: {this->pcOp->applyTranspose(V[j], r);
-      this->mvpOp->applyTranspose(r, w);
+      case 1: { this->mvpOp->applyTranspose(V[j], r); this->pcOp->applyT(r, w); } break;
+      case 2: {this->pcOp->applyT(V[j], r);  this->mvpOp->applyTranspose(r, w);
       } break;
 
       }
@@ -673,9 +826,9 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp,ScalarT>::solveT(VecType &b,
 
       ++iter;
 
-//      if (this->output) ioOp->fprintf(this->output, "  %d %e %e\n", iter, l2res, target);
+      if (this->output) this->ioOp->fprintf(this->output, "  %d %e %e\n", iter, l2res, target);
 
-      if (l2res <= target || iter >= this->maxits) { exitLoop = 1; break; }
+      if (l2res <= target || iter >= this->maxits || l2res <= this->absoluteEps) { exitLoop = 1; break; }
 
     }
 
@@ -687,26 +840,73 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp,ScalarT>::solveT(VecType &b,
 
     for (int m=0; m<=j; ++m) w += y[m] * V[m];
 
-    if (typePrec == 2) { this->pcOp->applyTranspose(w, r); w = r; }
+    if (typePrec == 2) { this->pcOp->applyT(w, r); w = r; }
 
     x += w;
+
+    numOutputVecs = j+1;
 
   } while (exitLoop == 0);
 
 
+
+  // TODO Yungsoo's version
+  ///////////////////////////////////////////////////////////////////////////////////////////////
   if (this->checkFinalRes) {
 
     this->mvpOp->applyTranspose(x, w);
     r = b - w;
 
-    if (typePrec == 1) { this->pcOp->applyTranspose(r, w); r = w; }
+    if (typePrec == 1) { this->pcOp->applyT(r, w); r = w; }
 
-//    if (this->output)
-//      ioOp->fprintf(this->output, "  %d %e (actual residual norm)\n", iter, r.norm() );
+    if (this->output)
+      this->ioOp->fprintf(this->output, "  %d %e (actual residual norm)\n", iter, r.norm() );
 
   }
 
   return iter;
+  ///////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  //TODO BUGHUNT copied from solve
+  ////////////////////////////////////////////////////////////////////////////////////////////////
+//  if (this->checkFinalRes) {
+//      this->mvpOp->applyTranspose(x, w);
+//      r = b - w;
+//      if (typePrec == 1) {
+//        this->pcOp->applyTranspose(r, w);
+//        r = w;
+//      }
+//      if (this->output)
+//        this->ioOp->fprintf(this->output, "  %d %e (actual residual norm)\n", iter, r.norm());
+//      if (r.norm() > target)  {
+//        if (this->output)
+//          this->ioOp->fprintf(this->output, "  %d %e (actual residual norm) vs l2res: %e, target:%e\n", iter, r.norm(), l2res,
+//  target);
+//        iter = -999;
+//      }
+//
+//    }
+//
+//    this->ioOp->printf(5, "Gmres(%d) solver: its=%d, res=%.2e, target=%.2e\n", numVec, iter, l2res, target);
+//    if (iter == this->maxits && l2res > target && outputConvergenceInfo) {
+//      this->ioOp->printf(1, "*** Warning: Gmres(%d) solver reached %d its", numVec, this->maxits);
+//      this->ioOp->printf(1, " (initial=%.2e, res=%.2e, target=%.2e, ratio = %.2e)\n", res0, l2res, target, l2res/target);
+//    }
+//
+//    if (this->kspBinaryOutput) {
+//      if (typePrec == 2) {  //apply preconditioner before outputting
+//        for (int iVec=0; iVec<numOutputVecs; ++iVec) {
+//          this->pcOp->applyTranspose(V[iVec], r);
+//          V[iVec] = r;
+//        }
+//      }
+//      this->kspBinaryOutput->writeKrylovVectors(V, y, numOutputVecs);
+//    }
+//
+//    return iter;
+    ////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 }
 //------------------------------------------------------------------------------

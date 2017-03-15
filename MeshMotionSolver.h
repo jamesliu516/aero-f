@@ -92,7 +92,34 @@ protected:
 public:
 
   TetMeshMotionSolver(DefoMeshMotionData &, MatchNodeSet **, Domain *, MemoryPool *);
-  TetMeshMotionSolver(Domain *dom) : domain(dom) {};
+
+  //Constructor for Embedded ALE case
+  TetMeshMotionSolver(Domain *dom) :
+	domain(dom),
+	adjointFlag(false),
+	stiffFlag(false),
+	sensitivityFlag(false),
+	maxItsNewton(0),
+	epsNewton(0.0),
+	epsAbsResNewton(0.0),
+	epsAbsIncNewton(0.0),
+	outputNewton(NULL),
+	maxItsLS(0),
+	contractionLS(0.0),
+	sufficDecreaseLS(0.0),
+	F0(NULL),
+	dX0(NULL),
+	cs(NULL),
+	mvp(NULL),
+	pc(NULL),
+	ksp(NULL),
+	ns(NULL),
+	com(NULL),
+	timer(NULL),
+	volStiff(0.0),
+	meshMotionBCs(NULL),
+	typeElement(DefoMeshMotionData::LINEAR_FE)
+	{};
   virtual ~TetMeshMotionSolver();
 
   virtual int solve(DistSVec<double,3> &, DistSVec<double,3> &);

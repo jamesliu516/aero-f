@@ -53,8 +53,9 @@ public:
   void disableOutput() { output = NULL; } 
 
   virtual int solve(VecType &, VecType &) = 0;
+  virtual int solveNew(VecType &, VecType &) = 0;//TODO BUGHUNT
   virtual int solveT(VecType &, VecType &) = 0;
-  virtual int solveLS(VecType &, VecType &) { return 0; };
+  virtual int solveLS(VecType &, VecType &) { std::cout<<"*** ERROR solveLS bas routine called"<<std::endl; exit(-1); return 0; };
 
   void printParam() { ioOp->fprintf(stderr, " solver params: %d maxits, %e eps\n", maxits, eps);  }
 
@@ -78,6 +79,7 @@ public:
   ~RichardsonSolver() {}
 
   int solve(VecType &, VecType &);
+  int solveNew(VecType &, VecType &){return 0;};//TODO BUGHUNT
   int solveLS(VecType &, VecType &);
   int solveT(VecType &, VecType &) { return 0; }
 
@@ -97,7 +99,7 @@ public:
   ~CgSolver() {}
 
   int solve(VecType &, VecType &);
-  //int solveLS(VecType &, VecType &);
+  int solveNew(VecType &, VecType &){return 0;};//TODO BUGHUNT
   int solveLS(VecType &, VecType &);
   int solveT(VecType &, VecType &) { return 0;}
   int solveMRhs(VecType &, VecType &);
@@ -105,7 +107,7 @@ public:
 };
 
 //------------------------------------------------------------------------------
-
+//IoOp refers to the communicator here
 template<class VecType, class MatVecProdOp, class PrecOp, class IoOp, class
 		ScalarT = double>
 class GmresSolver : public KspSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT> {
@@ -129,6 +131,7 @@ public:
   void disableConvergenceInfo();
 
   int solve(VecType &, VecType &);
+  int solveNew(VecType &, VecType &);//TODO BUGHUNT
   int solveLS(VecType &, VecType &);
   int solveT(VecType &, VecType &);
   int solve(VecSet<VecType> &, VecSet<VecType> &);
@@ -168,6 +171,7 @@ public:
   ~GcrSolver() {}
                       
   int solve(VecType &, VecType &);
+  int solveNew(VecType &, VecType &){return 0;};//TODO BUGHUNT
   int solveT(VecType &, VecType &) { return 0; }
   int solveMRhs(VecType &, VecType &);
                                                         

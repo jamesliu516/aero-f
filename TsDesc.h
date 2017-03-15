@@ -50,8 +50,8 @@ public:
 protected:
   DistExactRiemannSolver<dim> *riemann1;
 
-  PosVecType *X;
-  VolVecType *A;
+  PosVecType *X; //vector of positions
+  VolVecType *A; //vector of cell volumes
   PosVecType *Xs;
 
   bool* problemType;
@@ -120,6 +120,8 @@ protected:
 
 public:
 
+  Communicator* gComm(){return this->com;};//TODO delete line HACK
+
   TsDesc(IoData &, GeoSource &, Domain *);
   virtual ~TsDesc();
 
@@ -132,8 +134,8 @@ public:
   HeatTransferHandler* createHeatTransferHandler(IoData&, GeoSource&);
 
   SpaceOperator<dim>* getSpaceOperator() { return spaceOp; }
-  Communicator* getCommunicator() { return com; } 
- 
+  Communicator* getCommunicator() { return com; }
+
   virtual bool monitorConvergence(int, DistSVec<double,dim> &);
 
   double recomputeResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
@@ -210,7 +212,7 @@ public:
   void printNodalDebug(int globNodeId, int identifier, DistSVec<double,dim> *U, DistVec<int> *Id=0, DistVec<int> *Id0=0);
 
   void computeDistanceToWall(IoData &ioData);
- 
+
   TsParameters* getTsParams() {return data;}
   ErrorHandler* getErrorHandler() {return errorHandler;}
   void computeConvergenceInformation(IoData &ioData, const char* file, DistSVec<double,dim>&);

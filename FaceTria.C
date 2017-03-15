@@ -1762,7 +1762,6 @@ void FaceTria::computeJacobianGalerkinTerm(ElemSet &elems, FemEquationTerm *fet,
 
     double dRdU[3][neq*neq];
     fet->computeJacobianSurfaceTerm(code, n, d2w, Vwall, v, reinterpret_cast<double *>(dRdU));
-
     for (int k=0; k<3; ++k) {
       Scalar *Aii = A.getElem_ii(nodeNum(k));
       for (int m=0; m<neq*neq; ++m)
