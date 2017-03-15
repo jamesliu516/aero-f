@@ -28,7 +28,8 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain,
 // Included (MB)
   if (ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
       ioData.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
-      ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
+	  ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_ ||
+	  ioData.problem.alltype == ProblemData::_SENSITIVITY_ANALYSIS_) {
     this->dXdot = new DistSVec<double,3>(nodeDistInfo);
     this->dTemp = new DistVec<double>(nodeDistInfo);
     this->dUface = new DistSVec<double,dim>(faceDistInfo);
@@ -79,7 +80,8 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain,
 // Included (MB)
     if (ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
         ioData.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
-        ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
+		ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_ ||
+		ioData.problem.alltype == ProblemData::_SENSITIVITY_ANALYSIS_) {
       if ((ioData.eqs.type == EquationsData::NAVIER_STOKES) && (ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY)) {
         if ((ioData.bc.wall.integration == BcsWallData::WALL_FUNCTION) && (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS)) {
           subBcData[iSub] = new BcData<dim>(this->Uface(iSub), this->Unode(iSub), this->Uinletnode(iSub), this->Ufarin(iSub), this->Ufarout(iSub), this->Uporouswall(iSub), (*dUface)(iSub), (*dUnode)(iSub), (*dUinletnode)(iSub), (*dUfarin)(iSub), (*dUfarout)(iSub), (*dUporouswall)(iSub), (*dUfaceSA)(iSub), (*dUnodeSA)(iSub));
@@ -179,7 +181,8 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain,
 // Included (MB)
   if (ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
       ioData.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
-      ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
+	  ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_ ||
+	  ioData.problem.alltype == ProblemData::_SENSITIVITY_ANALYSIS_) {
     (*dXdot) = 0.0;
     (*dTemp) = 0.0;
     (*dUface) = 0.0;
@@ -808,6 +811,7 @@ void DistBcDataEuler<dim>::setBoundaryConditionsGas(IoData &iod,
 
 //------------------------------------------------------------------------------
 
+
 // Included (MB)
 template<int dim>
 void DistBcDataEuler<dim>::setDerivativeOfBoundaryConditionsGas(IoData &iod,
@@ -817,28 +821,42 @@ void DistBcDataEuler<dim>::setDerivativeOfBoundaryConditionsGas(IoData &iod,
  // flow properties
   double gam = iod.eqs.fluidModel.gasModel.specificHeatRatio;
   double Pstiff = iod.eqs.fluidModel.gasModel.pressureConstant;
+
   double dPstiff = -iod.eqs.fluidModel.gasModel.pressureConstant*(-2.0 / (gam * iod.bc.inlet.mach * iod.bc.inlet.mach * iod.bc.inlet.mach)) * dM;
-//double dPstiff = iod.eqs.fluidModel.gasModel.pressureConstant*(-2.0 / (iod.bc.inlet.mach)) * dM;
+//double dPstiff = iod.eqs.fluidModel.gasModel.pressureConstant*(-2.0 / (iod.bc.inlet.mach)) * dM;//TODO WRONG
+
   double rhoin = iod.bc.inlet.density;
   double rhoout = iod.bc.outlet.density;
   double pressurein  = iod.bc.inlet.pressure + rhoin*this->gravity*this->depth;
-//double dpressurein = iod.bc.inlet.pressure * (-2.0 / (iod.bc.inlet.mach)) * dM;
+
+//double dpressurein = iod.bc.inlet.pressure * (-2.0 / (iod.bc.inlet.mach)) * dM;//TODO WRONG
   double dpressurein = -2.0 / (gam * iod.bc.inlet.mach * iod.bc.inlet.mach * iod.bc.inlet.mach) * dM;
+
   double pressureout = iod.bc.outlet.pressure + rhoout*this->gravity*this->depth;
-//double dpressureout = iod.bc.outlet.pressure * (-2.0 / (iod.bc.outlet.mach)) * dM;
+
+//double dpressureout = iod.bc.outlet.pressure * (-2.0 / (iod.bc.outlet.mach)) * dM;//TODO WRONG
   double dpressureout = -2.0 / (gam * iod.bc.outlet.mach * iod.bc.outlet.mach * iod.bc.outlet.mach) * dM;
 
   double velin2 = gam * (pressurein + Pstiff) * iod.bc.inlet.mach*iod.bc.inlet.mach / rhoin;
+
   double dvelin2 = (gam * dPstiff * iod.bc.inlet.mach*iod.bc.inlet.mach / rhoin + 2.0 * gam * pressurein * iod.bc.inlet.mach / rhoin - 2.0 / (rhoin*iod.bc.inlet.mach)) * dM;
-//double dvelin2 = (gam * (dpressurein + dPstiff) * iod.bc.inlet.mach*iod.bc.inlet.mach / rhoin + 2.0 * gam * (pressurein+Pstiff) * iod.bc.inlet.mach / rhoin) * dM;
+//double dvelin2 = (gam * (dpressurein + dPstiff) * iod.bc.inlet.mach*iod.bc.inlet.mach / rhoin + 2.0 * gam * (pressurein+Pstiff) * iod.bc.inlet.mach / rhoin) * dM;//TODO WRONG
 
   double velout2 = gam * (pressureout + Pstiff) * iod.bc.outlet.mach*iod.bc.outlet.mach / rhoout;
+
   double dvelout2 = (gam * dPstiff * iod.bc.outlet.mach*iod.bc.outlet.mach / rhoout + 2.0 * gam * pressureout * iod.bc.outlet.mach / rhoout  - 2.0 / (rhoout*iod.bc.outlet.mach)) * dM;
-//  double dvelout2 = (gam * (dpressureout + dPstiff) * iod.bc.outlet.mach*iod.bc.outlet.mach / rhoout + 2.0 * gam * (pressureout+Pstiff) * iod.bc.outlet.mach / rhoout) * dM;
+//  double dvelout2 = (gam * (dpressureout + dPstiff) * iod.bc.outlet.mach*iod.bc.outlet.mach / rhoout + 2.0 * gam * (pressureout+Pstiff) * iod.bc.outlet.mach / rhoout) * dM;//TODO wrong
+
   double velin = sqrt(velin2);
   double dvelin = dvelin2/(2*velin);
   double velout = sqrt(velout2);
   double dvelout = dvelout2/(2.0*velout);
+
+  double alpha_in  = iod.bc.inlet.alpha;
+  double alpha_out = iod.bc.outlet.alpha;
+  double beta_in   = iod.bc.inlet.beta;
+  double beta_out  = iod.bc.outlet.beta;
+
   this->dUin[0] = 0.0;
   this->dUin[1] = rhoin * dvelin * cos(iod.bc.inlet.alpha) * cos(iod.bc.inlet.beta);
   this->dUin[2] = rhoin * dvelin * cos(iod.bc.inlet.alpha)  * sin(iod.bc.inlet.beta);
@@ -876,7 +894,7 @@ void DistBcDataEuler<dim>::setDerivativeOfBoundaryConditionsGas(IoData &iod,
   this->dUout[4] += 0.0;
 
 // computation for each node according to its depth
-// this will be passed in DistTimeState to initialize simulation 
+// this will be passed in DistTimeState to initialize simulation
 #pragma omp parallel for
   for(int iSub = 0; iSub<this->numLocSub; ++iSub) {
     double (*x)[3]       = X.subData(iSub);
@@ -897,7 +915,7 @@ void DistBcDataEuler<dim>::setDerivativeOfBoundaryConditionsGas(IoData &iod,
       duin[inode][1] = this->dUin[1];
       duin[inode][2] = this->dUin[2];
       duin[inode][3] = this->dUin[3];
-      duin[inode][4] = 0.5*rhoin*dvelin2 + (dptempin+gam*dPstiff)/(gam-1.0); 
+      duin[inode][4] = 0.5*rhoin*dvelin2 + (dptempin+gam*dPstiff)/(gam-1.0);
 
       duout[inode][0] = this->dUout[0];
       duout[inode][1] = this->dUout[1];
@@ -909,6 +927,133 @@ void DistBcDataEuler<dim>::setDerivativeOfBoundaryConditionsGas(IoData &iod,
   }
 
 }
+
+////TODO this is the working version so far
+//// Included (MB)
+//template<int dim>
+//void DistBcDataEuler<dim>::setDerivativeOfBoundaryConditionsGas(IoData &iod,
+//                                DistSVec<double,3> &X, DistSVec<double,3> &dX, double dM, double dA, double dB)
+//{
+//
+// // reading flow properties from input
+//  double gam = iod.eqs.fluidModel.gasModel.specificHeatRatio;// \f$(x_1,y_1)\f$ //
+//  double Pstiff = iod.eqs.fluidModel.gasModel.pressureConstant;
+//  double rhoin = iod.bc.inlet.density;
+//  double rhoout = iod.bc.outlet.density;
+//  double pressurein  = iod.bc.inlet.pressure + rhoin*this->gravity*this->depth;
+//  double pressureout = iod.bc.outlet.pressure + rhoout*this->gravity*this->depth;
+//
+//  //squared values of
+//  double velin2 = gam * (pressurein + Pstiff) * iod.bc.inlet.mach*iod.bc.inlet.mach / rhoin;
+//  double velout2 = gam * (pressureout + Pstiff) * iod.bc.outlet.mach*iod.bc.outlet.mach / rhoout;
+//
+//  double alpha_in  = iod.bc.inlet.alpha;
+//  double alpha_out = iod.bc.outlet.alpha;
+//  double beta_in   = iod.bc.inlet.beta;
+//  double beta_out  = iod.bc.outlet.beta;
+//
+//  double dvelin2=0.0;
+//  double dvelout2=0.0;
+//  double dpressurein=0.0;
+//  double dpressureout=0.0;
+//  double dPstiff=0.0;
+//  if(true){//new derivatives
+//    double dPstiff = -iod.eqs.fluidModel.gasModel.pressureConstant*(-2.0 / (gam * iod.bc.inlet.mach * iod.bc.inlet.mach * iod.bc.inlet.mach)) * dM;
+//    double dpressurein = -2.0 / (gam * iod.bc.inlet.mach * iod.bc.inlet.mach * iod.bc.inlet.mach) * dM;
+//    double dpressureout = -2.0 / (gam * iod.bc.outlet.mach * iod.bc.outlet.mach * iod.bc.outlet.mach) * dM;
+//    double dvelin2 = (gam * dPstiff * iod.bc.inlet.mach*iod.bc.inlet.mach / rhoin + 2.0 * gam * pressurein * iod.bc.inlet.mach / rhoin - 2.0 / (rhoin*iod.bc.inlet.mach)) * dM;
+//    double dvelout2 = (gam * dPstiff * iod.bc.outlet.mach*iod.bc.outlet.mach / rhoout + 2.0 * gam * pressureout * iod.bc.outlet.mach / rhoout  - 2.0 / (rhoout*iod.bc.outlet.mach)) * dM;
+//  }else{//old derivatives
+//    double dPstiff = iod.eqs.fluidModel.gasModel.pressureConstant*(-2.0 / (iod.bc.inlet.mach)) * dM;
+//    double dpressurein = iod.bc.inlet.pressure * (-2.0 / (iod.bc.inlet.mach)) * dM;
+//    double dpressureout = iod.bc.outlet.pressure * (-2.0 / (iod.bc.outlet.mach)) * dM;
+//    double dvelin2 = (gam * (dpressurein + dPstiff) * iod.bc.inlet.mach*iod.bc.inlet.mach / rhoin + 2.0 * gam * (pressurein+Pstiff) * iod.bc.inlet.mach / rhoin) * dM;
+//    double dvelout2 = (gam * (dpressureout + dPstiff) * iod.bc.outlet.mach*iod.bc.outlet.mach / rhoout + 2.0 * gam * (pressureout+Pstiff) * iod.bc.outlet.mach / rhoout) * dM;
+//  }
+//
+//  double velin = sqrt(velin2);
+//  double dvelin = dvelin2/(2*velin);
+//  double velout = sqrt(velout2);
+//  double dvelout = dvelout2/(2.0*velout);
+//
+//  //Initialization
+//  this->dUin[0] = 0.0;
+//  this->dUin[1] = rhoin * dvelin * cos(alpha_in) * cos(beta_in);
+//  this->dUin[2] = rhoin * dvelin * cos(alpha_in)  * sin(beta_in);
+//  this->dUin[3] = rhoin * dvelin * sin(alpha_in);
+//  this->dUin[4] = (dpressurein + gam*dPstiff)/(gam - 1.0) + 0.5 * rhoin * dvelin2;
+//
+//  //TODO why is there an independent derivative?
+//  this->dUout[0] = 0.0;
+//  this->dUout[1] = rhoout * dvelout * cos(alpha_out) * cos(beta_out);
+//  this->dUout[2] = rhoout * dvelout * cos(alpha_out) * sin(beta_out);
+//  this->dUout[3] = rhoout * dvelout * sin(alpha_out);
+//  this->dUout[4] = (dpressureout + gam*dPstiff)/(gam - 1.0)  + 0.5 * rhoout * dvelout2;
+//
+//  //derivative contribution in case of alpha sensitivity
+//  if(dA!=0.0){
+//	this->dUin[0] += 0.0;
+//	this->dUin[1] += rhoin * velin * (-sin(alpha_in)*dA) * cos(beta_in);
+//	this->dUin[2] += rhoin * velin * (-sin(alpha_in)*dA) * sin(beta_in);
+//	this->dUin[3] += rhoin * velin * (cos(alpha_in)*dA);
+//	this->dUin[4] += 0.0;
+//
+//	this->dUout[0] += 0.0;
+//	this->dUout[1] += rhoout * velout * (-sin(alpha_out)*dA) * cos(beta_out);
+//	this->dUout[2] += rhoout * velout * (-sin(alpha_out)*dA) * sin(beta_out);
+//	this->dUout[3] += rhoout * velout * (cos(alpha_out)*dA);
+//	this->dUout[4] += 0.0;
+//  }
+//
+//  //derivative contribution in case of beta sensitivity
+//  if(dB!=0.0){
+//    this->dUin[0] += 0.0;
+//    this->dUin[1] += rhoin * velin * cos(alpha_in) * (-sin(beta_in)*dB);
+//    this->dUin[2] += rhoin * velin * cos(alpha_in) * (cos(beta_in)*dB);
+//    this->dUin[3] += 0.0;
+//    this->dUin[4] += 0.0;
+//
+//    this->dUout[0] += 0.0;
+//    this->dUout[1] += rhoout * velout * cos(alpha_out) * (-sin(beta_out)*dB);
+//    this->dUout[2] += rhoout * velout * cos(alpha_out) * (cos(beta_out)*dB);
+//    this->dUout[3] += 0.0;
+//    this->dUout[4] += 0.0;
+//  }
+//
+//// computation for each node according to its depth
+//// this will be passed in DistTimeState to initialize simulation
+//#pragma omp parallel for
+//  for(int iSub = 0; iSub<this->numLocSub; ++iSub) {
+//    double (*x)[3]       = X.subData(iSub);
+//    double (*dx)[3]      = dX.subData(iSub);
+//    double (*duin)[dim]  = this->dUfarin->subData(iSub);
+//    double (*duout)[dim] = this->dUfarout->subData(iSub);
+//    double ptempin, ptempout, dptempin, dptempout, un, dun;
+//
+//    for(int inode = 0; inode<this->dUnode->subSize(iSub); inode++){
+//      un = (x[inode][0]*this->ngravity[0]+x[inode][1]*this->ngravity[1]+x[inode][2]*this->ngravity[2]);
+//      dun = (dx[inode][0]*this->ngravity[0]+dx[inode][1]*this->ngravity[1]+dx[inode][2]*this->ngravity[2]);
+//      ptempin  = pressurein  + rhoin *un;
+//      ptempout = pressureout + rhoout*un;
+//      dptempin  = dpressurein + rhoin*dun;
+//      dptempout = dpressureout + rhoout*dun;
+//
+//      duin[inode][0] = this->dUin[0];
+//      duin[inode][1] = this->dUin[1];
+//      duin[inode][2] = this->dUin[2];
+//      duin[inode][3] = this->dUin[3];
+//      duin[inode][4] = 0.5*rhoin*dvelin2 + (dptempin+gam*dPstiff)/(gam-1.0);
+//
+//      duout[inode][0] = this->dUout[0];
+//      duout[inode][1] = this->dUout[1];
+//      duout[inode][2] = this->dUout[2];
+//      duout[inode][3] = this->dUout[3];
+//      duout[inode][4] = 0.5*rhoout*dvelout2 + (dptempout+gam*dPstiff)/(gam-1.0);
+//
+//    }
+//  }
+//
+//}
 
 //------------------------------------------------------------------------------
 
@@ -1259,7 +1404,7 @@ void DistBcDataEuler<dim>::setBoundaryConditionsLiquidLiquid(IoData &iod,
 
 template<int dim>
 void DistBcDataEuler<dim>::setBoundaryConditionsGasLiquid(IoData &iod,
-				DistSVec<double,3> &X)
+                                                          DistSVec<double,3> &X)
 {
   int gas = 1, liq = 0;
 
@@ -1640,7 +1785,9 @@ void DistBcDataEuler<dim>::initialize(IoData &iod, DistSVec<double,3> &X)
 
 // Included (MB)
 template<int dim>
-void DistBcDataEuler<dim>::initializeSA(IoData &iod, DistSVec<double,3> &X, DistSVec<double,3> &dX, double & dM, double & dA, double & dB)
+void DistBcDataEuler<dim>::initializeSA(IoData &iod, DistSVec<double,3> &X,
+                                        DistSVec<double,3> &dX,
+                                        double & dM, double & dA, double & dB)//indicators for mach, alpha and beta sensitivity
 {
 
   if (iod.eqs.numPhase == 1){
@@ -1682,6 +1829,15 @@ void DistBcDataEuler<dim>::initializeSA(IoData &iod, DistSVec<double,3> &X, Dist
 //  if(dUfacenorm != 0) fprintf(stderr, " *********** norm of dUface is %e\n", dUfacenorm);
 
 }
+
+
+//------------------------------------------------------------------------------
+// unode[i][5] contains k and unode[i][6] contains eps
+// TODO this function is empty becaus there is no nutilde term here.
+// Also the name EULER is misleading, since it is actually a laminar simulation
+template<int dim>
+void DistBcDataEuler<dim>::computeDerivativeOfNodeValue(DistSVec<double,3> &X, DistSVec<double,3> &dX)
+{ }
 
 //------------------------------------------------------------------------------
 
@@ -1727,7 +1883,8 @@ DistBcDataSA<dim>::DistBcDataSA(IoData &iod, VarFcn *vf, Domain *dom, DistSVec<d
 // Included (MB)
     if (iod.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
         iod.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
-        iod.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
+		iod.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_ ||
+		iod.problem.alltype == ProblemData::_SENSITIVITY_ANALYSIS_) {
       dtmp = new DistSVec<double,2>(dom->getNodeDistInfo());
     }
     else {
@@ -1959,7 +2116,8 @@ DistBcDataKE<dim>::DistBcDataKE(IoData &iod, VarFcn *vf, Domain *dom, DistSVec<d
 // Included (MB)
   if (iod.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
       iod.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
-      iod.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
+	  iod.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_ ||
+	  iod.problem.alltype == ProblemData::_SENSITIVITY_ANALYSIS_) {
     dtmp = new DistSVec<double,3>(dom->getNodeDistInfo());
   }
   else {

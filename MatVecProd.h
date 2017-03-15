@@ -8,6 +8,7 @@
 #include <complex>
 #include <RestrictionMapping.h>
 //#include <TsDesc.h>
+#include "Dev/devtools.h"
 
 typedef std::complex<double> bcomp;
 
@@ -44,7 +45,11 @@ public:
   virtual void constructOperators(Vec3D &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &,
                                   double, DistSVec<double,dim> &, DistVec<double> &, DistTimeState<dim> *, PostOperator<dim> *) = 0;
   virtual dRdXoperators<dim> *getdRdXop() = 0;
-  virtual void exportMemory(MemoryPool *mp) {}
+  virtual void exportMemory(MemoryPool *mp)
+  {
+//    Dev::Error(MPI_COMM_WORLD, "exportMemory not implemented",true); sleep(2000);
+//    std::cout<<"*** Error: exportMemory not implemented for MatVecProd:"<<__LINE__<<std::endl; exit(-1);
+  }//TODO SUSPICIOUS
 
   virtual void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
 			DistSVec<double,dim> &, DistSVec<double,dim> &) = 0;
@@ -53,20 +58,26 @@ public:
 			DistSVec<double,dim> &, DistSVec<double,dim> &) = 0;
 
   virtual void evaluateHH(DistVec<double> &hhterm,
-			  DistVec<double> &bcVal ) { }
+			  DistVec<double> &bcVal )
+  {std::cout<<"*** Error: evaluateHH not implemented for this MatVecProd"<<std::endl; exit(-1);}
 
   virtual void apply(DistSVec<double,neq> &, DistSVec<double,neq> &) = 0;
   virtual void apply(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &) = 0;
-  virtual void apply(DistVec<double> &, DistVec<double> &) { }
+  virtual void apply(DistVec<double> &, DistVec<double> &)
+  {std::cout<<"*** Error: apply not implemented for this MatVecProd"<<std::endl; exit(-1);}
 
-  virtual void apply(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &) {}
+  virtual void apply(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &)
+  {std::cout<<"*** Error: apply not implemented for this MatVecProd"<<std::endl; exit(-1);}
   
   virtual void applyT(DistSVec<double,neq> &, DistSVec<double,neq> &) = 0;
   virtual void applyT(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &) = 0;
 
   virtual void applyTranspose(DistSVec<double,neq> &, DistSVec<double,neq> &) = 0;
-  virtual void applyTranspose(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &) { }
-  virtual void applyTranspose(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &) { }
+  virtual void applyTranspose(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &)
+  {std::cout<<"*** Error: applyTranspose not implemented for this MatVecProd"<<std::endl; exit(-1);}
+
+  virtual void applyTranspose(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &)
+  {std::cout<<"*** Error: applyTranspose not implemented for this MatVecProd"<<std::endl; exit(-1);}
 
   virtual void evaluateRestrict(int, DistSVec<double,3> &, DistVec<double> &,
                 DistSVec<double,dim> &, DistSVec<double,dim> &, RestrictionMapping<dim> &,
@@ -118,17 +129,18 @@ public:
 
 // Included (MB)
   virtual void evaluateInviscid(int , DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &){
-    std::cout<<"*** Error: function evaluateInviscid not implemented"<<std::endl;}
+    std::cout<<"*** Error: function evaluateInviscid not implemented"<<std::endl; exit(-1);}
   virtual void evaluateViscous(int, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &){
-    std::cout<<"*** Error: function evaluateViscous not implemented"<<std::endl;}
+    std::cout<<"*** Error: function evaluateViscous not implemented"<<std::endl;exit(-1);}
   virtual void applyInviscid(DistSVec<double,neq> &, DistSVec<double,neq> &){
-    std::cout<<"*** Error: function applyInviscid not implemented"<<std::endl;}
+    std::cout<<"*** Error: function applyInviscid not implemented"<<std::endl;exit(-1);}
   virtual void applyViscous(DistSVec<double,neq> &, DistSVec<double,neq> &){
-    std::cout<<"*** Error: function applyViscous not implemented"<<std::endl;}
+    std::cout<<"*** Error: function applyViscous not implemented"<<std::endl;exit(-1);}
   virtual void rstSpaceOp(IoData &, VarFcn *, SpaceOperator<dim> *, bool, SpaceOperator<dim> * = 0){
-    std::cout<<"*** Error: function rstSpaceOp not implemented"<<std::endl;}
+    std::cout<<"*** Error: function rstSpaceOp not implemented"<<std::endl;exit(-1);}
 
-  virtual void attachHH(DistEmbeddedVec<double,dim>& v) { }
+  virtual void attachHH(DistEmbeddedVec<double,dim>& v)
+  {std::cout<<"*** Error: function attachHH not implemented"<<std::endl;exit(-1);}
 
   // Structure to enable fluid-structure interaction computations
   struct _fsi {
@@ -146,7 +158,8 @@ public:
     fsi = f;
   }
 
-  virtual void setTsOutput(TsOutput<dim>* outputPointer) {} 
+  virtual void setTsOutput(TsOutput<dim>* outputPointer)
+  {std::cout<<"*** Error: function setTsOutput not implemented"<<std::endl; exit(-1);}
 
 protected:
   
@@ -205,7 +218,9 @@ public:
   void attachHH(DistEmbeddedVec<double,dim>& v);
 
   void constructOperators(Vec3D &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &,
-                          double, DistSVec<double,dim> &, DistVec<double> &, DistTimeState<dim> *, PostOperator<dim> *) {}
+                          double, DistSVec<double,dim> &, DistVec<double> &, DistTimeState<dim> *, PostOperator<dim> *)
+  {std::cout<<"*** Error: function constructOperators not implemented"<<std::endl; exit(-1);}
+
   dRdXoperators<dim> *getdRdXop() { return 0;}
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
 		DistSVec<double,dim> &, DistSVec<double,dim> &);
@@ -227,8 +242,12 @@ public:
                 int (TsDesc<dim>::*checkSolution)(DistSVec<double,dim> &)=NULL);
 
   void apply(DistSVec<double,neq> &, DistSVec<double,neq> &);
-  void applyTranspose(DistSVec<double,neq> &, DistSVec<double,neq> &) {}
-  void applyTranspose(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &) { }
+  void applyTranspose(DistSVec<double,neq> &, DistSVec<double,neq> &)
+  {std::cout<<"*** Error: applyTranspose not implemented for this MatVecProdFD"<<std::endl; exit(-1);}
+
+  void applyTranspose(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &)
+  {std::cout<<"*** Error: applyTranspose not implemented for this MatVecProdFD"<<std::endl; exit(-1);}
+
   void applyWeighted(DistSVec<double,neq> &, DistSVec<double,neq> &, VarFcn *);
   void applyRestrict(DistSVec<double,neq> &, DistSVec<double,neq> &, RestrictionMapping<neq> &,
                 TsDesc<dim>* probDesc=NULL,
@@ -300,7 +319,8 @@ public:
   DistMat<Scalar,neq> &operator= (const Scalar);
 
   void constructOperators(Vec3D &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &,
-                          double, DistSVec<double,dim> &, DistVec<double> &, DistTimeState<dim> *, PostOperator<dim> *) {}
+                          double, DistSVec<double,dim> &, DistVec<double> &, DistTimeState<dim> *, PostOperator<dim> *)
+  {std::cout<<"*** Error: function constructOperators not implemented"<<std::endl;exit(-1);}
 
   dRdXoperators<dim> *getdRdXop() { return 0; }
 
@@ -320,9 +340,11 @@ public:
 
   void apply(DistSVec<double,neq> &, DistSVec<double,neq> &);
   void applyTranspose(DistSVec<double,neq> &, DistSVec<double,neq> &);
-  void applyTranspose(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &) { }
+  void applyTranspose(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &)
+  {std::cout<<"*** Error: function applyTranspose not implemented"<<std::endl;exit(-1);}
+
   void apply(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &)  {
-    std::cout << "... ERROR: ::apply function not implemented for class MatVecProdH1 with complex arguments" << endl; }
+    std::cout << "... ERROR: ::apply function not implemented for class MatVecProdH1 with complex arguments" << endl; exit(-1);}
 
   void evaluateRestrict(int, DistSVec<double,3> &, DistVec<double> &,
                 DistSVec<double,dim> &, DistSVec<double,dim> &, RestrictionMapping<dim> &,
@@ -335,10 +357,9 @@ public:
   void apply(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &);
 
   void applyT(DistSVec<double,neq> &, DistSVec<double,neq> &)  {
-    std::cout << "... ERROR: ::applyT function not implemented for class MatVecProdH1" << endl; } 
+    std::cout << "... ERROR: ::applyT function not implemented for class MatVecProdH1" << endl; exit(-1);}
   void applyT(DistSVec<bcomp,neq> &x, DistSVec<bcomp,neq> &y) { 
-    std::cout << "... ERROR: ::applyT function not implemented for class MatVecProdH1" <<
- endl; }
+    std::cout << "... ERROR: ::applyT function not implemented for class MatVecProdH1" << endl; exit(-1);}
 
   void rstSpaceOp(IoData &, VarFcn *, SpaceOperator<dim> *, bool, SpaceOperator<dim> * = 0);
  
@@ -503,7 +524,9 @@ public:
   GenMat<Scalar,dim> &operator() (int i) { return *A[i]; }
 
   void constructOperators(Vec3D &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &,
-                          double, DistSVec<double,dim> &, DistVec<double> &, DistTimeState<dim> *, PostOperator<dim> *) {}
+                          double, DistSVec<double,dim> &, DistVec<double> &, DistTimeState<dim> *, PostOperator<dim> *)
+  {std::cout<<"*** Error: function constructOperators not implemented"<<std::endl; exit(-1);}
+
   dRdXoperators<dim> *getdRdXop() { return 0; }
 /*
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
@@ -517,7 +540,9 @@ public:
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &,
                 DistSVec<double,dim> &, DistSVec<double,dim> &);
   void evaluate(DistExactRiemannSolver<dim> &, int, DistSVec<double,3> &, DistVec<double> &,
-                DistSVec<double,dim> &, DistSVec<double,dim> &) {}
+                DistSVec<double,dim> &, DistSVec<double,dim> &)
+  {std::cout<<"*** Error: function constructOperators not implemented"<<std::endl; exit(-1);}
+
   void evaluate(int , DistSVec<double,3> &, DistVec<double> &, 
                 DistSVec<double,dim> &, DistSVec<double,dim> &, Scalar);
 
@@ -554,7 +579,8 @@ public:
   void applyT(DistSVec<double,neq> &, DistSVec<double,neq> &);
   void applyT(DistSVec<bcomp,neq> &x, DistSVec<bcomp,neq> &y);
   void applyTranspose(DistSVec<double,neq> &, DistSVec<double,neq> &);
-  void applyTranspose(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &) { }
+  void applyTranspose(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &)
+  {std::cout<<"*** Error: function MatVecProdH2::applyTranspose not implemented for Embedded"<<std::endl; exit(-1);}
 
 // Included (MB)
   void evaluateInviscid(int, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
@@ -585,10 +611,11 @@ public:
 
   MatVecProdMultiPhase(DistTimeState<dim> *ts, MultiPhaseSpaceOperator<dim,dimLS> *spo,
                        DistExactRiemannSolver<dim> *rsolver, FluidSelector *fs) : 
-                       timeState(ts), spaceOp(spo), riemann(rsolver), fluidSelector(fs), isFSI(false) {}
+                       timeState(ts), spaceOp(spo), riemann(rsolver), fluidSelector(fs), isFSI(false) {}//TODO SUSPICIOUS
   virtual ~MatVecProdMultiPhase() { timeState=0; spaceOp = 0; riemann = 0; fluidSelector = 0; }
 
-  virtual void exportMemory(MemoryPool *mp) {}
+  virtual void exportMemory(MemoryPool *mp)
+  {std::cout<<"*** Error: exportMemory not implemented"<<std::endl; exit(-1);}
 
   virtual void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
                         DistSVec<double,dim> &, DistSVec<double,dimLS> &,
@@ -596,18 +623,22 @@ public:
 
   virtual void apply(DistSVec<double,dim> &, DistSVec<double,dim> &) = 0;
 
-  virtual void apply(DistEmbeddedVec<double,dim> &, DistEmbeddedVec<double,dim> &) { }
+  virtual void apply(DistEmbeddedVec<double,dim> &, DistEmbeddedVec<double,dim> &)
+  {std::cout<<"*** Error: apply not implemented for this MatVecProd:"<<__LINE__<<std::endl; exit(-1);}
 
   virtual void applyT(DistSVec<double,dim> &, DistSVec<double,dim> &) = 0;
   virtual void applyT(DistSVec<bcomp,dim> &x, DistSVec<bcomp,dim> &y) = 0;
   virtual void applyTranspose(DistSVec<double,dim> &, DistSVec<double,dim> &) = 0;
   
-  virtual void applyTranspose(DistEmbeddedVec<double,dim> &, DistEmbeddedVec<double,dim> &) { }
+  virtual void applyTranspose(DistEmbeddedVec<double,dim> &, DistEmbeddedVec<double,dim> &)
+  {std::cout<<"*** Error: applyTranspose not implemented for MultiPhase"<<std::endl; exit(-1);}
 
   virtual void evaluateHH(DistVec<double> &hhterm,
-			  DistVec<double> &bcVal ) { }
+			  DistVec<double> &bcVal )
+  {std::cout<<"*** Error: evaluateHH not implemented for MultiPhase"<<std::endl; exit(-1);}
 
-  virtual void attachHH(DistEmbeddedVec<double,dim>& v) { }
+  virtual void attachHH(DistEmbeddedVec<double,dim>& v)
+  {std::cout<<"*** Error: attachHH not implemented for MultiPhase"<<std::endl; exit(-1);}
   
   // Structure to enable fluid-structure interaction computations
   struct _fsi {
@@ -676,10 +707,17 @@ public:
 
   void apply(DistEmbeddedVec<double,dim> &, DistEmbeddedVec<double,dim> &);
 
-  void applyT(DistSVec<double,dim> &, DistSVec<double,dim> &) {}
-  void applyT(DistSVec<bcomp,dim> &x, DistSVec<bcomp,dim> &y) {}
-  void applyTranspose(DistSVec<double,dim> &, DistSVec<double,dim> &) {}
-  void applyTranspose(DistEmbeddedVec<double,dim> &, DistEmbeddedVec<double,dim> &) { }
+  void applyT(DistSVec<double,dim> &, DistSVec<double,dim> &)
+  {std::cout<<"*** Error: applyT not implemented for MultiPhase"<<std::endl; exit(-1);}
+
+  void applyT(DistSVec<bcomp,dim> &x, DistSVec<bcomp,dim> &y)
+  {std::cout<<"*** Error: applyT not implemented for MultiPhase"<<std::endl; exit(-1);}
+
+  void applyTranspose(DistSVec<double,dim> &, DistSVec<double,dim> &)
+  {std::cout<<"*** Error: applyTranspose not implemented for MultiPhase"<<std::endl; exit(-1);}
+
+  void applyTranspose(DistEmbeddedVec<double,dim> &, DistEmbeddedVec<double,dim> &)
+  {std::cout<<"*** Error: applyTranspose not implemented for MultiPhase"<<std::endl; exit(-1);}
   
   void evaluateHH(DistVec<double> &hhterm,
 		  DistVec<double> &bcVal );
@@ -720,10 +758,17 @@ public:
   void apply(DistSVec<double,dim> &, DistSVec<double,dim> &);
 
   void apply(DistEmbeddedVec<double,dim> &, DistEmbeddedVec<double,dim> &);
-  void applyT(DistSVec<double,dim> &, DistSVec<double,dim> &) {}
-  void applyT(DistSVec<bcomp,dim> &x, DistSVec<bcomp,dim> &y) {}
-  void applyTranspose(DistSVec<double,dim> &, DistSVec<double,dim> &) {}
-  void applyTranspose(DistEmbeddedVec<double,dim> &, DistEmbeddedVec<double,dim> &) { }
+  void applyT(DistSVec<double,dim> &, DistSVec<double,dim> &)
+  {std::cout<<"*** Error: applyT not implemented for MatVecProdH1MultiPhase"<<std::endl; exit(-1);}
+
+  void applyT(DistSVec<bcomp,dim> &x, DistSVec<bcomp,dim> &y)
+  {std::cout<<"*** Error: applyT not implemented for MatVecProdH1MultiPhase"<<std::endl; exit(-1);}
+
+  void applyTranspose(DistSVec<double,dim> &, DistSVec<double,dim> &)
+  {std::cout<<"*** Error: applyTranspose not implemented for MatVecProdH1MultiPhase"<<std::endl; exit(-1);}
+
+  void applyTranspose(DistEmbeddedVec<double,dim> &, DistEmbeddedVec<double,dim> &)
+  {std::cout<<"*** Error: applyTranspose not implemented for MatVecProdH1MultiPhase"<<std::endl; exit(-1);}
 };
 
 //----------------------------------------------------------------------------//
@@ -769,10 +814,17 @@ public:
 
   void apply(DistSVec<double,dimLS> &, DistSVec<double,dimLS> &);
 
-  void applyT(DistSVec<double,dimLS> &, DistSVec<double,dimLS> &) {}
-  void applyT(DistSVec<bcomp,dimLS> &x, DistSVec<bcomp,dimLS> &y) {}
-  void applyTranspose(DistSVec<double,dimLS> &, DistSVec<double,dimLS> &) {}
-  void applyTranspose(DistEmbeddedVec<double,dimLS> &, DistEmbeddedVec<double,dimLS> &) { }
+  void applyT(DistSVec<double,dimLS> &, DistSVec<double,dimLS> &)
+  {std::cout<<"*** Error: function applyT not implemented for MatVecProdLS:"<<__LINE__<<std::endl; exit(-1);}
+
+  void applyT(DistSVec<bcomp,dimLS> &x, DistSVec<bcomp,dimLS> &y)
+  {std::cout<<"*** Error: function applyT not implemented for MatVecProdLS:"<<__LINE__<<std::endl; exit(-1);}
+
+  void applyTranspose(DistSVec<double,dimLS> &, DistSVec<double,dimLS> &)
+  {std::cout<<"*** Error: function applyTranspose not implemented for MatVecProdLS:"<<__LINE__<<std::endl; exit(-1);}
+
+  void applyTranspose(DistEmbeddedVec<double,dimLS> &, DistEmbeddedVec<double,dimLS> &)
+  {std::cout<<"*** Error: applyTranspose not implemented for MatVecProdLS:"<<__LINE__<<std::endl; exit(-1);}
 
 };
                                                                                                                       

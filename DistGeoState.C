@@ -104,7 +104,8 @@ DistGeoState::DistGeoState(IoData &ioData, Domain *dom) : data(ioData), domain(d
 // Included (MB)
   if (ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
       ioData.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
-      ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_){
+	  ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_ ||
+	  ioData.problem.alltype == ProblemData::_SENSITIVITY_ANALYSIS_){
     optFlag = 1;
     Xsa = new DistSVec<double,3>(domain->getNodeDistInfo());
     dXsa = new DistSVec<double,3>(domain->getNodeDistInfo());
@@ -643,9 +644,11 @@ void DistGeoState::compute(TimeData &timeData, DistSVec<double,3> &Xsdot,
 //------------------------------------------------------------------------------
 
 // Included (MB)
-void DistGeoState::computeDerivatives(DistSVec<double,3> &X, DistSVec<double,3> &dX, 
-                                      DistSVec<double,3> &Xsdot, DistSVec<double,3> &dXsdot, 
-                                      DistVec<double> &dCtrlVol)
+void DistGeoState::computeDerivatives(DistSVec<double,3> &X,       //mesh position
+                                      DistSVec<double,3> &dX,      //derivative of mesh positions
+                                      DistSVec<double,3> &Xsdot,   //boundary velocity
+                                      DistSVec<double,3> &dXsdot,  //derivative of boundary velocity
+                                      DistVec<double> &dCtrlVol)   //derivative of control volumes
 {
 
 //Remark: Error mesage for pointers

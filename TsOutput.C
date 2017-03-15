@@ -18,9 +18,115 @@
 //------------------------------------------------------------------------------
 
 template<int dim>
-TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> *po) : 
-  refVal(rv), domain(dom), postOp(po), rmmh(0)
+TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> *po) :
+refVal(rv),
+domain(dom),
+postOp(po),
+rmmh(0),
+hmmh(NULL),
+smmh(NULL),
+pmmh(NULL),
+dmmh(NULL),
+com(NULL),
+steady(false),
+it0(0),
+frequency(-1),
+frequency_dt(-1.0),
+prtout(-1.0),
+numFluidPhases(-1),
+length(-1.0),
+surface(-1.0),
+stateOutputFreqTime(-1),
+stateOutputFreqNewton(-1),
+residualOutputFreqTime(-1),
+residualOutputMaxNewton(-1),
+fdResiduals(false),
+fdResidualsLimit(false),
+externalSI(false),
+fullOptPressureName(NULL),
+optPressureDimensional(false),
+forces(NULL),
+tavforces(NULL),
+hydrostaticforces(NULL),
+hydrodynamicforces(NULL),
+lift(NULL),
+matchpressure(NULL),
+matchstate(NULL),
+fluxnorm(NULL),
+tavlift(NULL),
+hydrostaticlift(NULL),
+hydrodynamiclift(NULL),
+generalizedforces(NULL),
+residuals(NULL),
+material_volumes(NULL),
+material_mass_energy(NULL),
+conservation(NULL),
+modeFile(NULL),
+embeddedsurface(NULL),
+embeddedsurfaceCp(NULL),
+embeddedsurfaceCf(NULL),
+cputiming(NULL),
+stateVectors(NULL),
+stateMaskVectors(NULL),
+residualVectors(NULL),
+tscale(NULL),
+xscale(NULL),
+TavF(NULL),
+TavM(NULL),
+TavL(NULL),
+mX(NULL),
+tprevf(-1.0),
+tprevl(-1.0),
+tinit(-1.0),
+tener(-1.0),
+tenerold(-1.0),
+fpForces(NULL),
+fpLift(NULL),
+fpTavForces(NULL),
+fpTavLift(NULL),
+fpHydroStaticForces(NULL),
+fpHydroDynamicForces(NULL),
+fpHydroStaticLift(NULL),
+fpHydroDynamicLift(NULL),
+fpResiduals(NULL),
+fpMatchPressure(NULL),
+fpMatchState(NULL),
+fpFluxNorm(NULL),
+fpMatVolumes(NULL),
+fpMaterialMassEnergy(NULL),
+fpConservationErr(NULL),
+fpGnForces(NULL),
+fpStateRom(NULL),
+fpError(NULL),
+fpEmbeddedSurface(NULL),
+fpCpuTiming(NULL),
+fpEmbeddedSurfaceCp(NULL),
+fpEmbeddedSurfaceCf(NULL),
+Qs(NULL),
+Qv(NULL),
+Qs_match(NULL),
+Qs_match_opt(NULL),
+Uref(NULL),
+Uref_norm(-1.0),
+switchOpt(false),
+dMatchPressure(NULL),
+dForces(NULL),
+dLiftDrag(NULL),
+dFluxNorm(NULL),
+fpdMatchPressure(NULL),
+fpdForces(NULL),
+fpdLiftDrag(NULL),
+fpdFluxNorm(NULL),
+heatfluxes(NULL),
+fpHeatFluxes(NULL)
 {
+
+//  //temporary initialziaze string for the writing of TempStateDeriv
+//  if (iod.sa.tempStateDeriv[0]!=0) {
+//    const char* tempStateDerivName = iod.sa.tempStateDeriv;
+//    this->tempStateDeriv = new char[strlen(iod.input.prefix) + strlen(tempStateDerivName) + 1];
+//    sprintf(fullOptPressureName, "%s%s", iod.input.prefix, this->tempStateDeriv);
+//  }
 
   int i;
 
@@ -34,7 +140,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   Qs_match_opt = 0;
   Uref = 0;
   Uref_norm = -1.0;
-  
+
   for (i=0; i<PostFcn::AVSSIZE; ++i) AvQs[i] = 0;
   for (i=0; i<PostFcn::AVVSIZE; ++i) AvQv[i] = 0;
 
@@ -44,7 +150,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   stateOutputFreqTime = iod.output.rom.stateOutputFreqTime;
   stateOutputFreqNewton = iod.output.rom.stateOutputFreqNewton;
   residualOutputFreqTime = iod.output.rom.residualOutputFreqTime;
-  residualOutputMaxNewton = iod.output.rom.residualOutputMaxNewton; 
+  residualOutputMaxNewton = iod.output.rom.residualOutputMaxNewton;
   fdResiduals = (iod.output.rom.fdResiduals == ROMOutputData::FD_RESIDUALS_ON) ? true : false;
   fdResidualsLimit = (iod.output.rom.fdResidualsLimit == ROMOutputData::FD_RESIDUALS_LIMIT_ON) ? true : false;
 
@@ -105,21 +211,21 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   sscale[PostFcn::TEMPERATURE] = iod.ref.rv.temperature;
   vscale[PostFcn::VELOCITY] = iod.ref.rv.velocity;
   vscale[PostFcn::DISPLACEMENT] = iod.ref.rv.tlength;
-  
+
   if (iod.output.transient.density[0] != 0) {
     scalars[PostFcn::DENSITY] = new char[sp + strlen(iod.output.transient.density)];
-    sprintf(scalars[PostFcn::DENSITY], "%s%s", 
+    sprintf(scalars[PostFcn::DENSITY], "%s%s",
             iod.output.transient.prefix, iod.output.transient.density);
   }
   if (iod.output.transient.tavdensity[0] != 0) {
     avsscale[PostFcn::DENSITYAVG] = iod.ref.rv.density;
     avscalars[PostFcn::DENSITYAVG] = new char[sp + strlen(iod.output.transient.tavdensity)];
-    sprintf(avscalars[PostFcn::DENSITYAVG], "%s%s", 
+    sprintf(avscalars[PostFcn::DENSITYAVG], "%s%s",
             iod.output.transient.prefix, iod.output.transient.tavdensity);
   }
   if (iod.output.transient.mach[0] != 0) {
     scalars[PostFcn::MACH] = new char[sp + strlen(iod.output.transient.mach)];
-    sprintf(scalars[PostFcn::MACH], "%s%s", 
+    sprintf(scalars[PostFcn::MACH], "%s%s",
             iod.output.transient.prefix, iod.output.transient.mach);
   }
   if (iod.output.transient.wtmach[0] != 0) {
@@ -139,12 +245,12 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   }
   if (iod.output.transient.tavmach[0] != 0) {
     avscalars[PostFcn::MACHAVG] = new char[sp + strlen(iod.output.transient.tavmach)];
-    sprintf(avscalars[PostFcn::MACHAVG], "%s%s", 
+    sprintf(avscalars[PostFcn::MACHAVG], "%s%s",
             iod.output.transient.prefix, iod.output.transient.tavmach);
   }
   if (iod.output.transient.pressure[0] != 0) {
     scalars[PostFcn::PRESSURE] = new char[sp + strlen(iod.output.transient.pressure)];
-    sprintf(scalars[PostFcn::PRESSURE], "%s%s", 
+    sprintf(scalars[PostFcn::PRESSURE], "%s%s",
             iod.output.transient.prefix, iod.output.transient.pressure);
   }
   if (iod.output.transient.diffpressure[0] != 0) {
@@ -156,7 +262,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   if (iod.output.transient.tavpressure[0] != 0) {
     avsscale[PostFcn::PRESSUREAVG] = iod.ref.rv.pressure;
     avscalars[PostFcn::PRESSUREAVG] = new char[sp + strlen(iod.output.transient.tavpressure)];
-    sprintf(avscalars[PostFcn::PRESSUREAVG], "%s%s", 
+    sprintf(avscalars[PostFcn::PRESSUREAVG], "%s%s",
             iod.output.transient.prefix, iod.output.transient.tavpressure);
   }
   if (iod.output.transient.hydrostaticpressure[0] != 0) {
@@ -180,37 +286,37 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   if (iod.output.transient.temperature[0] != 0) {
 //    sscale[PostFcn::TEMPERATURE] = 1;
     scalars[PostFcn::TEMPERATURE] = new char[sp + strlen(iod.output.transient.temperature)];
-    sprintf(scalars[PostFcn::TEMPERATURE], "%s%s", 
+    sprintf(scalars[PostFcn::TEMPERATURE], "%s%s",
             iod.output.transient.prefix, iod.output.transient.temperature);
   }
   if (iod.output.transient.tavtemperature[0] != 0) {
     avsscale[PostFcn::TEMPERATUREAVG] = iod.ref.rv.temperature;
     avscalars[PostFcn::TEMPERATUREAVG] = new char[sp + strlen(iod.output.transient.tavtemperature)];
-    sprintf(avscalars[PostFcn::TEMPERATUREAVG], "%s%s", 
+    sprintf(avscalars[PostFcn::TEMPERATUREAVG], "%s%s",
             iod.output.transient.prefix, iod.output.transient.tavtemperature);
   }
   if (iod.output.transient.totalpressure[0] != 0) {
     sscale[PostFcn::TOTPRESSURE] = iod.ref.rv.pressure;
     scalars[PostFcn::TOTPRESSURE] = new char[sp + strlen(iod.output.transient.totalpressure)];
-    sprintf(scalars[PostFcn::TOTPRESSURE], "%s%s", 
+    sprintf(scalars[PostFcn::TOTPRESSURE], "%s%s",
             iod.output.transient.prefix, iod.output.transient.totalpressure);
   }
   if (iod.output.transient.tavtotalpressure[0] != 0) {
     avsscale[PostFcn::TOTPRESSUREAVG] = iod.ref.rv.pressure;
     avscalars[PostFcn::TOTPRESSUREAVG] = new char[sp + strlen(iod.output.transient.tavtotalpressure)];
-    sprintf(avscalars[PostFcn::TOTPRESSUREAVG], "%s%s", 
+    sprintf(avscalars[PostFcn::TOTPRESSUREAVG], "%s%s",
             iod.output.transient.prefix, iod.output.transient.tavtotalpressure);
   }
   if (iod.output.transient.vorticity[0] != 0) {
     sscale[PostFcn::VORTICITY] = iod.ref.rv.velocity/iod.ref.rv.tlength;
     scalars[PostFcn::VORTICITY] = new char[sp + strlen(iod.output.transient.vorticity)];
-    sprintf(scalars[PostFcn::VORTICITY], "%s%s", 
+    sprintf(scalars[PostFcn::VORTICITY], "%s%s",
             iod.output.transient.prefix, iod.output.transient.vorticity);
   }
   if (iod.output.transient.tavvorticity[0] != 0) {
     avsscale[PostFcn::VORTICITYAVG] = iod.ref.rv.velocity/iod.ref.rv.tlength;
     avscalars[PostFcn::VORTICITYAVG] = new char[sp + strlen(iod.output.transient.tavvorticity)];
-    sprintf(avscalars[PostFcn::VORTICITYAVG], "%s%s", 
+    sprintf(avscalars[PostFcn::VORTICITYAVG], "%s%s",
             iod.output.transient.prefix, iod.output.transient.tavvorticity);
   }
   if (iod.output.transient.surfaceheatflux[0] != 0) {
@@ -228,25 +334,25 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   if (iod.output.transient.nutturb[0] != 0) {
     sscale[PostFcn::NUT_TURB] = iod.ref.rv.viscosity_mu/iod.ref.rv.density;
     scalars[PostFcn::NUT_TURB] = new char[sp + strlen(iod.output.transient.nutturb)];
-    sprintf(scalars[PostFcn::NUT_TURB], "%s%s", 
+    sprintf(scalars[PostFcn::NUT_TURB], "%s%s",
             iod.output.transient.prefix, iod.output.transient.nutturb);
   }
   if (iod.output.transient.kturb[0] != 0) {
     sscale[PostFcn::K_TURB] = iod.ref.rv.kenergy;
     scalars[PostFcn::K_TURB] = new char[sp + strlen(iod.output.transient.kturb)];
-    sprintf(scalars[PostFcn::K_TURB], "%s%s", 
+    sprintf(scalars[PostFcn::K_TURB], "%s%s",
             iod.output.transient.prefix, iod.output.transient.kturb);
   }
   if (iod.output.transient.epsturb[0] != 0) {
     sscale[PostFcn::EPS_TURB] = iod.ref.rv.epsilon;
     scalars[PostFcn::EPS_TURB] = new char[sp + strlen(iod.output.transient.epsturb)];
-    sprintf(scalars[PostFcn::EPS_TURB], "%s%s", 
+    sprintf(scalars[PostFcn::EPS_TURB], "%s%s",
             iod.output.transient.prefix, iod.output.transient.epsturb);
   }
   if (iod.output.transient.eddyvis[0] != 0) {
     sscale[PostFcn::EDDY_VISCOSITY] = iod.ref.rv.viscosity_mu;
     scalars[PostFcn::EDDY_VISCOSITY] = new char[sp + strlen(iod.output.transient.eddyvis)];
-    sprintf(scalars[PostFcn::EDDY_VISCOSITY], "%s%s", 
+    sprintf(scalars[PostFcn::EDDY_VISCOSITY], "%s%s",
             iod.output.transient.prefix, iod.output.transient.eddyvis);
   }
   if (iod.output.transient.dplus[0] != 0) {
@@ -259,7 +365,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     sscale[PostFcn::DELTA_PLUS] = iod.ref.rv.tpower / (iod.ref.length*iod.ref.length);
 #endif
     scalars[PostFcn::DELTA_PLUS] = new char[sp + strlen(iod.output.transient.dplus)];
-    sprintf(scalars[PostFcn::DELTA_PLUS], "%s%s", 
+    sprintf(scalars[PostFcn::DELTA_PLUS], "%s%s",
             iod.output.transient.prefix, iod.output.transient.dplus);
   }
   if (iod.output.transient.sfric[0] != 0) {
@@ -274,12 +380,12 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   }
   if (iod.output.transient.psensor[0] != 0) {
     scalars[PostFcn::PSENSOR] = new char[sp + strlen(iod.output.transient.psensor)];
-    sprintf(scalars[PostFcn::PSENSOR], "%s%s", 
+    sprintf(scalars[PostFcn::PSENSOR], "%s%s",
             iod.output.transient.prefix, iod.output.transient.psensor);
   }
   if (iod.output.transient.csdles[0] != 0) {
     scalars[PostFcn::CSDLES] = new char[sp + strlen(iod.output.transient.csdles)];
-    sprintf(scalars[PostFcn::CSDLES], "%s%s", 
+    sprintf(scalars[PostFcn::CSDLES], "%s%s",
             iod.output.transient.prefix, iod.output.transient.csdles);
   }
   if (iod.output.transient.tavcsdles[0] != 0) {
@@ -334,24 +440,24 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   }
   if (iod.output.transient.velocity[0] != 0) {
     vectors[PostFcn::VELOCITY] = new char[sp + strlen(iod.output.transient.velocity)];
-    sprintf(vectors[PostFcn::VELOCITY], "%s%s", 
+    sprintf(vectors[PostFcn::VELOCITY], "%s%s",
             iod.output.transient.prefix, iod.output.transient.velocity);
   }
   if (iod.output.transient.tavvelocity[0] != 0) {
     avvscale[PostFcn::VELOCITYAVG] = iod.ref.rv.velocity;
     avvectors[PostFcn::VELOCITYAVG] = new char[sp + strlen(iod.output.transient.tavvelocity)];
-    sprintf(avvectors[PostFcn::VELOCITYAVG], "%s%s", 
+    sprintf(avvectors[PostFcn::VELOCITYAVG], "%s%s",
             iod.output.transient.prefix, iod.output.transient.tavvelocity);
   }
   if (iod.output.transient.displacement[0] != 0) {
     vectors[PostFcn::DISPLACEMENT] = new char[sp + strlen(iod.output.transient.displacement)];
-    sprintf(vectors[PostFcn::DISPLACEMENT], "%s%s", 
+    sprintf(vectors[PostFcn::DISPLACEMENT], "%s%s",
             iod.output.transient.prefix, iod.output.transient.displacement);
   }
   if (iod.output.transient.tavdisplacement[0] != 0) {
     avvscale[PostFcn::DISPLACEMENTAVG] = iod.ref.rv.tlength;
     avvectors[PostFcn::DISPLACEMENTAVG] = new char[sp + strlen(iod.output.transient.tavdisplacement)];
-    sprintf(avvectors[PostFcn::DISPLACEMENTAVG], "%s%s", 
+    sprintf(avvectors[PostFcn::DISPLACEMENTAVG], "%s%s",
             iod.output.transient.prefix, iod.output.transient.tavdisplacement);
   }
 
@@ -396,7 +502,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   }
   else
     hydrodynamicforces = 0;
-    
+
   mX = 0;
   if (iod.output.transient.generalizedforces[0] != 0 && strcmp(iod.input.strModesFile, "") != 0) {
     generalizedforces = new char[sp + strlen(iod.output.transient.generalizedforces)];
@@ -415,22 +521,22 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
       // We read the modal deformations
       mX = new VecSet<DistSVec<double,3> >(nStrMode, domain->getNodeDistInfo());
 
-      for(int iMode = 0; iMode < nStrMode; ++iMode) 
+      for(int iMode = 0; iMode < nStrMode; ++iMode)
         domain->readVectorFromFile(modeFile, iMode+1, &f, (*mX)[iMode]);
      }
-     else 
+     else
       mX = 0;
   }
-  else 
+  else
     {
       generalizedforces = 0;
       modeFile =0;
     }
-  
+
   if (iod.output.transient.generalizedforces[0] != 0 && !(iod.problem.type[ProblemData::FORCED]) && strcmp(iod.input.strModesFile, "") == 0)
     fprintf(stderr, "Error : StrModes file for Generalized Forces not given.. Aborting !! \n");
-    
-  
+
+
   if (iod.output.transient.lift[0] != 0){
     lift = new char[sp + strlen(iod.output.transient.lift)];
     sprintf(lift, "%s%s", iod.output.transient.prefix, iod.output.transient.lift);
@@ -472,7 +578,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   }
   else
     hydrostaticlift = 0;
-                                                                                                                                                                                                     
+
   if (iod.output.transient.hydrodynamiclift[0] != 0) {
     hydrodynamiclift = new char[sp + strlen(iod.output.transient.hydrodynamiclift)];
     sprintf(hydrodynamiclift, "%s%s", iod.output.transient.prefix, iod.output.transient.hydrodynamiclift);
@@ -510,14 +616,14 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
 
   if (iod.output.transient.embeddedsurface[0] != 0) {
     embeddedsurface = new char[sp + strlen(iod.output.transient.embeddedsurface)];
-    sprintf(embeddedsurface, "%s%s", iod.output.transient.prefix, iod.output.transient.embeddedsurface); 
+    sprintf(embeddedsurface, "%s%s", iod.output.transient.prefix, iod.output.transient.embeddedsurface);
   }
   else
     embeddedsurface = 0;
 
   if (iod.output.transient.cputiming[0] != 0) {
     cputiming = new char[sp + strlen(iod.output.transient.cputiming)];
-    sprintf(cputiming, "%s%s", iod.output.transient.prefix, iod.output.transient.cputiming); 
+    sprintf(cputiming, "%s%s", iod.output.transient.prefix, iod.output.transient.cputiming);
   }
   else
     cputiming = 0;
@@ -558,7 +664,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
 	iod.problem.framework==ProblemData::EMBEDDEDALE) &&
        iod.output.transient.pressurecoefficient[0] != 0) {
     embeddedsurfaceCp = new char[sp + strlen(iod.output.transient.pressurecoefficient)];
-    sprintf(embeddedsurfaceCp, "%s%s%s", iod.output.transient.prefix, "emb_", iod.output.transient.pressurecoefficient); 
+    sprintf(embeddedsurfaceCp, "%s%s%s", iod.output.transient.prefix, "emb_", iod.output.transient.pressurecoefficient);
   }  else
     embeddedsurfaceCp = 0;
 
@@ -567,7 +673,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
 	iod.problem.framework==ProblemData::EMBEDDEDALE) &&
        iod.output.transient.sfric[0] != 0) {
     embeddedsurfaceCf = new char[sp + strlen(iod.output.transient.sfric)];
-    sprintf(embeddedsurfaceCf, "%s%s%s", iod.output.transient.prefix, "emb_", iod.output.transient.sfric); 
+    sprintf(embeddedsurfaceCf, "%s%s%s", iod.output.transient.prefix, "emb_", iod.output.transient.sfric);
   }  else
     embeddedsurfaceCf = 0;
 
@@ -611,7 +717,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   fpHydroDynamicForces = new FILE *[nSurf];
   fpHydroStaticLift    = new FILE *[nSurf];
   fpHydroDynamicLift   = new FILE *[nSurf];
-  fpHeatFluxes         = new FILE *[nSurfHF]; 
+  fpHeatFluxes         = new FILE *[nSurfHF];
 
   for (int iSurf = 0; iSurf < nSurf; iSurf++)  {
     fpForces[iSurf]          = 0;
@@ -625,7 +731,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   }
 
   for (int iSurf = 0; iSurf < nSurfHF; iSurf++)  {
-    fpHeatFluxes[iSurf]         = 0; 
+    fpHeatFluxes[iSurf]         = 0;
   }
 
 
@@ -633,13 +739,14 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   if (iod.output.transient.velocitynorm[0] != 0) {
     sscale[PostFcn::VELOCITY_NORM] = iod.ref.rv.velocity;
     scalars[PostFcn::VELOCITY_NORM] = new char[sp + strlen(iod.output.transient.velocitynorm)];
-    sprintf(scalars[PostFcn::VELOCITY_NORM], "%s%s", 
+    sprintf(scalars[PostFcn::VELOCITY_NORM], "%s%s",
             iod.output.transient.prefix, iod.output.transient.velocitynorm);
   }
 
   if (iod.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
       iod.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
-      iod.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
+      iod.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_ ||
+      iod.problem.alltype == ProblemData::_SENSITIVITY_ANALYSIS_ ) { //TODO CHECK if needed
 
   int dsp = strlen(iod.output.transient.prefix) + 1;
 
@@ -663,60 +770,60 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   if (iod.output.transient.dDensity[0] != 0) {
     dSscale[PostFcn::DERIVATIVE_DENSITY] = iod.ref.rv.density;
     dScalars[PostFcn::DERIVATIVE_DENSITY] = new char[dsp + strlen(iod.output.transient.dDensity)];
-    sprintf(dScalars[PostFcn::DERIVATIVE_DENSITY], "%s%s", 
+    sprintf(dScalars[PostFcn::DERIVATIVE_DENSITY], "%s%s",
             iod.output.transient.prefix, iod.output.transient.dDensity);
   }
   if (iod.output.transient.dMach[0] != 0) {
     dScalars[PostFcn::DERIVATIVE_MACH] = new char[dsp + strlen(iod.output.transient.dMach)];
-    sprintf(dScalars[PostFcn::DERIVATIVE_MACH], "%s%s", 
+    sprintf(dScalars[PostFcn::DERIVATIVE_MACH], "%s%s",
             iod.output.transient.prefix, iod.output.transient.dMach);
   }
   if (iod.output.transient.dPressure[0] != 0) {
     dSscale[PostFcn::DERIVATIVE_PRESSURE] = iod.ref.rv.pressure;
     dScalars[PostFcn::DERIVATIVE_PRESSURE] = new char[dsp + strlen(iod.output.transient.dPressure)];
-    sprintf(dScalars[PostFcn::DERIVATIVE_PRESSURE], "%s%s", 
+    sprintf(dScalars[PostFcn::DERIVATIVE_PRESSURE], "%s%s",
             iod.output.transient.prefix, iod.output.transient.dPressure);
   }
   if (iod.output.transient.dTemperature[0] != 0) {
     dSscale[PostFcn::DERIVATIVE_TEMPERATURE] = iod.ref.rv.temperature;
     dScalars[PostFcn::DERIVATIVE_TEMPERATURE] = new char[dsp + strlen(iod.output.transient.dTemperature)];
-    sprintf(dScalars[PostFcn::DERIVATIVE_TEMPERATURE], "%s%s", 
+    sprintf(dScalars[PostFcn::DERIVATIVE_TEMPERATURE], "%s%s",
             iod.output.transient.prefix, iod.output.transient.dTemperature);
   }
   if (iod.output.transient.dTotalpressure[0] != 0) {
     dSscale[PostFcn::DERIVATIVE_TOTPRESSURE] = iod.ref.rv.pressure;
     dScalars[PostFcn::DERIVATIVE_TOTPRESSURE] = new char[dsp + strlen(iod.output.transient.dTotalpressure)];
-    sprintf(dScalars[PostFcn::DERIVATIVE_TOTPRESSURE], "%s%s", 
+    sprintf(dScalars[PostFcn::DERIVATIVE_TOTPRESSURE], "%s%s",
             iod.output.transient.prefix, iod.output.transient.dTotalpressure);
   }
   if (iod.output.transient.dNutturb[0] != 0) {
     dSscale[PostFcn::DERIVATIVE_NUT_TURB] = iod.ref.rv.viscosity_mu/iod.ref.rv.density;
     dScalars[PostFcn::DERIVATIVE_NUT_TURB] = new char[dsp + strlen(iod.output.transient.dNutturb)];
-    sprintf(dScalars[PostFcn::DERIVATIVE_NUT_TURB], "%s%s", 
+    sprintf(dScalars[PostFcn::DERIVATIVE_NUT_TURB], "%s%s",
             iod.output.transient.prefix, iod.output.transient.dNutturb);
   }
   if (iod.output.transient.dEddyvis[0] != 0) {
     dSscale[PostFcn::DERIVATIVE_EDDY_VISCOSITY] = iod.ref.rv.viscosity_mu;
     dScalars[PostFcn::DERIVATIVE_EDDY_VISCOSITY] = new char[dsp + strlen(iod.output.transient.dEddyvis)];
-    sprintf(dScalars[PostFcn::DERIVATIVE_EDDY_VISCOSITY], "%s%s", 
+    sprintf(dScalars[PostFcn::DERIVATIVE_EDDY_VISCOSITY], "%s%s",
             iod.output.transient.prefix, iod.output.transient.dEddyvis);
   }
   if (iod.output.transient.dVelocityScalar[0] != 0) {
     dSscale[PostFcn::DERIVATIVE_VELOCITY_SCALAR] = iod.ref.rv.velocity;
     dScalars[PostFcn::DERIVATIVE_VELOCITY_SCALAR] = new char[dsp + strlen(iod.output.transient.dVelocityScalar)];
-    sprintf(dScalars[PostFcn::DERIVATIVE_VELOCITY_SCALAR], "%s%s", 
+    sprintf(dScalars[PostFcn::DERIVATIVE_VELOCITY_SCALAR], "%s%s",
             iod.output.transient.prefix, iod.output.transient.dVelocityScalar);
   }
   if (iod.output.transient.dVelocityVector[0] != 0) {
     dVscale[PostFcn::DERIVATIVE_VELOCITY_VECTOR] = iod.ref.rv.velocity;
     dVectors[PostFcn::DERIVATIVE_VELOCITY_VECTOR] = new char[dsp + strlen(iod.output.transient.dVelocityVector)];
-    sprintf(dVectors[PostFcn::DERIVATIVE_VELOCITY_VECTOR], "%s%s", 
+    sprintf(dVectors[PostFcn::DERIVATIVE_VELOCITY_VECTOR], "%s%s",
             iod.output.transient.prefix, iod.output.transient.dVelocityVector);
   }
   if (iod.output.transient.dDisplacement[0] != 0) {
     dVscale[PostFcn::DERIVATIVE_DISPLACEMENT] = iod.ref.rv.tlength;
     dVectors[PostFcn::DERIVATIVE_DISPLACEMENT] = new char[dsp + strlen(iod.output.transient.dDisplacement)];
-    sprintf(dVectors[PostFcn::DERIVATIVE_DISPLACEMENT], "%s%s", 
+    sprintf(dVectors[PostFcn::DERIVATIVE_DISPLACEMENT], "%s%s",
             iod.output.transient.prefix, iod.output.transient.dDisplacement);
   }
   if (iod.output.transient.dMatchPressure[0] != 0 && iod.input.optimalPressureFile) {
@@ -812,12 +919,12 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
 
   nodal_output.step = 0;
 
-			      
+
   for (i = 0; i < Probes::MAXNODES; ++i) {
     nodal_output.locations[i] = Vec3D(myProbes.myNodes[i].locationX/iod.ref.rv.length,
                                       myProbes.myNodes[i].locationY/iod.ref.rv.length,
                                       myProbes.myNodes[i].locationZ/iod.ref.rv.length);
-     
+
     nodal_output.last[i] = 0;
     if (myProbes.myNodes[i].id >= 0) {
       com->fprintf(stdout,"[Probe] Node %d: NodeId = %d.\n", i+1, myProbes.myNodes[i].id);
@@ -854,48 +961,48 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     } else if (myProbes.myNodes[i].locationX < -1.0e10)
       break;
     else
-      com->fprintf(stdout,"[Probe] Node %d: Coords = (%e, %e, %e).\n", i+1, 
+      com->fprintf(stdout,"[Probe] Node %d: Coords = (%e, %e, %e).\n", i+1,
                    myProbes.myNodes[i].locationX, myProbes.myNodes[i].locationY, myProbes.myNodes[i].locationZ);
   }
 
   com->fprintf(stdout,"[Probe] Number of probing nodes is %d\n",i);
 
   nodal_output.numNodes = i;
-  
+
 
   if (iod.output.transient.probes.density[0] != 0) {
     nodal_scalars[PostFcn::DENSITY] = new char[spn + strlen(iod.output.transient.probes.density)];
-    sprintf(nodal_scalars[PostFcn::DENSITY], "%s%s", 
+    sprintf(nodal_scalars[PostFcn::DENSITY], "%s%s",
             iod.output.transient.probes.prefix, iod.output.transient.probes.density);
   }
   if (iod.output.transient.probes.pressure[0] != 0) {
     nodal_scalars[PostFcn::PRESSURE] = new char[spn + strlen(iod.output.transient.probes.pressure)];
-    sprintf(nodal_scalars[PostFcn::PRESSURE], "%s%s", 
+    sprintf(nodal_scalars[PostFcn::PRESSURE], "%s%s",
             iod.output.transient.probes.prefix, iod.output.transient.probes.pressure);
   }
   if (iod.output.transient.probes.diffpressure[0] != 0) {
     nodal_scalars[PostFcn::DIFFPRESSURE] = new char[spn + strlen(iod.output.transient.probes.diffpressure)];
-    sprintf(nodal_scalars[PostFcn::DIFFPRESSURE], "%s%s", 
+    sprintf(nodal_scalars[PostFcn::DIFFPRESSURE], "%s%s",
             iod.output.transient.probes.prefix, iod.output.transient.probes.diffpressure);
   }
   if (iod.output.transient.probes.temperature[0] != 0) {
     nodal_scalars[PostFcn::TEMPERATURE] = new char[spn + strlen(iod.output.transient.probes.temperature)];
-    sprintf(nodal_scalars[PostFcn::TEMPERATURE], "%s%s", 
+    sprintf(nodal_scalars[PostFcn::TEMPERATURE], "%s%s",
             iod.output.transient.probes.prefix, iod.output.transient.probes.temperature);
   }
   if (iod.output.transient.probes.velocity[0] != 0) {
     nodal_vectors[PostFcn::VELOCITY] = new char[spn + strlen(iod.output.transient.probes.velocity)];
-    sprintf(nodal_vectors[PostFcn::VELOCITY], "%s%s", 
+    sprintf(nodal_vectors[PostFcn::VELOCITY], "%s%s",
             iod.output.transient.probes.prefix, iod.output.transient.probes.velocity);
   }
   if (iod.output.transient.probes.displacement[0] != 0) {
     nodal_vectors[PostFcn::DISPLACEMENT] = new char[spn + strlen(iod.output.transient.probes.displacement)];
-    sprintf(nodal_vectors[PostFcn::DISPLACEMENT], "%s%s", 
+    sprintf(nodal_vectors[PostFcn::DISPLACEMENT], "%s%s",
             iod.output.transient.probes.prefix, iod.output.transient.probes.displacement);
   }
 
   map<int, LinePlot *>::iterator it;
-  for (it = iod.output.transient.linePlots.dataMap.begin(); 
+  for (it = iod.output.transient.linePlots.dataMap.begin();
        it !=  iod.output.transient.linePlots.dataMap.end();
        ++it) {
 
@@ -914,24 +1021,24 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
 
     if (L.density[0] != 0) {
       Lp->scalars[PostFcn::DENSITY] = new char[sp + strlen(L.density)];
-      sprintf(Lp->scalars[PostFcn::DENSITY], "%s%s", 
+      sprintf(Lp->scalars[PostFcn::DENSITY], "%s%s",
 	      iod.output.transient.prefix, L.density);
     }
     if (L.pressure[0] != 0) {
       Lp->scalars[PostFcn::PRESSURE] = new char[sp + strlen(L.pressure)];
-      sprintf(Lp->scalars[PostFcn::PRESSURE], "%s%s", 
+      sprintf(Lp->scalars[PostFcn::PRESSURE], "%s%s",
 	      iod.output.transient.prefix, L.pressure);
     }
     if (L.temperature[0] != 0) {
       Lp->scalars[PostFcn::TEMPERATURE] = new char[sp + strlen(L.temperature)];
-      sprintf(Lp->scalars[PostFcn::TEMPERATURE], "%s%s", 
+      sprintf(Lp->scalars[PostFcn::TEMPERATURE], "%s%s",
 	      iod.output.transient.prefix, L.temperature);
     }
     if (L.velocity[0] != 0) {
       Lp->vectors[PostFcn::VELOCITY] = new char[sp + strlen(L.velocity)];
-      sprintf(Lp->vectors[PostFcn::VELOCITY], "%s%s", 
+      sprintf(Lp->vectors[PostFcn::VELOCITY], "%s%s",
 	      iod.output.transient.prefix, L.velocity);
-    } 
+    }
     line_outputs.push_back(Lp);
   }
 
@@ -948,7 +1055,7 @@ TsOutput<dim>::~TsOutput()
 
   for (int i=0; i<PostFcn::AVSSIZE; ++i) {
     if(AvQs[i]) delete AvQs[i];
-  } 
+  }
   for (int i=0; i<PostFcn::AVVSIZE; ++i) {
     if(AvQv[i]) delete AvQv[i];
   }
@@ -963,7 +1070,7 @@ TsOutput<dim>::~TsOutput()
   if(modeFile) delete [] modeFile;
   if(mX) delete mX;
 
-  if (switchOpt) 
+  if (switchOpt)
     {
       delete[] dMatchPressure;
       delete[] dForces;
@@ -972,7 +1079,7 @@ TsOutput<dim>::~TsOutput()
       delete[] dLifty;
       delete[] dLiftz;
       delete[] dFluxNorm;
-      
+
       int i;
       for (i=0; i<PostFcn::DSSIZE; ++i) {
         delete[]  dScalars[i];
@@ -991,7 +1098,7 @@ TsOutput<dim>::~TsOutput()
   delete[]  fpHydroDynamicForces;
   delete[]  fpHydroStaticLift   ;
   delete[]  fpHydroDynamicLift  ;
-  delete[]  fpHeatFluxes        ; 
+  delete[]  fpHeatFluxes        ;
 
   delete[] heatfluxes;
   delete[] residuals;
@@ -1107,11 +1214,11 @@ void TsOutput<dim>::setMeshMotionHandler(IoData &ioData, MeshMotionHandler *mmh)
     mX = new VecSet<DistSVec<double,3> >(1, domain->getNodeDistInfo());
 
     if (hmmh)
-       (*mX)[0] = hmmh->getModes(); 
+       (*mX)[0] = hmmh->getModes();
     else if(smmh)
        (*mX)[0] = smmh->getModes();
     else if(pmmh)
-       (*mX)[0] = pmmh->getModes(); 
+       (*mX)[0] = pmmh->getModes();
     else if(dmmh)
        (*mX)[0] = dmmh->getModes();
 
@@ -1128,7 +1235,7 @@ FILE *TsOutput<dim>::backupAsciiFile(char *name)
 {
 
   FILE *fp = fopen(name, "r");
-  if (!fp) 
+  if (!fp)
     return 0;
 
   char nameback[MAXLINE], line[MAXLINE];
@@ -1150,7 +1257,7 @@ FILE *TsOutput<dim>::backupAsciiFile(char *name)
   while (fgets(line, MAXLINE, fpback) != 0) {
     int iter;
     sscanf(line, "%d", &iter);
-    if (iter <= it0) 
+    if (iter <= it0)
       fprintf(fp, "%s", line);
   }
   fclose(fpback);
@@ -1181,9 +1288,9 @@ void TsOutput<dim>::openAsciiFiles()
       if (it->second > 0)
         surfNums[iSurf++] = it->first;
   }
-     
+
   if (forces) {
-    if (it0 != 0) 
+    if (it0 != 0)
       fpForces[0] = backupAsciiFile(forces);
     if (it0 == 0 || fpForces[0] == 0) {
       fpForces[0] = fopen(forces, "w");
@@ -1193,14 +1300,14 @@ void TsOutput<dim>::openAsciiFiles()
       }
       const char *addvar = "";
       if (rmmh) addvar = rmmh->getTagName();
-      fprintf(fpForces[0], "# TimeIteration Time SubCycles NewtonSteps ");
+      fprintf(fpForces[0], "#TimeIteration Time SubCycles NewtonSteps ");
       if (refVal->mode == RefVal::NON_DIMENSIONAL)
         fprintf(fpForces[0], "Cfx Cfy Cfz Cmx Cmy Cmz Energy %s\n", addvar);
       else
         fprintf(fpForces[0], "Fx Fy Fz Mx My Mz Energy %s\n", addvar);
     }
     fflush(fpForces[0]);
-  } 
+  }
 
   if (forces) {
     for (iSurf = 1; iSurf < nSurf; iSurf++) {
@@ -1216,12 +1323,12 @@ void TsOutput<dim>::openAsciiFiles()
         }
         const char *addvar = "";
         if (rmmh) addvar = rmmh->getTagName();
-        fprintf(fpForces[iSurf], "# TimeIteration Time SubCycles NewtonSteps ");
+        fprintf(fpForces[iSurf], "#TimeIteration Time SubCycles NewtonSteps ");
         if (refVal->mode == RefVal::NON_DIMENSIONAL)
           fprintf(fpForces[iSurf], "Cfx Cfy Cfz Cmx Cmy Cmz Energy %s\n", addvar);
         else
           fprintf(fpForces[iSurf], "Fx Fy Fz Mx My Mz Energy %s\n", addvar);
-      }   
+      }
       fflush(fpForces[iSurf]);
     }
   }
@@ -1263,13 +1370,13 @@ void TsOutput<dim>::openAsciiFiles()
       fpdLiftDrag = fopen(dLiftDrag, "w");
       if (!fpdLiftDrag) {
         fprintf(stderr, "*** Error: could not open \'%s\'\n", dLiftDrag);
-        exit(1);      
+        exit(1);
       }
       if (refVal->mode == RefVal::NON_DIMENSIONAL)
         fprintf(fpdLiftDrag, "Step Variable CLx CLy CLz dCLx dCLy dCLz \n");
       else
         fprintf(fpdLiftDrag, "Step Variable Lx Ly Lz dLx dLy dLz \n");
-  
+
       fflush(fpdLiftDrag);
     }
     if (dLiftx) {
@@ -1324,7 +1431,7 @@ void TsOutput<dim>::openAsciiFiles()
       }
       const char *addvar = "";
       if (rmmh) addvar = rmmh->getTagName();
-      fprintf(fpHydroStaticForces[0], "# TimeIteration Time SubCycles NewtonSteps ");
+      fprintf(fpHydroStaticForces[0], "#TimeIteration Time SubCycles NewtonSteps ");
       if (refVal->mode == RefVal::NON_DIMENSIONAL)
         fprintf(fpHydroStaticForces[0], "Cfx Cfy Cfz Cmx Cmy Cmz Energy %s\n", addvar);
       else
@@ -1347,7 +1454,7 @@ void TsOutput<dim>::openAsciiFiles()
         }
         const char *addvar = "";
         if (rmmh) addvar = rmmh->getTagName();
-        fprintf(fpHydroStaticForces[iSurf], "# TimeIteration Time SubCycles NewtonSteps ");
+        fprintf(fpHydroStaticForces[iSurf], "#TimeIteration Time SubCycles NewtonSteps ");
         if (refVal->mode == RefVal::NON_DIMENSIONAL)
           fprintf(fpHydroStaticForces[iSurf], "Cfx Cfy Cfz Cmx Cmy Cmz Energy %s\n", addvar);
         else
@@ -1368,7 +1475,7 @@ void TsOutput<dim>::openAsciiFiles()
       }
       const char *addvar = "";
       if (rmmh) addvar = rmmh->getTagName();
-      fprintf(fpHydroDynamicForces[0], "# TimeIteration Time SubCycles NewtonSteps ");
+      fprintf(fpHydroDynamicForces[0], "#TimeIteration Time SubCycles NewtonSteps ");
       if (refVal->mode == RefVal::NON_DIMENSIONAL)
         fprintf(fpHydroDynamicForces[0], "Cfx Cfy Cfz Cmx Cmy Cmz Energy %s\n", addvar);
       else
@@ -1391,7 +1498,7 @@ void TsOutput<dim>::openAsciiFiles()
         }
         const char *addvar = "";
         if (rmmh) addvar = rmmh->getTagName();
-        fprintf(fpHydroDynamicForces[iSurf], "# TimeIteration Time SubCycles NewtonSteps ");
+        fprintf(fpHydroDynamicForces[iSurf], "#TimeIteration Time SubCycles NewtonSteps ");
         if (refVal->mode == RefVal::NON_DIMENSIONAL)
           fprintf(fpHydroDynamicForces[iSurf], "Cfx Cfy Cfz Cmx Cmy Cmz Energy %s\n", addvar);
         else
@@ -1402,7 +1509,7 @@ void TsOutput<dim>::openAsciiFiles()
   }
 
   if (tavforces) {
-    if (it0 != 0) 
+    if (it0 != 0)
       fpTavForces[0] = backupAsciiFile(tavforces);
     if (it0 == 0 || fpTavForces[0] == 0) {
       fpTavForces[0] = fopen(tavforces, "w");
@@ -1412,7 +1519,7 @@ void TsOutput<dim>::openAsciiFiles()
       }
       const char *addvar = "";
       if (rmmh) addvar = rmmh->getTagName();
-      fprintf(fpTavForces[0], "# TimeIteration Time SubCycles NewtonSteps ");
+      fprintf(fpTavForces[0], "#TimeIteration Time SubCycles NewtonSteps ");
       if (refVal->mode == RefVal::NON_DIMENSIONAL)
         fprintf(fpTavForces[0], "Cfx Cfy Cfz Cmx Cmy Cmz Energy %s\n", addvar);
       else
@@ -1420,8 +1527,8 @@ void TsOutput<dim>::openAsciiFiles()
     }
     fflush(fpTavForces[0]);
   }
-      
-  if (tavforces) { 
+
+  if (tavforces) {
     for (iSurf = 1; iSurf < nSurf; iSurf++)  {
       char filename[256];
       sprintf(filename,"%s%d", tavforces, surfNums[iSurf]);
@@ -1435,7 +1542,7 @@ void TsOutput<dim>::openAsciiFiles()
         }
         const char *addvar = "";
         if (rmmh) addvar = rmmh->getTagName();
-        fprintf(fpTavForces[iSurf], "# TimeIteration Time SubCycles NewtonSteps ");
+        fprintf(fpTavForces[iSurf], "#TimeIteration Time SubCycles NewtonSteps ");
         if (refVal->mode == RefVal::NON_DIMENSIONAL)
           fprintf(fpTavForces[iSurf], "Cfx Cfy Cfz Cmx Cmy Cmz Energy %s\n", addvar);
         else
@@ -1457,7 +1564,7 @@ void TsOutput<dim>::openAsciiFiles()
       }
       const char *addvar = "";
       if (rmmh) addvar = rmmh->getTagName();
-      fprintf(fpGnForces, "# TimeIteration Time SubCycles NewtonSteps ");
+      fprintf(fpGnForces, "#TimeIteration Time SubCycles NewtonSteps ");
       if (refVal->mode == RefVal::NON_DIMENSIONAL)
         fprintf(fpGnForces, "Coefficient of Generalized Forces %s\n", addvar);
       else
@@ -1480,7 +1587,7 @@ void TsOutput<dim>::openAsciiFiles()
         }
         const char *addvar = "";
         if (rmmh) addvar = rmmh->getTagName();
-        fprintf(fpGnForces, "# TimeIteration Time SubCycles NewtonSteps ");
+        fprintf(fpGnForces, "#TimeIteration Time SubCycles NewtonSteps ");
         if (refVal->mode == RefVal::NON_DIMENSIONAL)
           fprintf(fpGnForces, "Coefficient of Generalized Forces %s\n", addvar);
         else
@@ -1498,7 +1605,7 @@ void TsOutput<dim>::openAsciiFiles()
      if(!fpLift[0]){
        fprintf(stderr, "*** Error: could not open \'%s\'\n", lift);
        exit(1);
-     }    
+     }
      const char *addvar = "";
      if(rmmh) addvar = rmmh->getTagName();
      fprintf(fpLift[0], "#TimeIteration Time SubCycles NewtonSteps Lx Ly Lz %s\n", addvar);
@@ -1517,13 +1624,13 @@ void TsOutput<dim>::openAsciiFiles()
         if (!fpLift[iSurf]) {
           fprintf(stderr, "*** Error: could not open \'%s\'\n", filename);
           exit(1);
-        }             
+        }
         const char *addvar = "";
         if(rmmh) addvar = rmmh->getTagName();
         fprintf(fpLift[iSurf], "#TimeIteration Time SubCycles NewtonSteps Lx Ly Lz %s\n", addvar);
       }
       fflush(fpLift[iSurf]);
-    }   
+    }
   }
 
   if (hydrostaticlift) {
@@ -1534,7 +1641,7 @@ void TsOutput<dim>::openAsciiFiles()
      if(!fpHydroStaticLift[0]){
        fprintf(stderr, "*** Error: could not open \'%s\'\n", hydrostaticlift);
        exit(1);
-     }    
+     }
      const char *addvar = "";
      if(rmmh) addvar = rmmh->getTagName();
      fprintf(fpHydroStaticLift[0], "#TimeIteration Time SubCycles NewtonSteps Lx Ly Lz %s\n", addvar);
@@ -1553,13 +1660,13 @@ void TsOutput<dim>::openAsciiFiles()
         if (!fpHydroStaticLift[iSurf]) {
           fprintf(stderr, "*** Error: could not open \'%s\'\n", filename);
           exit(1);
-        }             
+        }
         const char *addvar = "";
         if(rmmh) addvar = rmmh->getTagName();
         fprintf(fpHydroStaticLift[iSurf], "#TimeIteration Time SubCycles NewtonSteps Lx Ly Lz %s\n", addvar);
       }
       fflush(fpHydroStaticLift[iSurf]);
-    }   
+    }
   }
 
   if (hydrodynamiclift) {
@@ -1599,21 +1706,21 @@ void TsOutput<dim>::openAsciiFiles()
   }
 
   if(tavlift) {
-    if (it0 != 0) 
+    if (it0 != 0)
       fpTavLift[0] = backupAsciiFile(tavlift);
    if (it0 == 0 || fpTavLift[0] == 0){
      fpTavLift[0] = fopen(tavlift,"w");
      if(!fpTavLift[0]){
        fprintf(stderr, "*** Error: could not open \'%s\'\n", tavlift);
        exit(1);
-     }    
+     }
      const char *addvar = "";
      if(rmmh) addvar = rmmh->getTagName();
      fprintf(fpTavLift[0], "#TimeIteration Time SubCycles NewtonSteps Lx Ly Lz %s\n", addvar);
    }
    fflush(fpTavLift[0]);
   }
-  
+
   if(tavlift) {
     for (iSurf = 1; iSurf < nSurf; iSurf++)  {
       char filename[256];
@@ -1625,11 +1732,11 @@ void TsOutput<dim>::openAsciiFiles()
         if (!fpTavLift[iSurf]) {
           fprintf(stderr, "*** Error: could not open \'%s\'\n", filename);
           exit(1);
-        }      
+        }
         const char *addvar = "";
         if(rmmh) addvar = rmmh->getTagName();
         fprintf(fpTavLift[iSurf], "#TimeIteration Time SubCycles NewtonSteps Lx Ly Lz %s\n", addvar);
-      }       
+      }
       fflush(fpTavLift[iSurf]);
     }
   }
@@ -1660,7 +1767,7 @@ void TsOutput<dim>::openAsciiFiles()
       }
       const char *addvar = "";
  //     if (rmmh) addvar = rmmh->getTagName();
-      fprintf(fpHeatFluxes[0], "# TimeIteration Time SubCycles NewtonSteps ");
+      fprintf(fpHeatFluxes[0], "#TimeIteration Time SubCycles NewtonSteps ");
       if (refVal->mode == RefVal::NON_DIMENSIONAL)
         fprintf(fpHeatFluxes[0], "Nondimensional HeatFlux %s\n", addvar);
       else
@@ -1683,7 +1790,7 @@ void TsOutput<dim>::openAsciiFiles()
         }
         const char *addvar = "";
         if (rmmh) addvar = rmmh->getTagName();
-        fprintf(fpHeatFluxes[iSurf], "# TimeIteration Time SubCycles NewtonSteps ");
+        fprintf(fpHeatFluxes[iSurf], "#TimeIteration Time SubCycles NewtonSteps ");
         if (refVal->mode == RefVal::NON_DIMENSIONAL)
           fprintf(fpHeatFluxes[iSurf], "Nondimensional HeatFlux  %s\n", addvar);
         else
@@ -1694,7 +1801,7 @@ void TsOutput<dim>::openAsciiFiles()
   }
 
   if (residuals) {
-    if (it0 != 0) 
+    if (it0 != 0)
       fpResiduals = backupAsciiFile(residuals);
     if (it0 == 0 || fpResiduals == 0) {
       fpResiduals = fopen(residuals, "w");
@@ -1702,13 +1809,13 @@ void TsOutput<dim>::openAsciiFiles()
         fprintf(stderr, "*** Error: could not open \'%s\'\n", residuals);
         exit(1);
       }
-      fprintf(fpResiduals, "# TimeIteration ElapsedTime RelativeResidual CflNumber\n");
+      fprintf(fpResiduals, "#TimeIteration ElapsedTime RelativeResidual CflNumber\n");
     }
     fflush(fpResiduals);
   }
 
   if (matchpressure) {
-    if (it0 != 0) 
+    if (it0 != 0)
       fpMatchPressure = backupAsciiFile(matchpressure);
     if (it0 == 0 || fpMatchPressure == 0) {
       fpMatchPressure = fopen(matchpressure, "w");
@@ -1736,7 +1843,7 @@ void TsOutput<dim>::openAsciiFiles()
   }
 
    if (fluxnorm) {
-    if (it0 != 0) 
+    if (it0 != 0)
       fpFluxNorm = backupAsciiFile(fluxnorm);
     if (it0 == 0 || fpFluxNorm == 0) {
       fpFluxNorm = fopen(fluxnorm, "w");
@@ -1748,7 +1855,7 @@ void TsOutput<dim>::openAsciiFiles()
     }
     fflush(fpFluxNorm);
   }
- 
+
   if (material_volumes) {
     if (it0 != 0)
       fpMatVolumes = backupAsciiFile(material_volumes);
@@ -1758,7 +1865,7 @@ void TsOutput<dim>::openAsciiFiles()
         fprintf(stderr, "*** Error: could not open \'%s\'\n", material_volumes);
         exit(1);
       }
-      fprintf(fpMatVolumes, "# TimeIteration ElapsedTime ");
+      fprintf(fpMatVolumes, "#TimeIteration ElapsedTime ");
       for(int i=0; i<numFluidPhases; i++)
         fprintf(fpMatVolumes, "Volume[FluidID==%d] ", i);
       fprintf(fpMatVolumes, "Volume[FluidID==%d(GhostSolid)] TotalVolume\n", numFluidPhases);
@@ -1775,7 +1882,7 @@ void TsOutput<dim>::openAsciiFiles()
         fprintf(stderr, "*** Error: could not open \'%s\'\n", material_mass_energy);
         exit(1);
       }
-      fprintf(fpMaterialMassEnergy, "# TimeIteration ElapsedTime ");
+      fprintf(fpMaterialMassEnergy, "#TimeIteration ElapsedTime ");
       for(int i=0; i<numFluidPhases; i++)
         fprintf(fpMaterialMassEnergy, "Mass[FluidID==%d] Energy[FluidId==%d]", i,i);
       fprintf(fpMaterialMassEnergy, "Mass[FluidID==%d(GhostSolid)] Energy[FluidID==%d(GhostSolid)] TotalVolume\n", numFluidPhases, numFluidPhases);
@@ -1817,7 +1924,7 @@ void TsOutput<dim>::openAsciiFiles()
   }
 
   if (conservation) {
-    if (it0 != 0) 
+    if (it0 != 0)
       fpConservationErr = backupAsciiFile(conservation);
     if (it0 == 0 || fpConservationErr == 0) {
       fpConservationErr = fopen(conservation, "w");
@@ -1838,7 +1945,7 @@ void TsOutput<dim>::openAsciiFiles()
 
 
   if (embeddedsurfaceCp) {
-    
+
     if (it0 != 0)
       fpEmbeddedSurfaceCp = backupAsciiFile(embeddedsurfaceCp);
     if (it0 == 0 || fpEmbeddedSurfaceCp == 0) {
@@ -1850,11 +1957,11 @@ void TsOutput<dim>::openAsciiFiles()
       fprintf(fpEmbeddedSurfaceCp, "Scalar %s under load for FluidNodes\n", embeddedsurfaceCp);
     }
     fflush(fpEmbeddedSurfaceCp);
-    
+
   }
 
   if (embeddedsurfaceCf) {
-    
+
     if (it0 != 0)
       fpEmbeddedSurfaceCf = backupAsciiFile(embeddedsurfaceCf);
     if (it0 == 0 || fpEmbeddedSurfaceCf == 0) {
@@ -1866,7 +1973,7 @@ void TsOutput<dim>::openAsciiFiles()
       fprintf(fpEmbeddedSurfaceCf, "Scalar %s under load for FluidNodes\n", embeddedsurfaceCf);
     }
     fflush(fpEmbeddedSurfaceCf);
-    
+
   }
 
 
@@ -1889,7 +1996,7 @@ void TsOutput<dim>::closeAsciiFiles()
     if (fpTavForces[iSurf]) fclose(fpTavForces[iSurf]);
     if (fpTavLift[iSurf]) fclose(fpTavLift[iSurf]);
 
-  } 
+  }
 
   for (int iSurf = 0; iSurf < postOp->getNumSurfHF(); iSurf++)  {
      if (fpHeatFluxes[iSurf]) fclose(fpHeatFluxes[iSurf]);
@@ -1915,7 +2022,7 @@ void TsOutput<dim>::closeAsciiFiles()
 
 template<int dim>
 void TsOutput<dim>::writeForcesToDisk(DistExactRiemannSolver<dim> &riemann,
-                                      bool lastIt, int it, int itSc, int itNl, double t, double cpu, 
+                                      bool lastIt, int it, int itSc, int itNl, double t, double cpu,
                                       double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
                                       DistVec<int> *fluidId)
 {
@@ -1954,8 +2061,8 @@ void TsOutput<dim>::writeForcesToDisk(DistExactRiemannSolver<dim> &riemann,
     Vec3D rVec = x0;
     // if single-phase flow -- fluidId is a null pointer
     // if multi-phase flow  -- fluidId points to a DistVec<int>
-    postOp->computeForceAndMoment(riemann, rVec, X, U, fluidId, Fi, Mi, Fv, Mv, 0, mX, mX ? &GF: 0);    
-    if(mX != 0) 
+    postOp->computeForceAndMoment(riemann, rVec, X, U, fluidId, Fi, Mi, Fv, Mv, 0, mX, mX ? &GF: 0);
+    if(mX != 0)
       com->globalSum(GF.size(), GF.data());
 
     Vec3D F = Fi[0] + Fv[0];
@@ -1967,7 +2074,7 @@ void TsOutput<dim>::writeForcesToDisk(DistExactRiemannSolver<dim> &riemann,
   int iSurf;
 
   if (fpForces[0] || fpTavForces[0]) {
- 
+
     for (iSurf = 0; iSurf < nSurfs; iSurf++)  {
       Vec3D F = Fi[iSurf] + Fv[iSurf];
       Vec3D M = Mi[iSurf] + Mv[iSurf];
@@ -1984,30 +2091,30 @@ void TsOutput<dim>::writeForcesToDisk(DistExactRiemannSolver<dim> &riemann,
 
       if (rmmh) {
         double tag = rmmh->getTagValue(t);
-        fprintf(fpForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e %e \n", 
+        fprintf(fpForces[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e \n",
                 it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy, tag);
       }
       else
-        fprintf(fpForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e \n", 
+        fprintf(fpForces[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e \n",
                 it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy);
 
       fflush(fpForces[iSurf]);
 
       if(fpTavForces[iSurf] && counter == 0){
-        fprintf(fpTavForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e \n", 
+        fprintf(fpTavForces[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e \n",
           it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy);
       }
 
-      del_t = time - tprevf; 
+      del_t = time - tprevf;
       F *= del_t; TavF[iSurf] += F;
       M *= del_t; TavM[iSurf] += M;
-      tener += energy*del_t; 
+      tener += energy*del_t;
 
       if(fpTavForces[iSurf] && counter > 0){
-        F = TavF[iSurf]; M = TavM[iSurf]; energy = tener; 
+        F = TavF[iSurf]; M = TavM[iSurf]; energy = tener;
         F /= (time - tinit); M /= (time - tinit);
-        energy /= (time - tinit); 
-        fprintf(fpTavForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e \n", 
+        energy /= (time - tinit);
+        fprintf(fpTavForces[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e \n",
            it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy);
       }
 
@@ -2018,11 +2125,11 @@ void TsOutput<dim>::writeForcesToDisk(DistExactRiemannSolver<dim> &riemann,
 
      fprintf(fpGnForces,"%d %e %d %d", it, time, itSc, itNl);
      for (int i=0; i < mX->numVectors(); i++) {
-       if (refVal->mode == RefVal::NON_DIMENSIONAL) 
+       if (refVal->mode == RefVal::NON_DIMENSIONAL)
          fprintf(fpGnForces," %e", 2.0*refVal->length*refVal->length*GF[i]/surface);
-       else 
+       else
          fprintf(fpGnForces," %e", refVal->force*GF[i]);
-     } 
+     }
 
       fprintf(fpGnForces, "\n");
 
@@ -2032,11 +2139,11 @@ void TsOutput<dim>::writeForcesToDisk(DistExactRiemannSolver<dim> &riemann,
   if (!steady) {
     if (rmmh) {
       double tag = rmmh->getTagValue(t);
-      com->printf(0, "It %d (%d,%d): Time=%g, Mach=%g, Elapsed Time=%.2e s\n", 
+      com->printf(0, "It %d (%d,%d): Time=%g, Mach=%g, Elapsed Time=%.2e s\n",
                   it, itSc, itNl, t*refVal->time, tag, cpu);
     }
     else
-      com->printf(0, "It %d (%d,%d): Time=%g, Elapsed Time=%.2e s\n", 
+      com->printf(0, "It %d (%d,%d): Time=%g, Elapsed Time=%.2e s\n",
                   it, itSc, itNl, t*refVal->time, cpu);
   }
   tprevf = time;
@@ -2050,7 +2157,7 @@ void TsOutput<dim>::writeForcesToDisk(DistExactRiemannSolver<dim> &riemann,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void TsOutput<dim>::writeForcesToDisk(bool lastIt, int it, int itSc, int itNl, double t, double cpu, 
+void TsOutput<dim>::writeForcesToDisk(bool lastIt, int it, int itSc, int itNl, double t, double cpu,
                                       double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
                                       DistVec<int> *fluidId)
 {
@@ -2088,8 +2195,8 @@ void TsOutput<dim>::writeForcesToDisk(bool lastIt, int it, int itSc, int itNl, d
     Vec3D rVec = x0;
     // if single-phase flow -- fluidId is a null pointer
     // if multi-phase flow  -- fluidId points to a DistVec<int>
-    postOp->computeForceAndMoment(rVec, X, U, fluidId, Fi, Mi, Fv, Mv, 0, mX, mX ? &GF: 0);    
-    if(mX != 0) 
+    postOp->computeForceAndMoment(rVec, X, U, fluidId, Fi, Mi, Fv, Mv, 0, mX, mX ? &GF: 0);
+    if(mX != 0)
       com->globalSum(GF.size(), GF.data());
 
     Vec3D F = Fi[0] + Fv[0];
@@ -2101,11 +2208,11 @@ void TsOutput<dim>::writeForcesToDisk(bool lastIt, int it, int itSc, int itNl, d
   int iSurf;
 
   if (fpForces[0] || fpTavForces[0]) {
- 
+
     for (iSurf = 0; iSurf < nSurfs; iSurf++)  {
       Vec3D F = Fi[iSurf] + Fv[iSurf];
       Vec3D M = Mi[iSurf] + Mv[iSurf];
-      if (refVal->mode == RefVal::NON_DIMENSIONAL) { 
+      if (refVal->mode == RefVal::NON_DIMENSIONAL) {
         F *= 2.0 * refVal->length*refVal->length / surface;
         M *= 2.0 * refVal->length*refVal->length*refVal->length / (surface * length);
       }
@@ -2118,30 +2225,30 @@ void TsOutput<dim>::writeForcesToDisk(bool lastIt, int it, int itSc, int itNl, d
 
       if (rmmh) {
         double tag = rmmh->getTagValue(t);
-        fprintf(fpForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e %e \n", 
+        fprintf(fpForces[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e \n",
                 it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy, tag);
       }
       else
-        fprintf(fpForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e \n", 
+        fprintf(fpForces[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e \n",
                 it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy);
 
       fflush(fpForces[iSurf]);
 
       if(fpTavForces[iSurf] && counter == 0){
-        fprintf(fpTavForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e \n", 
+        fprintf(fpTavForces[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e \n",
           it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy);
       }
 
-      del_t = time - tprevf; 
+      del_t = time - tprevf;
       F *= del_t; TavF[iSurf] += F;
       M *= del_t; TavM[iSurf] += M;
-      tener += energy*del_t; 
+      tener += energy*del_t;
 
       if(fpTavForces[iSurf] && counter > 0){
-        F = TavF[iSurf]; M = TavM[iSurf]; energy = tener; 
+        F = TavF[iSurf]; M = TavM[iSurf]; energy = tener;
         F /= (time - tinit); M /= (time - tinit);
-        energy /= (time - tinit); 
-        fprintf(fpTavForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e \n", 
+        energy /= (time - tinit);
+        fprintf(fpTavForces[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e \n",
            it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy);
       }
 
@@ -2152,11 +2259,11 @@ void TsOutput<dim>::writeForcesToDisk(bool lastIt, int it, int itSc, int itNl, d
 
      fprintf(fpGnForces,"%d %e %d %d", it, time, itSc, itNl);
      for (int i=0; i < mX->numVectors(); i++) {
-       if (refVal->mode == RefVal::NON_DIMENSIONAL) 
+       if (refVal->mode == RefVal::NON_DIMENSIONAL)
          fprintf(fpGnForces," %e", 2.0*refVal->length*refVal->length*GF[i]/surface);
-       else 
+       else
          fprintf(fpGnForces," %e", refVal->force*GF[i]);
-     } 
+     }
 
       fprintf(fpGnForces, "\n");
 
@@ -2166,11 +2273,11 @@ void TsOutput<dim>::writeForcesToDisk(bool lastIt, int it, int itSc, int itNl, d
   if (!steady) {
     if (rmmh) {
       double tag = rmmh->getTagValue(t);
-      com->printf(0, "It %d (%d,%d): Time=%g, Mach=%g, Elapsed Time=%.2e s\n", 
+      com->printf(0, "It %d (%d,%d): Time=%g, Mach=%g, Elapsed Time=%.2e s\n",
                   it, itSc, itNl, t*refVal->time, tag, cpu);
     }
     else
-      com->printf(0, "It %d (%d,%d): Time=%g, Elapsed Time=%.2e s\n", 
+      com->printf(0, "It %d (%d,%d): Time=%g, Elapsed Time=%.2e s\n",
                   it, itSc, itNl, t*refVal->time, cpu);
   }
   tprevf = time;
@@ -2209,6 +2316,8 @@ void TsOutput<dim>::writeDerivativeOfLiftDragToDisk(int it, int actvar, Vec3D & 
   }
 
 }
+
+
 
 //------------------------------------------------------------------------------
 template<int dim>
@@ -2306,7 +2415,7 @@ void TsOutput<dim>::writeDerivativeOfMatchPressureToDisk(int it, int actvar, Dis
 //------------------------------------------------------------------------------
 
 template<int dim>
-void TsOutput<dim>::writeHydroForcesToDisk(bool lastIt, int it, int itSc, int itNl, double t, double cpu, 
+void TsOutput<dim>::writeHydroForcesToDisk(bool lastIt, int it, int itSc, int itNl, double t, double cpu,
                                            double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
                                            DistVec<int> *fluidId)
 {
@@ -2333,7 +2442,7 @@ void TsOutput<dim>::writeHydroForcesToDisk(bool lastIt, int it, int itSc, int it
 
   int iSurf;
   if (fpHydroStaticForces[0]) {
- 
+
     for (iSurf = 0; iSurf < nSurfs; iSurf++)  {
       Vec3D FS = FiS[iSurf] + FvS[iSurf];
       Vec3D MS = MiS[iSurf] + MvS[iSurf];
@@ -2349,11 +2458,11 @@ void TsOutput<dim>::writeHydroForcesToDisk(bool lastIt, int it, int itSc, int it
 
       if (rmmh) {
         double tag = rmmh->getTagValue(t);
-        fprintf(fpHydroStaticForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e %e \n", 
+        fprintf(fpHydroStaticForces[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e \n",
                 it, time, itSc, itNl, FS[0], FS[1], FS[2], MS[0], MS[1], MS[2], energy, tag);
       }
       else
-        fprintf(fpHydroStaticForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e \n", 
+        fprintf(fpHydroStaticForces[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e \n",
                 it, time, itSc, itNl, FS[0], FS[1], FS[2], MS[0], MS[1], MS[2], energy);
 
       fflush(fpHydroStaticForces[iSurf]);
@@ -2361,7 +2470,7 @@ void TsOutput<dim>::writeHydroForcesToDisk(bool lastIt, int it, int itSc, int it
   }
 
   if (fpHydroDynamicForces[0]) {
-                                                                                                                                                                                                     
+
     for (iSurf = 0; iSurf < nSurfs; iSurf++)  {
       Vec3D FD = FiD[iSurf] + FvD[iSurf];
       Vec3D MD = MiD[iSurf] + MvD[iSurf];
@@ -2374,16 +2483,16 @@ void TsOutput<dim>::writeHydroForcesToDisk(bool lastIt, int it, int itSc, int it
         MD *= refVal->energy;
       }
       double energy = refVal->energy * e[0];
-                                                                                                                                                                                                     
+
       if (rmmh) {
         double tag = rmmh->getTagValue(t);
-        fprintf(fpHydroDynamicForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e %e\n",
+        fprintf(fpHydroDynamicForces[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e\n",
                 it, time, itSc, itNl, FD[0], FD[1], FD[2], MD[0], MD[1], MD[2], energy, tag);
       }
       else
-        fprintf(fpHydroDynamicForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e \n",
+        fprintf(fpHydroDynamicForces[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e \n",
                 it, time, itSc, itNl, FD[0], FD[1], FD[2], MD[0], MD[1], MD[2], energy);
-                                                                                                                                                                                                     
+
       fflush(fpHydroDynamicForces[iSurf]);
     }
   }
@@ -2402,13 +2511,13 @@ void TsOutput<dim>::writeHydroForcesToDisk(bool lastIt, int it, int itSc, int it
 //------------------------------------------------------------------------------
 
 template<int dim>
-void TsOutput<dim>::writeLiftsToDisk(IoData &iod, bool lastIt, int it, int itSc, int itNl, double t, double cpu, 
+void TsOutput<dim>::writeLiftsToDisk(IoData &iod, bool lastIt, int it, int itSc, int itNl, double t, double cpu,
                                      double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
                                      DistVec<int> *fluidId)
 {
 
-// This routine outputs both the non-averaged and time-averaged values of the lift and drag 
-// in ascii format 
+// This routine outputs both the non-averaged and time-averaged values of the lift and drag
+// in ascii format
 
   int nSurfs = postOp->getNumSurf();
 
@@ -2436,7 +2545,7 @@ void TsOutput<dim>::writeLiftsToDisk(IoData &iod, bool lastIt, int it, int itSc,
   // if single-phase flow -- fluidId is a null pointer
   // if multi-phase flow  -- fluidId points to a DistVec<int>
   if (lift || tavlift)
-    postOp->computeForceAndMoment(x0, X, U, fluidId, Fi, Mi, Fv, Mv);    
+    postOp->computeForceAndMoment(x0, X, U, fluidId, Fi, Mi, Fv, Mv);
 
   double time = refVal->time * t;
 
@@ -2457,30 +2566,30 @@ void TsOutput<dim>::writeLiftsToDisk(IoData &iod, bool lastIt, int it, int itSc,
 
       L[2] = -F[0]*sin(iod.bc.inlet.alpha)*cos(iod.bc.inlet.beta) -
               F[1]*sin(iod.bc.inlet.alpha)*sin(iod.bc.inlet.beta) +
-              F[2]*cos(iod.bc.inlet.alpha); 
+              F[2]*cos(iod.bc.inlet.alpha);
 
       if (rmmh) {
         double tag = rmmh->getTagValue(t);
-        fprintf(fpLift[iSurf], "%d %e %d %d %e %e %e %e \n", 
+        fprintf(fpLift[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e %13.16e \n",
                 it, time, itSc, itNl, L[0], L[1], L[2], tag);
       }
       else
-        fprintf(fpLift[iSurf], "%d %e %d %d %e %e %e \n", 
+        fprintf(fpLift[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e \n",
                 it, time, itSc, itNl, L[0], L[1], L[2]);
       fflush(fpLift[iSurf]);
 
       if(fpTavLift[iSurf] && counter == 0){
-        fprintf(fpTavLift[iSurf], "%d %e %d %d %e %e %e \n", 
+        fprintf(fpTavLift[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e \n",
              it, time, itSc, itNl, L[0], L[1], L[2]);
       }
 
-      del_t = time - tprevl; 
+      del_t = time - tprevl;
       L *= del_t;  TavL[iSurf] += L;
 
       if(fpTavLift[iSurf] && counter > 0){
         L = TavL[iSurf];
-        L /= (time - tinit); 
-        fprintf(fpTavLift[iSurf], "%d %e %d %d %e %e %e \n", 
+        L /= (time - tinit);
+        fprintf(fpTavLift[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e \n",
                 it, time, itSc, itNl, L[0], L[1], L[2]);
       }
       fflush(fpTavLift[iSurf]);
@@ -2537,20 +2646,20 @@ void TsOutput<dim>::writeHydroLiftsToDisk(IoData &iod, bool lastIt, int it, int 
       LS[0] = FS[0]*cos(iod.bc.inlet.alpha)*cos(iod.bc.inlet.beta) +
               FS[1]*cos(iod.bc.inlet.alpha)*sin(iod.bc.inlet.beta) +
               FS[2]*sin(iod.bc.inlet.alpha);
-                                                                                                                                                                                                     
+
       LS[1] = -FS[0]*sin(iod.bc.inlet.beta) + FS[1]*cos(iod.bc.inlet.beta);
-                                                                                                                                                                                                     
+
       LS[2] = -FS[0]*sin(iod.bc.inlet.alpha)*cos(iod.bc.inlet.beta) -
                FS[1]*sin(iod.bc.inlet.alpha)*sin(iod.bc.inlet.beta) +
                FS[2]*cos(iod.bc.inlet.alpha);
 
       if (rmmh) {
         double tag = rmmh->getTagValue(t);
-        fprintf(fpHydroStaticLift[iSurf], "%d %e %d %d %e %e %e %e \n",
+        fprintf(fpHydroStaticLift[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e %13.16e \n",
                 it, time, itSc, itNl, LS[0], LS[1], LS[2], tag);
       }
       else
-        fprintf(fpHydroStaticLift[iSurf], "%d %e %d %d %e %e %e \n",
+        fprintf(fpHydroStaticLift[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e \n",
                 it, time, itSc, itNl, LS[0], LS[1], LS[2]);
       fflush(fpHydroStaticLift[iSurf]);
     }
@@ -2564,24 +2673,24 @@ void TsOutput<dim>::writeHydroLiftsToDisk(IoData &iod, bool lastIt, int it, int 
         FD *= 2.0 * refVal->length*refVal->length / surface;
       else
         FD *= refVal->force;
-                                                                                                                                                                                                     
+
       LD[0] = FD[0]*cos(iod.bc.inlet.alpha)*cos(iod.bc.inlet.beta) +
               FD[1]*cos(iod.bc.inlet.alpha)*sin(iod.bc.inlet.beta) +
               FD[2]*sin(iod.bc.inlet.alpha);
-                                                                                                                                                                                                     
+
       LD[1] = -FD[0]*sin(iod.bc.inlet.beta) + FD[1]*cos(iod.bc.inlet.beta);
-                                                                                                                                                                                                     
+
       LD[2] = -FD[0]*sin(iod.bc.inlet.alpha)*cos(iod.bc.inlet.beta) -
                FD[1]*sin(iod.bc.inlet.alpha)*sin(iod.bc.inlet.beta) +
                FD[2]*cos(iod.bc.inlet.alpha);
-                                                                                                                                                                                                     
+
       if (rmmh) {
         double tag = rmmh->getTagValue(t);
-        fprintf(fpHydroDynamicLift[iSurf], "%d %e %d %d %e %e %e %e \n",
+        fprintf(fpHydroDynamicLift[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e %13.16e \n",
                 it, time, itSc, itNl, LD[0], LD[1], LD[2], tag);
       }
       else
-        fprintf(fpHydroDynamicLift[iSurf], "%d %e %d %d %e %e %e \n",
+        fprintf(fpHydroDynamicLift[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e \n",
                 it, time, itSc, itNl, LD[0], LD[1], LD[2]);
       fflush(fpHydroDynamicLift[iSurf]);
     }
@@ -2619,9 +2728,9 @@ template<int dim>
   if (fpHeatFluxes[0]) {
     for (iSurf = 0; iSurf < nSurfs; iSurf++)  {
       if (refVal->mode == RefVal::NON_DIMENSIONAL)
-        HF[iSurf] *= 2.0 * refVal->length*refVal->length / surface; 
+        HF[iSurf] *= 2.0 * refVal->length*refVal->length / surface;
       else
-       HF[iSurf] *= refVal->power; 
+       HF[iSurf] *= refVal->power;
         fprintf(fpHeatFluxes[iSurf], "%d %e %d %d %e \n",
                 it, time, itSc, itNl, HF[iSurf]);
       fflush(fpHeatFluxes[iSurf]);
@@ -2666,7 +2775,7 @@ void TsOutput<dim>::writeMatchStateToDisk(IoData &iod,  int it, double t, double
   }
 
   DistSVec<double, dim> Udif(U);
-  Udif *= A; 
+  Udif *= A;
   Udif -= *Uref;
 
   double relDif;
@@ -2744,13 +2853,13 @@ void TsOutput<dim>::writeMaterialVolumesToDisk(int it, double t, DistVec<double>
   for(int i=0; i<myLength; i++)
     Vol[i] = 0.0;
 
-  domain->computeMaterialVolumes(Vol,myLength,A,fluidId); //computes Vol                                                                                                                  
+  domain->computeMaterialVolumes(Vol,myLength,A,fluidId); //computes Vol
 
   if (com->cpuNum() !=0 ) return;
 
   double length3 = length*length*length;
   for(int i=0; i<myLength; i++)
-    Vol[i] *= length3; //dimensionalize                                                                                                                                                   
+    Vol[i] *= length3; //dimensionalize
 
   fprintf(fpMatVolumes, "%d %e ", it, (refVal->time)*t);
   for(int i=0; i<numFluidPhases+1; i++)
@@ -2837,10 +2946,10 @@ void TsOutput<dim>::writeEmbeddedSurfaceToDisk(bool lastIt, int it, double t, Ve
     if(com->cpuNum() != 0) return;
     if(it == 0)  fprintf(fpEmbeddedSurface, "%d\n", solidX.size());
     fprintf(fpEmbeddedSurface, "%e\n", t*tscale);
-    for(int i=0; i<solidX.size(); i++) 
-      fprintf(fpEmbeddedSurface, "%e %e %e\n", xscale*(solidX[i][0]-solidX0[i][0]), xscale*(solidX[i][1]-solidX0[i][1]), 
+    for(int i=0; i<solidX.size(); i++)
+      fprintf(fpEmbeddedSurface, "%e %e %e\n", xscale*(solidX[i][0]-solidX0[i][0]), xscale*(solidX[i][1]-solidX0[i][1]),
               xscale*(solidX[i][2]-solidX0[i][2]));
-    fflush(fpEmbeddedSurface); 
+    fflush(fpEmbeddedSurface);
     fprintf(stdout, "Wrote solution %d to \'%s\'\n", getStep(it, lastIt, t), embeddedsurface);
   }
 }
@@ -2850,7 +2959,7 @@ void TsOutput<dim>::writeEmbeddedSurfaceToDisk(bool lastIt, int it, double t, Ve
 template<int dim>
 void TsOutput<dim>::writeCPUTimingToDisk(bool lastIt, int it, double t, Timer *timer)
 {
-  if(!cputiming) 
+  if(!cputiming)
     return;
 
   if(toWrite(it,lastIt,t)) {
@@ -2876,14 +2985,14 @@ void TsOutput<dim>::writeConservationErrors(IoData &iod, int it, double t,
     if (fpConservationErr) {
       fprintf(fpConservationErr, "%d %e ", it, t);
       for(int iPhase=0; iPhase<numPhases; iPhase++)
-        for(int i=0; i<dim; i++) 
+        for(int i=0; i<dim; i++)
           fprintf(fpConservationErr, "%e ", expected[iPhase][i]);
       for(int iPhase=0; iPhase<numPhases; iPhase++)
-        for(int i=0; i<dim; i++) 
+        for(int i=0; i<dim; i++)
           fprintf(fpConservationErr, "%e ", computed[iPhase][i]);
       fprintf(fpConservationErr, "\n");
       fflush(fpConservationErr);
-      
+
     }
 
 }
@@ -2891,7 +3000,7 @@ void TsOutput<dim>::writeConservationErrors(IoData &iod, int it, double t,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void TsOutput<dim>::writeDisplacementVectorToDisk(int step, double tag, 
+void TsOutput<dim>::writeDisplacementVectorToDisk(int step, double tag,
                       DistSVec<double,3> &X, DistSVec<double,dim> &U){
 
   if(vectors[PostFcn:: DISPLACEMENT]){
@@ -2906,18 +3015,26 @@ void TsOutput<dim>::writeDisplacementVectorToDisk(int step, double tag,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void TsOutput<dim>::writePositionSensitivityVectorToDisk(int step, double tag, 
+void TsOutput<dim>::writePositionSensitivityVectorToDisk(int step, double tag,
                       DistSVec<double,3> &dXsds){
 
   domain->writeVectorToFile(dVectors[PostFcn::DERIVATIVE_DISPLACEMENT], step, tag, dXsds, &(refVal->tlength));
 
 }
 
+
+
+
 //------------------------------------------------------------------------------
 
 template<int dim>
-void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, DistSVec<double,3> &X, 
-                                             DistVec<double> &A, DistSVec<double,dim> &U, DistTimeState<dim> *timeState)
+void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt,
+					     int it,
+					     double t,
+					     DistSVec<double,3> &X,
+                                             DistVec<double> &A,
+					     DistSVec<double,dim> &U,
+					     DistTimeState<dim> *timeState)
 {
 
   if (toWrite(it,lastIt,t)) {
@@ -2974,7 +3091,7 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
 template<int dim>
 template<int dimLS>
 void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, DistSVec<double,3> &X,
-                                             DistVec<double> &A, DistSVec<double,dim> &U, 
+                                             DistVec<double> &A, DistSVec<double,dim> &U,
                                              DistTimeState<dim> *timeState,
                                              DistVec<int> &fluidId,DistSVec<double,dimLS>* Phi)
 {
@@ -3055,7 +3172,7 @@ void TsOutput<dim>::cleanProbesFile() {
   char nn[256];
   int iter,i,n;
   double time,res;
-  if (it0 == 0) 
+  if (it0 == 0)
     return;
 
   for (i=0; i<PostFcn::SSIZE; ++i) {
@@ -3069,24 +3186,24 @@ void TsOutput<dim>::cleanProbesFile() {
           n = fscanf(scalar_file_old,"%d",&iter);
           n = fscanf(scalar_file_old,"%lf",&time);
           if (iter > it0)
-            break;          
+            break;
           fprintf(scalar_file,"%d %e ",iter,time);
           for (int k =0 ; k < nodal_output.numNodes; ++k) {
             n = fscanf(scalar_file_old,"%lf",&res);
             fprintf(scalar_file,"%e ",res);
           }
           fprintf(scalar_file,"\n");
-    
+
         }
         fclose(scalar_file);
         fclose(scalar_file_old);
       }
     }
   }
-  
+
   for (i=0; i<PostFcn::VSIZE; ++i) {
     if (nodal_vectors[i]) {
-  
+
       if (com->cpuNum() == 0) {
         copyFile(nodal_vectors[i]);
         sprintf(nn,"%s.back",nodal_vectors[i]);
@@ -3096,7 +3213,7 @@ void TsOutput<dim>::cleanProbesFile() {
           n = fscanf(vector_file_old,"%d",&iter);
           n = fscanf(vector_file_old,"%lf",&time);
           if (iter > it0)
-            break;          
+            break;
           fprintf(vector_file,"%d %e ",iter,time);
           for (int k =0 ; k < nodal_output.numNodes; ++k) {
             for (int l = 0; l < 3; ++l) {
@@ -3116,7 +3233,7 @@ void TsOutput<dim>::cleanProbesFile() {
 template<int dim>
 template<int dimLS>
 void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<double,3> &X,
-                                      DistVec<double> &A, DistSVec<double,dim> &U, 
+                                      DistVec<double> &A, DistSVec<double,dim> &U,
                                       DistTimeState<dim> *timeState, DistVec<int> &fluidId,
                                       DistSVec<double,dimLS>* Phi, DistLevelSetStructure *distLSS,
                                       DistVec<GhostPoint<dim>*> *ghostPoints)
@@ -3129,8 +3246,8 @@ void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<do
       tag = rmmh->getTagValue(t);
     else
       tag = t * refVal->time;
-    
-    
+
+
     int i;
     const char* mode = nodal_output.step ? "a" : "w";
     if (it0 > 0)
@@ -3138,7 +3255,7 @@ void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<do
 
     for (i=0; i<PostFcn::SSIZE; ++i) {
       if (nodal_scalars[i]) {
-  
+
         postOp->computeScalarQuantity(static_cast<PostFcn::ScalarType>(i), X, U, A,
                                       timeState,fluidId,
                                       nodal_output.subId, nodal_output.locNodeId,
@@ -3163,7 +3280,7 @@ void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<do
 
     for (i=0; i<PostFcn::VSIZE; ++i) {
       if (nodal_vectors[i]) {
-  
+
         postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(i), X, U,
                                       nodal_output.subId, nodal_output.locNodeId,
                                       nodal_output.last,nodal_output.numNodes,nodal_output.results,
@@ -3195,7 +3312,7 @@ void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<do
 template<int dim>
 template<int dimLS>
 void TsOutput<dim>::writeLinePlotsToDisk(bool lastIt, int it, double t, DistSVec<double,3> &X,
-					DistVec<double> &A, DistSVec<double,dim> &U, 
+					DistVec<double> &A, DistSVec<double,dim> &U,
 					DistTimeState<dim> *timeState, DistVec<int> &fluidId,
 					DistSVec<double,dimLS>* Phi, DistLevelSetStructure *distLSS,
 					DistVec<GhostPoint<dim>*> *ghostPoints)
@@ -3209,10 +3326,10 @@ void TsOutput<dim>::writeLinePlotsToDisk(bool lastIt, int it, double t, DistSVec
       tag = rmmh->getTagValue(t);
     else
       tag = t * refVal->time;
-    
+
     // if (solutions)
     //  domain->writeVectorToFile(solutions, step, tag, U);
-    
+
     int i;
     const char* mode = "w";//nodal_output.step ? "a" : "w";
     //if (it0 > 0)
@@ -3226,30 +3343,30 @@ void TsOutput<dim>::writeLinePlotsToDisk(bool lastIt, int it, double t, DistSVec
 
       memset(scalar_files,0, sizeof(scalar_files));
       memset(vector_files,0, sizeof(vector_files));
-      
-		    
+
+
       for (i=0; i<PostFcn::SSIZE; ++i) {
-	
-	if (lout->scalars[i]) {	
+
+	if (lout->scalars[i]) {
 	  if (com->cpuNum() == 0) {
 	    scalar_files[i] = fopen(lout->scalars[i],mode);
 	    if (scalar_files[i] != 0) {
 	    } else {
-	      
+
 	      this->com->fprintf(stderr,"Warning: Cannot open line output file %s",lout->scalars[i]);
 	    }
 	  }
 	}
       }
-		    
+
       for (i=0; i<PostFcn::VSIZE; ++i) {
-	
+
 	if (lout->vectors[i]) {
 	  if (com->cpuNum() == 0) {
 	    vector_files[i] = fopen(lout->vectors[i],mode);
 	    if (vector_files[i] != 0) {
 	    } else {
-	      
+
 	      this->com->fprintf(stderr,"Warning: Cannot open line output file %s",lout->vectors[i]);
 	    }
 	  }
@@ -3264,18 +3381,18 @@ void TsOutput<dim>::writeLinePlotsToDisk(bool lastIt, int it, double t, DistSVec
 	location[0] = Vec3D(((lout->x1-lout->x0)/(lout->numPoints-1)*k+lout->x0)/xscale,
 			    ((lout->y1-lout->y0)/(lout->numPoints-1)*k+lout->y0)/xscale,
 			    ((lout->z1-lout->z0)/(lout->numPoints-1)*k+lout->z0)/xscale);
-			    
+
 	for (i=0; i<PostFcn::SSIZE; ++i) {
-	  
+
 	  if (lout->scalars[i]) {
-	    
+
 	    postOp->computeScalarQuantity(static_cast<PostFcn::ScalarType>(i), X, U, A,
 					  timeState,fluidId,
 					  &subId, &locNodeId,
 					  &last,1,result,
 					  location,
 					  Phi, distLSS, ghostPoints);
-	    
+
 	    if (com->cpuNum() == 0) {
 	      fprintf(scalar_files[i],"%e %e %e %e %e\n",(double)k/(lout->numPoints-1),
 		      location[0][0]*xscale,location[0][1]*xscale,
@@ -3284,10 +3401,10 @@ void TsOutput<dim>::writeLinePlotsToDisk(bool lastIt, int it, double t, DistSVec
 
 	  }
 	}
-	
+
 	for (i=0; i<PostFcn::VSIZE; ++i) {
 	  if (lout->vectors[i]) {
-	    
+
 	    postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(i), X, U,
 					  &subId, &locNodeId,
 					  &last,1,result,
@@ -3308,7 +3425,7 @@ void TsOutput<dim>::writeLinePlotsToDisk(bool lastIt, int it, double t, DistSVec
 	if (scalar_files[i])
 	  fclose(scalar_files[i]);
       }
-	
+
       for (i=0; i<PostFcn::VSIZE; ++i) {
 
 	if (vector_files[i])
@@ -3321,10 +3438,10 @@ void TsOutput<dim>::writeLinePlotsToDisk(bool lastIt, int it, double t, DistSVec
 // d2d
 template<int dim>
 void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, DistSVec<double,3> &X,
-                                             DistVec<double> &A, DistSVec<double,dim> &U, 
+                                             DistVec<double> &A, DistSVec<double,dim> &U,
                                              DistTimeState<dim> *timeState,
-                                             DistVec<int> &fluidId, DistSVec<double,dim> *Wextij, 
-															DistLevelSetStructure *distLSS, 
+                                             DistVec<int> &fluidId, DistSVec<double,dim> *Wextij,
+															DistLevelSetStructure *distLSS,
 					     DistVec<GhostPoint<dim>*> *ghostPoints)
 {
 
@@ -3352,7 +3469,7 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
         domain->writeVectorToFile(scalars[i], step, tag, Qs1, &(sscale[i]));
 
       }
-      
+
     }
 
     /////////////////////////////////////////////
@@ -3374,7 +3491,7 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
       double * cnt = new double[ns];
       for(int i=0; i<ns; ++i) cnt[i] = EmbQs[i][0] ? 1.0 : 0.0;
       com->globalSum(ns, cnt);
-      
+
       double * Cp_ = new double[ns];
       double * Cf_ = new double[ns];
 
@@ -3390,7 +3507,7 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
 
       if(embeddedsurfaceCp) {
 	if(toWrite(it,lastIt,t)) {
-	  if(com->cpuNum() == 0) {	    	    
+	  if(com->cpuNum() == 0) {
 
 	    if(it == 0) fprintf(fpEmbeddedSurfaceCp, "%i \n", ns);
 	    fprintf(fpEmbeddedSurfaceCp, " %f \n", t*tscale);
@@ -3400,18 +3517,18 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
 	      fprintf(fpEmbeddedSurfaceCp, "%e \n", val);
 	    }
 
-	    fflush(fpEmbeddedSurfaceCp); 
+	    fflush(fpEmbeddedSurfaceCp);
 	    fprintf(stdout, "Wrote solution %d to \'%s\'\n", getStep(it, lastIt, t), embeddedsurfaceCp);
-	    
+
 	  }
 	}
       }
-      
-      // ~~~~ 
+
+      // ~~~~
 
       if(embeddedsurfaceCf) {
 	if(toWrite(it,lastIt,t)) {
-	  if(com->cpuNum() == 0) {	    	    
+	  if(com->cpuNum() == 0) {
 
 	    if(it == 0) fprintf(fpEmbeddedSurfaceCf, "%i \n", ns);
 	    fprintf(fpEmbeddedSurfaceCf, " %f \n", t*tscale);
@@ -3421,9 +3538,9 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
 	      fprintf(fpEmbeddedSurfaceCf, "%e \n", val);
 	    }
 
-	    fflush(fpEmbeddedSurfaceCf); 
+	    fflush(fpEmbeddedSurfaceCf);
 	    fprintf(stdout, "Wrote solution %d to \'%s\'\n", getStep(it, lastIt, t), embeddedsurfaceCf);
-	    
+
 	  }
 	}
       }
@@ -3473,7 +3590,7 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
 
 template<int dim>
 void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<double,3> &X,
-                                      DistVec<double> &A, DistSVec<double,dim> &U, 
+                                      DistVec<double> &A, DistSVec<double,dim> &U,
                                       DistTimeState<dim> *timeState,
                                       DistVec<int> &fluidId, DistLevelSetStructure *distLSS,
                                       DistVec<GhostPoint<dim>*> *ghostPoints)
@@ -3484,20 +3601,42 @@ void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<do
 //----------------------------------------------------------------------------------------
 
 
+
+//TODO BUGHUNT
+
+
 // Included (MB)
 template<int dim>
-void TsOutput<dim>::writeBinaryDerivativeOfVectorsToDisk(int it, int actvar, double dS[3], 
-							 DistSVec<double,3> &X, DistSVec<double,3> &dX, 
-							 DistSVec<double,dim> &U, DistSVec<double,dim> &dU, 
+void TsOutput<dim>::writeAnyVectorToDisk(
+		              const char* filename,
+		              int it,
+					  int tag,
+					  DistSVec<double,dim> &vec)
+{
+  int    step = it-1;
+  domain->writeVectorToFile(filename, step, tag, vec);
+}
+
+
+// Included (MB)
+template<int dim>
+void TsOutput<dim>::writeBinaryDerivativeOfVectorsToDisk(
+		                     int it,
+							 int actvar,
+							 double dS[3],
+							 DistSVec<double,3> &X,
+							 DistSVec<double,3> &dX,
+							 DistSVec<double,dim> &U,
+							 DistSVec<double,dim> &dU,
 							 DistTimeState<dim> *timeState,
-							 DistVec<double>* A) 
+							 DistVec<double>* A)
 {
   int    step = it-1;
   double tag  = (double)actvar;
 
   if (dSolutions)
     domain->writeVectorToFile(dSolutions, step, tag, dU);
- 
+
   int i;
   for (i=0; i<PostFcn::DSSIZE; ++i) {
     if (dScalars[i]) {
@@ -3507,17 +3646,18 @@ void TsOutput<dim>::writeBinaryDerivativeOfVectorsToDisk(int it, int actvar, dou
       domain->writeVectorToFile(dScalars[i], step, tag, Qs1, &(dSscale[i]));
 
       //Match Properties
-      if (static_cast<PostFcn::ScalarDerivativeType>(i) == PostFcn::DERIVATIVE_PRESSURE)
+      if (static_cast<PostFcn::ScalarDerivativeType>(i) == PostFcn::DERIVATIVE_PRESSURE  &&
+    fullOptPressureName!=NULL)
         writeDerivativeOfMatchPressureToDisk(it,actvar,Qs1,X,U,*A,timeState);
     }
   }
   for (i=0; i<PostFcn::DVSIZE; ++i) {
-    if (dVectors[i]) {        
+    if (dVectors[i]) {
       if (!Qv) Qv = new DistSVec<double,3>(domain->getNodeDistInfo());
       if (static_cast<PostFcn::VectorType>(i) != PostFcn::FLIGHTDISPLACEMENT && static_cast<PostFcn::VectorType>(i) != PostFcn::LOCALFLIGHTDISPLACEMENT)
         postOp->computeDerivativeOfVectorQuantity(static_cast<PostFcn::VectorDerivativeType>(i), X, dX, U, dU, *Qv);
       domain->writeVectorToFile(dVectors[i], step, tag, *Qv, &(dVscale[i]));
-    } 
+    }
   }
 
 }
@@ -3525,12 +3665,12 @@ void TsOutput<dim>::writeBinaryDerivativeOfVectorsToDisk(int it, int actvar, dou
 //------------------------------------------------------------------------------
 /*
 template<int dim>
-void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, 
+void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t,
                                              DistSVec<double,3> &X,
                                              DistVec<double> &A, DistSVec<double,dim> &U,
                                              DistSVec<double,1> &Phi, DistVec<int> &fluidId)
 {
- 
+
   if (toWrite(it,lastIt,t)) {
     int step = getStep(it,lastIt,t);
     double tag;
@@ -3628,13 +3768,13 @@ void TsOutput<dim>::writeAvgVectorsToDisk(bool lastIt, int it, double t, DistSVe
 
 
   if (counter > 0){
-    del_t = time - tprev; 
+    del_t = time - tprev;
     for (i=0; i<PostFcn::AVSSIZE; ++i) {
       if (avscalars[i]) {
         if (!Qs) Qs = new DistVec<double>(domain->getNodeDistInfo());
         postOp->computeScalarQuantity(static_cast<PostFcn::ScalarType>(i), X, U, A, *Qs, timeState);
         *Qs *= del_t;
-        *AvQs[i] += *Qs; 
+        *AvQs[i] += *Qs;
       }
     }
     for (i=0; i<PostFcn::AVVSIZE; ++i) {
@@ -3669,19 +3809,19 @@ void TsOutput<dim>::writeAvgVectorsToDisk(bool lastIt, int it, double t, DistSVe
         if (!Qv) Qv = new DistSVec<double,3>(domain->getNodeDistInfo());
         *Qv = *AvQv[i];
         *Qv *= (1.0/(time-tinit));
-        domain->writeVectorToFile(avvectors[i], step, tag, *Qv, &(avvscale[i])); 
+        domain->writeVectorToFile(avvectors[i], step, tag, *Qv, &(avvscale[i]));
       }
-    } 
+    }
   }
 
   if (lastIt) {
     // Before deletion, check that pointers have been allocated
-    for (i=0; i<PostFcn::AVSSIZE; ++i) 
+    for (i=0; i<PostFcn::AVSSIZE; ++i)
       if ((avscalars[i]) && (AvQs[i])) {
         delete AvQs[i];
         AvQs[i] = 0;
       }
-    for (i=0; i<PostFcn::AVVSIZE; ++i) 
+    for (i=0; i<PostFcn::AVVSIZE; ++i)
       if ((avvectors[i]) && (AvQv[i])) {
         delete AvQv[i];
         AvQv[i] = 0;
@@ -3689,7 +3829,7 @@ void TsOutput<dim>::writeAvgVectorsToDisk(bool lastIt, int it, double t, DistSVe
   }
 
   counter += 1; // increment the counter for keeping track of the averaging
- 
+
 }
 
 
@@ -3704,13 +3844,13 @@ void TsOutput<dim>::rstVar(IoData &iod) {
   if (iod.output.transient.density[0] != 0) {
     sscale[PostFcn::DENSITY] = iod.ref.rv.density;
     scalars[PostFcn::DENSITY] = new char[sp + strlen(iod.output.transient.density)];
-    sprintf(scalars[PostFcn::DENSITY], "%s%s", 
+    sprintf(scalars[PostFcn::DENSITY], "%s%s",
             iod.output.transient.prefix, iod.output.transient.density);
   }
   if (iod.output.transient.tavdensity[0] != 0) {
     avsscale[PostFcn::DENSITYAVG] = iod.ref.rv.density;
     avscalars[PostFcn::DENSITYAVG] = new char[sp + strlen(iod.output.transient.tavdensity)];
-    sprintf(avscalars[PostFcn::DENSITYAVG], "%s%s", 
+    sprintf(avscalars[PostFcn::DENSITYAVG], "%s%s",
             iod.output.transient.prefix, iod.output.transient.tavdensity);
   }
   if (iod.output.transient.speed[0] != 0) {
@@ -3722,7 +3862,7 @@ void TsOutput<dim>::rstVar(IoData &iod) {
   if (iod.output.transient.pressure[0] != 0) {
     sscale[PostFcn::PRESSURE] = iod.ref.rv.pressure;
     scalars[PostFcn::PRESSURE] = new char[sp + strlen(iod.output.transient.pressure)];
-    sprintf(scalars[PostFcn::PRESSURE], "%s%s", 
+    sprintf(scalars[PostFcn::PRESSURE], "%s%s",
             iod.output.transient.prefix, iod.output.transient.pressure);
   }
   if (iod.output.transient.diffpressure[0] != 0) {
@@ -3734,7 +3874,7 @@ void TsOutput<dim>::rstVar(IoData &iod) {
   if (iod.output.transient.tavpressure[0] != 0) {
     avsscale[PostFcn::PRESSUREAVG] = iod.ref.rv.pressure;
     avscalars[PostFcn::PRESSUREAVG] = new char[sp + strlen(iod.output.transient.tavpressure)];
-    sprintf(avscalars[PostFcn::PRESSUREAVG], "%s%s", 
+    sprintf(avscalars[PostFcn::PRESSUREAVG], "%s%s",
             iod.output.transient.prefix, iod.output.transient.tavpressure);
   }
   if (iod.output.transient.hydrostaticpressure[0] != 0) {
@@ -3758,37 +3898,37 @@ void TsOutput<dim>::rstVar(IoData &iod) {
   if (iod.output.transient.temperature[0] != 0) {
     sscale[PostFcn::TEMPERATURE] = iod.ref.rv.temperature;
     scalars[PostFcn::TEMPERATURE] = new char[sp + strlen(iod.output.transient.temperature)];
-    sprintf(scalars[PostFcn::TEMPERATURE], "%s%s", 
+    sprintf(scalars[PostFcn::TEMPERATURE], "%s%s",
             iod.output.transient.prefix, iod.output.transient.temperature);
   }
   if (iod.output.transient.tavtemperature[0] != 0) {
     avsscale[PostFcn::TEMPERATUREAVG] = iod.ref.rv.temperature;
     avscalars[PostFcn::TEMPERATUREAVG] = new char[sp + strlen(iod.output.transient.tavtemperature)];
-    sprintf(avscalars[PostFcn::TEMPERATUREAVG], "%s%s", 
+    sprintf(avscalars[PostFcn::TEMPERATUREAVG], "%s%s",
             iod.output.transient.prefix, iod.output.transient.tavtemperature);
   }
   if (iod.output.transient.totalpressure[0] != 0) {
     sscale[PostFcn::TOTPRESSURE] = iod.ref.rv.pressure;
     scalars[PostFcn::TOTPRESSURE] = new char[sp + strlen(iod.output.transient.totalpressure)];
-    sprintf(scalars[PostFcn::TOTPRESSURE], "%s%s", 
+    sprintf(scalars[PostFcn::TOTPRESSURE], "%s%s",
             iod.output.transient.prefix, iod.output.transient.totalpressure);
   }
   if (iod.output.transient.tavtotalpressure[0] != 0) {
     avsscale[PostFcn::TOTPRESSUREAVG] = iod.ref.rv.pressure;
     avscalars[PostFcn::TOTPRESSUREAVG] = new char[sp + strlen(iod.output.transient.tavtotalpressure)];
-    sprintf(avscalars[PostFcn::TOTPRESSUREAVG], "%s%s", 
+    sprintf(avscalars[PostFcn::TOTPRESSUREAVG], "%s%s",
             iod.output.transient.prefix, iod.output.transient.tavtotalpressure);
   }
   if (iod.output.transient.vorticity[0] != 0) {
     sscale[PostFcn::VORTICITY] = iod.ref.rv.velocity/iod.ref.rv.tlength;
     scalars[PostFcn::VORTICITY] = new char[sp + strlen(iod.output.transient.vorticity)];
-    sprintf(scalars[PostFcn::VORTICITY], "%s%s", 
+    sprintf(scalars[PostFcn::VORTICITY], "%s%s",
             iod.output.transient.prefix, iod.output.transient.vorticity);
   }
   if (iod.output.transient.tavvorticity[0] != 0) {
     avsscale[PostFcn::VORTICITYAVG] = iod.ref.rv.velocity/iod.ref.rv.tlength;
     avscalars[PostFcn::VORTICITYAVG] = new char[sp + strlen(iod.output.transient.tavvorticity)];
-    sprintf(avscalars[PostFcn::VORTICITYAVG], "%s%s", 
+    sprintf(avscalars[PostFcn::VORTICITYAVG], "%s%s",
             iod.output.transient.prefix, iod.output.transient.tavvorticity);
   }
   if (iod.output.transient.surfaceheatflux[0] != 0) {
@@ -3804,13 +3944,13 @@ void TsOutput<dim>::rstVar(IoData &iod) {
   if (iod.output.transient.nutturb[0] != 0) {
     sscale[PostFcn::NUT_TURB] = iod.ref.rv.viscosity_mu/iod.ref.rv.density;
     scalars[PostFcn::NUT_TURB] = new char[sp + strlen(iod.output.transient.nutturb)];
-    sprintf(scalars[PostFcn::NUT_TURB], "%s%s", 
+    sprintf(scalars[PostFcn::NUT_TURB], "%s%s",
             iod.output.transient.prefix, iod.output.transient.nutturb);
   }
   if (iod.output.transient.eddyvis[0] != 0) {
     sscale[PostFcn::EDDY_VISCOSITY] = iod.ref.rv.viscosity_mu;
     scalars[PostFcn::EDDY_VISCOSITY] = new char[sp + strlen(iod.output.transient.eddyvis)];
-    sprintf(scalars[PostFcn::EDDY_VISCOSITY], "%s%s", 
+    sprintf(scalars[PostFcn::EDDY_VISCOSITY], "%s%s",
             iod.output.transient.prefix, iod.output.transient.eddyvis);
   }
   if (iod.output.transient.dplus[0] != 0) {
@@ -3823,7 +3963,7 @@ void TsOutput<dim>::rstVar(IoData &iod) {
     sscale[PostFcn::DELTA_PLUS] = iod.ref.rv.tpower / (iod.ref.length*iod.ref.length);
 #endif
     scalars[PostFcn::DELTA_PLUS] = new char[sp + strlen(iod.output.transient.dplus)];
-    sprintf(scalars[PostFcn::DELTA_PLUS], "%s%s", 
+    sprintf(scalars[PostFcn::DELTA_PLUS], "%s%s",
             iod.output.transient.prefix, iod.output.transient.dplus);
   }
 
@@ -3855,25 +3995,25 @@ void TsOutput<dim>::rstVar(IoData &iod) {
   if (iod.output.transient.velocity[0] != 0) {
     vscale[PostFcn::VELOCITY] = iod.ref.rv.velocity;
     vectors[PostFcn::VELOCITY] = new char[sp + strlen(iod.output.transient.velocity)];
-    sprintf(vectors[PostFcn::VELOCITY], "%s%s", 
+    sprintf(vectors[PostFcn::VELOCITY], "%s%s",
             iod.output.transient.prefix, iod.output.transient.velocity);
   }
   if (iod.output.transient.tavvelocity[0] != 0) {
     avvscale[PostFcn::VELOCITYAVG] = iod.ref.rv.velocity;
     avvectors[PostFcn::VELOCITYAVG] = new char[sp + strlen(iod.output.transient.tavvelocity)];
-    sprintf(avvectors[PostFcn::VELOCITYAVG], "%s%s", 
+    sprintf(avvectors[PostFcn::VELOCITYAVG], "%s%s",
             iod.output.transient.prefix, iod.output.transient.tavvelocity);
   }
   if (iod.output.transient.displacement[0] != 0) {
     vscale[PostFcn::DISPLACEMENT] = iod.ref.rv.tlength;
     vectors[PostFcn::DISPLACEMENT] = new char[sp + strlen(iod.output.transient.displacement)];
-    sprintf(vectors[PostFcn::DISPLACEMENT], "%s%s", 
+    sprintf(vectors[PostFcn::DISPLACEMENT], "%s%s",
             iod.output.transient.prefix, iod.output.transient.displacement);
   }
   if (iod.output.transient.tavdisplacement[0] != 0) {
     avvscale[PostFcn::DISPLACEMENTAVG] = iod.ref.rv.tlength;
     avvectors[PostFcn::DISPLACEMENTAVG] = new char[sp + strlen(iod.output.transient.tavdisplacement)];
-    sprintf(avvectors[PostFcn::DISPLACEMENTAVG], "%s%s", 
+    sprintf(avvectors[PostFcn::DISPLACEMENTAVG], "%s%s",
             iod.output.transient.prefix, iod.output.transient.tavdisplacement);
   }
 
@@ -3894,11 +4034,11 @@ void TsOutput<dim>::rstVar(IoData &iod) {
   if (iod.output.transient.velocitynorm[0] != 0) {
     sscale[PostFcn::VELOCITY_NORM] = iod.ref.rv.velocity;
     scalars[PostFcn::VELOCITY_NORM] = new char[sp + strlen(iod.output.transient.velocitynorm)];
-    sprintf(scalars[PostFcn::VELOCITY_NORM], "%s%s", 
+    sprintf(scalars[PostFcn::VELOCITY_NORM], "%s%s",
             iod.output.transient.prefix, iod.output.transient.velocitynorm);
-    sprintf(dScalars[PostFcn::DERIVATIVE_TOTPRESSURE], "%s%s", 
+    sprintf(dScalars[PostFcn::DERIVATIVE_TOTPRESSURE], "%s%s",
             iod.output.transient.prefix, iod.output.transient.dTotalpressure);
-    sprintf(dScalars[PostFcn::DERIVATIVE_TOTPRESSURE], "%s%s", 
+    sprintf(dScalars[PostFcn::DERIVATIVE_TOTPRESSURE], "%s%s",
             iod.output.transient.prefix, iod.output.transient.dTotalpressure);
   }
 
@@ -3907,35 +4047,35 @@ void TsOutput<dim>::rstVar(IoData &iod) {
   if (iod.output.transient.dNutturb[0] != 0) {
     dSscale[PostFcn::DERIVATIVE_NUT_TURB] = iod.ref.rv.viscosity_mu/iod.ref.rv.density;
     dScalars[PostFcn::DERIVATIVE_NUT_TURB] = new char[dsp + strlen(iod.output.transient.dNutturb)];
-    sprintf(dScalars[PostFcn::DERIVATIVE_NUT_TURB], "%s%s", 
+    sprintf(dScalars[PostFcn::DERIVATIVE_NUT_TURB], "%s%s",
             iod.output.transient.prefix, iod.output.transient.dNutturb);
   }
 
   if (iod.output.transient.dEddyvis[0] != 0) {
     dSscale[PostFcn::DERIVATIVE_EDDY_VISCOSITY] = iod.ref.rv.viscosity_mu;
     dScalars[PostFcn::DERIVATIVE_EDDY_VISCOSITY] = new char[dsp + strlen(iod.output.transient.dEddyvis)];
-    sprintf(dScalars[PostFcn::DERIVATIVE_EDDY_VISCOSITY], "%s%s", 
+    sprintf(dScalars[PostFcn::DERIVATIVE_EDDY_VISCOSITY], "%s%s",
             iod.output.transient.prefix, iod.output.transient.dEddyvis);
   }
 
   if (iod.output.transient.dVelocityScalar[0] != 0) {
     dSscale[PostFcn::DERIVATIVE_VELOCITY_SCALAR] = iod.ref.rv.velocity;
     dScalars[PostFcn::DERIVATIVE_VELOCITY_SCALAR] = new char[dsp + strlen(iod.output.transient.dVelocityScalar)];
-    sprintf(dScalars[PostFcn::DERIVATIVE_VELOCITY_SCALAR], "%s%s", 
+    sprintf(dScalars[PostFcn::DERIVATIVE_VELOCITY_SCALAR], "%s%s",
             iod.output.transient.prefix, iod.output.transient.dVelocityScalar);
   }
 
   if (iod.output.transient.dVelocityVector[0] != 0) {
     dVscale[PostFcn::DERIVATIVE_VELOCITY_VECTOR] = iod.ref.rv.velocity;
     dVectors[PostFcn::DERIVATIVE_VELOCITY_VECTOR] = new char[dsp + strlen(iod.output.transient.dVelocityVector)];
-    sprintf(dVectors[PostFcn::DERIVATIVE_VELOCITY_VECTOR], "%s%s", 
+    sprintf(dVectors[PostFcn::DERIVATIVE_VELOCITY_VECTOR], "%s%s",
             iod.output.transient.prefix, iod.output.transient.dVelocityVector);
   }
 
   if (iod.output.transient.dDisplacement[0] != 0) {
     dVscale[PostFcn::DERIVATIVE_DISPLACEMENT] = iod.ref.rv.tlength;
     dVectors[PostFcn::DERIVATIVE_DISPLACEMENT] = new char[dsp + strlen(iod.output.transient.dDisplacement)];
-    sprintf(dVectors[PostFcn::DERIVATIVE_DISPLACEMENT], "%s%s", 
+    sprintf(dVectors[PostFcn::DERIVATIVE_DISPLACEMENT], "%s%s",
             iod.output.transient.prefix, iod.output.transient.dDisplacement);
   }
 
@@ -3945,11 +4085,11 @@ void TsOutput<dim>::rstVar(IoData &iod) {
 
 
 template<int dim>
-int TsOutput<dim>::writeBinaryVectorsToDiskRom(bool lastNewtonIt, int timeStep, int newtonIt, 
+int TsOutput<dim>::writeBinaryVectorsToDiskRom(bool lastNewtonIt, int timeStep, int newtonIt,
                                                   DistSVec<double,dim> *state, DistSVec<double,dim> *residual)
 { // Outputs state and residual snapshots (from the FOM newton solver) for building a nonlinear ROM.
-  // The logic tests ensure that every state from a given timestep is ouput (if requested), but that 
-  // no state snapshot is stored twice. (Need to be careful because the initial state of any given 
+  // The logic tests ensure that every state from a given timestep is ouput (if requested), but that
+  // no state snapshot is stored twice. (Need to be careful because the initial state of any given
   // timestep is the converged state from the previous timestep)
 
   int status = 0;
@@ -3959,12 +4099,12 @@ int TsOutput<dim>::writeBinaryVectorsToDiskRom(bool lastNewtonIt, int timeStep, 
   if (state && stateVectors) {
     double tag = *(domain->getNewtonTag());
     double prevTag = -1;
-    int step = *(domain->getNewtonStateStep());  
+    int step = *(domain->getNewtonStateStep());
     int prevStep = step-1;
     int dummy;
     if (prevStep>=0) domain->readTagFromFile<double,dim>(stateVectors, prevStep, &prevTag, &dummy);
     if ((newtonIt==0) && (step!=0) && (prevTag==tag)) { //do nothing
-    } else if (timeStep%stateOutputFreqTime==0) { 
+    } else if (timeStep%stateOutputFreqTime==0) {
         if (((stateOutputFreqNewton==0)&&lastNewtonIt) ||  // special case: last newton iteration
             ((timeStep==0) && (newtonIt==0)) ||  // special case: initial condition
             ((stateOutputFreqNewton>0)&&(newtonIt%stateOutputFreqNewton==0))) {
@@ -3977,13 +4117,13 @@ int TsOutput<dim>::writeBinaryVectorsToDiskRom(bool lastNewtonIt, int timeStep, 
   }
 
   if (residual && residualVectors) {
-    if (timeStep%residualOutputFreqTime==0) { 
+    if (timeStep%residualOutputFreqTime==0) {
       if (residualOutputMaxNewton>=newtonIt) {
         // for FOM residuals only (residuals from PG are clustered during the online simulations)
 
         // if outputting krylov vects, limit number of residuals output per newton iteration to
-        // number of krylov vecs output at previous it 
-        if ((fdResiduals && fdResidualsLimit) && (*(domain->getNumKrylovVecsOutputPrevNewtonIt())>0) && 
+        // number of krylov vecs output at previous it
+        if ((fdResiduals && fdResidualsLimit) && (*(domain->getNumKrylovVecsOutputPrevNewtonIt())>0) &&
             (*(domain->getNumResidualsOutputCurrentNewtonIt()) >= *(domain->getNumKrylovVecsOutputPrevNewtonIt())))  return status;
 
         domain->writeVectorToFile(residualVectors, *(domain->getNewtonResidualStep()), *(domain->getNewtonTag()), *residual);

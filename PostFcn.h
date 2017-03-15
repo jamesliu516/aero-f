@@ -37,10 +37,24 @@ public:
   enum VectorAvgType {VELOCITYAVG = 0, DISPLACEMENTAVG = 1, AVVSIZE = 2};
 
 // Included (MB)
-  enum ScalarDerivativeType {DERIVATIVE_DENSITY = 0, DERIVATIVE_MACH = 1, DERIVATIVE_PRESSURE = 2, 
-                             DERIVATIVE_TEMPERATURE = 3, DERIVATIVE_TOTPRESSURE = 4, DERIVATIVE_NUT_TURB = 5, 
-                             DERIVATIVE_EDDY_VISCOSITY = 6, DERIVATIVE_VELOCITY_SCALAR = 7, DERIVATIVE_SPATIAL_RES = 8, DSSIZE = 9};
-  enum VectorDerivativeType {DERIVATIVE_VELOCITY_VECTOR = 0, DERIVATIVE_DISPLACEMENT = 1, DVSIZE = 2};
+  //list of ScalarDerivatives
+  enum ScalarDerivativeType {DERIVATIVE_DENSITY = 0,
+                             DERIVATIVE_MACH = 1,
+			                 DERIVATIVE_PRESSURE = 2,
+                             DERIVATIVE_TEMPERATURE = 3,
+			                 DERIVATIVE_TOTPRESSURE = 4,
+			                 DERIVATIVE_NUT_TURB = 5,
+                             DERIVATIVE_EDDY_VISCOSITY = 6,
+			                 DERIVATIVE_VELOCITY_SCALAR = 7,
+			                 DERIVATIVE_SPATIAL_RES = 8,
+			                 DSSIZE = 9 //just an auxiliary parameter that holds the size of the list
+                            };
+
+  //list of vector derivatives
+  enum VectorDerivativeType {DERIVATIVE_VELOCITY_VECTOR = 0,
+                             DERIVATIVE_DISPLACEMENT = 1,
+			     DVSIZE = 2 //just an auxiliary parameter that holds the size of the list
+                            };
 
 protected:
 

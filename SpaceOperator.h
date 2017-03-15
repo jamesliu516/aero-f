@@ -359,8 +359,17 @@ public:
                                   DistTimeState<dim> * = 0, PostOperator<dim> * = 0, dRdXoperators<dim> * =0);
 
   // Included (MB)
-  void computeDerivativeOfResidual(DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &, DistVec<double> &,
-                               DistSVec<double,dim> &, double, DistSVec<double,dim> &, DistSVec<double,dim> &, DistTimeState<dim> * = 0);
+  void computeDerivativeOfResidual(
+	   DistSVec<double,3> &,   //X->nodal position
+	   DistSVec<double,3> &,   //dX->derivative of nodal postion
+	   DistVec<double> &,      //ctrlVol->assiciated control volume
+	   DistVec<double> &,      //dCtrlVol->derivative od associated control volume
+       DistSVec<double,dim> &, //U->fluid state vector in conservative form
+	   double,                 //dmach
+	   DistSVec<double,dim> &, //R->Residual of the fluid equations
+	   DistSVec<double,dim> &,   //dR->derivative of the fluid equation residual
+	   DistTimeState<dim> * = 0);//timeState
+
 
   void computeDerivativeOfResidual(dRdXoperators<dim> *, DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &, DistVec<double> &, DistVec<Vec3D>&, DistVec<Vec3D>&, DistVec<double>&,
                                    DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,6> &, DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &, double, DistTimeState<dim> *);

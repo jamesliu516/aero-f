@@ -58,7 +58,7 @@ protected:
   double maxMach;
   double slope;
   double betaviscous;
-  double shockreducer;  
+  double shockreducer;
 
 //methods
 protected:
@@ -72,8 +72,9 @@ protected:
       if(iod.ts.prec == TsData::PREC){
         prec = 2;
         if(iod.problem.alltype != ProblemData::_SHAPE_OPTIMIZATION_ &&
+           iod.problem.alltype != ProblemData::_SENSITIVITY_ANALYSIS_ && //TODO CHECK if neccessary
            iod.problem.alltype != ProblemData::_ROM_SHAPE_OPTIMIZATION_ &&
-	   iod.problem.alltype != ProblemData::_STEADY_ &&
+	       iod.problem.alltype != ProblemData::_STEADY_ &&
            iod.problem.alltype != ProblemData::_STEADY_AEROELASTIC_ &&
            iod.problem.alltype != ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ &&
            iod.problem.alltype != ProblemData::_STEADY_THERMO_ &&
@@ -89,7 +90,7 @@ protected:
     minMach = 1.0; maxMach = 1.0; slope = 0.0;
     betaviscous = 0.0; shockreducer = 0.0;
   }
-    
+
   virtual void setupIodConstants(IoData &iod){
     minMach      = iod.prec.mach;
     maxMach      = iod.prec.cmach;
@@ -100,7 +101,7 @@ protected:
 
 public:
 
-  LowMachPrec() { 
+  LowMachPrec() {
     prec = 0;
     setupDefaultConstants();
   }
@@ -124,7 +125,7 @@ public:
 
   virtual double getBeta(double locMach,bool checktac = false) const = 0;
 
-  
+
 };
 
 //------------------------------------------------------------------------------
@@ -143,7 +144,7 @@ public:
     else        setupIodConstants(iod);
   }
 
-  double getBeta(double locMach, bool checktac = false) const 
+  double getBeta(double locMach, bool checktac = false) const
     {return fmin(fmax(slope*locMach, minMach),maxMach);}
 
 };
@@ -194,4 +195,3 @@ public:
 //------------------------------------------------------------------------------
 
 #endif
-

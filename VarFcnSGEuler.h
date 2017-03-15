@@ -11,10 +11,10 @@
 #include <utils/Aerof_math.h>
 
 //--------------------------------------------------------------------------
-// This class is the VarFcn class for the Stiffened Gas EOS in Euler 
+// This class is the VarFcn class for the Stiffened Gas EOS in Euler
 // Equations. Only elementary functions are declared and/or defined here.
 // All arguments must be pertinent to only a single grid node or a single
-// state. 
+// state.
 //
 // lay-out of the base class is:
 //  - 1 -  Transformation Operators
@@ -31,7 +31,7 @@
 //
 //   Note that the complete EOS is given by the above and h = cp * T
 //   where cp is constant. For a perfect gas, this leads to epsilon = cv * T
-//   but for a stiffened gas, epsilon = cv * T does not hold. 
+//   but for a stiffened gas, epsilon = cv * T does not hold.
 //   For a stiffened gas, choosing epsilon = cv * T would lead to a non-constant cp...
 //
 //--------------------------------------------------------------------------
@@ -48,7 +48,7 @@ private:
   void computedUdV(double *V, double *dUdV);
   int verification(int glob, double *U, double *V);
 
-  void computeFofU(double n[3], double *U, double *F); 
+  void computeFofU(double n[3], double *U, double *F);
   void computeFofV(double n[3], double *V, double *F);
   void computedFdU(double n[3], double *V, double *dFdU);
   void computedFdV(double n[3], double *V, double *dFdV);
@@ -56,7 +56,7 @@ private:
 public:
   VarFcnSGEuler(FluidModelData &data);
   ~VarFcnSGEuler() { delete [] pname; }
-  
+
   virtual bool equal(VarFcnBase* oth) {
     if (oth->type == VarFcnBase::STIFFENEDGAS || oth->type == VarFcnBase::PERFECTGAS) {
       VarFcnSGEuler* othsg = dynamic_cast<VarFcnSGEuler*>(oth);
@@ -73,9 +73,9 @@ public:
   void primitiveToConservative(double *V, double *U);
   void conservativeToPrimitiveDerivative(double *, double *, double *, double *);
   void primitiveToConservativeDerivative(double *, double *, double *, double *);
- 
-  void computeConservativeToPrimitiveDerivativeOperators(double*, double*, 
-                                                         double dVdU[5][5], 
+
+  void computeConservativeToPrimitiveDerivativeOperators(double*, double*,
+                                                         double dVdU[5][5],
                                                          double dVdPstiff[5]);
 
   void extrapolatePrimitive(double un, double c, double *Vb, double *Vinter, double *V);
@@ -84,8 +84,8 @@ public:
   void characteristicToPrimitiveVariations(double n[3], double *V, double *dW, double *dV);
 
   //----- General Functions -----//
-  double checkPressure(double *V) const { 
-    return V[4]+Pstiff; 
+  double checkPressure(double *V) const {
+    return V[4]+Pstiff;
   }
   bool checkReconstructedValues(double *V, int nodeNum, int otherNodeNum, int phi, int otherPhi, int failsafe) const{
     bool error = false;
@@ -122,7 +122,8 @@ public:
       fprintf(stderr, "ERROR*** computeTemp\n");
       throw std::exception();
     }
-    return invgam1 * (V[4]+Pstiff) / V[0];
+    return invgam1 * (V[4]+Pstiff) / V[0];//TODO BUGHUNT seems correct
+    //return V[4]/(V[0] * (gam-1) );
   }
   void computeTemperatureGradient(double *V,double* Tg) const {
     if (aerof_isnan(1.0/V[0])) {
@@ -131,9 +132,9 @@ public:
     }
     Tg[0] =  -invgam1 * (V[4]+Pstiff) / (V[0]*V[0]);
     Tg[1] = Tg[2] = Tg[3] = 0.0;
-    Tg[4] = invgam1 / V[0]; 
+    Tg[4] = invgam1 / V[0];
   }
-  void computeTemperatureHessian(double *V,double& Trr, double& Trp, 
+  void computeTemperatureHessian(double *V,double& Trr, double& Trp,
                                  double& Tpp) const {
     if (aerof_isnan(1.0/V[0])) {
       fprintf(stderr, "ERROR*** computeTemp\n");
@@ -141,7 +142,7 @@ public:
     }
     Trr = 2.0*invgam1*(V[4]+Pstiff) / (V[0]*V[0]*V[0]);
     Trp = -invgam1 /(V[0]*V[0]);
-    Tpp = 0.0; 
+    Tpp = 0.0;
   }
   void getV4FromTemperature(double *V, double T) const {
     V[4] = T*V[0]*gam1 - Pstiff;
@@ -149,25 +150,25 @@ public:
   double computeRhoEnergy(double *V) const {
     return invgam1 * (V[4]+gam*Pstiff) + 0.5 * V[0] * (V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
   }
-  double computeRhoEpsilon(double *V) const { 
-    return invgam1 * (V[4]+gam*Pstiff); 
+  double computeRhoEpsilon(double *V) const {
+    return invgam1 * (V[4]+gam*Pstiff);
   }
   double computeSoundSpeed(double *V) const {
 #ifndef NDEBUG
-    if (V[4]+Pstiff<0 || V[0]<=0) std::printf("V[4]=%e, Pstiff=%e, V[0]=%e\n",V[4],Pstiff,V[0]); 
+    if (V[4]+Pstiff<0 || V[0]<=0) std::printf("V[4]=%e, Pstiff=%e, V[0]=%e\n",V[4],Pstiff,V[0]);
 #endif
-    return sqrt(gam * (V[4]+Pstiff) / V[0]); 
+    return sqrt(gam * (V[4]+Pstiff) / V[0]);
   }
   double computeSoundSpeed(double density, double entropy) const {
     double c2 = gam * entropy*pow(density,gam-1.0);
     if(c2>0) return sqrt(c2);
-    return 0.0; 
+    return 0.0;
   }
   double computeEntropy(double density, double pressure) const {
-    return (pressure+Pstiff)/pow(density,gam); 
+    return (pressure+Pstiff)/pow(density,gam);
   }
   double computeIsentropicPressure(double entropy, double density) const {
-    return entropy*pow(density,gam)-Pstiff; 
+    return entropy*pow(density,gam)-Pstiff;
   }
   double computePressureCoefficient(double *V, double pinfty, double mach, bool dimFlag) const {
     if (dimFlag)
@@ -183,9 +184,14 @@ public:
   // specific heat at constant pressure is gamma for Perfect Gas
   //                                             and Stiffened Gas with h = cp * T
   double specificHeatCstPressure() const { return gam; }
+
   double computeDerivativeOfTemperature(double *V, double *dV) const {
     // Correction when Pstiff is non-zero.
     return ( invgam1 * dV[4] - computeTemperature(V) * dV[0] ) /V[0];
+
+//	//TODO BUGHUNT
+//    double dens=V[0]; double press=V[4];
+//    return (dV[4]/press-dV[0]/dens)*computeTemperature(V);
   }
 
   void computeDerivativeOperatorsOfTemperature(double *V, double dTdV[5]) const {
@@ -193,14 +199,27 @@ public:
     dTdV[4] = invgam1/V[0];
   }
 
-  double computeDerivativeOfMachNumber(double *V, double *dV, double dMach) const 
+  double computeDerivativeOfMachNumber(double *V, double *dV, double dMach) const
   {
     // Fix when the speed is 0
-    double MyMach = computeMachNumber(V);
-    if (MyMach == 0.0)
+    double Ma = computeMachNumber(V);
+
+    ///if (Ma ==0.0)
+    if (Ma < 100*std::numeric_limits<float>::min())
       return 0.0;
     //----
     return 1/(2.0*sqrt((V[1]*V[1] + V[2]*V[2] + V[3]*V[3]) * V[0] / (gam * (V[4]+Pstiff)))) * ( ( (2.0*(V[1]*dV[1] + V[2]*dV[2] + V[3]*dV[3]) * V[0] + (V[1]*V[1] + V[2]*V[2] + V[3]*V[3]) * dV[0]) * (V[4]+Pstiff) - (V[1]*V[1] + V[2]*V[2] + V[3]*V[3]) * V[0] * (dV[4] + dPstiff*dMach) ) / ( (V[4]+Pstiff) * (V[4]+Pstiff) ) );
+//    double dens=V[0]; double vx=V[1]; double vy=V[2]; double vz=V[3]; double press=V[4];
+//    double pdMaBYdens = Ma/(2*dens);
+//    double pdMaBYvx   = (dens)/(gam*press)*1/Ma*vx;
+//    double pdMaBYvy   = (dens)/(gam*press)*1/Ma*vy;
+//    double pdMaBYvz   = (dens)/(gam*press)*1/Ma*vz;
+//    double pdMaBYpress= -Ma/(2*press);
+//    return pdMaBYdens *dV[0] +
+//	   pdMaBYvx   *dV[1] +
+//	   pdMaBYvy   *dV[2] +
+//	   pdMaBYvz   *dV[3] +
+//	   pdMaBYpress*dV[4];
   }
 
   double computeDerivativeOfSoundSpeed(double *V, double *dV, double dMach) const {
@@ -212,6 +231,23 @@ public:
     double opmach = 1.0 + 0.5*gam1*mach*mach;
     double dopmach = gam1*mach*dmach;
     return dV[4]*pow(opmach, gam*invgam1) + (V[4]+Pstiff)*gam*invgam1*pow(opmach, (gam*invgam1-1))*dopmach;
+
+//	  //TODO BUGHUNT
+//      double dens=V[0]; double vx=V[1]; double vy=V[2]; double vz=V[3]; double press=V[4];
+//      double mach = computeMachNumber(V);
+//      double dmach = computeDerivativeOfMachNumber(V, dV, dMach);
+//      double bterm = 1+(gam-1)*0.5*mach*mach;
+//      double pdtotpressBYdens=(press*gam*mach*mach)/(2*dens)*pow(bterm,1/(gam-1));
+//      double pdtotpressBYvx  = dens*vx*pow(bterm,1/(gam-1));
+//      double pdtotpressBYvy  = dens*vy*pow(bterm,1/(gam-1));
+//      double pdtotpressBYvz  = dens*vz*pow(bterm,1/(gam-1));
+//      double pdtotpressBYpress = pow(bterm,gam/(gam-1))*(1-gam*mach*mach*0.5*pow(bterm,1/(gam-1)) );
+//
+//      return pdtotpressBYdens  * dV[0] +
+//             pdtotpressBYvx    * dV[1] +
+//             pdtotpressBYvy    * dV[2] +
+//             pdtotpressBYvz    * dV[3] +
+//             pdtotpressBYpress * dV[4];
   }
   void rstVar(IoData &iod) {
     dPstiff = iod.eqs.fluidModel.gasModel.pressureConstant/iod.bc.inlet.pressure*(-2.0 / (gam * iod.bc.inlet.mach * iod.bc.inlet.mach * iod.bc.inlet.mach));
@@ -225,10 +261,10 @@ public:
   double getPressure(double *V)               const {return V[4];}
   double getDerivativeOfPressureConstant()    const {return dPstiff;}
 
-  void computedPdV(double *dPdV)              const { 
+  void computedPdV(double *dPdV)              const {
     for(int i=0; i<5; ++i) dPdV[i] = 0.0;
     dPdV[4] = 1.0;
-  } 
+  }
 };
 
 //------------------------------------------------------------------------------
@@ -266,8 +302,8 @@ inline
 void VarFcnSGEuler::conservativeToPrimitive(double *U, double *V)
 {
 
-#ifdef YDEBUG 
-  if(U[0] == 0) { 
+#ifdef YDEBUG
+  if(U[0] == 0) {
     const char* output = "conservativetoprimitivecheck";
     std::ofstream out(output, std::ios::out);
     if(!out) {
@@ -334,7 +370,7 @@ void VarFcnSGEuler::computeConservativeToPrimitiveDerivativeOperators(double *U,
   dVdU[2][0] = -invRho*V[2];    dVdU[2][2] = invRho;
   dVdU[3][0] = -invRho*V[3];    dVdU[3][3] = invRho;
   dVdU[4][0] = cf02 - cf05*invRho*V[3]- cf03*invRho*V[1] - cf04*invRho*V[2];
-  dVdU[4][1] = cf03*invRho; 
+  dVdU[4][1] = cf03*invRho;
   dVdU[4][2] = cf04*invRho;
   dVdU[4][3] = cf05*invRho;
   dVdU[4][4] = cf01;
@@ -417,7 +453,7 @@ void VarFcnSGEuler::extrapolatePrimitive(double un, double c, double *Vb,
 }
 //------------------------------------------------------------------------------
 inline
-void VarFcnSGEuler::extrapolateCharacteristic(double n[3], double un, double c, 
+void VarFcnSGEuler::extrapolateCharacteristic(double n[3], double un, double c,
                                               double *Vb, double *dV)
 {
 /* routine computes boundary conditions using characteristic methods
@@ -483,7 +519,7 @@ void VarFcnSGEuler::extrapolateCharacteristic(double n[3], double un, double c,
 }
 //------------------------------------------------------------------------------
 inline
-void VarFcnSGEuler::primitiveToCharacteristicVariations(double n[3], double *V, 
+void VarFcnSGEuler::primitiveToCharacteristicVariations(double n[3], double *V,
                                                         double *dV, double *dW)
 {
   double dVn = dV[1]*n[0]+dV[2]*n[1]+dV[3]*n[2];
@@ -499,7 +535,7 @@ void VarFcnSGEuler::primitiveToCharacteristicVariations(double n[3], double *V,
 }
 //-----------------------------------------------------------------------------
 inline
-void VarFcnSGEuler::characteristicToPrimitiveVariations(double n[3], double *V, 
+void VarFcnSGEuler::characteristicToPrimitiveVariations(double n[3], double *V,
                                                         double *dW, double *dV)
 {
   double sum = dW[3]+dW[4];
@@ -526,7 +562,7 @@ int VarFcnSGEuler::verification(int glob, double *U, double *V)
     if(verif_clipping)
       fprintf(stderr,"clip density[%d] in gas(Euler) from %e to %e\n", glob, V[0], rhomin);
     V[0] = rhomin;
-    count += (count+1) % 2; 
+    count += (count+1) % 2;
   }
 
   if(V[4]<pmin){
@@ -582,7 +618,11 @@ inline
 void VarFcnSGEuler::computeFofU(double n[3], double *U, double *F)
 {
   double invrho = 1.0 / U[0];
+
+  //velocity in normal direction(normal to face Cij); not necessarily paralell to edge ij
   double velnrm = invrho * (U[1]*n[0] + U[2]*n[1] + U[3]*n[2]);
+
+  //pressure
   double prs    = gam1 * (U[4]-0.5 * invrho * (U[1]*U[1] + U[2]*U[2] + U[3]*U[3])) - gam * Pstiff;
   F[0] = U[0] * velnrm;
   F[1] = U[1] * velnrm + prs * n[0];
@@ -603,7 +643,7 @@ void VarFcnSGEuler::computeFofV(double n[3], double *V, double *F)
 	F[4] = (invgam1 * gam * (V[4] + Pstiff) + 0.5 * V[0] * vel2) * velnrm;
 }
 //------------------------------------------------------------------------------
-inline
+inline//TODO this function is never called by anyone
 void VarFcnSGEuler::computedFdU(double n[3], double *V, double *dFdU)
 {
 	double invrho = 1.0 / V[0];
@@ -619,7 +659,7 @@ void VarFcnSGEuler::computedFdU(double n[3], double *V, double *dFdU)
 	dFdU[8]  = - gam1 * V[3] * n[0] + V[1] * n[2];
 	dFdU[9]  = gam1 * n[0];
 	dFdU[10] = - V[2] * velnrm + 0.5 * gam1 * vel2 * n[1];
-	dFdU[11] = - gam1 * V[1] * n[1] + V[2] * n[0]; 
+	dFdU[11] = - gam1 * V[1] * n[1] + V[2] * n[0];
 	dFdU[12] = velnrm + (1.0 - gam1) * V[2] * n[1];
 	dFdU[13] = - gam1 * V[3] * n[1] + V[2] * n[2];
 	dFdU[14] = gam1 * n[1];

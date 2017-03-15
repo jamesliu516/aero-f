@@ -150,8 +150,12 @@ private:
   double dSscale[PostFcn::DSSIZE];
   double dVscale[PostFcn::DVSIZE];
 
+  //dScalars holds the name of the outputfiles of Scalar derivatives. If an entry remains at NULL, then it is not outputed
   char *dScalars[PostFcn::DSSIZE];
+
+  //dScalars holds the name of the outputfiles of Vector derivatives. If an entry remains at NULL, then it is not outputed
   char *dVectors[PostFcn::DVSIZE];
+
   char *dSolutions;
   char *dMatchPressure;
   char *dForces;
@@ -160,6 +164,9 @@ private:
   char *dLifty;
   char *dLiftz;
   char *dFluxNorm;
+
+  //TODO delete this. just temporary for sensitivity verification
+  char *tempStateDeriv;
 
   FILE *fpdMatchPressure;
   FILE *fpdForces;
@@ -252,6 +259,35 @@ public:
 
   void writePositionSensitivityVectorToDisk(int step, double tag, DistSVec<double,3> &X);
 
+
+  //TODO BUGHUNT delete functuion
+//  template<int dim>
+//  void TsOutput<dim>::writeDistSVecVectorsToDisk(DistSVec<double,dim> &vec,
+//  					       int step,
+//  					       DistTimeState<dim> *timeState)
+//  {
+//    double tag=0;
+//     domain->writeVectorToFile("message", step, tag, *vec, 0);
+//  }
+  void writeDistSVecVectorsToDisk(DistSVec<double,dim> &vec,
+  				  int step)
+  {
+//    if (tempStateDeriv[0]!=0)
+//      {
+//       double tag=0;
+//       double scalar=0;
+//       domain->writeVectorToFile(tempStateDeriv, step, tag, vec, &scalar);
+//      }
+    if (true)
+      {
+       double tag=0;
+       double scalar=0;
+       domain->writeVectorToFile("./results/dFdS", step, tag, vec, &scalar);
+      }
+  }
+
+
+
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &, 
                                 DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
 
@@ -317,6 +353,9 @@ public:
   void rstVar(IoData &);
   void writeDerivativeOfForcesToDisk(int, int, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double &, double &);
   void writeBinaryDerivativeOfVectorsToDisk(int, int, double [3], DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &, DistTimeState<dim> *, DistVec<double>* =NULL);
+
+  //TODO BUGHUNT
+  void writeAnyVectorToDisk(const char* filename,int it,int tag,DistSVec<double,dim> &vec);
 
 };
 

@@ -311,42 +311,42 @@ void IluPrec<Scalar,dim, Scalar2>::applyT(DistSVec<Scalar2,dim> &y, DistSVec<Sca
 
 }
 
-//------------------------------------------------------------------------------
-
-template<class Scalar, int dim, class Scalar2>
-void IluPrec<Scalar,dim, Scalar2>::applyTranspose(DistSVec<Scalar2,dim> &y, DistSVec<Scalar2,dim> &x)
-{
-
-  int iSub;
-
-  DistSVec<Scalar2, dim> tmp(y);
-
-  // switched RAS to ASH
-
-  if (type == PcData::ASH) tmp.restrict();
-  if (type == PcData::AAS) tmp.average();
-//  if (type == PcData::RAS) tmp.restrict();
-
-#pragma omp parallel for
-  for (iSub = 0; iSub < this->numLocSub; ++iSub)
-    A[iSub]->lusolTR(tmp(iSub), x(iSub));
-
-  // switched ASH to RAS
-  if (type == PcData::RAS) x.restrict();
-  if (type == PcData::AAS) x.average();
-//  if (type == PcData::ASH) x.restrict();
-
-  CommPattern<Scalar2> *vPat = this->getCommPat(x);
-#pragma omp parallel for
-  for (iSub = 0; iSub < this->numLocSub; ++iSub)
-    this->subDomain[iSub]->sndData(*vPat, x.subData(iSub));
-  vPat->exchange();
-
-#pragma omp parallel for
-  for (iSub = 0; iSub < this->numLocSub; ++iSub)
-    this->subDomain[iSub]->addRcvData(*vPat, x.subData(iSub));
-
-}
+////------------------------------------------------------------------------------
+//
+//template<class Scalar, int dim, class Scalar2>
+//void IluPrec<Scalar,dim, Scalar2>::applyTranspose(DistSVec<Scalar2,dim> &y, DistSVec<Scalar2,dim> &x)
+//{
+//
+//  int iSub;
+//
+//  DistSVec<Scalar2, dim> tmp(y);
+//
+//  // switched RAS to ASH
+//
+//  if (type == PcData::ASH) tmp.restrict();
+//  if (type == PcData::AAS) tmp.average();
+////  if (type == PcData::RAS) tmp.restrict();
+//
+//#pragma omp parallel for
+//  for (iSub = 0; iSub < this->numLocSub; ++iSub)
+//    A[iSub]->lusolTR(tmp(iSub), x(iSub));
+//
+//  // switched ASH to RAS
+//  if (type == PcData::RAS) x.restrict();
+//  if (type == PcData::AAS) x.average();
+////  if (type == PcData::ASH) x.restrict();
+//
+//  CommPattern<Scalar2> *vPat = this->getCommPat(x);
+//#pragma omp parallel for
+//  for (iSub = 0; iSub < this->numLocSub; ++iSub)
+//    this->subDomain[iSub]->sndData(*vPat, x.subData(iSub));
+//  vPat->exchange();
+//
+//#pragma omp parallel for
+//  for (iSub = 0; iSub < this->numLocSub; ++iSub)
+//    this->subDomain[iSub]->addRcvData(*vPat, x.subData(iSub));
+//
+//}
 
 //------------------------------------------------------------------------------
 

@@ -6,6 +6,8 @@
 #include <cstdlib>
 #include <cstdio>
 
+#include "./Dev/devtools.h"//TODO delete line
+
 const double PostFcnEuler::third = 1.0/3.0;
 //------------------------------------------------------------------------------
 
@@ -183,8 +185,15 @@ double PostFcnEuler::computeNodeScalarQuantity(ScalarType type, double *V, doubl
 //------------------------------------------------------------------------------
 
 // Included (MB)
-double PostFcnEuler::computeDerivativeOfNodeScalarQuantity(ScalarDerivativeType type, double dS[3], double *V, double *dV, double *X, double *dX, double phi)
+double PostFcnEuler::computeDerivativeOfNodeScalarQuantity(ScalarDerivativeType type,
+							   double dS[3],
+							   double *V,
+							   double *dV,
+							   double *X,
+							   double *dX,
+							   double phi)
 {
+  //Dev::Error(MPI_COMM_WORLD,"tempoarary Error to look at backtrace",true);//TODO delete line
 
   double q = 0.0;
 
@@ -202,10 +211,17 @@ double PostFcnEuler::computeDerivativeOfNodeScalarQuantity(ScalarDerivativeType 
     q = varFcn->getTurbulentNuTilde(dV);
   else if (type == DERIVATIVE_VELOCITY_SCALAR)
     q = varFcn->getDerivativeOfVelocityNorm(V, dV);
+  else if (type == DERIVATIVE_EDDY_VISCOSITY)//not existing in Euler
+    {fprintf(stderr, "*** ERROR derivative of eddy viscosity cannot be computed in an Euler simulation\n"); exit(-1);}
+  else if (type == DERIVATIVE_SPATIAL_RES)//not existing in Euler
+    {fprintf(stderr, "*** ERROR derivative of eddy viscosity cannot be computed in an Euler simulation\n"); exit(-1);}
+  else if (type == DSSIZE)//not existing in Euler
+    {fprintf(stderr, "*** ERROR derivative of eddy viscosity cannot be computed in an Euler simulation\n"); exit(-1);}
   else
   {
     // Error message
-    fprintf(stderr, "*** Warning: PostFcnEuler::computeDerivativeOfNodeScalarQuantity does not define the type %d\n", type);
+    fprintf(stderr, "*** ERROR: PostFcnEuler::computeDerivativeOfNodeScalarQuantity does not define the type %d\n", type);
+    exit(-1);
   }
 
   return q;

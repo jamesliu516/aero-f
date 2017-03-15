@@ -3,6 +3,7 @@
 
 #include <DistVector.h>
 #include <VarFcn.h>
+#include <./Dev/devtools.h>//TODO delete line
 
 class IoData;
 class SubDomain;
@@ -129,12 +130,25 @@ public:
 // Included (MB)
   void updateSA(DistSVec<double,3> &, DistSVec<double,3> &, double &);
   void rstVar(IoData &ioData);
-  virtual void computeDerivativeOfNodeValue(DistSVec<double,3> &, DistSVec<double,3> &) {}
-  virtual void computeNodeWallValues(DistSVec<double,3> &) {}
+
+  virtual void computeDerivativeOfNodeValue(DistSVec<double,3> &, DistSVec<double,3> &)
+  {
+    std::cout<<"ERROR: header computeDerivativeOfNodeValue called"<<std::endl; exit(-1);
+  }
+  virtual void computeNodeWallValues(DistSVec<double,3> &)
+  {std::cout<<"ERROR: header computeNodeWallValues called"<<std::endl; exit(-1);}//TODO BUUGHUNT
+
   DistVec<double> &getDerivativeOfTemperatureVector() { return (*dTemp); }
-  virtual void updateFarFieldSA(DistSVec<double,3> &, DistSVec<double,3> &, double &) {}
-  virtual void initialize(IoData &, DistSVec<double,3> &) {}
-  virtual void initializeSA(IoData &, DistSVec<double,3> &, DistSVec<double,3> &, double &, double &, double &) {}
+
+  virtual void updateFarFieldSA(DistSVec<double,3> &, DistSVec<double,3> &, double &)
+  {std::cout<<"ERROR: header updateFarFieldSA called"<<std::endl; exit(-1);}//TODO BUUGHUNT
+
+  virtual void initialize(IoData &, DistSVec<double,3> &)
+  {std::cout<<"ERROR: header initialize called"<<std::endl; exit(-1);}//TODO BUUGHUNT
+
+  virtual void initializeSA(IoData &, DistSVec<double,3> &, DistSVec<double,3> &, double &, double &, double &)
+  {std::cout<<"ERROR: header initializeSA called"<<std::endl; exit(-1);}//TODO BUUGHUNT
+
   DistSVec<double,3> &getDerivativeOfVelocityVector() { return *dXdot; }
 
 };
@@ -163,13 +177,21 @@ private:
 
 // Included (MB)
   void initialize(IoData &, DistSVec<double,3> &);
-  void initializeSA(IoData &, DistSVec<double,3> &, DistSVec<double,3> &, double &, double &, double &);
-  void setDerivativeOfBoundaryConditionsGas(IoData &, DistSVec<double,3> &, DistSVec<double,3> &, double, double, double);
+  void initializeSA(
+	     IoData &,  //
+		 DistSVec<double,3> &, //X->nodal position
+		 DistSVec<double,3> &, //dX->derivative of the nodal position
+		 double &,  //dM->marks the derivative od mach number;          set at DFSPAR[0] in FluidShapeOptimizationHandler.C
+		 double &,  //dA->marks the derivatice of angle of attck (AoA); set at DFSPAR[1] in FluidShapeOptimizationHandler.C
+		 double &); //dB->marks the derivative of sidelipe angle;       set at DFSPAR[2] in FluidShapeOptimizationHandler.C
+
+  void setDerivativeOfBoundaryConditionsGas(IoData &,DistSVec<double,3> &, DistSVec<double,3> &, double, double, double);
   void updateFarFieldSA(DistSVec<double,3> &, DistSVec<double,3> &, double &);
   void updateFarFieldGasSA(DistSVec<double,3> &, DistSVec<double,3> &, double &);
 
 public:
 
+  void computeDerivativeOfNodeValue(DistSVec<double,3> &, DistSVec<double,3> &);
   DistBcDataEuler(IoData &, VarFcn *, Domain *, DistSVec<double,3> &);
   ~DistBcDataEuler() {}
 
@@ -223,7 +245,8 @@ public:
 
 // Included (MB)
   void computeDerivativeOfNodeValue(DistSVec<double,3> &, DistSVec<double,3> &);
-  void computeNodeWallValues(DistSVec<double,3> &x) {}
+  void computeNodeWallValues(DistSVec<double,3> &x)
+  {std::cout<<"ERROR: header DistBcDataKE::computeNodeWallValues called"<<std::endl; exit(-1);}//TODO BUUGHUNT
 
 };
 
