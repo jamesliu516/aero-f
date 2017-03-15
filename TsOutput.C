@@ -93,7 +93,6 @@ fpMatchPressure(NULL),
 fpMatchState(NULL),
 fpFluxNorm(NULL),
 fpMatVolumes(NULL),
-fpMaterialMassEnergy(NULL),
 fpConservationErr(NULL),
 fpGnForces(NULL),
 fpStateRom(NULL),
@@ -1882,9 +1881,9 @@ void TsOutput<dim>::openAsciiFiles()
         fprintf(stderr, "*** Error: could not open \'%s\'\n", material_conservation_scalars);
         exit(1);
       }
-      fprintf(fpMaterialConservationScalars, "# TimeIteration ElapsedTime ");
+      fprintf(fpMaterialConservationScalars, "#TimeIteration ElapsedTime ");
       for(int i=0; i<numFluidPhases; i++)
-        fprintf(fpMaterialConservationScalars, "Mass[FID==%d] MomentumX[FID==%d] MomentumY[FID==%d] MomentumZ[FID==%d] Energy[FId==%d]", i,i,i,i,i);
+        fprintf(fpMaterialConservationScalars, "Mass[FID==%d] MomentumX[FID==%d] MomentumY[FID==%d] MomentumZ[FID==%d] Energy[FId==%d] ", i,i,i,i,i);
       fprintf(fpMaterialConservationScalars, "Mass[FID==%d(Ghost)] MomentumX[FID==%d(Ghost)] MomentumY[FID==%d(Ghost)] MomentumZ[FID==%d(Ghost)] "
               "Energy[FID==%d(Ghost)] TotalMass TotalMomentumX TotalMomentumY TotalMomentumZ TotalEnergy\n", numFluidPhases, numFluidPhases,numFluidPhases, numFluidPhases,numFluidPhases);
     }

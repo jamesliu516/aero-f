@@ -90,6 +90,7 @@ private:
   char *generalizedforces;
   char *residuals;
   char *material_volumes;
+  char *material_mass_energy;
   char *material_conservation_scalars;
   char *conservation;
   char *modeFile;
