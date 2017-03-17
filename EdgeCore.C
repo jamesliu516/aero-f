@@ -302,3 +302,8 @@ void EdgeSet::SetupStructureType(bool isOtherNodeActive,
 	        *MassInflow = true;
 	}
 }
+//---------------------------------------------------------------------------------------------------
+double EdgeSet::ComputeMassInflow(double rho,Vec3D Velocity,Vec3D normaldir,double area){
+	//Mass inflow is rho*u*n
+	return rho*Velocity*normaldir*area;
+}
