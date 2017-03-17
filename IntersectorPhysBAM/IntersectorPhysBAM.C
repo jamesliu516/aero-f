@@ -626,6 +626,9 @@ void DistIntersectorPhysBAM::setMassInflow(){
 	        if(it2 != bcMap.end()) { // the bc data have been defined
 	          if(it2->second->type == BoundaryData::MASSINFLOW ) {
 	        	  massJump[i] = it2->second->massFlow;
+	        	  if (iod.problem.mode == ProblemData::DIMENSIONAL){
+	        		  massJump[i]/= iod.ref.rv.density;
+	        	  }
 	        	  actuatorDiskReconstructionMethod[i] = 1;//average
 	          }
 	        }
