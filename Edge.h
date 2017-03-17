@@ -404,17 +404,17 @@ public:
 		  double (&Vi)[2*dim],double (&Vj)[2*dim],double alpha,double (&ddVij)[dim],double (&ddVji)[dim],
 		  Vec3D GradPhi,Vec3D normal,double dx[3]);
 
-  template<int dim>
+  /*template<int dim>
   void ComputeAndAddInletMassFlowSourceTerm(
 			Vec3D normalDir,double controlVolumeArea,
 			double massInflow,double gamma,
 			double (&VIntersected)[2*dim],
 			double alpha,double (&ddVij)[dim],double (&ddVji)[dim],double Ttotal,double (&newState)[2*dim] );
-
+*/
   void SetupStructureType(bool isOtherNodeActive,
 		  int fluidIdi,int fluidIdj,LevelSetResult resji,bool* jPorous,bool* jActuatorDisk,bool* jMassInflow,
 		  int* reconstructionMethod,int i, int j);
-  double ComputeMassInflow(double rho,Vec3D Velocity,Vec3D normaldir,double area){printf("function not implemented"); return 0.0;};
+  double ComputeMassInflow(double rho,Vec3D Velocity,Vec3D normaldir,double area);
   void attachTriangulatedInterfaceLSS(LevelSetStructure*);
 };
 
