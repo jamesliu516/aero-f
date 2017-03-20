@@ -22,7 +22,7 @@ int getPolygons(Elem &elem, LevelSetStructure &LSS, PolygonReconstructionData* p
         int l = elem.edgeNum(i);
         int ni=elem.edgeEnd(i,0), nj=elem.edgeEnd(i,1);
         if(LSS.edgeIntersectsStructure(0, l)){//check the kind of intersection
-        	LevelSetResult resij = LSS.edgeIntersectsStructure(0.0,l);
+        	LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0,l,true);
         	switch(resij.structureType){
         	case BoundaryData::ACTUATORDISK:
         	case BoundaryData::MASSINFLOW:
