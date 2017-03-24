@@ -4719,7 +4719,7 @@ void Domain::extrapolatePhiV(DistLevelSetStructure *distLSS, DistSVec<double,dim
 template<int dim>
 void Domain::populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints, DistSVec<double,3> &X, 
 											DistSVec<double,dim> &U, DistNodalGrad<dim, double> *ngrad, 
-											VarFcn *varFcn,DistLevelSetStructure *distLSS,bool linRecAtInterface, 
+											VarFcn *varFcn,DistLevelSetStructure *distLSS,bool viscSecOrder,
 											DistVec<int> &tag, bool externalSI, FemEquationTerm *fet)
 {
 
@@ -4730,7 +4730,7 @@ void Domain::populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints, DistSVe
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) 
 		  subDomain[iSub]->populateGhostPoints((*ghostPoints)(iSub), X(iSub), U(iSub), (*ngrad)(iSub),
-															varFcn, (*distLSS)(iSub), linRecAtInterface, tag(iSub));
+															varFcn, (*distLSS)(iSub), viscSecOrder, tag(iSub));
   
   assembleGhostPoints(*ghostPoints,varFcn);
 

@@ -2184,14 +2184,9 @@ int IntersectorPhysBAM::findIntersections(SVec<double,3>&X,Vec<bool>& tId,Commun
 	  if(true){//TODO : do only if actuator disk
     	    if(fabs(distIntersector.actuatorDiskPressureJump[CrossingEdgeRes[l].triangleID-1])>0){//this edge itesects an actuator disk
     		  edge_intersects_constraint[l]=true;
-    		  edge_intersects[l] = false;//intersect represents a wall
-    		  int p = ptr[l][0], q = ptr[l][1];
-    		  is_occluded[p]=false;
-    		  is_occluded[q]=false;
     	   }
     	    if(fabs(distIntersector.massJump[CrossingEdgeRes[l].triangleID-1])>0){
     	    	edge_intersects_constraint[l]=true;
-    	    	edge_intersects[l] = false;//intersect represents a wall
     	    }
           }	  
 

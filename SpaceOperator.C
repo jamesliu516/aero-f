@@ -1887,11 +1887,11 @@ void SpaceOperator<dim>::populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoi
 															DistSVec<double,dim> &U,
 															VarFcn *varFcn, 
 															DistLevelSetStructure *distLSS, 
-															bool linFSI, DistVec<int> &fluidId)
+															bool viscSecOrder, DistVec<int> &fluidId)
 {
 ghostPoints->deletePointers();
 	
-	domain->populateGhostPoints(ghostPoints, X, U, ngrad, varFcn, distLSS, linFSI, fluidId, externalSI, fet);
+	domain->populateGhostPoints(ghostPoints, X, U, ngrad, varFcn, distLSS, viscSecOrder, fluidId, externalSI, fet);
 
 }
 
