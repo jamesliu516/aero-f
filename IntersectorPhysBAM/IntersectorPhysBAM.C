@@ -2184,6 +2184,11 @@ int IntersectorPhysBAM::findIntersections(SVec<double,3>&X,Vec<bool>& tId,Commun
 	  if(true){//TODO : do only if actuator disk
     	    if(fabs(distIntersector.actuatorDiskPressureJump[CrossingEdgeRes[l].triangleID-1])>0){//this edge itesects an actuator disk
     		  edge_intersects_constraint[l]=true;
+    		  edge_intersects[l] = false;
+    		  int p = ptr[l][0], q = ptr[l][1];
+    		  is_occluded[p] = false;
+    		  is_occluded[q] = false;
+
     	   }
     	    if(fabs(distIntersector.massJump[CrossingEdgeRes[l].triangleID-1])>0){
     	    	edge_intersects_constraint[l]=true;
@@ -2271,7 +2276,7 @@ int IntersectorPhysBAM::computeSweptNodes(SVec<double,3>& X, Vec<bool>& tId,Comm
 
 LevelSetResult
 IntersectorPhysBAM::getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j, double *Xr, double *Xg) {
-  if (!edge_intersects[l]) {
+  if (!(edge_intersects[l]||edge_intersects_constraint[l])) {
 
     int (*ptr)[2] = edges.getPtr();
     int i=i_less_j ? ptr[l][0] : ptr[l][1],
