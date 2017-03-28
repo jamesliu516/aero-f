@@ -338,7 +338,7 @@ void Domain::computeDerivativeOperatorsOfGradientsLeastSquares(DistSVec<double,3
 
 //------------------------------------------------------------------------------
 // least square gradient involving only nodes of same fluid (multiphase flow and FSI)
-// d2d$ 
+// d2d$ dzh
 template<int dim, class Scalar>
 void Domain::computeGradientsLeastSquares(DistSVec<double,3> &X,
                                           DistVec<int> &fluidId,
@@ -373,6 +373,7 @@ void Domain::computeGradientsLeastSquares(DistSVec<double,3> &X,
 
 //------------------------------------------------------------------------------
 // least square gradient of single variable involving only nodes of same fluid (multiphase flow and FSI)
+// important never used!!!!!!!!!!!!!!!!!!!!!!
 template<class Scalar>
 void Domain::computeGradientLeastSquares(DistSVec<double,3> &X,
                                          DistVec<int> &fluidId,
@@ -1407,7 +1408,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
 }
 
 //------------------------------------------------------------------------------
-//d2d embedded
+//d2d embedded with LS????
 template<int dim, int dimLS>
 void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol, 
 				     DistExactRiemannSolver<dim> &riemann,

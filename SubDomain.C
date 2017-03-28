@@ -132,7 +132,9 @@ void SubDomain::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &
 }
 
 //------------------------------------------------------------------------------
-
+// W =  (A^TA)^{-1}  *dx
+// for A^T A = R^T R, and R is upper triangle cholesky factorization matrix
+// W = (R^T R)^{-1} dx
 inline
 void computeLocalWeightsLeastSquares(double dx[3], double *R, double *W)
 {
@@ -443,102 +445,103 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X, SVec<double,6> &
 
 //------------------------------------------------------------------------------
 // least square gradient involving only nodes of same fluid (multiphase flow and FSI)
-// d2d
+// d2d dzh
 template<int dim, class Scalar>
 void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
-					     const Vec<int> &fluidId, SVec<double,6> &R,
-					     SVec<Scalar,dim> &var, SVec<Scalar,dim> &ddx,
-					     SVec<Scalar,dim> &ddy, SVec<Scalar,dim> &ddz,
-					     bool linRecFSI, LevelSetStructure *LSS,
-					     bool includeSweptNodes)  {
+                                             const Vec<int> &fluidId, SVec<double,6> &R,
+                                             SVec<Scalar,dim> &var, SVec<Scalar,dim> &ddx,
+                                             SVec<Scalar,dim> &ddy, SVec<Scalar,dim> &ddz,
+                                             bool linRecFSI, LevelSetStructure *LSS,
+                                             bool includeSweptNodes)  {
 
-  ddx = (Scalar) 0.0;
-  ddy = (Scalar) 0.0;
-  ddz = (Scalar) 0.0;
+    ddx = (Scalar) 0.0;
+    ddy = (Scalar) 0.0;
+    ddz = (Scalar) 0.0;
 
-  bool *edgeFlag = edges.getMasterFlag();
-  int (*edgePtr)[2] = edges.getPtr();
+    bool *edgeFlag = edges.getMasterFlag();
+    int (*edgePtr)[2] = edges.getPtr();
 
-	for(int l=0; l<edges.size(); ++l) 
-	{
-    if (!edgeFlag[l]) continue;
+    for(int l=0; l<edges.size(); ++l)
+    {
+        if (!edgeFlag[l]) continue;
 
-    int i = edgePtr[l][0];
-    int j = edgePtr[l][1];
+        int i = edgePtr[l][0];
+        int j = edgePtr[l][1];
 
-		bool validEdge = true;
+        bool validEdge = true;
 
-		if(fluidId[i] != fluidId[j]) validEdge = false;
+        if(fluidId[i] != fluidId[j]) validEdge = false;
 
-		if(LSS)
-		{			
-			if(LSS->edgeWithSI(l) || LSS->edgeIntersectsStructure(0.0, l)) validEdge = false;
-			if(!LSS->isActive(0.0, i) || !LSS->isActive(0.0, j)) validEdge = false;
-			if(!includeSweptNodes && (LSS->isSwept(0.0, i) || LSS->isSwept(0.0, j))) validEdge = false;
-		}
+        if(LSS)
+        {
+            if(LSS->edgeWithSI(l) || LSS->edgeIntersectsStructure(0.0, l)) validEdge = false;
+            if(!LSS->isActive(0.0, i) || !LSS->isActive(0.0, j)) validEdge = false;
+            if(!includeSweptNodes && (LSS->isSwept(0.0, i) || LSS->isSwept(0.0, j))) validEdge = false;
+        }
 
-		if(!validEdge) continue;
+        if(!validEdge) continue;
 
-    double Wi[3], Wj[3];
-    Scalar deltaVar;
+        double Wi[3], Wj[3];
+        Scalar deltaVar;
 
-    double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+        double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
 
-		// should be positive for a well posed least square problem
-		if(R[i][0] > 0.0 && fabs(R[i][0]*R[i][3]*R[i][5]) > 1.0e-10) 
-      computeLocalWeightsLeastSquares(dx, R[i], Wi);
-		else
-		{ 
-      Wi[0] = 0.0;
-      Wi[1] = 0.0;
-      Wi[2] = 0.0;
+        // should be positive for a well posed least square problem
+        if(R[i][0] > 0.0 && fabs(R[i][0]*R[i][3]*R[i][5]) > 1.0e-10)
+            computeLocalWeightsLeastSquares(dx, R[i], Wi);
+        else
+        {
+            Wi[0] = 0.0;
+            Wi[1] = 0.0;
+            Wi[2] = 0.0;
+        }
+
+        dx[0] = -dx[0]; dx[1] = -dx[1]; dx[2] = -dx[2];
+
+        // should be positive for a well posed least square problem
+        if(R[j][0]>0.0 && fabs(R[j][0]*R[j][3]*R[j][5]) > 1.0e-10)
+            computeLocalWeightsLeastSquares(dx, R[j], Wj);
+        else
+        {
+            Wj[0] = 0.0;
+            Wj[1] = 0.0;
+            Wj[2] = 0.0;
+        }
+
+        for(int k=0; k<dim; ++k)
+        {
+            deltaVar = var[j][k] - var[i][k];
+
+            ddx[i][k] += Wi[0] * deltaVar;
+            ddy[i][k] += Wi[1] * deltaVar;
+            ddz[i][k] += Wi[2] * deltaVar;
+            ddx[j][k] -= Wj[0] * deltaVar;
+            ddy[j][k] -= Wj[1] * deltaVar;
+            ddz[j][k] -= Wj[2] * deltaVar;
+        }
     }
 
-    dx[0] = -dx[0]; dx[1] = -dx[1]; dx[2] = -dx[2];
+    if(!linRecFSI)
+    { // If !linRecFSI, near the interface, gradient is set to be 0.0
+        for(int l=0; l<edges.size(); ++l)
+        {
+            int i = edgePtr[l][0];
+            int j = edgePtr[l][1];
 
-		// should be positive for a well posed least square problem
-		if(R[j][0]>0.0 && fabs(R[j][0]*R[j][3]*R[j][5]) > 1.0e-10)
-      computeLocalWeightsLeastSquares(dx, R[j], Wj);
-		else
-		{
-      Wj[0] = 0.0;
-      Wj[1] = 0.0;
-      Wj[2] = 0.0;
+            if( fluidId[i] != fluidId[j] || (LSS && (LSS->edgeIntersectsStructure(0.0,l) || !LSS->isActive(0.0,i) || !LSS->isActive(0.0,j))) ) {
+                for (int k=0; k<dim; ++k)
+                {
+                    ddx[i][k] = ddy[i][k] = ddz[i][k] = ddx[j][k] = ddy[j][k] = ddz[j][k] = 0.0;
+                }
+            }
+        }
     }
-
-		for(int k=0; k<dim; ++k) 
-		{
-      deltaVar = var[j][k] - var[i][k];
-
-      ddx[i][k] += Wi[0] * deltaVar;
-      ddy[i][k] += Wi[1] * deltaVar;
-      ddz[i][k] += Wi[2] * deltaVar;
-      ddx[j][k] -= Wj[0] * deltaVar;
-      ddy[j][k] -= Wj[1] * deltaVar;
-      ddz[j][k] -= Wj[2] * deltaVar;
-    }
-  }
-
-  if(!linRecFSI)
-	{
-	 	for(int l=0; l<edges.size(); ++l) 
-		{
-      int i = edgePtr[l][0];
-      int j = edgePtr[l][1];
-
-			if( fluidId[i] != fluidId[j] || (LSS && (LSS->edgeIntersectsStructure(0.0,l) || !LSS->isActive(0.0,i) || !LSS->isActive(0.0,j))) ) {
-        for (int k=0; k<dim; ++k)
-				{
-          ddx[i][k] = ddy[i][k] = ddz[i][k] = ddx[j][k] = ddy[j][k] = ddz[j][k] = 0.0;
-      }
-    }
-		}
-	}
 
 }
 
 //------------------------------------------------------------------------------
 // least square gradient of single variable involving only nodes of same fluid (multiphase flow and FSI)
+// Important never use
 template<class Scalar>
 void SubDomain::computeGradientLeastSquares(SVec<double,3> &X,
                 const Vec<int> &fluidId, SVec<double,6> &R,
@@ -7813,8 +7816,8 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                     v_jj = Vec3D(Vi[1] + dVdx[i][1]*dX_i_jj[0] + dVdy[i][1]*dX_i_jj[1] + dVdz[i][1]*dX_i_jj[2],
                                  Vi[2] + dVdx[i][2]*dX_i_jj[0] + dVdy[i][2]*dX_i_jj[1] + dVdz[i][2]*dX_i_jj[2],
                                  Vi[3] + dVdx[i][3]*dX_i_jj[0] + dVdy[i][3]*dX_i_jj[1] + dVdz[i][3]*dX_i_jj[2]);
-
-                    Vec3D v_j = v_jj - 2*(v_jj*normal)*normal;//keep tangential velocity, reverse normal velocity
+                    Vec3D v_s = resij.normVel;
+                    Vec3D v_j = v_jj - 2*(v_jj*normal)*normal + 2*(v_s*normal)*normal;//keep tangential velocity, reverse normal velocity
                     for (int k=1; k<3; k++) {
                         Vj[k] = v_j[k-1];
                         weights[k] = (1.0-alpha)*(1.0-alpha);//Weight as we have more than one edge linked to the ghost point
@@ -7899,8 +7902,8 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                         v_ii = Vec3D(Vj[1] + dVdx[j][1]*dX_j_ii[0] + dVdy[j][1]*dX_j_ii[1] + dVdz[j][1]*dX_j_ii[2],
                                      Vj[2] + dVdx[j][2]*dX_j_ii[0] + dVdy[j][2]*dX_j_ii[1] + dVdz[j][2]*dX_j_ii[2],
                                      Vj[3] + dVdx[j][3]*dX_j_ii[0] + dVdy[j][3]*dX_j_ii[1] + dVdz[j][3]*dX_j_ii[2]);
-
-                    Vec3D v_i = v_ii - 2*(v_ii*normal)*normal;//keep tangential velocity, reverse tangential velocity
+                    Vec3D v_s = resji.normVel;
+                    Vec3D v_i = v_ii - 2*(v_ii*normal)*normal + 2*(v_s*normal)*normal;//keep tangential velocity, reverse tangential velocity
                     for (int k=1; k<3; k++) {
                         Vi[k] = v_i[k-1];
                         weights[k] = (1.0-alpha)*(1.0-alpha);//Weight as we have more than one edge linked to the ghost point

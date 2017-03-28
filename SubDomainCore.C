@@ -1541,6 +1541,17 @@ void SubDomain::computeDerivativeOfWeightsLeastSquaresEdgePart(SVec<double,3> &X
 //------------------------------------------------------------------------------
 // least square gradient involving only nodes of same fluid (multiphase flow)
 //d2d$
+// count[i][0] : number of edges node i has, which are master and valid and in this subdomain
+// R[i][0]: for node i, for all its master and valid edge sum,  dx*dx
+// R[i][1]: for node i, for all its master and valid edge sum,  dx*dy
+// R[i][2]: for node i, for all its master and valid edge sum,  dx*dz
+// R[i][3]: for node i, for all its master and valid edge sum,  dy*dy
+// R[i][4]: for node i, for all its master and valid edge sum,  dy*dz
+// R[i][5]: for node i, for all its master and valid edge sum,  dz*dz
+// dX * gradientU = dU
+// R = dX^T dX
+// solve R gradientU dX^T dU
+
 void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const Vec<int> &fluidId,
                                                    SVec<int,1> &count, SVec<double,6> &R, 
 						   LevelSetStructure *LSS, bool includeSweptNodes)
@@ -2145,66 +2156,71 @@ void SubDomain::computeDerivativeOfWeightsLeastSquaresNodePart(SVec<double,6> &R
 
 //------------------------------------------------------------------------------
 //d2d$
+//Cholesky factorization
+// R = L^T * L
+//         r11   r12  r13
+// L =      0    r22  r23
+//          0     0   r33
+// save L to R
 void SubDomain::computeWeightsLeastSquaresNodePart(SVec<int,1> &count, SVec<double,6> &R)
 {
 
-      double r11, or11, r12, r13, r22, r23, r33;
+    double r11, or11, r12, r13, r22, r23, r33;
 
-	for(int i=0; i<R.size(); ++i) 
-	{		
-		if(count[i][0]>3) 
-		{ 
+    for(int i=0; i<R.size(); ++i)
+    {
+        if(count[i][0]>3)
+        {
 
-			/* -----------------------------------------------------------------*/
-			if(R[i][0] <= 0.0)
-			{
-        r11 = 0.0; r12 = 0.0; r13 = 0.0; r22 = 0.0; r23 = 0.0; r33 = 0.0;
-			}
-			else
-			{
-        r11  = sqrt(R[i][0]);
-        or11 = 1.0 / r11;
-        r12  = R[i][1] * or11;
-        r13  = R[i][2] * or11;
+            /* -----------------------------------------------------------------*/
+            if(R[i][0] <= 0.0)
+            {
+                r11 = 0.0; r12 = 0.0; r13 = 0.0; r22 = 0.0; r23 = 0.0; r33 = 0.0;
+            }else
+            {
+                r11  = sqrt(R[i][0]);
+                or11 = 1.0 / r11;
+                r12  = R[i][1] * or11;
+                r13  = R[i][2] * or11;
 
-				if((R[i][3] - r12*r12) <= 0.0)
-				{
-          r11 = 0.0; r12 = 0.0; r13 = 0.0; r22 = 0.0; r23 = 0.0; r33 = 0.0;
-				}
-				else
-				{
-          r22  = sqrt(R[i][3] - r12*r12);
-          r23  = (R[i][4] - r12*r13) / r22;
+                if((R[i][3] - r12*r12) <= 0.0)
+                {
+                    r11 = 0.0; r12 = 0.0; r13 = 0.0; r22 = 0.0; r23 = 0.0; r33 = 0.0;
+                }
+                else
+                {
+                    r22  = sqrt(R[i][3] - r12*r12);
+                    r23  = (R[i][4] - r12*r13) / r22;
 
-					if((R[i][5] - (r13*r13 + r23*r23)) < 0.0)
-					{
-            r11 = 0.0; r12 = 0.0; r13 = 0.0; r22 = 0.0; r23 = 0.0; r33 = 0.0;
-					}
-					else
-						r33 = sqrt(R[i][5] - (r13*r13 + r23*r23));
-				}
-				
-			}
-			/* -----------------------------------------------------------------*/
+                    if((R[i][5] - (r13*r13 + r23*r23)) < 0.0)
+                    {
+                        r11 = 0.0; r12 = 0.0; r13 = 0.0; r22 = 0.0; r23 = 0.0; r33 = 0.0;
+                    }
+                    else
+                        r33 = sqrt(R[i][5] - (r13*r13 + r23*r23));
+                }
 
-      R[i][0] = r11;
-      R[i][1] = r12;
-      R[i][2] = r13;
-      R[i][3] = r22;
-      R[i][4] = r23;
-      R[i][5] = r33;
-		}
-		else
-		{
-      R[i][0] = 0.0;
-      R[i][1] = 0.0;
-      R[i][2] = 0.0;
-      R[i][3] = 0.0;
-      R[i][4] = 0.0;
-      R[i][5] = 0.0;
+            }
+            /* -----------------------------------------------------------------*/
+
+            R[i][0] = r11;
+            R[i][1] = r12;
+            R[i][2] = r13;
+            R[i][3] = r22;
+            R[i][4] = r23;
+            R[i][5] = r33;
+        }
+        else
+        {
+            R[i][0] = 0.0;
+            R[i][1] = 0.0;
+            R[i][2] = 0.0;
+            R[i][3] = 0.0;
+            R[i][4] = 0.0;
+            R[i][5] = 0.0;
+        }
+
     }
-
-  }
 
 }
 
