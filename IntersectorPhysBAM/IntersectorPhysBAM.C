@@ -32,7 +32,6 @@ using PhysBAM::GLOBAL_SUBD_ID;
 typedef pair<int, int> iipair;
 typedef pair<int, bool> ibpair;
 typedef pair<iipair, ibpair> EdgePair;
-
 const int IntersectorPhysBAM::UNDECIDED, IntersectorPhysBAM::INSIDE, IntersectorPhysBAM::OUTSIDE;
 int IntersectorPhysBAM::OUTSIDECOLOR;
 
@@ -104,7 +103,7 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iodata,
 	ContainsAnEmbeddedConstraint = false;
 	if(iod.embed.Embedded_Constraint.ConstraintType != EmbeddedConstraint::NOCONSTRAINT){
 		ContainsAnEmbeddedConstraint =true;
-		if(iod.embed.Embedded_Constraint.ConstraintType == EmbeddedConstraint::SYMMETRY){
+		/*if(iod.embed.Embedded_Constraint.ConstraintType == EmbeddedConstraint::SYMMETRY){
 		ConstraintType =1;
 			switch(iod.embed.Embedded_Constraint.Symmetry_Constraint.Normal){
 				//read the plane normal
@@ -123,7 +122,8 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iodata,
 			//read the plane position
 			ConstraintPosition = iod.embed.Embedded_Constraint.Symmetry_Constraint.planeposition;
 			//a2m : there's probably a better way to encode this, and inlet must still be implemented
-		}
+			 *
+		}*/
 	}
 
   interpolatedNormal = (iod.embed.structNormal==EmbeddedFramework::NODE_BASED) ? true : false;
@@ -150,6 +150,9 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iodata,
 
   with_sensitivity = false;
 
+  //SymmetryPlaneList  = new map<int,SymmetryInfo>();
+
+
   //Load files. Compute structure normals. Initialize PhysBAM Interface
   if(nNodes && xyz && nElems && abc)
     init(nNodes, xyz, nElems, abc, struct_restart_pos);
@@ -159,7 +162,6 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iodata,
   }
   setStructureType();
   setPorosity();
-  setSymmetry();
   setActuatorDisk();
   setMassInflow();
   makerotationownership();
@@ -208,6 +210,7 @@ DistIntersectorPhysBAM::~DistIntersectorPhysBAM()
   if(rotOwn) delete[] rotOwn;
 
   if(dXdSb) delete[] dXdSb;
+  //delete &SymmetryPlaneList;
 
 }
 
@@ -563,7 +566,7 @@ void DistIntersectorPhysBAM::setPorosity() {
   }
 }
 //----------------------------------------------------------------------------
-void DistIntersectorPhysBAM::setSymmetry() {
+void DistIntersectorPhysBAM::getSymmetryPlanesInformation() {
   map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
   map<int,BoundaryData *> &bcMap = iod.bc.bcMap.dataMap;
 
@@ -571,7 +574,6 @@ void DistIntersectorPhysBAM::setSymmetry() {
   for(int i=0; i<numStElems; i++) {
 	  isSymmetryPlane[i] = false;
   }
-
   if(faceID) {
     for(int i=0; i<numStElems; i++) {
       map<int,SurfaceData*>::iterator it = surfaceMap.find(faceID[i]);
@@ -579,7 +581,11 @@ void DistIntersectorPhysBAM::setSymmetry() {
         map<int,BoundaryData *>::iterator it2 = bcMap.find(it->second->bcID);
         if(it2 != bcMap.end()) { // the bc data have been defined
           if(it2->second->type == BoundaryData::SYMMETRYPLANE ) {
-        	  isSymmetryPlane[i] = true;
+        	  if(SymmetryPlaneList.count(faceID[i])==0){//We have never encontered this element before
+        		  SymmetryInfo info = SymmetryInfo(Xs[stElem[i][1]].v[0],Xs[stElem[i][1]].v[1],Xs[stElem[i][1]].v[2],triNorms[i]);
+        		  //SymmetryPlaneList[faceID[i]]=info;
+        		  SymmetryPlaneList.insert(std::pair<int,SymmetryInfo>(faceID[i],info));
+        	  }
           }
         }
       }
@@ -1014,11 +1020,11 @@ void DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X,
   edge_intersects_constraint = new DistVec<bool>(domain->getEdgeDistInfo());
   //a2m : TODO change the name and initialize only for specific vonditions
   //if(ContainsAnEmbeddedConstraint == true){
-  if(true){
-	  edge_intersects_embedded_constraint = new DistVec<bool>(domain->getEdgeDistInfo());//true if the edge intersect the embedded constraint
-	  Embedded_Constraint_Alpha = new DistVec<double>(domain->getEdgeDistInfo());//Contains the alpha for reconstruction
-	  EmbeddedConstraintNormal = -3;//normal of the embedded constraint
-  }
+  //if(true){
+	  //edge_intersects_embedded_constraint = new DistVec<bool>(domain->getEdgeDistInfo());//true if the edge intersect the embedded constraint
+	  //Embedded_Constraint_Alpha = new DistVec<double>(domain->getEdgeDistInfo());//Contains the alpha for reconstruction
+	  //EmbeddedConstraintNormal = -3;//normal of the embedded constraint
+  //}
 
 	edge_SI  = new DistVec<bool>(domain->getEdgeDistInfo());
 
@@ -1154,9 +1160,22 @@ void DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X,
 	  
   }
   ///////////////////////////////////////////////////////
+  //a2m : Symmetry plane :
+  getSymmetryPlanesInformation();
+  //TODO I work here
+if(SymmetryPlaneList.size()!=0){
+#pragma omp parallel for
+   	 	for(int iSub = 0; iSub < numLocSub; ++iSub){
+  			intersector[iSub]->setInactiveNodesSymmetry((X(iSub)),SymmetryPlaneList);
+   	 }
+}
+
+
+
 //a2m : embedded constraint
   if(ContainsAnEmbeddedConstraint == true){
-  	EmbeddedConstraintNormal = ConstraintNormal;
+	printf("you are using a deprecated version of the infinte constraint. Infinite constraint are to be added in the top file.");
+  	//EmbeddedConstraintNormal = ConstraintNormal;
   	#pragma omp parallel for
    	 	for(int iSub = 0; iSub < numLocSub; ++iSub){
   			intersector[iSub]->findIntersectionsEmbeddedConstraint((X(iSub)));
@@ -1926,8 +1945,8 @@ IntersectorPhysBAM::IntersectorPhysBAM(SubDomain &sub,SVec<double,3> &X,
 		    (*distInt.is_swept)(sub.getLocSubNum()), (*distInt.is_active)(sub.getLocSubNum()),
 							(*distInt.is_occluded)(sub.getLocSubNum()), (*distInt.edge_intersects)(sub.getLocSubNum()),
 							(*distInt.edge_intersects_constraint)(sub.getLocSubNum()),
-							(*distInt.edge_intersects_embedded_constraint)(sub.getLocSubNum()),
-							(*distInt.Embedded_Constraint_Alpha)(sub.getLocSubNum()),
+							//(*distInt.edge_intersects_embedded_constraint)(sub.getLocSubNum()),
+							//(*distInt.Embedded_Constraint_Alpha)(sub.getLocSubNum()),
 							(*distInt.edge_SI)(sub.getLocSubNum()),
 							(*distInt.xi_SI)(sub.getLocSubNum()),(*distInt.eta_SI)(sub.getLocSubNum()),
 							(*distInt.nWall_SI)(sub.getLocSubNum()),
@@ -1960,9 +1979,9 @@ IntersectorPhysBAM::IntersectorPhysBAM(SubDomain &sub,SVec<double,3> &X,
   is_occluded = false;
   edge_intersects = false;
   edge_intersects_constraint = false;
-  edge_intersects_embedded_constraint = false;
-  Embedded_Constraint_Alpha =false;
-  EmbeddedConstraintNormal = distInt.EmbeddedConstraintNormal;
+  //edge_intersects_embedded_constraint = false;
+  //Embedded_Constraint_Alpha =false;
+  //EmbeddedConstraintNormal = distInt.EmbeddedConstraintNormal;
   edge_SI = false;
 }
 
@@ -2004,7 +2023,45 @@ void IntersectorPhysBAM::reset(const bool findStatus,const bool retry)
 }
 //----------------------------------------------------------------------------
 //a2m
+void IntersectorPhysBAM::setInactiveNodesSymmetry(SVec<double,3>& X,std::map<int,SymmetryInfo> SymmetryPlaneList){
+	//loop over the symmetry planes
+	for(std::map<int,SymmetryInfo>::iterator it = SymmetryPlaneList.begin(); it!=SymmetryPlaneList.end(); ++it){
+		SymmetryInfo planeInfo = it->second;
+		if(true){printf("We found a symmetry plane !\n it's number is %d\n it's normal is  %f %f %f and the point is %f %f %f \n",it->first,planeInfo.normal.v[0],planeInfo.normal.v[1],planeInfo.normal.v[2],planeInfo.xCoordinate,planeInfo.yCoordinate,planeInfo.zCoordinate);}
+		for (int l=0; l<edges.size(); l++) {
+			int (*ptr)[2] = edges.getPtr();//gives us a pointer on the edge
+			int p = ptr[l][0], q = ptr[l][1];//p is the iD of node 1, and q is the Id of node 2
+			double* position1 = X[p];
+			double* position2 = X[q];
+			double* vector1= new double[3];
+			double* vector2= new double[3];
+			vector1[0] = position1[0]-planeInfo.xCoordinate;
+			vector2[0] = position2[0]-planeInfo.xCoordinate;
+			vector1[1] = position1[1]-planeInfo.yCoordinate;
+			vector2[1] = position2[1]-planeInfo.yCoordinate;
+			vector1[2] = position1[2]-planeInfo.zCoordinate;
+			vector2[2] = position2[2]-planeInfo.zCoordinate;
+			double dotProduct1=0.0;
+			double dotProduct2=0.0;
+			for(int i = 0;i<3;i++){
+				dotProduct1 += vector1[i]*planeInfo.normal.v[i];
+				dotProduct2 += vector2[i]*planeInfo.normal.v[i];
+			}
+			if(dotProduct1<=0.0){
+				is_active[p] = false;
+			}
+			if(dotProduct2<=0.0){
+				is_active[q] = false;
+			}
+			//Do Debug here
+		}
+	}
+}
+
+
+//TODO : flaf for review
 int IntersectorPhysBAM::findIntersectionsEmbeddedConstraint(SVec<double,3>&X){
+	/*
 	EmbeddedConstraintNormal = distIntersector.ConstraintNormal;
 	for (int l=0; l<edges.size(); l++) {
 		int (*ptr)[2] = edges.getPtr();//gives us a pointer on the edge
@@ -2056,6 +2113,9 @@ int IntersectorPhysBAM::findIntersectionsEmbeddedConstraint(SVec<double,3>&X){
 		}
 	}
 	return 0;
+	*/
+	return 0;
+	printf("You are calling a deprecated method. infinite planes must be defined in the top file.");
 }
 //----------------------------------------------------------------------------
 
@@ -2290,8 +2350,9 @@ IntersectorPhysBAM::getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j, 
     exit(-1);
   }
   LevelSetResult lsRes;
-bool notAnEmbeddedPlane = !edge_intersects_embedded_constraint[l];
-if(notAnEmbeddedPlane){
+  //TODO : flag For review
+//bool notAnEmbeddedPlane = !edge_intersects_embedded_constraint[l];
+if(true){
   const IntersectionResult<double>& result = i_less_j ? CrossingEdgeRes[l] : ReverseCrossingEdgeRes[l];
   
   double alpha0      = result.alpha;
@@ -2358,6 +2419,8 @@ if(notAnEmbeddedPlane){
   }
 }
 else{
+	printf("You are calling an obsolete version. Infine planes are to be inputed as embedded surfaces.");
+	/*
 	double alpha0 = i_less_j ? Embedded_Constraint_Alpha[l] : (1.0 - Embedded_Constraint_Alpha[l]);
 			lsRes.alpha      = alpha0;
 			lsRes.normVel = Vec3D(0,0,0);//The embedded constraint is not moving
@@ -2386,6 +2449,7 @@ else{
 					break;
 			}
 			lsRes.gradPhi = GradPhi;
+			*/
 }
   return lsRes;
 }
