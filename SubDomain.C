@@ -132,7 +132,9 @@ void SubDomain::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &
 }
 
 //------------------------------------------------------------------------------
-
+// W =  (A^TA)^{-1}  *dx
+// for A^T A = R^T R, and R is upper triangle cholesky factorization matrix
+// W = (R^T R)^{-1} dx
 inline
 void computeLocalWeightsLeastSquares(double dx[3], double *R, double *W)
 {
@@ -443,102 +445,103 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X, SVec<double,6> &
 
 //------------------------------------------------------------------------------
 // least square gradient involving only nodes of same fluid (multiphase flow and FSI)
-// d2d
+// d2d dzh
 template<int dim, class Scalar>
 void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
-					     const Vec<int> &fluidId, SVec<double,6> &R,
-					     SVec<Scalar,dim> &var, SVec<Scalar,dim> &ddx,
-					     SVec<Scalar,dim> &ddy, SVec<Scalar,dim> &ddz,
-					     bool linRecFSI, LevelSetStructure *LSS,
-					     bool includeSweptNodes)  {
+                                             const Vec<int> &fluidId, SVec<double,6> &R,
+                                             SVec<Scalar,dim> &var, SVec<Scalar,dim> &ddx,
+                                             SVec<Scalar,dim> &ddy, SVec<Scalar,dim> &ddz,
+                                             bool linRecFSI, LevelSetStructure *LSS,
+                                             bool includeSweptNodes)  {
 
-  ddx = (Scalar) 0.0;
-  ddy = (Scalar) 0.0;
-  ddz = (Scalar) 0.0;
+    ddx = (Scalar) 0.0;
+    ddy = (Scalar) 0.0;
+    ddz = (Scalar) 0.0;
 
-  bool *edgeFlag = edges.getMasterFlag();
-  int (*edgePtr)[2] = edges.getPtr();
+    bool *edgeFlag = edges.getMasterFlag();
+    int (*edgePtr)[2] = edges.getPtr();
 
-	for(int l=0; l<edges.size(); ++l) 
-	{
-    if (!edgeFlag[l]) continue;
+    for(int l=0; l<edges.size(); ++l)
+    {
+        if (!edgeFlag[l]) continue;
 
-    int i = edgePtr[l][0];
-    int j = edgePtr[l][1];
+        int i = edgePtr[l][0];
+        int j = edgePtr[l][1];
 
-		bool validEdge = true;
+        bool validEdge = true;
 
-		if(fluidId[i] != fluidId[j]) validEdge = false;
+        if(fluidId[i] != fluidId[j]) validEdge = false;
 
-		if(LSS)
-		{			
-			if(LSS->edgeWithSI(l) || LSS->edgeIntersectsStructure(0.0, l)) validEdge = false;
-			if(!LSS->isActive(0.0, i) || !LSS->isActive(0.0, j)) validEdge = false;
-			if(!includeSweptNodes && (LSS->isSwept(0.0, i) || LSS->isSwept(0.0, j))) validEdge = false;
-		}
+        if(LSS)
+        {
+            if(LSS->edgeWithSI(l) || LSS->edgeIntersectsStructure(0.0, l)) validEdge = false;
+            if(!LSS->isActive(0.0, i) || !LSS->isActive(0.0, j)) validEdge = false;
+            if(!includeSweptNodes && (LSS->isSwept(0.0, i) || LSS->isSwept(0.0, j))) validEdge = false;
+        }
 
-		if(!validEdge) continue;
+        if(!validEdge) continue;
 
-    double Wi[3], Wj[3];
-    Scalar deltaVar;
+        double Wi[3], Wj[3];
+        Scalar deltaVar;
 
-    double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+        double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
 
-		// should be positive for a well posed least square problem
-		if(R[i][0] > 0.0 && fabs(R[i][0]*R[i][3]*R[i][5]) > 1.0e-10) 
-      computeLocalWeightsLeastSquares(dx, R[i], Wi);
-		else
-		{ 
-      Wi[0] = 0.0;
-      Wi[1] = 0.0;
-      Wi[2] = 0.0;
+        // should be positive for a well posed least square problem
+        if(R[i][0] > 0.0 && fabs(R[i][0]*R[i][3]*R[i][5]) > 1.0e-10)
+            computeLocalWeightsLeastSquares(dx, R[i], Wi);
+        else
+        {
+            Wi[0] = 0.0;
+            Wi[1] = 0.0;
+            Wi[2] = 0.0;
+        }
+
+        dx[0] = -dx[0]; dx[1] = -dx[1]; dx[2] = -dx[2];
+
+        // should be positive for a well posed least square problem
+        if(R[j][0]>0.0 && fabs(R[j][0]*R[j][3]*R[j][5]) > 1.0e-10)
+            computeLocalWeightsLeastSquares(dx, R[j], Wj);
+        else
+        {
+            Wj[0] = 0.0;
+            Wj[1] = 0.0;
+            Wj[2] = 0.0;
+        }
+
+        for(int k=0; k<dim; ++k)
+        {
+            deltaVar = var[j][k] - var[i][k];
+
+            ddx[i][k] += Wi[0] * deltaVar;
+            ddy[i][k] += Wi[1] * deltaVar;
+            ddz[i][k] += Wi[2] * deltaVar;
+            ddx[j][k] -= Wj[0] * deltaVar;
+            ddy[j][k] -= Wj[1] * deltaVar;
+            ddz[j][k] -= Wj[2] * deltaVar;
+        }
     }
 
-    dx[0] = -dx[0]; dx[1] = -dx[1]; dx[2] = -dx[2];
+    if(!linRecFSI)
+    { // If !linRecFSI, near the interface, gradient is set to be 0.0
+        for(int l=0; l<edges.size(); ++l)
+        {
+            int i = edgePtr[l][0];
+            int j = edgePtr[l][1];
 
-		// should be positive for a well posed least square problem
-		if(R[j][0]>0.0 && fabs(R[j][0]*R[j][3]*R[j][5]) > 1.0e-10)
-      computeLocalWeightsLeastSquares(dx, R[j], Wj);
-		else
-		{
-      Wj[0] = 0.0;
-      Wj[1] = 0.0;
-      Wj[2] = 0.0;
+            if( fluidId[i] != fluidId[j] || (LSS && (LSS->edgeIntersectsStructure(0.0,l) || !LSS->isActive(0.0,i) || !LSS->isActive(0.0,j))) ) {
+                for (int k=0; k<dim; ++k)
+                {
+                    ddx[i][k] = ddy[i][k] = ddz[i][k] = ddx[j][k] = ddy[j][k] = ddz[j][k] = 0.0;
+                }
+            }
+        }
     }
-
-		for(int k=0; k<dim; ++k) 
-		{
-      deltaVar = var[j][k] - var[i][k];
-
-      ddx[i][k] += Wi[0] * deltaVar;
-      ddy[i][k] += Wi[1] * deltaVar;
-      ddz[i][k] += Wi[2] * deltaVar;
-      ddx[j][k] -= Wj[0] * deltaVar;
-      ddy[j][k] -= Wj[1] * deltaVar;
-      ddz[j][k] -= Wj[2] * deltaVar;
-    }
-  }
-
-  if(!linRecFSI)
-	{
-	 	for(int l=0; l<edges.size(); ++l) 
-		{
-      int i = edgePtr[l][0];
-      int j = edgePtr[l][1];
-
-			if( fluidId[i] != fluidId[j] || (LSS && (LSS->edgeIntersectsStructure(0.0,l) || !LSS->isActive(0.0,i) || !LSS->isActive(0.0,j))) ) {
-        for (int k=0; k<dim; ++k)
-				{
-          ddx[i][k] = ddy[i][k] = ddz[i][k] = ddx[j][k] = ddy[j][k] = ddz[j][k] = 0.0;
-      }
-    }
-		}
-	}
 
 }
 
 //------------------------------------------------------------------------------
 // least square gradient of single variable involving only nodes of same fluid (multiphase flow and FSI)
+// Important never use
 template<class Scalar>
 void SubDomain::computeGradientLeastSquares(SVec<double,3> &X,
                 const Vec<int> &fluidId, SVec<double,6> &R,
@@ -7737,230 +7740,209 @@ void SubDomain::extrapolatePhiV(LevelSetStructure &LSS, SVec<double,dimLS> &PhiV
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<double,3> &X, 
-												SVec<double,dim> &U, NodalGrad<dim, double> &ngrad, 
-												VarFcn *varFcn,LevelSetStructure &LSS,bool linRecFSI,Vec<int> &tag)
-{
+void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<double,3> &X,
+                                    SVec<double,dim> &U, NodalGrad<dim, double> &ngrad,
+                                    VarFcn *varFcn,LevelSetStructure &LSS,bool viscSecOrder,Vec<int> &tag)
+{/*
+ * This is populateGhostPoints used in Explicit Embedded framework
+ * The ghost node population accuracy depends on viscSecOrder
+ * if viscSecOrder is true, linear extrapolation
+ * if viscSecOrder is False, constant extrapolation
+ */
 
-  int i, j, k;
-  double alpha;
+    int i, j, k;
+    double alpha;
 
-  bool* edgeFlag = edges.getMasterFlag();
-  int (*edgePtr)[2] = edges.getPtr();
+    bool* edgeFlag = edges.getMasterFlag();
+    int (*edgePtr)[2] = edges.getPtr();
 
-  double *Vi,*Vj,*weights;
-  Vi = new double[dim];
-  Vj = new double[dim];
-  weights = new double[dim];
+    double *Vi,*Vj,*weights;
+    Vi = new double[dim];
+    Vj = new double[dim];
+    weights = new double[dim];
 
-  for (int l=0; l<edges.size(); l++) {
-    if(!edgeFlag[l]) continue; //not a master edge
-    i = edgePtr[l][0];
-    j = edgePtr[l][1];
-    if(LSS.edgeIntersectsStructure(0.0,l)) { // at interface
-      int tagI = tag[i];
-      int tagJ = tag[j];
-      bool iIsActive = LSS.isActive(0.0,i);
-      bool jIsActive = LSS.isActive(0.0,j);
+    for (int l=0; l<edges.size(); l++) {
+        if(!edgeFlag[l]) continue; //not a master edge
+        i = edgePtr[l][0];
+        j = edgePtr[l][1];
+        if(LSS.edgeIntersectsStructure(0.0,l)) { // at interface
+            int tagI = tag[i];
+            int tagJ = tag[j];
+            bool iIsActive = LSS.isActive(0.0,i);
+            bool jIsActive = LSS.isActive(0.0,j);
 
-      if(iIsActive) {
-        LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
-        varFcn->conservativeToPrimitive(U[i],Vi,tagI);
+            if(iIsActive) { //populate i value to ghost j.
+                LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
+                varFcn->conservativeToPrimitive(U[i],Vi,tagI); // Vi has state at node i, V_j is populated from i
+
+// Determine intersection alpha
+                if (!viscSecOrder) { //first order
+                    alpha = 0.5;
+                }
+                else {
+                    alpha = resij.alpha;
+                    if (alpha > 0.5) alpha = 0.5; // Set limit for stability
+                }
 
 // Initialize all variables and weights
-        for (int k=0; k<dim; ++k) {
-          Vj[k] = Vi[k];
-	  weights[k] = 1.0;
-        }
+                for (int k=0; k<dim; ++k) {
+                    Vj[k] = Vi[k];
+                    weights[k] = (1.0-alpha)*(1.0-alpha);
+                }
 
-// Replace fourth variable with temperature
-        double T = varFcn->computeTemperature(Vi,tagI);
-        Vj[4] = T;
+// Update temperature, Replace fourth variable with temperature, constant extrapolation
+                double T = varFcn->computeTemperature(Vi,tagI);
+                Vj[4] = T;
 
-// Determine intersection alpha 
-        if (!linRecFSI) { //first order
-          alpha = 0.5;
-        }
-        else {
-          alpha = resij.alpha;
-          if (alpha > 0.5) alpha = 0.5; // Set limit for stability 
-        }
+
 
 // Update velocity
 
-        if(!(resij.structureType==BoundaryData::SYMMETRYPLANE)){//It is not a symmetry plane
-        for (int k=1; k<4; ++k) {
-	  Vj[k] = ((resij.normVel)[k-1] - alpha*Vi[k])/(1.0-alpha);
-          weights[k] = (1.0-alpha)*(1.0-alpha);
-        }
+                if(resij.structureType==BoundaryData::SYMMETRYPLANE){
+                    //It is a symmetry plane
+                    //0)Find ghost node j's , mirroring point jj
+                    //1)extrapolate velocity  from node i to jj, using gradient of node i
+                    //2)mirroing velocity at jj to j, keeping tangential velocity , reverse normal velocity
+                    //TODO : update this to support the new definition of embedded
+                    Vec3D normal = resij.gradPhi; normal = normal/normal.norm();//structure normal
+                    Vec3D dX_i_j(X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]);//vector XiXj
+                    Vec3D dX_i_jj = dX_i_j - 2*alpha*(dX_i_j*normal)*normal;//vector XiXjj
+                    SVec<double,dim> &dVdx = ngrad.getX();
+                    SVec<double,dim> &dVdy = ngrad.getY();
+                    SVec<double,dim> &dVdz = ngrad.getZ();
+                    Vec3D v_jj(Vi[1],Vi[2],Vi[3]);//constant extrapolation for velocity at jj
 
-	if (dim==6) {  // One Equation Turbulent Model
-	  Vj[5] = 0.0;//-alpha*Vi[5]/(1.0-alpha);
-          weights[5] = 1.0;//(1.0-alpha)*(1.0-alpha);
-	}
-	else if (dim==7) { // Two Equations Turbulent Model
-	  Vj[5] = -alpha*Vi[5]/(1.0-alpha);
-	  Vj[6] = -alpha*Vi[6]/(1.0-alpha);
-          weights[5] = (1.0-alpha)*(1.0-alpha);
-          weights[6] = (1.0-alpha)*(1.0-alpha);
-	}
-	}else{//It is a symmetryplane
-		//how is the boundary condition treated in the case of a symmetry plane :
-        //
-        //0)Desnsity : Density is not used to compute the NS flux, and is therefore not populated here.
-        //
-        //1)Normal velocity (With respect to the plane) : The normal velocity must be 0 at the interface.
-        //This information is used o linearly extrapolate the normal velocity
-        //
-        //2)Tangeantial Velocity : As there is no specific constraint at the interface, we extrapolate the value in the ghost point using
-        //the nodal gradient
-        //
-        //3)Temperature : As it is a symmetry plane, the temperature gradient must be 0, so we use constant approximation to populate the cell
-        //TODO : update this to support the new definition of embedded con
-        Vec3D vPoint;
-        Vec3D vParallel;
-        Vec3D vOrthogonal;
-        Vec3D vGhostParallel;
-        Vec3D vGhostOrthogonal;
-        Vec3D vStructureParallel;
-        Vec3D vStructureOrthogonal;
-        Vec3D normal = resij.gradPhi;
-        Vec3D vStructure = resij.normVel;
-        for (int var = 0;var<3;var++){
-                vPoint[var] = Vi[var+1];//+1 as V is (rho,u,v,w,P)
-                vParallel[var] = vPoint[var] * normal[var];
-                vStructureParallel[var] = vStructure[var] * normal[var];
-        }
-        vOrthogonal = vPoint-vParallel;
-        vStructureOrthogonal = vStructure - vStructureParallel;
-        vGhostParallel = (vStructureParallel - alpha*vPoint)/(1-alpha);
-        vGhostOrthogonal = vOrthogonal;
-        for (int k=1; k<3; k++) {
-        	Vj[k] = vGhostParallel[k-1] + vGhostOrthogonal[k-1];
-        	weights[k] = (1.0-alpha)*(1.0-alpha);//Weight as we have more than one edge linked to the ghost point
-        }
-        Vj[4] = Vi[4];//Constant Temperature reconstruction
-        weights[4] = (1.0-alpha)*(1.0-alpha);
-        if (dim==6) {  // One Equation Turbulent Model
-        	Vj[5] = 0.0;//-alpha*Vi[5]/(1.0-alpha);
-        	weights[5] = 1.0;//(1.0-alpha)*(1.0-alpha);
-        }
-        else if (dim==7) { // Two Equations Turbulent Model
-        	Vj[5] = Vi[5];
-        	Vj[6] = Vi[6];
-        	weights[5] = (1.0-alpha)*(1.0-alpha);
-        	weights[6] = (1.0-alpha)*(1.0-alpha);
-        }
-	}
+                    if(viscSecOrder)//use gradient to do extrapolation
+                    v_jj = Vec3D(Vi[1] + dVdx[i][1]*dX_i_jj[0] + dVdy[i][1]*dX_i_jj[1] + dVdz[i][1]*dX_i_jj[2],
+                                 Vi[2] + dVdx[i][2]*dX_i_jj[0] + dVdy[i][2]*dX_i_jj[1] + dVdz[i][2]*dX_i_jj[2],
+                                 Vi[3] + dVdx[i][3]*dX_i_jj[0] + dVdy[i][3]*dX_i_jj[1] + dVdz[i][3]*dX_i_jj[2]);
+                    Vec3D v_s = resij.normVel;
+                    Vec3D v_j = v_jj - 2*(v_jj*normal)*normal + 2*(v_s*normal)*normal;//keep tangential velocity, reverse normal velocity
+                    for (int k=1; k<3; k++) {
+                        Vj[k] = v_j[k-1];
+                        weights[k] = (1.0-alpha)*(1.0-alpha);//Weight as we have more than one edge linked to the ghost point
+
+                    }
 
 
-        if(!ghostPoints[j]) // GP has not been created
-        {ghostPoints[j]=new GhostPoint<dim>(varFcn);}
+                }else{//It is a wall , extrapolation
+                    for (int k=1; k<4; ++k) {
+                        Vj[k] = ((resij.normVel)[k-1] - alpha*Vi[k])/(1.0-alpha);
+                        weights[k] = (1.0-alpha)*(1.0-alpha);
+                    }
 
-        ghostPoints[j]->addNeighbour(Vj,weights,tagI);
-      }
-      if(jIsActive) {
-        LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
-        varFcn->conservativeToPrimitive(U[j],Vj,tagJ);
+                }
+//update turbulence viscosity
+                if (dim==6) {  // One Equation Turbulent Model
+                    Vj[5] = 0.0;//-alpha*Vi[5]/(1.0-alpha);
+                    weights[5] = 1.0;//(1.0-alpha)*(1.0-alpha);
+                }
+//update turbulence kinetic energy , epsilon
+                else if (dim==7) { // Two Equations Turbulent Model
+                    if((resij.structureType==BoundaryData::SYMMETRYPLANE)) { // turbulence energy mirroring
+                        Vj[5] = Vi[5];
+                        Vj[6] = Vi[6];
+                    }else{ // turbulence energy at wall is 0???
+                        Vj[5] = -alpha * Vi[5] / (1.0 - alpha);
+                        Vj[6] = -alpha * Vi[6] / (1.0 - alpha);
+                    }
+                    weights[5] = (1.0-alpha)*(1.0-alpha);
+                    weights[6] = (1.0-alpha)*(1.0-alpha);
+                }
+
+
+                if(!ghostPoints[j]) // GP has not been created
+                {ghostPoints[j]=new GhostPoint<dim>(varFcn);}
+
+                ghostPoints[j]->addNeighbour(Vj,weights,tagI);
+            }
+//////////////////// Populate node j to ghost node i
+
+            if(jIsActive) { //j is active populate j to ghost node i
+                LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
+                varFcn->conservativeToPrimitive(U[j],Vj,tagJ);
+
+
+// Determine intersection alpha
+                if (!viscSecOrder) { //first order
+                    alpha = 0.5;
+                }
+                else {
+                    alpha = resji.alpha;
+                    if (alpha > 0.5) alpha = 0.5; // Set limit for stability
+                }
 
 // Initialize all variables and weights
-        for (int k=0; k<dim; ++k) {
-          Vi[k] = Vj[k];
-	  weights[k] = 1.0;
-        }
+                for (int k=0; k<dim; ++k) {
+                    Vi[k] = Vj[k];
+                    weights[k] = (1.0 - alpha) * (1.0 - alpha);
+                }
 
 // Replace fourth variable with temperature
-        double T = varFcn->computeTemperature(Vj,tagJ);
-        Vi[4] = T;
+                double T = varFcn->computeTemperature(Vj,tagJ);
+                Vi[4] = T;
 
-// Determine intersection alpha 
-        if (!linRecFSI) { //first order
-          alpha = 0.5;
-        }
-        else {
-          alpha = resji.alpha;
-          if (alpha > 0.5) alpha = 0.5; // Set limit for stability 
-        }
+
 
 // Update velocity
-        if(!(resji.structureType==BoundaryData::SYMMETRYPLANE)){//It is not a symmetry plane
-        for (int k=1; k<4; ++k) {
-	  Vi[k] = ((resji.normVel)[k-1] - alpha*Vj[k])/(1.0-alpha);
-          weights[k] = (1.0-alpha)*(1.0-alpha);
+                if(resji.structureType==BoundaryData::SYMMETRYPLANE){//It is not a symmetry plane
+                    //It is a symmetry plane
+                    //0)Find ghost node i's , mirroring point ii
+                    //1)extrapolate velocity  from node j to ii, using gradient of node j
+                    //2)mirroing velocity at ii to i, keeping tangential velocity , reverse normal velocity
+                    //TODO : update this to support the new definition of embedded
+                    Vec3D normal = resji.gradPhi; normal = normal/normal.norm(); // structure normal
+                    Vec3D dX_j_i(X[i][0] - X[j][0], X[i][1] - X[j][1], X[i][2] - X[j][2]); //vector Xj Xi
+                    Vec3D dX_j_ii = dX_j_i - 2*alpha*(dX_j_i*normal)*normal; // vector Xj Xii
+                    SVec<double,dim> &dVdx = ngrad.getX();
+                    SVec<double,dim> &dVdy = ngrad.getY();
+                    SVec<double,dim> &dVdz = ngrad.getZ();
+                    Vec3D v_ii(Vj[1],Vj[2],Vj[3]);// constant extrapolation
+                    if(viscSecOrder)// use graident to do extrapolation
+                        v_ii = Vec3D(Vj[1] + dVdx[j][1]*dX_j_ii[0] + dVdy[j][1]*dX_j_ii[1] + dVdz[j][1]*dX_j_ii[2],
+                                     Vj[2] + dVdx[j][2]*dX_j_ii[0] + dVdy[j][2]*dX_j_ii[1] + dVdz[j][2]*dX_j_ii[2],
+                                     Vj[3] + dVdx[j][3]*dX_j_ii[0] + dVdy[j][3]*dX_j_ii[1] + dVdz[j][3]*dX_j_ii[2]);
+                    Vec3D v_s = resji.normVel;
+                    Vec3D v_i = v_ii - 2*(v_ii*normal)*normal + 2*(v_s*normal)*normal;//keep tangential velocity, reverse tangential velocity
+                    for (int k=1; k<3; k++) {
+                        Vi[k] = v_i[k-1];
+                        weights[k] = (1.0-alpha)*(1.0-alpha);//Weight as we have more than one edge linked to the ghost point
+
+                    }
+                }else { //It is a wall , extrapolation
+                    for (int k = 1; k < 4; ++k) {
+                        Vi[k] = ((resji.normVel)[k - 1] - alpha * Vj[k]) / (1.0 - alpha);
+                        weights[k] = (1.0 - alpha) * (1.0 - alpha);
+                    }
+                }
+
+
+                if (dim==6) {  // One Equation Turbulent Model
+                    Vi[5] = 0.0;//-alpha*Vj[5]/(1.0-alpha);
+                    weights[5] = 1.0;//(1.0-alpha)*(1.0-alpha);
+                }
+                else if (dim==7) { // Two Equations Turbulent Model
+                    if(resji.structureType==BoundaryData::SYMMETRYPLANE) { // turbulence energy mirroring
+                        Vi[5] = Vj[5];
+                        Vi[6] = Vj[6];
+                    }else {
+                        Vi[5] = -alpha * Vj[5] / (1.0 - alpha);
+                        Vi[6] = -alpha * Vj[6] / (1.0 - alpha);
+                    }
+                    weights[5] = (1.0-alpha)*(1.0-alpha);
+                    weights[6] = (1.0-alpha)*(1.0-alpha);
+                }
+
+                if(!ghostPoints[i]) // GP has not been created
+                {ghostPoints[i]=new GhostPoint<dim>(varFcn);}
+
+                ghostPoints[i]->addNeighbour(Vi,weights,tagJ);
+            }
         }
-
-	if (dim==6) {  // One Equation Turbulent Model
-	  Vi[5] = 0.0;//-alpha*Vj[5]/(1.0-alpha);
-          weights[5] = 1.0;//(1.0-alpha)*(1.0-alpha);
-	}
-	else if (dim==7) { // Two Equations Turbulent Model
-	  Vi[5] = -alpha*Vj[5]/(1.0-alpha);
-	  Vi[6] = -alpha*Vj[6]/(1.0-alpha);
-          weights[5] = (1.0-alpha)*(1.0-alpha);
-          weights[6] = (1.0-alpha)*(1.0-alpha);
-	}
-        }else{
-        	//We are in the case of an embedded constraint.Right now that means that we use a symmetry plane, so only the normal velocity must be reflected
-        	        //how is the boundary condition treated in the case of a symmetry plane :
-        	        //
-        	        //0)Desnsity : Density is not used to compute the NS flux, and is therefore not populated here.
-        	        //
-        	        //1)Normal velocity (With respect to the plane) : The normal velocity must be 0 at the interface.
-        	        //This information is used o linearly extrapolate the normal velocity
-        	        //                                                                                                //
-        	        //2)Tangeantial Velocity : As there is no specific constraint at the interface, we extrapolate the value in the ghost point using
-        	        //the nodal gradient
-        	        //
-        	        //3)Temperature : As it is a symmetry plane, the temperature gradient must be 0, so we use constant approximation to populate the cell
-
-        	        //we have to compute Vparallel and Vothogonal separately
-        	        Vec3D vPoint;
-        	        Vec3D vParallel;
-        	        Vec3D vOrthogonal;
-        	        Vec3D vGhostParallel;
-        	        Vec3D vGhostOrthogonal;
-        	        Vec3D vStructureParallel;
-        	        Vec3D vStructureOrthogonal;
-        	        Vec3D normal = resji.gradPhi;
-        	        Vec3D vStructure = resji.normVel;
-        	        for (int var = 0;var<3;var++){
-        	                vPoint[var] = Vj[var+1];//+1 as V is (rho,u,v,w,P)
-        	                vParallel[var] = vPoint[var] * normal[var];
-        	                vStructureParallel[var] = vStructure[var] * normal[var];
-        	        }
-        	        vOrthogonal = vPoint-vParallel;
-        	        vStructureOrthogonal = vStructure - vStructureParallel;
-        	        vGhostParallel = (vStructureParallel - alpha*vPoint)/(1-alpha);
-        	        vGhostOrthogonal = vOrthogonal;
-        	        for (int k=1; k<3; k++) {
-        	        	Vi[k] = vGhostParallel[k-1] + vGhostOrthogonal[k-1];
-        	        	weights[k] = (1.0-alpha)*(1.0-alpha);//Weight as we have more than one edge linked to the ghost point
-
-        	        }
-        	        Vi[4] = Vj[4];//No Temperature Gradient
-        	        weights[4] = (1.0-alpha)*(1.0-alpha);
-        	        if (dim==6) {  // One Equation Turbulent Model
-        	        	Vi[5] = 0.0;//-alpha*Vj[5]/(1.0-alpha);
-        	        	weights[5] = 1.0;//(1.0-alpha)*(1.0-alpha);
-        	        }
-        	        else if (dim==7) {
-        	        	Vi[5] = Vj[5];
-        	        	Vi[6] = Vj[6];
-        	        	weights[5] = (1.0-alpha)*(1.0-alpha);
-        	        	weights[6] = (1.0-alpha)*(1.0-alpha);
-        	        }
-        }
-
-        if(!ghostPoints[i]) // GP has not been created
-        {ghostPoints[i]=new GhostPoint<dim>(varFcn);}
-
-        ghostPoints[i]->addNeighbour(Vi,weights,tagJ);
-      }
     }
-  }
-  delete[] Vi;
-  delete[] Vj;
-  delete[] weights;
+    delete[] Vi;
+    delete[] Vj;
+    delete[] weights;
 
 }
 

@@ -71,7 +71,7 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   linRecAtInterface  = (ioData.embed.reconstruct==EmbeddedFramework::LINEAR) ? true : false;
   viscSecOrder  = (ioData.embed.viscousinterfaceorder==EmbeddedFramework::SECOND) ? true : false;
   riemannNormal = (int)ioData.embed.riemannNormal;
-      
+
 	//first-order everywhere... //d2d
 	if(orderOfAccuracy == 1) 
 	{

@@ -338,7 +338,7 @@ void Domain::computeDerivativeOperatorsOfGradientsLeastSquares(DistSVec<double,3
 
 //------------------------------------------------------------------------------
 // least square gradient involving only nodes of same fluid (multiphase flow and FSI)
-// d2d$ 
+// d2d$ dzh
 template<int dim, class Scalar>
 void Domain::computeGradientsLeastSquares(DistSVec<double,3> &X,
                                           DistVec<int> &fluidId,
@@ -373,6 +373,7 @@ void Domain::computeGradientsLeastSquares(DistSVec<double,3> &X,
 
 //------------------------------------------------------------------------------
 // least square gradient of single variable involving only nodes of same fluid (multiphase flow and FSI)
+// important never used!!!!!!!!!!!!!!!!!!!!!!
 template<class Scalar>
 void Domain::computeGradientLeastSquares(DistSVec<double,3> &X,
                                          DistVec<int> &fluidId,
@@ -1407,7 +1408,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
 }
 
 //------------------------------------------------------------------------------
-//d2d embedded
+//d2d embedded with LS????
 template<int dim, int dimLS>
 void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol, 
 				     DistExactRiemannSolver<dim> &riemann,
@@ -4719,7 +4720,7 @@ void Domain::extrapolatePhiV(DistLevelSetStructure *distLSS, DistSVec<double,dim
 template<int dim>
 void Domain::populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints, DistSVec<double,3> &X, 
 											DistSVec<double,dim> &U, DistNodalGrad<dim, double> *ngrad, 
-											VarFcn *varFcn,DistLevelSetStructure *distLSS,bool linRecAtInterface, 
+											VarFcn *varFcn,DistLevelSetStructure *distLSS,bool viscSecOrder,
 											DistVec<int> &tag, bool externalSI, FemEquationTerm *fet)
 {
 
@@ -4730,7 +4731,7 @@ void Domain::populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints, DistSVe
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) 
 		  subDomain[iSub]->populateGhostPoints((*ghostPoints)(iSub), X(iSub), U(iSub), (*ngrad)(iSub),
-															varFcn, (*distLSS)(iSub), linRecAtInterface, tag(iSub));
+															varFcn, (*distLSS)(iSub), viscSecOrder, tag(iSub));
   
   assembleGhostPoints(*ghostPoints,varFcn);
 

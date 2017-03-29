@@ -367,7 +367,7 @@ void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
 }
 
 //------------------------------------------------------------------------------
-
+//This is for body fitted mesh compute finite volumeterm
 template<int dim>
 int EdgeSet::computeFiniteVolumeTerm(int* locToGlobNodeMap, Vec<double> &irey, FluxFcn** fluxFcn,
                                      RecFcn* recFcn, ElemSet& elems, GeoState& geoState, SVec<double,3>& X,
@@ -1993,7 +1993,7 @@ void EdgeSet::computeDerivativeOfFiniteVolumeTerm(FluxFcn** fluxFcn, RecFcn* rec
 }
 //------------------------------------------------------------------------------
 
-//d2d$ MultyPhysics
+//d2d$ MultyPhysics fluid-fluid
 template<int dim, int dimLS>
 int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locToGlobNodeMap,
                                      FluxFcn** fluxFcn, RecFcn* recFcn,
@@ -2466,7 +2466,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
 //------------------------------------------------------------------------------
 
-//d2d$ MultyPhysics??
+//d2d$ MultyPhysics, has both fluid-fluid and fluid-structure
 template<int dim, int dimLS>
 int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locToGlobNodeMap,
                                      FluxFcn** fluxFcn, RecFcn* recFcn,

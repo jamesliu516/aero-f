@@ -941,7 +941,7 @@ void DistNodalGrad<dim, Scalar>::computeDerivativeOperators(DistSVec<double,3> &
 
 //------------------------------------------------------------------------------
 // least square gradient involving only nodes of same fluid (multiphase flow)
-// $d2d
+// $d2d dzh
 template<int dim, class Scalar>
 template<class Scalar2>
 void DistNodalGrad<dim, Scalar>::compute(int config, DistSVec<double,3> &X,
