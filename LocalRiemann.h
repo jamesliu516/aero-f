@@ -69,6 +69,9 @@ public:
   virtual  void computeSourceTerm(double *Vi, double *Vj,double dp,
                           double *n_s, double *n_f, VarFcn *vf,
                           double *flux, bool method = true, int Id = 0){};
+    virtual  void computeJacobianSourceTerm(double *Vi, double *Vj,double dp,
+                                    double *n_s, double *n_f, VarFcn *vf,
+                                    double *dSdV, bool method = true, int Id = 0){};
 };
 
 //----------------------------------------------------------------------------
