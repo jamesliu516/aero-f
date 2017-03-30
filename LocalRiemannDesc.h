@@ -3904,6 +3904,10 @@ public:
                                                               double *n_s, double *n_f, VarFcn *vf,
                                                               double *flux, bool method = true, int Id = 0);
 
+    void computeJacobianSourceTerm(double *Vi, double *Vj,double dp,
+                           double *n_s, double *n_f, VarFcn *vf,
+                           double *dSdV, bool method = true, int Id = 0);
+
 private:
 
     void riemannActuatorDisk(double rho_l, double v_l, double p_l,
@@ -4057,6 +4061,41 @@ void LocalRiemannActuatorDisk<dim>::computeSourceTerm(double *Vi, double *Vj,dou
 */
 
   }
+
+
+template<int dim>
+inline
+void LocalRiemannActuatorDisk<dim>::computeJacobianSourceTerm(double *Vi, double *Vj,double dp,
+                                                      double *n_s, double *n_f, VarFcn *vf,
+                                                      double *dSdV, bool method, int Id) {
+  /* Vi Vj are two fluid primitive state variables
+   * dp pressure jump value
+   * n_s is unit structure normal, n_f is fluid edge area normal(non unit)
+   * vf state of equation function
+   * dSdV source term over primitive variables, for its is linear dSVi = dSVj, which is dim by dim matrix
+   * method, true for corrected one and false for traditional one
+   * Id fluid id
+   */
+
+
+  double gamma = vf->getGamma(Id);
+  //double Vel[3] = {(Vi[1]+Vj[1])/2.0,(Vi[2]+Vj[2])/2.0,(Vi[3]+Vj[3])/2.0};//use average velocity
+  double faceArea = abs(n_s[0]*n_f[0] +n_s[1]*n_f[1] +n_s[2]*n_f[2]);
+  double normal[3] = {faceArea*n_s[0], faceArea*n_s[1],faceArea*n_s[2]};//use structure normal
+  //flux[0] = 0;
+  //flux[1] = dp*normal[0];
+  //flux[2] = dp*normal[1];
+  //flux[3] = dp*normal[2];
+
+  //double normalVelocity = Vel[0]*normal[0] + Vel[1]*normal[1] + Vel[2]*normal[2];
+  //flux[4] =  gamma/(gamma-1)*dp*normalVelocity;
+
+  for(int i = 0; i < dim*dim; i++) dSdV[i] = 0.0;
+  for(int i = 0;i < 3 ;i++)
+    dSdV[4*dim + i + 1] = method?  0.5*gamma/(gamma-1)*dp*normal[i]: 0.5*dp*normal[i];;
+
+
+}
 //------------------------------------------------------------------------------
 template<int dim>
 inline
