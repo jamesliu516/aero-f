@@ -195,40 +195,40 @@ void ImplicitEmbeddedCoupledTsDesc<dim>::setOperators(DistSVec<double,dim> &Q)
 
 //------------------------------------------------------------------------------
 template<int dim>
-int ImplicitEmbeddedCoupledTsDesc<dim>::solveLinearSystem(int it, 
-																			 DistSVec<double,dim> &b,
-				                   DistSVec<double,dim> &dQ)
+int ImplicitEmbeddedCoupledTsDesc<dim>::solveLinearSystem(int it,
+                                                          DistSVec<double,dim> &b,
+                                                          DistSVec<double,dim> &dQ)
 {
 
-  double t0 = this->timer->getTime();  
+    double t0 = this->timer->getTime();
 
-  this->embeddeddQ = 0.0;
-  //this->embeddedB.ghost() = 0.0;
-  this->embeddedB = 0.0;
-  this->embeddedB.real() = b;
-  
-	if (this->modifiedGhidaglia) this->embeddedB.hh() = -1.0*(*this->hhResidual);
-  
-  ksp->setup(it, this->maxItsNewton, this->embeddedB);
-  
-  int lits = ksp->solve(this->embeddedB, this->embeddeddQ);
+    this->embeddeddQ = 0.0;
+    //this->embeddedB.ghost() = 0.0;
+    this->embeddedB = 0.0;
+    this->embeddedB.real() = b;
 
-  if(lits==ksp->maxits) this->errorHandler->localErrors[ErrorHandler::SATURATED_LS] += 1;
+    if (this->modifiedGhidaglia) this->embeddedB.hh() = -1.0*(*this->hhResidual);
 
-  dQ = this->embeddeddQ.real();
-  this->embeddedU.ghost() += this->embeddeddQ.ghost();
+    ksp->setup(it, this->maxItsNewton, this->embeddedB);
 
-	if (this->modifiedGhidaglia) 
-	{
-    this->embeddedU.hh() += this->embeddeddQ.hh();
+    int lits = ksp->solve(this->embeddedB, this->embeddeddQ);
 
-    *this->bcData->getBoundaryStateHH() = this->embeddedU.hh();
-  }
+    if(lits==ksp->maxits) this->errorHandler->localErrors[ErrorHandler::SATURATED_LS] += 1;
 
-  this->timer->addKspTime(t0);
-  
-  return lits;
-  
+    dQ = this->embeddeddQ.real();
+    this->embeddedU.ghost() += this->embeddeddQ.ghost();
+
+    if (this->modifiedGhidaglia)
+    {
+        this->embeddedU.hh() += this->embeddeddQ.hh();
+
+        *this->bcData->getBoundaryStateHH() = this->embeddedU.hh();
+    }
+
+    this->timer->addKspTime(t0);
+
+    return lits;
+
 }
 
 //------------------------------------------------------------------------------

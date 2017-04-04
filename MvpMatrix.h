@@ -9,7 +9,11 @@
 
 template<class Scalar, int dim>
 class MvpMat : public GenMat<Scalar,dim> {
-
+/* a[i] is dim by dim matrix
+ * n is the node number
+ * a[0] a[1] ...a[n-1] save block matrix
+ * edge l has node i,j  a[n + 2*l] = dr_i/du_j, a[n + 2*l + 1] = dr_j/du_i
+ */
 protected:
 
   int n;
