@@ -1218,7 +1218,7 @@ void MatVecProdH1<dim,Scalar,neq>::applyRestrict(DistSVec<double,neq> &p, DistSV
 
 //------------------------------------------------------------------------------
 
-
+//This is matrix vector prod in embedded implicit solver zdh
 template<int dim, class Scalar, int neq>
 void MatVecProdH1<dim,Scalar,neq>::apply(DistEmbeddedVec<double,neq> &p, DistEmbeddedVec<double,neq> &prod)
 {

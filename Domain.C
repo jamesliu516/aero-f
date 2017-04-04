@@ -3192,11 +3192,11 @@ void Domain::computeMutOMuDynamicLES(DynamicLESTerm *dles, DistVec<double> &ctrl
 //------------------------------------------------------------------------------
 template<int dim, class Scalar, int neq>
 void Domain::computeJacobianGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &bcData,
-					 DistGeoState &geoState, DistSVec<double,3> &X,
-					 DistVec<double> &ctrlVol, DistSVec<double,dim> &V,
-					 DistMat<Scalar,neq> &A,
+                                         DistGeoState &geoState, DistSVec<double,3> &X,
+                                         DistVec<double> &ctrlVol, DistSVec<double,dim> &V,
+                                         DistMat<Scalar,neq> &A,
                                          DistVec<GhostPoint<dim>*> *ghostPoints,
-													  DistLevelSetStructure *distLSS, bool externalSI)
+                                         DistLevelSetStructure *distLSS, bool externalSI)
 {
 
   int iSub;
@@ -3206,13 +3206,13 @@ void Domain::computeJacobianGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &
   CommPattern<Scalar> *matPat = A.getOffDiagMatPat();
 
 #pragma omp parallel for
-	for(iSub = 0; iSub < numLocSub; ++iSub) 
-	{
+  for(iSub = 0; iSub < numLocSub; ++iSub)
+  {
     Vec<GhostPoint<dim>*>* gp = (ghostPoints? &(*ghostPoints)(iSub) :0);
     LevelSetStructure *LSS = distLSS ? &(distLSS->operator()(iSub)) : 0;
     subDomain[iSub]->computeJacobianGalerkinTerm(fet, bcData(iSub), geoState(iSub), X(iSub),
-																	ctrlVol(iSub), V(iSub), A(iSub), gp, LSS, externalSI);
-		
+                                                 ctrlVol(iSub), V(iSub), A(iSub), gp, LSS, externalSI);
+
     subDomain[iSub]->sndOffDiagBlocks(*matPat, A(iSub));
   }
 
@@ -3223,13 +3223,13 @@ void Domain::computeJacobianGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->addRcvOffDiagBlocks(*matPat, A(iSub));
-  
-	if(ghostPoints && !externalSI) 
-	{
+
+  if(ghostPoints && !externalSI)
+  { //if there is ghostpoint and using original ghost node definition
 #pragma omp parallel for
-		for(iSub = 0; iSub < numLocSub; ++iSub) 
+    for(iSub = 0; iSub < numLocSub; ++iSub)
       subDomain[iSub]->sndGhostOffDiagBlocks(*matPat, A(iSub));
-    
+
     matPat->exchange();
 
 #pragma omp parallel for

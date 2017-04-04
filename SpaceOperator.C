@@ -2070,7 +2070,7 @@ void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> 
                                          DistMat<Scalar,neq>& A,
                                          DistTimeState<dim>* timeState)
 {
-  
+  //A is the jacobian
   A = 0.0;
 
   	varFcn->conservativeToPrimitive(U, *V, distLSS, &fluidId);
@@ -2089,6 +2089,8 @@ void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> 
 		domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, ctrlVol, *V, A, ghostPoints, distLSS, externalSI);
 
 		if(!externalSI) domain->populateGhostJacobian(ghostPoints, U, fluxFcn, varFcn, distLSS, fluidId, A);
+      //this compute du_ghost/du_real for these intersection edge, d v_ghost/dv_real is approximated as
+      //diag{-1,1,1,1-1} for solid wall.
 	}
   
   domain->computeJacobianFiniteVolumeTerm(ctrlVol, *riemann, fluxFcn, *bcData, *geoState,
