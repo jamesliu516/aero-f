@@ -179,6 +179,7 @@ LevelSetStructure(Vec<int>& status,
     bool isActive(double t, int n) const                  { return is_active[n]; }
     bool isOccluded(double t, int n) const                { return is_occluded[n]; }
     bool edgeIntersectsStructure(double t, int eij) const { return (edge_intersects[eij])||edge_intersects_constraint[eij];}//&&(!edge_intersects_constraint[eij]);}//{ return edge_intersects[eij];}
+    bool edgeIntersectsWall(double t,int eij) const {return (edge_intersects[eij]);}
     bool edgeIntersectsConstraint(double t, int eij) const { return edge_intersects_constraint[eij]; }
     void computeSwept(Vec<int> &swept){
         for(int i = 0; i < swept.size(); ++i)
