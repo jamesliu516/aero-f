@@ -4140,6 +4140,7 @@ void SubDomain::computeMatVecProdH1transpose(bool *nodeFlag, GenMat<Scalar,dim> 
    Scalar (*a)[dim*dim] = A.data();
 
    prod = 0.0;
+   ghostProd = 0.0;
  // This is for diagonal part of the matrix A
  #pragma ivdep
    for (i=0; i<numNodes; ++i)
@@ -8011,7 +8012,7 @@ void SubDomain::populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<do
                     if(neq > 2)
                     {
                         Vec<double> Vi(dim);
-                        //Aji = dUdV(V_i) * B * dVdU(U_j)
+                        //Aji = dUdV(V_i) * B * dVdU(U_j), actually this is -dU_ghost/dU_real
                         varFcn->conservativeToPrimitive(U[i],Vi.v,tagI);
                         fluxFcn[BC_INTERNAL]->getFluxFcnBase(tagI)->getVarFcnBase()->computedVdU(Vi.v,dVdU);
                         fluxFcn[BC_INTERNAL]->getFluxFcnBase(tagI)->getVarFcnBase()->computedUdV(ghostPoints[j]->getPrimitiveState(), dUdV);
