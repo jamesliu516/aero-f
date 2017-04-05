@@ -77,7 +77,7 @@ hasIntersection(Elem& elem, LevelSetStructure& LSS) {
   int nE = elem.numEdges();
   for (int i = 0; i < nE; ++i) {
 
-    if (LSS.edgeIntersectsStructure(0.0,elem.edgeNum(i)))
+    if (LSS.edgeIntersectsWall(0.0,elem.edgeNum(i)))
       return true;
   }
   return false;
@@ -1761,6 +1761,8 @@ void EdgeSet::computeDerivativeOfFiniteVolumeTerm(FluxFcn** fluxFcn, RecFcn* rec
     int i = ptr[l][0];
     int j = ptr[l][1];
 
+    //TODO : upgrade for embedded BC
+
     bool intersect = LSS.edgeIntersectsStructure(0,l);
 
     bool iActive = LSS.isActive(0.0,i);
@@ -2538,6 +2540,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     int i = ptr[l][0];
     int j = ptr[l][1];
 
+    //TODO : upgrade for multiple embedded BC
     bool intersect = LSS.edgeIntersectsStructure(0,l);
 
     bool iActive, jActive;
@@ -4322,6 +4325,7 @@ void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFc
     if (!masterFlag[l]) continue;
     int i = ptr[l][0];
     int j = ptr[l][1];
+    //TODO : upgrade to support diffferent embedded BC
     bool intersect = LSS ? LSS->edgeIntersectsStructure(0.0,l) : false;
     int iCovered, jCovered;
     if(LSS && !LSS->withCracking()) {
@@ -5588,6 +5592,8 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 		int i = ptr[l][0];
 		int j = ptr[l][1];
 		
+		//TODO : upgrade to support multiple BC
+
 		bool withSI  = LSS.edgeWithSI(l);
 		bool iActive = LSS.isActive(0.0, i);
 		bool jActive = LSS.isActive(0.0, j);
@@ -6061,6 +6067,8 @@ void EdgeSet::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS
   double uroe,uroed[2];
   Scalar df[2];
 
+  //TODO : upgrade to support multiple types of embedded surface
+
   for (int l=0; l<numEdges; ++l) {
     int i = ptr[l][0];
     int j = ptr[l][1];
@@ -6148,7 +6156,7 @@ void EdgeSet::TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Ph
   for(int l=0; l<numEdges; l++){
     int i = ptr[l][0];
     int j = ptr[l][1];
-    if(LSS) intersect = LSS->edgeIntersectsStructure(0,l);
+    if(LSS) intersect = LSS->edgeIntersectsWall(0,l);//We should not be computing the distance to the actuator disk
     if(Phi[i][lsdim]*Phi[j][lsdim]<=0.0 || intersect){
       Tag[i] = tag;
       Tag[j] = tag;
@@ -6186,7 +6194,7 @@ void EdgeSet::pseudoFastMarchingMethodInitialization(SVec<double,3>& X,
       }
     }
 */
-    if(LSS->edgeIntersectsStructure(0,l)) {
+    if(LSS->edgeIntersectsWall(0,l)) {
       if(iActive && Tag[i] < 0) {
 	sortedNodes[nSortedNodes] = i;
  	nSortedNodes++;

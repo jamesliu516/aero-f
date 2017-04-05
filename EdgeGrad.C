@@ -136,7 +136,17 @@ void EdgeGrad<dim>::computeUpwindGradient(Elem& elem, double rij[3], SVec<double
 
 	 if(fluidId[N1] != fluidId[N2]) isValid = false;
 
-	 if(LSS.edgeIntersectsStructure(0.0, le)) isValid = false;
+	 if(LSS.edgeIntersectsStructure(0.0, le)){//check the intersection type
+		 LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0,le,true);
+		 switch(resij.structureType){
+		 case BoundaryData::ACTUATORDISK:
+		 case BoundaryData::MASSINFLOW:
+			 break;
+		 default :
+			 isValid = false;
+		 break;
+		 }
+	 }
 	 if(!LSS.isActive(0.0, N1) || !LSS.isActive(0.0, N2)) isValid = false;
 	 
     if(!isValid)
@@ -454,7 +464,19 @@ void EdgeGrad<dim>::compute(int l, int i, int j, ElemSet& elems,
 	 bool isValid = true;
 
 	 if(fluidId[i] != fluidId[j]) isValid = false;
-	 if(LSS.edgeIntersectsStructure(0.0, l)) isValid = false;
+	 if(LSS.edgeIntersectsStructure(0.0, l)){//check the intersection type
+		 LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0,l,true);
+		 switch(resij.structureType){
+		 case BoundaryData::ACTUATORDISK:
+		 case BoundaryData::MASSINFLOW:
+			 break;
+		 default :
+			 isValid = false;
+			 break;
+		 }
+	 }
+
+
 	 if(!LSS.isActive(0.0, i) || !LSS.isActive(0.0, j)) isValid = false;
 	 
 	 if(!isValid)

@@ -474,7 +474,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
 
         if(LSS)
         {
-            if(LSS->edgeWithSI(l) || LSS->edgeIntersectsStructure(0.0, l)) validEdge = false;
+            if(LSS->edgeWithSI(l) || LSS->edgeIntersectsWall(0.0, l)) validEdge = false;
             if(!LSS->isActive(0.0, i) || !LSS->isActive(0.0, j)) validEdge = false;
             if(!includeSweptNodes && (LSS->isSwept(0.0, i) || LSS->isSwept(0.0, j))) validEdge = false;
         }
@@ -528,7 +528,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
             int i = edgePtr[l][0];
             int j = edgePtr[l][1];
 
-            if( fluidId[i] != fluidId[j] || (LSS && (LSS->edgeIntersectsStructure(0.0,l) || !LSS->isActive(0.0,i) || !LSS->isActive(0.0,j))) ) {
+            if( fluidId[i] != fluidId[j] || (LSS && (LSS->edgeIntersectsWall(0.0,l) || !LSS->isActive(0.0,i) || !LSS->isActive(0.0,j))) ) {
                 for (int k=0; k<dim; ++k)
                 {
                     ddx[i][k] = ddy[i][k] = ddz[i][k] = ddx[j][k] = ddy[j][k] = ddz[j][k] = 0.0;
@@ -657,7 +657,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
 
     double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
 
-	if (((!LSS)&&(fluidId[i]==fluidId[j]))||(LSS && LSS->isActive(0.0,i) && LSS->isActive(0.0,j) && !LSS->edgeIntersectsStructure(0.0,l))) {
+	if (((!LSS)&&(fluidId[i]==fluidId[j]))||(LSS && LSS->isActive(0.0,i) && LSS->isActive(0.0,j) && !LSS->edgeIntersectsWall(0.0,l))) {
       if(R[i][0]>0.0 && fabs(R[i][0]*R[i][3]*R[i][5]) > 1.0e-10) // should be positive for a well posed least square problem
         computeLocalWeightsLeastSquares(dx, R[i], Wi);
       else{ // gradient is set to 0.0
@@ -731,7 +731,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
     for (int l=0; l<edges.size(); ++l) {
       int i = edgePtr[l][0];
       int j = edgePtr[l][1];
-      if (fluidId[i]!=fluidId[j] || (LSS && LSS->edgeIntersectsStructure(0.0,l))) {
+      if (fluidId[i]!=fluidId[j] || (LSS && LSS->edgeIntersectsWall(0.0,l))) {
         for (int k=0; k<dim; ++k)
           ddx[i][k] = ddy[i][k] = ddz[i][k] = ddx[j][k] = ddy[j][k] = ddz[j][k] = 0.0;
       }
@@ -1920,6 +1920,7 @@ void SubDomain::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, Rec
 				  ngradLS, egradLS, Phi, PhiF, LSS, ls_order);
 
   faces.computeFiniteVolumeTermLS(fluxFcn, bcData, geoState, V, Phi, PhiF);
+  //TODO : a2m : now they can, this should be upgarded
     //Note: LSS is not needed because we assume that farfield nodes cannot be covered by structure.
 }
 
@@ -3253,7 +3254,7 @@ void SubDomain::applyBCsToJacobian(BcFcn *bcFcn, BcData<dim> &bcs,
 
       if (offWallNode[i]) {
 	Scalar *Aij = 0;
-        if (LSS->edgeIntersectsStructure(0.0,l))
+        if (LSS->edgeIntersectsWall(0.0,l))
           Aij = A.getRealNodeElem_ij(i,j);
 	else
           Aij = A.getElem_ij(l);
@@ -3270,7 +3271,7 @@ void SubDomain::applyBCsToJacobian(BcFcn *bcFcn, BcData<dim> &bcs,
 
       if (offWallNode[j]) {
 	Scalar *Aji = 0;
-        if (LSS->edgeIntersectsStructure(0.0,l))
+        if (LSS->edgeIntersectsWall(0.0,l))
           Aji = A.getRealNodeElem_ij(j,i);
 	else
           Aji = A.getElem_ji(l);
@@ -3745,6 +3746,8 @@ void SubDomain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn, BcData<dim> &bcData
 
    double alpha = 0.1;
 
+   //TODO : add support for the different embeddeed BC
+
    VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
 
    for (int l=0; l<edges.size(); ++l) {
@@ -4015,7 +4018,7 @@ void SubDomain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn, BcData<dim> &bcData
      int i = edgePtr[l][0];
      int j = edgePtr[l][1];
 
-     bool intersect = LSS.edgeIntersectsStructure(0,l);
+     bool intersect = LSS.edgeIntersectsWall(0,l);
 
      bool iActive = LSS.isActive(0.0,i);
      bool jActive = LSS.isActive(0.0,j);
@@ -4537,6 +4540,7 @@ void SubDomain::addDiagonalInMatVecProdH2transpose(Vec<double> &ctrlVol, GenMat<
 
    int i, j, l;
 
+   //TODO : upgrade  to support embedded Boundary condistions
    Scalar2 ddpij[dim], ddpji[dim], pij[1][dim], pji[1][dim];
    Scalar2 tmp[1][dim], tmpi[1][dim], tmpj[1][dim];
 
@@ -7404,9 +7408,9 @@ void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double
 				bool intEdge;
 
 				if(externalSI) 
-					intEdge = LSS.edgeWithSI(l) || LSS.edgeIntersectsStructure(0.0, l);
+					intEdge = LSS.edgeWithSI(l) || LSS.edgeIntersectsWall(0.0, l);
 				else
-					intEdge = LSS.edgeIntersectsStructure(0.0, l);
+					intEdge = LSS.edgeIntersectsWall(0.0, l);
 
 				if(intEdge) 
 					continue;
@@ -7482,9 +7486,9 @@ void SubDomain::computeWeightsLeastSquaresForEmbeddedStruct(SVec<double,3> &X, S
 				bool intEdge;
 
 				if(externalSI) 
-					intEdge = LSS.edgeWithSI(l) || LSS.edgeIntersectsStructure(0.0, l);
+					intEdge = LSS.edgeWithSI(l) || LSS.edgeIntersectsWall(0.0, l);
 				else
-					intEdge = LSS.edgeIntersectsStructure(0.0, l);
+					intEdge = LSS.edgeIntersectsWall(0.0, l);
 
 				if(intEdge) continue;
 
@@ -7661,7 +7665,7 @@ void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double
 
         if(currentNode==neighborNode || init[neighborNode]<1 || myId!=yourId) continue;
         int l = edges.findOnly(currentNode,neighborNode);
-        if(LSS.edgeIntersectsStructure(0.0,l)) continue;
+        if(LSS.edgeIntersectsWall(0.0,l)) continue;
         else if(Weights[currentNode] < 1e-6){
           Weights[currentNode]=1.0;
           next_init[currentNode]=1;
@@ -7765,7 +7769,7 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
         if(!edgeFlag[l]) continue; //not a master edge
         i = edgePtr[l][0];
         j = edgePtr[l][1];
-        if(LSS.edgeIntersectsStructure(0.0,l)) { // at interface
+        if(LSS.edgeIntersectsWall(0.0,l)) { // at interface
             int tagI = tag[i];
             int tagJ = tag[j];
             bool iIsActive = LSS.isActive(0.0,i);
@@ -7990,7 +7994,7 @@ void SubDomain::populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<do
     i = edgePtr[l][0];
     j = edgePtr[l][1];
 
-		if(LSS.edgeIntersectsStructure(0.0, l)) 
+		if(LSS.edgeIntersectsWall(0.0, l))
 		{ 
          //at interface
       int tagI = tag[i];
@@ -8329,7 +8333,7 @@ void SubDomain::computeRiemannWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec
     i = edgePtr[l][0];
     j = edgePtr[l][1];
 
-    if(LSS.edgeIntersectsStructure(0.0,l)){ //at interface
+    if(LSS.edgeIntersectsWall(0.0,l)){ //at interface
       if (LSS.isActive(0.0,i)) {// add Wstarij on node j.
         if(Weights[j]<1.e-6) {
           Weights[j] = 1.0;
@@ -8412,7 +8416,7 @@ void SubDomain::computeRiemannWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec
             for(k=0; k<dim; k++) VWeights[i][k] += Wstar[l][k];
             for(k=0; k<dimLS; k++) PhiWeights[i][k] += Phi[j][k];
           }
-        } else if(!LSS.isSwept(0.0,j) && fluidId[i]==fluidId[j] && !LSS.edgeIntersectsStructure(0.0,l)) { // use V[j]
+        } else if(!LSS.isSwept(0.0,j) && fluidId[i]==fluidId[j] && !LSS.edgeIntersectsWall(0.0,l)) { // use V[j]
           if(Weights[i]<1.0e-6) { // first touch of node i
             Weights[i] = 1.0;
             for(k=0; k<dim; k++) VWeights[i][k] = V[j][k];
@@ -9076,12 +9080,12 @@ void SubDomain::TagInterfaceNodes(int lsdim, SVec<bool,2> &Tag, SVec<double,dimL
     j = ptr[l][1];
 
     if(Phi[i][lsdim]*Phi[j][lsdim]<=0.0) {
-      if(LSS->edgeIntersectsStructure(0.0,l))
+      if(LSS->edgeIntersectsWall(0.0,l))
         Tag[i][0] = Tag[j][0] = true;
       else
         Tag[i][1] = Tag[j][1] = true;
     } else {
-      if(LSS->edgeIntersectsStructure(0.0,l)) {
+      if(LSS->edgeIntersectsWall(0.0,l)) {
         Tag[i][0] = Tag[j][0] = true;
 //        fprintf(stderr,"BUG: Sub %d: (%d,%d) intersects but phi[i]=%e, phi[j]=%e.\n", globSubNum, 
 //                locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1, Phi[i][lsdim], Phi[j][lsdim]);
@@ -9587,7 +9591,7 @@ void SubDomain::computeEMBNodeScalarQuantity(SVec<double,3> &X, SVec<double,dim>
       int norm[4] = { 0, 0, 0, 0 };
       for (int e=0; e<6; ++e) {
 	int l = E->edgeNum(e);
-	if (LSS.edgeIntersectsStructure(0,l)) {
+	if (LSS.edgeIntersectsWall(0,l)) {
 	  int i = E->edgeEnd(e,0);
 	  int j = E->edgeEnd(e,1);
           LevelSetResult lsResij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, (T[i]<T[j]));
@@ -10164,7 +10168,7 @@ void SubDomain::computeEMBNodeScalarQuantity_step1(SVec<double,3> &X, SVec<doubl
 		{
 			int l = E->edgeNum(e);
 			
-			if(LSS.edgeIntersectsStructure(0,l)) 
+			if(LSS.edgeIntersectsWall(0,l))
 			{
 				int i = E->edgeEnd(e, 0);
 				int j = E->edgeEnd(e, 1);
