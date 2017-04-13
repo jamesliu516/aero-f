@@ -49,6 +49,7 @@ class DistIntersectorFRG : public DistLevelSetStructure
   using DistLevelSetStructure::is_swept;
   using DistLevelSetStructure::is_active;
   using DistLevelSetStructure::edge_intersects;
+  using DistLevelSetStructure::edge_intersects_embedded_constraint;
 
   using DistLevelSetStructure::edge_SI;
   using DistLevelSetStructure::xi_SI;
@@ -213,6 +214,7 @@ class IntersectorFRG : public LevelSetStructure
   using LevelSetStructure::is_swept;
   using LevelSetStructure::is_active;
   using LevelSetStructure::edge_intersects;
+  using LevelSetStructure::edge_intersects_embedded_constraint;
 
   using LevelSetStructure::edge_SI;
   using LevelSetStructure::xi_SI;

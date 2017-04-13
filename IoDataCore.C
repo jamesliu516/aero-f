@@ -412,7 +412,7 @@ TransientData::TransientData()
   matchstate = "";
   fluxnorm = "";
   materialVolumes = "";
-  materialMassEnergy = "";
+  materialConservationScalars = "";
   conservation = "";
   podFile = "";
   romFile = "";
@@ -474,7 +474,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 86, father); 
+  ClassAssigner *ca = new ClassAssigner(name, 101, father);
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
 
@@ -535,7 +535,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "TavLiftandDrag", this, &TransientData::tavlift);
   new ClassStr<TransientData>(ca, "Residual", this, &TransientData::residuals);
   new ClassStr<TransientData>(ca, "MaterialVolumes", this, &TransientData::materialVolumes);
-  new ClassStr<TransientData>(ca, "MaterialMassEnergy", this, &TransientData::materialMassEnergy);
+  new ClassStr<TransientData>(ca, "MaterialConservationScalars", this, &TransientData::materialConservationScalars);
   new ClassInt<TransientData>(ca, "Frequency", this, &TransientData::frequency);
   new ClassDouble<TransientData>(ca, "TimeInterval", this, &TransientData::frequency_dt);
   new ClassDouble<TransientData>(ca, "Length", this, &TransientData::length);
@@ -958,9 +958,9 @@ void BcsWallData::setup(const char *name, ClassAssigner *father)
   new ClassToken<BcsWallData>(ca, "Integration", this,
                               reinterpret_cast<int BcsWallData::*>(&BcsWallData::integration), 2,
                               "WallFunction", 1, "Full", 2);
-  new ClassToken<BcsWallData>(ca, "Reconstruction", this,
+  new ClassToken<BcsWallData>(ca, "Method", this,
                               reinterpret_cast<int BcsWallData::*>(&BcsWallData::reconstruction), 2,
-                              "Constant", 0, "ExactRiemann", 1);
+                              "Standard", 0, "ExactRiemannProblem", 1);
   new ClassDouble<BcsWallData>(ca, "Temperature", this, &BcsWallData::temperature);
   new ClassDouble<BcsWallData>(ca, "Delta", this, &BcsWallData::delta);
 
@@ -1005,6 +1005,7 @@ BoundaryData::BoundaryData()
   epsilon = -1.0;
   porosity = 0.0;
   velocityReconstructionMethod = (VelocityReconstructionMethod) AVERAGE;
+  actuatorDiskMethod = (ActuatorDiskMethod)SOURCETERM;
   sourceTermExpression = (SourceTermExpression)OLD;
   pressureJump = 0.0;
   massFlow = 0.0;
@@ -1043,6 +1044,9 @@ Assigner *BoundaryData::getAssigner()  {
   new ClassToken<BoundaryData>(ca, "VelocityReconstructionMethod", this,
                                 (int BoundaryData::*)(&BoundaryData::velocityReconstructionMethod), 3,
                                  "Average", AVERAGE, "FirstOrder", FIRSTORDER, "SecondOrder", SECONDORDER);
+  new ClassToken<BoundaryData>(ca, "ActuatorDiskMethod", this,
+                               (int BoundaryData::*)(&BoundaryData::actuatorDiskMethod), 2,
+                               "SourceTerm", SOURCETERM, "RiemannSolver", RIEMANNSOLVER);
   new ClassToken<BoundaryData>(ca, "SourceTermExpression", this,
                                   (int BoundaryData::*)(&BoundaryData::sourceTermExpression), 2,
                                    "Old", OLD, "Corrected", CORRECTED);
@@ -5203,7 +5207,7 @@ EmbeddedFramework::EmbeddedFramework() {
 
 void EmbeddedFramework::setup(const char *name) {
 
-  ClassAssigner *ca = new ClassAssigner(name, 13, 0); //father);
+  ClassAssigner *ca = new ClassAssigner(name, 14, 0); //father);
   new ClassToken<EmbeddedFramework> (ca, "Intersector", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::intersectorName), 2,
                                       "PhysBAM", 0, "FRG", 1);
   new ClassToken<EmbeddedFramework> (ca, "StructureNormal", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::structNormal), 2,
@@ -5260,8 +5264,52 @@ void EmbeddedFramework::setup(const char *name) {
      reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::prec), 2,
      "NonPreconditioned", 0, "LowMach", 1);
 
+	//embeded constraint
+	//added by Arthur Morlot (February 2016)
+	//
+	Embedded_Constraint.setup("EmbeddedConstraint",ca);
 
 }
+
+//------------------------------------------------------------------------------
+EmbeddedConstraint::EmbeddedConstraint() {
+
+ConstraintType = NOCONSTRAINT;
+
+}
+//------------------------------------------------------------------------------
+void EmbeddedConstraint::setup(const char *name, ClassAssigner *father) {
+
+ ClassAssigner *ca = new ClassAssigner(name, 3, father);
+ new ClassToken<EmbeddedConstraint> (ca, "ConstraintType", this, reinterpret_cast<int EmbeddedConstraint::*>(&EmbeddedConstraint::ConstraintType), 3,
+                                      "NoConstraint", 0,"Symmetry", 1, "Inlet", 2);
+
+ Symmetry_Constraint.setup("SymmetryConstraint",ca);
+ Inlet_Constraint.setup("InletConstraint",ca);
+}
+
+
+//------------------------------------------------------------------------------
+
+void SymmetryConstraint::setup(const char *name, ClassAssigner *father) {
+
+
+ ClassAssigner *ca = new ClassAssigner(name, 2, father);
+ new ClassToken<SymmetryConstraint> (ca, "Normal", this, reinterpret_cast<int SymmetryConstraint::*>(&SymmetryConstraint::Normal), 3,
+                       "Nx", 0, "Ny", 1,"Nz", 2);
+ new ClassDouble<SymmetryConstraint>(ca, "PlanePosition", this, &SymmetryConstraint::planeposition);
+}
+
+//------------------------------------------------------------------------------
+void InletConstraint::setup(const char *name, ClassAssigner *father) {
+
+ ClassAssigner *ca = new ClassAssigner(name, 3, father);
+ new ClassToken<InletConstraint> (ca, "Normal", this, reinterpret_cast<int InletConstraint::*>(&InletConstraint::Normal), 3,
+                       "Nx", 0, "Ny", 1,"Nz", 2);
+ new ClassDouble<InletConstraint>(ca, "PlanePosition", this, &InletConstraint::planeposition);
+ //to be implemented when we know what kind of inlet we want to work with
+}
+
 
 //------------------------------------------------------------------------------
 OneDimensionalInfo::OneDimensionalInfo(){

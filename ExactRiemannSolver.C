@@ -358,11 +358,29 @@ int ExactRiemannSolver<dim>::getRiemannSolverId(int i, int j) const {
 }
 //------------------------------------------------------------------------------
 template<int dim>
-int ExactRiemannSolver<dim>::computeActuatorDiskRiemannSolution(double *Vi, double *Vj,double dp,double *n_s,
+int ExactRiemannSolver<dim>::computeActuatorDiskRiemannSolution(double *Vi, double *Vj, double *Vstar, double dp,double *n_s,
                                                                 double *n_f, VarFcn *vf,
                                                                 double *Wi, double *Wj,int Id)
 
-{   return actuatorDiskRiemann->computeRiemannSolution(Vi, Vj,dp, n_s, n_f, vf, iteration, Wi, Wj,Id);
+{   return actuatorDiskRiemann->computeRiemannSolution(Vi, Vj, Vstar,dp, n_s, n_f, vf, iteration, Wi, Wj,Id);
+
+}
+
+template<int dim>
+void ExactRiemannSolver<dim>::computeActuatorDiskSourceTerm(double *Vi, double *Vj,double dp,double *n_s,
+                                                                double *n_f, VarFcn *vf,
+                                                                double *flux,bool method, int Id)
+
+{    actuatorDiskRiemann->computeSourceTerm(Vi, Vj,dp, n_s, n_f, vf, flux,method, Id);
+
+}
+
+template<int dim>
+void ExactRiemannSolver<dim>::computeActuatorDiskJacobianSourceTerm(double *Vi, double *Vj,double dp,double *n_s,
+                                                            double *n_f, VarFcn *vf,
+                                                            double *dSdV,bool method, int Id)
+
+{    actuatorDiskRiemann->computeJacobianSourceTerm(Vi, Vj,dp, n_s, n_f, vf, dSdV,method, Id);
 
 }
 
@@ -374,4 +392,12 @@ int ExactRiemannSolver<dim>::computeSymmetryPlaneRiemannSolution(double *Vi, dou
 {
     return symmetryplaneRiemann->computeRiemannSolution(Vi,Vstar,nphi,vf,
                                                         Wstar,rupdate[nodej],weight[nodej],iteration, Id);
+}
+
+template<int dim>
+void ExactRiemannSolver<dim>::computeSymmetryRiemannJacobian(double *Vi, double *Vstar, double *nphi,
+        VarFcn *vf, double *Wstar, int nodej, double* dWdW,int Id)
+{
+    symmetryplaneRiemann->computeRiemannJacobian(Vi,Vstar,nphi,vf,
+            Wstar,rupdate[nodej],weight[nodej],iteration, dWdW,Id);
 }

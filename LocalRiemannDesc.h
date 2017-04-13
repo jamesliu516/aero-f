@@ -3895,16 +3895,24 @@ public:
     virtual ~LocalRiemannActuatorDisk() { vf_ = 0; }
 
 
-    int computeRiemannSolution(double *Vi, double *Vj,double dp,
+    int computeRiemannSolution(double *Vi, double *Vj, double *Vstar, double dp,
                                double *n_s, double *n_f, VarFcn *vf,
                                int it, double *Wi, double *Wj,int Id = 0);
 
 
+    void computeSourceTerm(double *Vi, double *Vj,double dp,
+                                                              double *n_s, double *n_f, VarFcn *vf,
+                                                              double *flux, bool method = true, int Id = 0);
+
+    void computeJacobianSourceTerm(double *Vi, double *Vj,double dp,
+                           double *n_s, double *n_f, VarFcn *vf,
+                           double *dSdV, bool method = true, int Id = 0);
 
 private:
 
     void riemannActuatorDisk(double rho_l, double v_l, double p_l,
                              double rho_r, double v_r, double p_r,
+                             double vstar_n,
                              double dp,   VarFcn *vf, int Id,
                              double &rho_a, double &v_a, double &p_a,
                              int& err);
@@ -3914,7 +3922,7 @@ private:
 
 
     bool checkSolution(int diskCase, double rho_l, double v_l, double p_l,
-                       double rho_r, double v_r, double p_r,
+                       double rho_r, double v_r, double p_r, double vstar_n,
                        double v_m, double p_m,
                        double dp_l,double dp_r,   double gamma,double&rho_mr, double &rho_ml,bool DEBUG=false);
 
@@ -3926,17 +3934,23 @@ private:
 
 template<int dim>
 inline
-int LocalRiemannActuatorDisk<dim>::computeRiemannSolution(double *Vi, double *Vj,double dp,
+int LocalRiemannActuatorDisk<dim>::computeRiemannSolution(double *Vi, double *Vj,double *Vstar,double dp,
                                                           double *n_s, double *n_f, VarFcn *vf,
                                                           int it, double *W_Ri, double *W_Rj,int Id) {
-
+    /* Vi Vj are two fluid primitive state variables
+     * dp pressure jump
+     * n_s is unit structure normal, n_f is fluid normal(can be non unit)
+     * vf state of equation function
+     * W_Ri,WRj riemann primitive state variables on both side of actuator disk, near i and j
+     * Id fluid id
+     */
     //---------------------------------------------------------------
 
     double v_ni = Vi[1] * n_s[0] + Vi[2] * n_s[1] + Vi[3] * n_s[2]; //normal velocity of node i
     double v_ti[3] = {Vi[1] - v_ni * n_s[0], Vi[2] - v_ni * n_s[1], Vi[3] - v_ni * n_s[2]}; // tangential velocity of node i
     double v_nj = Vj[1] * n_s[0] + Vj[2] * n_s[1] + Vj[3] * n_s[2]; //normal velocity of node j
     double v_tj[3] = {Vj[1] - v_nj * n_s[0], Vi[2] - v_ni * n_s[1], Vi[3] - v_ni * n_s[2]}; // tangential velocity of node j
-
+    double vstar_n = Vstar[0]*n_s[0] + Vstar[1]*n_s[1] + Vstar[2]*n_s[2];
 
     double rc = vf->getVarFcnBase(Id)->rhomin;
     double pc = vf->getVarFcnBase(Id)->pmin;
@@ -3967,7 +3981,7 @@ int LocalRiemannActuatorDisk<dim>::computeRiemannSolution(double *Vi, double *Vj
 
             fprintf(stderr, "ERROR: NO IMPLEMENTATION FOR ACTUATOR DISK FOR STIFFENEDGAS use the one for PERFECTGAS!\n");
         case VarFcnBase::PERFECTGAS:
-            riemannActuatorDisk(rho_l, v_l, p_l, rho_r, v_r, p_r, dp, vf, Id, rho_a, v_a, p_a,err);
+            riemannActuatorDisk(rho_l, v_l, p_l, rho_r, v_r, p_r, vstar_n, dp, vf, Id, rho_a, v_a, p_a,err);
             break;
         case VarFcnBase::TAIT:
             fprintf(stderr, "ERROR: NO IMPLEMENTATION FOR ACTUATOR DISK FOR TAIL GAS!\n");
@@ -4009,17 +4023,90 @@ int LocalRiemannActuatorDisk<dim>::computeRiemannSolution(double *Vi, double *Vj
     return err;
 }
 
+template<int dim>
+inline
+void LocalRiemannActuatorDisk<dim>::computeSourceTerm(double *Vi, double *Vj,double dp,
+                                                          double *n_s, double *n_f, VarFcn *vf,
+                                                          double *flux, bool method, int Id) {
+    /* Vi Vj are two fluid primitive state variables
+     * dp pressure jump value
+     * n_s is unit structure normal, n_f is fluid edge area normal(non unit)
+     * vf state of equation function
+     * flux source term
+     * method, true for corrected one and false for traditional one
+     * Id fluid id
+     */
 
+
+  double gamma = vf->getGamma(Id);
+  double Vel[3] = {(Vi[1]+Vj[1])/2.0,(Vi[2]+Vj[2])/2.0,(Vi[3]+Vj[3])/2.0};//use average velocity
+  double faceArea = abs(n_s[0]*n_f[0] +n_s[1]*n_f[1] +n_s[2]*n_f[2]);
+  double normal[3] = {faceArea*n_s[0], faceArea*n_s[1],faceArea*n_s[2]};//use structure normal
+  flux[0] = 0;
+  flux[1] = dp*normal[0];
+  flux[2] = dp*normal[1];
+  flux[3] = dp*normal[2];
+
+  double normalVelocity = Vel[0]*normal[0] + Vel[1]*normal[1] + Vel[2]*normal[2];
+  flux[4] = method? gamma/(gamma-1)*dp*normalVelocity: dp*normalVelocity;
+    /*
+  fprintf(stderr, " ***ERROR: Actuator disk SourceTerm\n");
+  fprintf(stderr, " ***ERROR: Actuator disk Vi %.10f,%.10f,%.10f,%.10f,%.10f, Vj %.10f,%.10f,%.10f,%.10f,%.10f\n",
+                                               Vi[0],Vi[1],Vi[2],Vi[3],Vi[4],      Vj[0],Vj[1],Vj[2],Vj[3],Vj[4]);
+  fprintf(stderr, " ***ERROR: n_s %.10f,%.10f,%.10f, n_f %.10f,%.10f,%.10f \n", n_s[0],n_s[1],n_s[2],n_f[0],n_f[1],n_f[2]);
+  fprintf(stderr, " ***ERROR: normal  %.10f,%.10f,%.10f\n", normal[0],normal[1],normal[2]);
+  fprintf(stderr, " ***ERROR: dp  %.10f\n", dp);
+  fprintf(stderr, " ***ERROR: normalVelocity  %.10f\n", normalVelocity);
+  fprintf(stderr, " ***ERROR: Actuator disk flux %.10f,%.10f,%.10f,%.10f,%.10f,\n\n",flux[0],flux[1],flux[2],flux[3],flux[4]);
+*/
+
+  }
+
+
+template<int dim>
+inline
+void LocalRiemannActuatorDisk<dim>::computeJacobianSourceTerm(double *Vi, double *Vj,double dp,
+                                                      double *n_s, double *n_f, VarFcn *vf,
+                                                      double *dSdV, bool method, int Id) {
+  /* Vi Vj are two fluid primitive state variables
+   * dp pressure jump value
+   * n_s is unit structure normal, n_f is fluid edge area normal(non unit)
+   * vf state of equation function
+   * dSdV source term over primitive variables, for its is linear dSVi = dSVj, which is dim by dim matrix
+   * method, true for corrected one and false for traditional one
+   * Id fluid id
+   */
+
+
+  double gamma = vf->getGamma(Id);
+  //double Vel[3] = {(Vi[1]+Vj[1])/2.0,(Vi[2]+Vj[2])/2.0,(Vi[3]+Vj[3])/2.0};//use average velocity
+  double faceArea = abs(n_s[0]*n_f[0] +n_s[1]*n_f[1] +n_s[2]*n_f[2]);
+  double normal[3] = {faceArea*n_s[0], faceArea*n_s[1],faceArea*n_s[2]};//use structure normal
+  //flux[0] = 0;
+  //flux[1] = dp*normal[0];
+  //flux[2] = dp*normal[1];
+  //flux[3] = dp*normal[2];
+
+  //double normalVelocity = Vel[0]*normal[0] + Vel[1]*normal[1] + Vel[2]*normal[2];
+  //flux[4] =  gamma/(gamma-1)*dp*normalVelocity;
+
+  for(int i = 0; i < dim*dim; i++) dSdV[i] = 0.0;
+  for(int i = 0;i < 3 ;i++)
+    dSdV[4*dim + i + 1] = method?  0.5*gamma/(gamma-1)*dp*normal[i]: 0.5*dp*normal[i];;
+
+
+}
 //------------------------------------------------------------------------------
 template<int dim>
 inline
 void LocalRiemannActuatorDisk<dim>::riemannActuatorDisk(double rho_l, double v_l, double p_l,
-                                                    double rho_r, double v_r, double p_r,
+                                                    double rho_r, double v_r, double p_r, double vstar_n,
                                                     double dp,   VarFcn *vf, int Id,
                                                     double &rho_a, double &v_a, double &p_a,
                                                     int& err)
 {
 // assume rho_l, v_l and p_l are fluid states at upstream, and rho_r, v_r, p_r are fluid states at downstream,
+// vstar_n is the actuator disk velocity
 // using the notation of Toro's paper
 // return the fluid states rho_a, v_a, p_a upstream the actuator disk
 double gamma = vf->getGamma(Id);
@@ -4032,7 +4119,7 @@ const int LEFT = 0, CENTER_LEFT = 1, CENTER_RIGHT = 2, RIGHT = 3;
         // v_l,         v_a             v_a  =v_ml     v_mr           v_r
         // p_l          p_a             p_a+dp =p_ml   p_mr           p_r
         err += solveContactDiscontinuity(rho_l, v_l, p_l, rho_r, v_r, p_r, -dp, 0, gamma,v_m,p_m);
-        if(checkSolution(CENTER_LEFT, rho_l, v_l, p_l, rho_r, v_r, p_r, v_m, p_m,-dp,0,gamma, rho_mr, rho_ml)) {
+        if(checkSolution(CENTER_LEFT, rho_l, v_l, p_l, rho_r, v_r, p_r, vstar_n,v_m, p_m,-dp,0,gamma, rho_mr, rho_ml)) {
             rho_a = rho_ml;
             v_a = v_m;
             p_a = p_m - dp;
@@ -4044,7 +4131,7 @@ const int LEFT = 0, CENTER_LEFT = 1, CENTER_RIGHT = 2, RIGHT = 3;
         // v_a=v_l        v_a           v_ml     v_mr           v_r
         // p_a=p_l        p_a+dp        p_ml     p_mr           p_r
         err += solveContactDiscontinuity(rho_l, v_l, p_l+dp, rho_r,v_r,p_r, 0,0,gamma, v_m,p_m);
-        if(checkSolution(LEFT, rho_l, v_l, p_l + dp, rho_r, v_r, p_r,v_m, p_m,0 ,0,gamma, rho_mr, rho_ml)) {
+        if(checkSolution(LEFT, rho_l, v_l, p_l + dp, rho_r, v_r, p_r, vstar_n,v_m, p_m,0 ,0,gamma, rho_mr, rho_ml)) {
             rho_a = rho_l;
             v_a = v_l;
             p_a = p_l;
@@ -4057,7 +4144,7 @@ const int LEFT = 0, CENTER_LEFT = 1, CENTER_RIGHT = 2, RIGHT = 3;
         // v_l,         v_ml           v_mr=v_a      v_a=v_ml       v_r
         // p_l          p_ml           p_mr=p_a      p_a + dpl      p_r
         err += solveContactDiscontinuity(rho_l, v_l, p_l, rho_r, v_r, p_r, 0, dp, gamma, v_m, p_m);
-        if(checkSolution(CENTER_RIGHT, rho_l, v_l, p_l, rho_r, v_r, p_r,v_m, p_m,0 ,dp,gamma, rho_mr, rho_ml)) {
+        if(checkSolution(CENTER_RIGHT, rho_l, v_l, p_l, rho_r, v_r, p_r,vstar_n,v_m, p_m,0 ,dp,gamma, rho_mr, rho_ml)) {
             rho_a = rho_mr;
             v_a = v_m;
             p_a = p_m;
@@ -4069,7 +4156,7 @@ const int LEFT = 0, CENTER_LEFT = 1, CENTER_RIGHT = 2, RIGHT = 3;
         // v_l,         v_ml        v_mr           v_a=v_r        v_r
         // p_l          p_ml        p_mr           p_a=p_r-dp     p_r
         err += solveContactDiscontinuity(rho_l, v_l, p_l, rho_r, v_r, p_r - dp, 0, 0, gamma, v_m, p_m);
-        if(checkSolution(RIGHT, rho_l, v_l, p_l, rho_r, v_r, p_r-dp, v_m, p_m,0 ,dp,gamma, rho_mr, rho_ml)) {
+        if(checkSolution(RIGHT, rho_l, v_l, p_l, rho_r, v_r, p_r-dp,vstar_n, v_m, p_m,0 ,dp,gamma, rho_mr, rho_ml)) {
             rho_a = rho_r;
             v_a = v_r;
             p_a = p_r - dp;
@@ -4163,19 +4250,21 @@ int LocalRiemannActuatorDisk<dim>::solveContactDiscontinuity(double rho_l, doubl
 template<int dim>
 inline
 bool LocalRiemannActuatorDisk<dim>::checkSolution(int diskCase, double rho_l, double v_l, double p_l,
-                                                  double rho_r, double v_r, double p_r,
+                                                  double rho_r, double v_r, double p_r, double vstar_n,
                                                   double v_m, double p_m,
                                                   double dp_l,double dp_r,   double gamma,double&rho_mr, double &rho_ml,bool DEBUG) {
     //  diskCase 0,1,2,3, i means disk is between i wave and i+1 wave;
     //  left fluid state variable rho_l, v_l, p_l;
     //right fluid state variable rho_r, v_r, p_r;
+    //vstar_n: actuator disk velociy
     //velocity and pressure after the 1- wave are v_m, p_m + dp_l
     //velocity and pressure before the 3- wave are v_m, p_m + dp_r
     //density before and after contact discontinuity are rho_ml, rho_mr
     //return true of false if it is false means the pattern cannot match with the diskCase
-    if(p_r <= 0.0 || p_l <= 0.0 || rho_l <= 0.0 || rho_r <= 0.0 || p_r + dp_r <= 0.0 || p_l+dp_l <= 0.0)
+    if(p_r <= 0.0 || p_l <= 0.0 || rho_l <= 0.0 || rho_r <= 0.0 || p_r + dp_r <= 0.0 || p_l+dp_l <= 0.0) {
+        fprintf(stderr, "****ERROR, In LocalRiemannActuatorDisk, has negative pressure or negative density\n");
         return false;
-
+    }
     bool result = true;
     double a_l = sqrt(gamma * p_l / rho_l), a_r = sqrt(gamma * p_r / rho_r); //sound speed
 
@@ -4187,8 +4276,8 @@ bool LocalRiemannActuatorDisk<dim>::checkSolution(int diskCase, double rho_l, do
         double s_ml = v_m - a_ml;
         rho_ml = rho_l * pow(p_ml/ p_l, 1 / gamma);
         if(DEBUG) fprintf(stderr,"DEBUG: case %d, left rarefaction, velocity s_l s_ml are %f and %f\n",diskCase, s_l, s_ml);
-        if((diskCase == 0 && s_l < 0.0 && s_ml < 0.0)||(diskCase == 1 && s_l > 0.0 && s_ml > 0.0)
-           ||(diskCase == 2 && s_l > 0.0 && s_ml > 0.0) ||(diskCase == 3 && s_l > 0.0 && s_ml > 0.0))
+        if((diskCase == 0 && s_l < vstar_n && s_ml < vstar_n)||(diskCase == 1 && s_l > vstar_n && s_ml > vstar_n)
+           ||(diskCase == 2 && s_l > vstar_n && s_ml > vstar_n) ||(diskCase == 3 && s_l > vstar_n && s_ml > vstar_n))
             result = false;
 
     }
@@ -4196,13 +4285,13 @@ bool LocalRiemannActuatorDisk<dim>::checkSolution(int diskCase, double rho_l, do
         double s_shock = v_l - a_l * sqrt((gamma + 1) *p_ml / (2 * gamma * p_l) + (gamma - 1) / (2 * gamma));
         rho_ml = rho_l * (p_ml/ p_l + (gamma - 1) / (gamma + 1)) / ((gamma - 1) * p_ml/ ((gamma + 1) * p_l) + 1);
         if(DEBUG) fprintf(stderr,"DEBUG: case %d, left shock, velocity s_shock_l is %f\n",diskCase, s_shock);
-        if((diskCase == 0 && s_shock < 0.0 )||(diskCase == 1 && s_shock > 0.0 )
-           ||(diskCase == 2 && s_shock > 0.0) ||(diskCase == 3 && s_shock > 0.0))
+        if((diskCase == 0 && s_shock < vstar_n )||(diskCase == 1 && s_shock > vstar_n )
+           ||(diskCase == 2 && s_shock > vstar_n) ||(diskCase == 3 && s_shock > vstar_n))
             result = false;
     }
     if(DEBUG) fprintf(stderr,"DEBUG: case %d, contact discontinuity velocity is %f\n",diskCase,  v_m);
-    if((diskCase == 0 && v_m < 0.0 )||(diskCase == 1 && v_m < 0.0 )
-       ||(diskCase == 2 && v_m > 0.0) ||(diskCase == 3 && v_m > 0.0))
+    if((diskCase == 0 && v_m < vstar_n )||(diskCase == 1 && v_m < vstar_n )
+       ||(diskCase == 2 && v_m > vstar_n) ||(diskCase == 3 && v_m > vstar_n))
         result = false;
 
     //Right side
@@ -4214,8 +4303,8 @@ bool LocalRiemannActuatorDisk<dim>::checkSolution(int diskCase, double rho_l, do
         double s_mr = v_m + a_mr;
         rho_mr = rho_r * pow(p_mr / p_r, 1 / gamma);
         if(DEBUG) fprintf(stderr,"DEBUG: case %d,  right rarefaction, velocity s_mr s_r are %f and %f\n",diskCase, s_mr, s_r);
-        if((diskCase == 0 && s_r < 0.0 && s_mr < 0.0)||(diskCase == 1 && s_r < 0.0 && s_mr < 0.0)
-           ||(diskCase == 2 && s_r < 0.0 && s_mr < 0.0) ||(diskCase == 3 && s_r > 0.0 && s_mr > 0.0))
+        if((diskCase == 0 && s_r < vstar_n && s_mr < vstar_n)||(diskCase == 1 && s_r < vstar_n && s_mr < vstar_n)
+           ||(diskCase == 2 && s_r < vstar_n && s_mr < vstar_n) ||(diskCase == 3 && s_r > vstar_n && s_mr > vstar_n))
             result = false;
     }
 
@@ -4223,8 +4312,8 @@ bool LocalRiemannActuatorDisk<dim>::checkSolution(int diskCase, double rho_l, do
         double s_shock = v_r + a_r * sqrt((gamma + 1) * p_mr / (2 * gamma * p_r) + (gamma - 1) / (2 * gamma));
         rho_mr = rho_r * (p_mr / p_r + (gamma - 1) / (gamma + 1)) / ((gamma - 1) * p_mr / ((gamma + 1) * p_r) + 1);
         if(DEBUG) fprintf(stderr,"DEBUG: case %d, right shock, velocity s_shock_r is %f\n" ,diskCase, s_shock);
-        if((diskCase == 0 && s_shock < 0.0 )||(diskCase == 1 && s_shock < 0.0 )
-           ||(diskCase == 2 && s_shock < 0.0) ||(diskCase == 3 && s_shock > 0.0))
+        if((diskCase == 0 && s_shock < vstar_n )||(diskCase == 1 && s_shock < vstar_n )
+           ||(diskCase == 2 && s_shock < vstar_n) ||(diskCase == 3 && s_shock > vstar_n))
             result = false;
     }
 

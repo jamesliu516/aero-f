@@ -62,11 +62,16 @@ public:
 					double* dWstardn, int Id = 0) {}
 
   // Actuator disk problem
-  virtual int computeRiemannSolution(double *Vi, double *Vj,double dp,
+  virtual int computeRiemannSolution(double *Vi, double *Vj,double *Vstar,double dp,
 				     double *n_s, double *n_f, VarFcn *vf,
 				     int it, double *Wi, double *Wj,int Id = 0){return 0;}
 
-
+  virtual  void computeSourceTerm(double *Vi, double *Vj,double dp,
+                          double *n_s, double *n_f, VarFcn *vf,
+                          double *flux, bool method = true, int Id = 0){};
+    virtual  void computeJacobianSourceTerm(double *Vi, double *Vj,double dp,
+                                    double *n_s, double *n_f, VarFcn *vf,
+                                    double *dSdV, bool method = true, int Id = 0){};
 };
 
 //----------------------------------------------------------------------------

@@ -89,7 +89,7 @@ void ImplicitCoupledTsDesc<dim>::computeJacobian(int it, DistSVec<double,dim> &Q
 
   if(this->wallRecType==BcsWallData::CONSTANT) {
     mvp->evaluate(it, *this->X, *this->A, Q, F);
-  } else {
+  } else { // this->wallRecType==BcsWallData::EXACT_RIEMANN
     mvp->evaluate(*this->riemann1, it, *this->X, *this->A, Q, F);
   }
 

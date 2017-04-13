@@ -747,7 +747,7 @@ void SpaceOperator<dim>::computeResidualRestrict(DistSVec<double,3> &X, DistVec<
 }
 //------------------------------------------------------------------------------
 
-// Modified (MB)
+// Modified (MB), use exactRiemannSolver for only faces not edges
 template<int dim>
 void SpaceOperator<dim>::computeResidual(DistExactRiemannSolver<dim> *riemann,
                                          DistSVec<double,3> &X, DistVec<double> &ctrlVol,
@@ -1476,7 +1476,7 @@ void SpaceOperator<dim>::computeViscousResidual(DistSVec<double,3> &X, DistVec<d
 
 //------------------------------------------------------------------------------
 
-//d2d$ Embedded structure
+//d2d$ Embedded Fluid structure interaction
 template<int dim>
 void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                                          DistSVec<double,dim> &U, 
@@ -1582,7 +1582,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
 }
 
 //------------------------------------------------------------------------------
-
+//what is this for?
 template<int dim>
 void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                                          DistSVec<double,dim> &U, DistSVec<double,dim> &Wstarij,
@@ -1887,11 +1887,11 @@ void SpaceOperator<dim>::populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoi
 															DistSVec<double,dim> &U,
 															VarFcn *varFcn, 
 															DistLevelSetStructure *distLSS, 
-															bool linFSI, DistVec<int> &fluidId)
+															bool viscSecOrder, DistVec<int> &fluidId)
 {
 ghostPoints->deletePointers();
 	
-	domain->populateGhostPoints(ghostPoints, X, U, ngrad, varFcn, distLSS, linFSI, fluidId, externalSI, fet);
+	domain->populateGhostPoints(ghostPoints, X, U, ngrad, varFcn, distLSS, viscSecOrder, fluidId, externalSI, fet);
 
 }
 
@@ -2070,7 +2070,7 @@ void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> 
                                          DistMat<Scalar,neq>& A,
                                          DistTimeState<dim>* timeState)
 {
-  
+  //A is the jacobian
   A = 0.0;
 
   	varFcn->conservativeToPrimitive(U, *V, distLSS, &fluidId);
@@ -2089,6 +2089,8 @@ void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> 
 		domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, ctrlVol, *V, A, ghostPoints, distLSS, externalSI);
 
 		if(!externalSI) domain->populateGhostJacobian(ghostPoints, U, fluxFcn, varFcn, distLSS, fluidId, A);
+      //this compute du_ghost/du_real for these intersection edge, d v_ghost/dv_real is approximated as
+      //diag{-1,1,1,1-1} for solid wall.
 	}
   
   domain->computeJacobianFiniteVolumeTerm(ctrlVol, *riemann, fluxFcn, *bcData, *geoState,
@@ -3285,7 +3287,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidualLS(DistSVec<double,3> &X
 
 //------------------------------------------------------------------------------
 
-//???d2d$ Multi Phase???
+//???d2d$ Multi Phase??? which has different fluid flows and structure
 template<int dim, int dimLS>
 void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol, DistSVec<double,dim> &U, 
 							 DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
