@@ -3241,7 +3241,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       }
     }
 
-    if (iActive && jActive && !intersect){
+    if (iActive && jActive && !LSS.edgeIntersectsStructure(0.0,l)){
       //Vi and Vj are reconstructed states
       recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
     } else {

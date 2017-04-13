@@ -150,6 +150,10 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iodata,
 
   with_sensitivity = false;
 
+  boundaryConditionsMap = map<int, BoundaryData::Type>();
+
+
+
   //SymmetryPlaneList  = new map<int,SymmetryInfo>();
 
 
@@ -160,6 +164,7 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iodata,
     double XScale = (iod.problem.mode==ProblemData::NON_DIMENSIONAL) ? 1.0 : iod.ref.rv.length;
     init(struct_mesh, struct_restart_pos, XScale);
   }
+  //checkInputFileCorecnessEmbeddedContraint();
   setStructureType();
   setPorosity();
   setActuatorDisk();
@@ -210,8 +215,6 @@ DistIntersectorPhysBAM::~DistIntersectorPhysBAM()
   if(rotOwn) delete[] rotOwn;
 
   if(dXdSb) delete[] dXdSb;
-  //delete &SymmetryPlaneList;
-
 }
 
 //----------------------------------------------------------------------------
@@ -237,7 +240,7 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface,
 	  exit(1); 
   }
 
-  char line[MAXLINE],key1[MAXLINE],key2[MAXLINE];
+  char line[MAXLINE],key1[MAXLINE],key2[MAXLINE],copyForType[MAXLINE];
 
   // load the nodes and initialize all node-based variables.
 
@@ -250,6 +253,7 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface,
 
   int type_read = 0;
   int surfaceid = 0;
+  char *Matching = NULL;
 
   std::list<int> indexList;
   std::list<Vec3D> nodeList;
@@ -279,8 +283,36 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface,
         if(key2[k] == '_') underscore_pos = k;
         k++;
       }
-      if(underscore_pos > -1)
+      if(underscore_pos > -1){
         sscanf(key2+(underscore_pos+1),"%d",&surfaceid); 
+      //Now we look for keywords for the type of structure
+      	strcpy(copyForType,key2);
+      	int l = 0;
+      	 while((copyForType[l] != '\0') && (l<MAXLINE)) {
+      		copyForType[l] = tolower(copyForType[l]);
+      	 }
+      	 if(strstr(copyForType,"symmetry")!=NULL){
+      		if(boundaryConditionsMap.count(surfaceid)!=0){
+      			printf("It seems that you have two Embedded surfaces with the same Id. \n. The id is %d. Aborting simulation\n",surfaceid);
+      			exit(1);
+      		}
+      		boundaryConditionsMap[surfaceid] = BoundaryData::SYMMETRYPLANE;
+      	 }
+      	 if(strstr(copyForType,"porouswall")!=NULL){
+      		if(boundaryConditionsMap.count(surfaceid)!=0){
+      			printf("It seems that you have two Embedded surfaces with the same Id. \n. The id is %d. Aborting simulation\n",surfaceid);
+      			exit(1);
+      		}
+      		boundaryConditionsMap[surfaceid] = BoundaryData::POROUSWALL;
+      	 }
+      	 if(strstr(copyForType,"actuatordisk")!=NULL){
+      		if(boundaryConditionsMap.count(surfaceid)!=0){
+      			printf("It seems that you have two Embedded surfaces with the same Id. \n. The id is %d. Aborting simulation\n",surfaceid);
+      			exit(1);
+      		}
+      		boundaryConditionsMap[surfaceid] = BoundaryData::ACTUATORDISK;
+      	 }
+      }
     }
     if (!skip) {//we are reading a node or an element (Not a header)
       if (type_read == 1) {
@@ -557,7 +589,13 @@ void DistIntersectorPhysBAM::setPorosity() {
       if (it != surfaceMap.end()) {
         map<int,BoundaryData *>::iterator it2 = bcMap.find(it->second->bcID);
         if(it2 != bcMap.end()) { // the bc data have been defined
-          if(it2->second->type == BoundaryData::POROUSWALL ) {
+        	bool setToPorous = false;
+        	if(boundaryConditionsMap.count(faceID[i])!=0){
+        		if(boundaryConditionsMap.at(faceID[i]) == BoundaryData::POROUSWALL ){
+        			setToPorous=true;
+        		}
+        	}
+          if((it2->second->type == BoundaryData::POROUSWALL)||(setToPorous)) {
             porosity[i] = it2->second->porosity;
           }
         }
@@ -576,20 +614,29 @@ void DistIntersectorPhysBAM::getSymmetryPlanesInformation() {
   }
   if(faceID) {
     for(int i=0; i<numStElems; i++) {
-      map<int,SurfaceData*>::iterator it = surfaceMap.find(faceID[i]);
-      if (it != surfaceMap.end()) {
-        map<int,BoundaryData *>::iterator it2 = bcMap.find(it->second->bcID);
-        if(it2 != bcMap.end()) { // the bc data have been defined
-          if(it2->second->type == BoundaryData::SYMMETRYPLANE ) {
-        	  if(SymmetryPlaneList.count(faceID[i])==0){//We have never encontered this element before
-        		  SymmetryInfo info = SymmetryInfo(Xs[stElem[i][1]].v[0],Xs[stElem[i][1]].v[1],Xs[stElem[i][1]].v[2],triNorms[i]);
-        		  //SymmetryPlaneList[faceID[i]]=info;
-        		  SymmetryPlaneList.insert(std::pair<int,SymmetryInfo>(faceID[i],info));
-        	  }
-          }
-        }
-      }
-    }
+    	bool isSymmetry = false;
+    	if(boundaryConditionsMap.count(faceID[i])!=0){
+			if(boundaryConditionsMap.at(faceID[i]) == BoundaryData::SYMMETRYPLANE){
+				isSymmetry = true;
+			}
+    	}
+    	map<int,SurfaceData*>::iterator it = surfaceMap.find(faceID[i]);
+    	if (it != surfaceMap.end()) {
+    		map<int,BoundaryData *>::iterator it2 = bcMap.find(it->second->bcID);
+    		if(it2 != bcMap.end()) { // the bc data have been defined
+    			if(it2->second->type == BoundaryData::SYMMETRYPLANE ) {
+    				isSymmetry = true;
+    			}
+    		}
+    	}
+    	if(isSymmetry){
+    		if(SymmetryPlaneList.count(faceID[i])==0){//We have never encontered this element before
+    			SymmetryInfo info = SymmetryInfo(Xs[stElem[i][1]].v[0],Xs[stElem[i][1]].v[1],Xs[stElem[i][1]].v[2],triNorms[i]);
+    			//SymmetryPlaneList[faceID[i]]=info;
+    			SymmetryPlaneList.insert(std::pair<int,SymmetryInfo>(faceID[i],info));
+    		}
+    	}
+    }//for loop
   }
 }
 //----------------------------------------------------------------------------
@@ -663,7 +710,13 @@ void DistIntersectorPhysBAM::setActuatorDisk() {
       if (it != surfaceMap.end()) {
         map<int,BoundaryData *>::iterator it2 = bcMap.find(it->second->bcID);
         if(it2 != bcMap.end()) { // the bc data have been defined
-          if(it2->second->type == BoundaryData::ACTUATORDISK ) {
+        	bool setToActuator = false;
+        	if(boundaryConditionsMap.count(faceID[i])!=0){
+        		if(boundaryConditionsMap.at(faceID[i])==BoundaryData::ACTUATORDISK){
+        			setToActuator=true;
+        		}
+        	}
+          if((it2->second->type == BoundaryData::ACTUATORDISK)||(setToActuator)) {
         	  actuatorDiskPressureJump[i] = it2->second->pressureJump;
         	  if (iod.problem.mode == ProblemData::DIMENSIONAL)
         		  actuatorDiskPressureJump[i]/= iod.ref.rv.pressure;
@@ -709,6 +762,24 @@ void DistIntersectorPhysBAM::setActuatorDisk() {
     }
   }
 }
+//----------------------------------------------------------------------------
+void DistIntersectorPhysBAM::checkInputFileCorecnessEmbeddedContraint(){
+
+
+	  map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
+	  map<int,BoundaryData *> &bcMap = iod.bc.bcMap.dataMap;
+	  for(std::map<int,BoundaryData::Type>::iterator it3 = boundaryConditionsMap.begin(); it3 != boundaryConditionsMap.end(); it3++){
+		  int k =  it3->first;
+		  BoundaryData::Type type = it3->second;
+		  if(type ==BoundaryData::ACTUATORDISK || type == BoundaryData::POROUSWALL ){
+			  map<int,BoundaryData *>::iterator it2 = bcMap.find(k);
+			  if(it2 == bcMap.end()) {
+				  printf("Porous wall or Actuator disk detected in the Embedded Structure file, but no information on the porosity or jump value could be found in the Fluid file.\n aborting simulation");
+				  exit(1);
+			  }
+		  }
+	  }
+	}
 //----------------------------------------------------------------------------
 void DistIntersectorPhysBAM::setdXdSb(int N, double* dxdS, double* dydS, double* dzdS){
 

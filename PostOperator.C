@@ -102,6 +102,7 @@ PostOperator<dim>::PostOperator(IoData &iod, VarFcn *vf, DistBcData<dim> *bc,
   map<int, SurfaceData *> &sMap = iod.surfaces.surfaceMap.dataMap;
   map<int, SurfaceData *>::iterator it;
   for(it = sMap.begin(); it != sMap.end(); ++it) {
+	  printf("this is a data map. It's number is %d",it->first);
     if(it->second->computeForces == SurfaceData::TRUE
        || (it->second->computeForces == SurfaceData::UNSPECIFIED 
           && it->second->forceResults == SurfaceData::YES) ){
@@ -415,9 +416,7 @@ void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X,
     Fv[iSurf] = 0.0;
     Mv[iSurf] = 0.0;
   }
-
   varFcn->conservativeToPrimitive(U, *V, fluidId);
-  
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
@@ -431,7 +430,6 @@ void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X,
       fv[iSurf] = 0.0;
       mv[iSurf] = 0.0;
     }
-
     if (mX) {
       SubVecSet<DistSVec<double,3>, SVec<double,3> > subMX(mX, iSub);
       subDomain[iSub]->computeForceAndMoment(surfOutMap, postFcn, (*bcData)(iSub), (*geoState)(iSub), 
@@ -456,25 +454,20 @@ void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X,
     delete [] fv;
     delete [] mv;
   }
-
   Vec3D *fi = new Vec3D[numSurf];
   Vec3D *mi = new Vec3D[numSurf];
   for(iSurf = 0; iSurf < numSurf; ++iSurf) {
     fi[iSurf] = 0.0;
     mi[iSurf] = 0.0;
   }
-
   if(forceGen != 0)
     forceGen->getForcesAndMoments(surfOutMap, U, X, fi, mi);
-
   for(iSurf = 0; iSurf < numSurf; ++iSurf) {
     Fi[iSurf] += fi[iSurf];
     Mi[iSurf] += mi[iSurf];
   }
-
   delete [] fi;
   delete [] mi;
-
   for(iSurf = 0; iSurf < numSurf; ++iSurf) {
 //#pragma omp critical
     double coef[12] = {Fi[iSurf][0], Fi[iSurf][1], Fi[iSurf][2],

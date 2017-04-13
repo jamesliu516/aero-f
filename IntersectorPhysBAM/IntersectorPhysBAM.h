@@ -109,6 +109,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     Vec<Vec3D> *solidX0;  //pointer to Xs0
     Vec<Vec3D> *solidXdS; //pointer to dXdSb
 
+    std::map <int, BoundaryData::Type> boundaryConditionsMap;
     int *faceID;
 	int *structureType;
     double *porosity;
@@ -184,6 +185,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     void getSymmetryPlanesInformation();
     void setMassInflow();
     void setActuatorDisk();
+    void checkInputFileCorecnessEmbeddedContraint();
     void makerotationownership();
     void updatebc();
 
