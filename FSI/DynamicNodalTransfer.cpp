@@ -716,14 +716,14 @@ void EmbeddedStructure::makerotationownership(IoData &iod) {
   int numRotSurfs = 0;
   int numTransWalls = 0;
   while(it != surfaceMap.end()) {
-    map<int,RotationData*>::iterator it1 = rotationMap->find(it->second->forceID);
-    if(it1!=rotationMap->end()) {
-      if(it1->second->infRadius) {
+    map<int,RotationData*>::iterator it1 = rotationMap->find(it->second->forceID);//ForceID is "ID number of a prescribed velocity data-set including the rotation or translation axis, the center of rotation, and the angular or translational velocity"
+    if(it1!=rotationMap->end()) {//a surface with this rotation ID exist
+      if(it1->second->infRadius) {//Translation
         numTransWalls++;
         com.fprintf(stderr," ... surface %2d is ``translating''\n",it->first, it1->first);
         com.fprintf(stderr,"     -> uniform velocity V = %3.2e in direction %3.2e %3.2e %3.2e\n",
                      it1->second->omega, it1->second->nx,it1->second->ny,it1->second->nz);
-      } else {
+      } else {//rotation
         numRotSurfs++;
         com.fprintf(stderr," ... surface %2d is ``rotating'' in DynamicNodalTranser using rotation data %2d\n",it->first, it1->first);
         com.fprintf(stderr,"     -> omega = %3.2e, rotation axis = %3.2e %3.2e %3.2e\n",

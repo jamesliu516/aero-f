@@ -10,6 +10,8 @@
 
 int getPolygons(Elem &elem, LevelSetStructure &LSS, PolygonReconstructionData* polygons)
 {
+	//comment by Arthur Morlot, March 17th 2017
+	//This function is called in SubDomain.C and ElemTet.C to chack were the embedded surface intersect a thetahedra
     int numberOfPolygons=0,intersectedEdges=0;
     int oppositeNodes[4][3] = {{1,2,3},{0,2,3},{0,1,3},{0,1,2}};
     int T[4]; for (int i=0; i<4; ++i) T[i] = elem[i]; //nodes in a tet.
@@ -19,7 +21,19 @@ int getPolygons(Elem &elem, LevelSetStructure &LSS, PolygonReconstructionData* p
     for(int i=0; i<6; ++i) {
         int l = elem.edgeNum(i);
         int ni=elem.edgeEnd(i,0), nj=elem.edgeEnd(i,1);
-        isBlocked[ni][nj] = isBlocked[nj][ni] = (LSS.edgeIntersectsStructure(0, l) ? 1 : 0);
+        if(LSS.edgeIntersectsStructure(0, l)){//check the kind of intersection
+        	LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0,l,true);
+        	switch(resij.structureType){
+        	case BoundaryData::ACTUATORDISK:
+        	case BoundaryData::MASSINFLOW:
+        		isBlocked[ni][nj] = isBlocked[nj][ni] = 0;
+        		break;
+        	default:
+        		isBlocked[ni][nj] = isBlocked[nj][ni] = 1;
+        		break;
+        	}//switch
+        }//intersect
+        //isBlocked[ni][nj] = isBlocked[nj][ni] = (LSS.edgeIntersectsStructure(0, l) ? 1 : 0);
         edge[ni][nj] = edge[nj][ni] = l;
         if(isBlocked[ni][nj] == 1){
             ++parity[ni]; ++parity[nj];
@@ -138,6 +152,10 @@ void getPolygonNormal(SVec<double,3>& X, Vec3D &normal, LevelSetStructure &LSS, 
   Vec3D start_vertex;for(int m=0;m<3;++m) start_vertex[m]=X[polygon.nodeToLookFrom][m];
   for(int m=0; m<nEdges; m++) {
     lsRes[m] = LSS.getLevelSetDataAtEdgeCenter(0, polygon.edge[m], polygon.edgeWithVertex[m][0]<polygon.edgeWithVertex[m][1]);
+    if((lsRes[m].structureType==BoundaryData::ACTUATORDISK)||(lsRes[m].structureType==BoundaryData::MASSINFLOW)){
+    	printf("Trying to compute a force on an Actuator disk or a mass flow surface. This is not supported. Aborting");
+    	exit(1);
+    }
     double alpha = lsRes[m].alpha;
     if (alpha<0) {fprintf(stderr,"Unable to get intersection results at edge center! Abort...\n"); exit(-1);}
     Xinter[m][0] = alpha*X[polygon.edgeWithVertex[m][0]][0] + (1.0-alpha)*X[polygon.edgeWithVertex[m][1]][0];

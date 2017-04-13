@@ -265,7 +265,15 @@ template<int dim>
 			 int i = nodeNum(edgeEnd(k,0));
 			 int j = nodeNum(edgeEnd(k,1));
 
-			 if(LSS->edgeIntersectsStructure(0, e)) isValid = false;
+			 if(LSS->edgeIntersectsStructure(0, e)){
+				 LevelSetResult resij = LSS->getLevelSetDataAtEdgeCenter(0.0,e,true);
+				 if((resij.structureType == BoundaryData::ACTUATORDISK)||(resij.structureType == BoundaryData::MASSINFLOW)){
+					 //do nothing
+				 }
+				 else{
+					 isValid = false;
+				 }
+			 }
 
 			 if(!LSS->isActive(0,i) || !LSS->isActive(0,j)) isValid = false;
 		 }

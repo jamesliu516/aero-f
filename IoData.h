@@ -265,7 +265,7 @@ struct TransientData {
   const char *hydrodynamiclift;
   const char *residuals;
   const char *materialVolumes;
-  const char *materialMassEnergy;
+  const char *materialConservationScalars;
   const char *conservation;
   const char *podFile;
   const char *robProductFile;
@@ -605,6 +605,7 @@ struct BoundaryData  {
   double epsilon;
   double porosity;
   enum VelocityReconstructionMethod {AVERAGE = 1, FIRSTORDER = 2, SECONDORDER = 3} velocityReconstructionMethod;
+  enum ActuatorDiskMethod { SOURCETERM = 1, RIEMANNSOLVER= 2} actuatorDiskMethod;
   double pressureJump;
   double massFlow;
   enum SourceTermExpression {OLD = 1,CORRECTED = 2} sourceTermExpression;
@@ -2843,6 +2844,30 @@ struct PadeFreq  {
 };
 
 //------------------------------------------------------------------------------
+struct SymmetryConstraint{
+  enum Normal {Nx = 0, Ny =1 ,Nz = 2} Normal;
+  double planeposition;
+  void setup(const char *, ClassAssigner * = 0);
+};
+
+//------------------------------------------------------------------------------
+
+struct InletConstraint{//not implemented yet (arthur Morlot, 2017)
+  enum Normal {Nx = 0, Ny =1 ,Nz = 2} Normal;
+  double planeposition;
+  void setup(const char *, ClassAssigner * = 0);
+};
+//------------------------------------------------------------------------------
+
+struct EmbeddedConstraint{
+  //const char *embeddedConstraintFile;
+  enum ConstraintType {NOCONSTRAINT = 0, SYMMETRY = 1, INLET =2} ConstraintType;
+  void setup(const char *, ClassAssigner * = 0);
+  EmbeddedConstraint();
+  SymmetryConstraint Symmetry_Constraint;
+  InletConstraint Inlet_Constraint;
+};
+//------------------------------------------------------------------------------
 
 struct EmbeddedFramework { 
 
@@ -2882,6 +2907,8 @@ struct EmbeddedFramework {
   enum SurrogateInterface{HYBRID = 0, EXTERNAL = 1} surrogateinterface;
 
   int testCase; 
+
+  EmbeddedConstraint Embedded_Constraint;
  
   EmbeddedFramework();
   ~EmbeddedFramework() {}

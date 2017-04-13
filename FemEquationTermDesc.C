@@ -1056,9 +1056,11 @@ bool FemEquationTermSA::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2
   bool porousmedia = false;
 
   double u[4][3], ucg[3];
+  //copy the velocity of 4 nodes to u, and the velocity at cell center(by average) at ucg
   computeVelocity(V, u, ucg);
 
   double T[4], Tcg;
+  //copy the temperature of 4 nodes to T, and the temperature at cell center(by average) at Tcg
   computeTemperature(V, T, Tcg);
 
   double dudxj[3][3];

@@ -101,6 +101,31 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iodata,
 				   
   }
 
+	ContainsAnEmbeddedConstraint = false;
+	if(iod.embed.Embedded_Constraint.ConstraintType != EmbeddedConstraint::NOCONSTRAINT){
+		ContainsAnEmbeddedConstraint =true;
+		if(iod.embed.Embedded_Constraint.ConstraintType == EmbeddedConstraint::SYMMETRY){
+		ConstraintType =1;
+			switch(iod.embed.Embedded_Constraint.Symmetry_Constraint.Normal){
+				//read the plane normal
+				case SymmetryConstraint::Nx :
+					ConstraintNormal = 0;
+				break;
+				case SymmetryConstraint::Ny :
+                              	ConstraintNormal = 1;
+                              break;
+				case SymmetryConstraint::Nz :
+                              	ConstraintNormal = 2;
+                              break;
+				default :
+					ConstraintNormal = -1;
+			}
+			//read the plane position
+			ConstraintPosition = iod.embed.Embedded_Constraint.Symmetry_Constraint.planeposition;
+			//a2m : there's probably a better way to encode this, and inlet must still be implemented
+		}
+	}
+
   interpolatedNormal = (iod.embed.structNormal==EmbeddedFramework::NODE_BASED) ? true : false;
   
   //initialize the following to 0(NULL)
@@ -134,7 +159,9 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iodata,
   }
   setStructureType();
   setPorosity();
+  setSymmetry();
   setActuatorDisk();
+  setMassInflow();
   makerotationownership();
   updatebc();
 
@@ -252,7 +279,7 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface,
       if(underscore_pos > -1)
         sscanf(key2+(underscore_pos+1),"%d",&surfaceid); 
     }
-    if (!skip) {
+    if (!skip) {//we are reading a node or an element (Not a header)
       if (type_read == 1) {
 	sscanf(line, "%d %lf %lf %lf", &num1, &x1, &x2, &x3);
 			 if(num1<1) {
@@ -267,7 +294,7 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface,
         if(num1>maxIndex) maxIndex = num1;
         nodeList.push_back(Vec3D(x1,x2,x3));
       }
-      if (type_read == 2) {
+      if (type_read == 2) {//we are reading an element
 	sscanf(line,"%d %d %d %d %d", &num0, &num1, &node1, &node2, &node3);
         elemList1.push_back(node1-1);
         elemList2.push_back(node2-1);
@@ -312,13 +339,13 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface,
   std::list<int>::iterator it_3;
   std::list<int>::iterator it_4;
 
-  it2 = indexList.begin();
+  it2 = indexList.begin();//put in Xs the value of the node position
   for (it1=nodeList.begin(); it1!=nodeList.end(); it1++) {
     Xs[(*it2)-1] = *it1;
     it2++;
   }
 
-  for (int k=0; k<numStNodes; k++) {
+  for (int k=0; k<numStNodes; k++) {//current and starting positions are the position
     Xs0[k]    = Xs[k];
     Xs_n[k]   = Xs[k];
     Xs_np1[k] = Xs[k];
@@ -337,8 +364,8 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface,
     stElem[i][0] = *it_1;
     stElem[i][1] = *it_2;
     stElem[i][2] = *it_3;
-    faceID[i] = *it_4;
-    surfaceID[*it_1] = *it_4;
+    faceID[i] = *it_4;//give the face the Id of the element
+    surfaceID[*it_1] = *it_4;//gives every node the ID of the element
     surfaceID[*it_2] = *it_4;
     surfaceID[*it_3] = *it_4;
     it_1++;
@@ -536,6 +563,30 @@ void DistIntersectorPhysBAM::setPorosity() {
   }
 }
 //----------------------------------------------------------------------------
+void DistIntersectorPhysBAM::setSymmetry() {
+  map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
+  map<int,BoundaryData *> &bcMap = iod.bc.bcMap.dataMap;
+
+  isSymmetryPlane = new bool[numStElems];
+  for(int i=0; i<numStElems; i++) {
+	  isSymmetryPlane[i] = false;
+  }
+
+  if(faceID) {
+    for(int i=0; i<numStElems; i++) {
+      map<int,SurfaceData*>::iterator it = surfaceMap.find(faceID[i]);
+      if (it != surfaceMap.end()) {
+        map<int,BoundaryData *>::iterator it2 = bcMap.find(it->second->bcID);
+        if(it2 != bcMap.end()) { // the bc data have been defined
+          if(it2->second->type == BoundaryData::SYMMETRYPLANE ) {
+        	  isSymmetryPlane[i] = true;
+          }
+        }
+      }
+    }
+  }
+}
+//----------------------------------------------------------------------------
 void DistIntersectorPhysBAM::setStructureType() {
   map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
   map<int,BoundaryData *> &bcMap = iod.bc.bcMap.dataMap;
@@ -557,16 +608,44 @@ void DistIntersectorPhysBAM::setStructureType() {
     }
   }
 }
+//----------------------------------------------------------------------------
+void DistIntersectorPhysBAM::setMassInflow(){
+	  map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
+	  map<int,BoundaryData *> &bcMap = iod.bc.bcMap.dataMap;
 
+	  massJump = new double[numStElems];
+	  for(int i=0; i<numStElems; i++) {
+		  massJump[i] = 0.0;
+	  }
+	  gamma = iod.eqs.fluidModel.gasModel.specificHeatRatio;
+	  if(faceID) {
+	    for(int i=0; i<numStElems; i++) {
+	      map<int,SurfaceData*>::iterator it = surfaceMap.find(faceID[i]);
+	      if (it != surfaceMap.end()) {
+	        map<int,BoundaryData *>::iterator it2 = bcMap.find(it->second->bcID);
+	        if(it2 != bcMap.end()) { // the bc data have been defined
+	          if(it2->second->type == BoundaryData::MASSINFLOW ) {
+	        	  massJump[i] = it2->second->massFlow;
+	        	  if (iod.problem.mode == ProblemData::DIMENSIONAL){
+	        		  massJump[i]/= iod.ref.rv.density;
+	        	  }
+	        	  actuatorDiskReconstructionMethod[i] = 1;//average
+	          }
+	        }
+	      }
+	    }
+	  }
+	}
 //----------------------------------------------------------------------------
 void DistIntersectorPhysBAM::setActuatorDisk() {
   map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
   map<int,BoundaryData *> &bcMap = iod.bc.bcMap.dataMap;
-
+  actuatorDiskMethod = new int[numStElems];
   actuatorDiskPressureJump = new double[numStElems];
   actuatorDiskReconstructionMethod = new int[numStElems];
   isCorrectedMethod = new bool[numStElems];
   for(int i=0; i<numStElems; i++) {
+    actuatorDiskMethod[i] = 1;
 	  actuatorDiskPressureJump[i] = 0.0;
 	  actuatorDiskReconstructionMethod[i] = -1;
 	  isCorrectedMethod[i] = false;
@@ -580,6 +659,20 @@ void DistIntersectorPhysBAM::setActuatorDisk() {
         if(it2 != bcMap.end()) { // the bc data have been defined
           if(it2->second->type == BoundaryData::ACTUATORDISK ) {
         	  actuatorDiskPressureJump[i] = it2->second->pressureJump;
+        	  if (iod.problem.mode == ProblemData::DIMENSIONAL)
+        		  actuatorDiskPressureJump[i]/= iod.ref.rv.pressure;
+            //--------------------------------
+            if(it2->second->actuatorDiskMethod == BoundaryData::SOURCETERM){
+              actuatorDiskMethod[i] = 1;
+            }
+            else if(it2->second->actuatorDiskMethod == BoundaryData::RIEMANNSOLVER){
+              actuatorDiskMethod[i] = 2;
+            }else{
+              com->fprintf(stderr, "!!! WARNING: no actuator disk method specified, defaulting to SOURCETERM\n\n");
+              actuatorDiskMethod[i] = 1;
+            }
+
+            //--------------------------------
         	  if(it2->second->velocityReconstructionMethod == BoundaryData::AVERAGE){
         		  actuatorDiskReconstructionMethod[i] = 1;
         	  }
@@ -589,6 +682,7 @@ void DistIntersectorPhysBAM::setActuatorDisk() {
         	  else if(it2->second->velocityReconstructionMethod == BoundaryData::SECONDORDER){
         		  actuatorDiskReconstructionMethod[i] = 3;
         	  }
+                //--------------------------------
         	  else{
         		  com->fprintf(stderr, "!!! WARNING: no actuator disk method specified, defaulting to Average\n\n");
         		  actuatorDiskReconstructionMethod[i] = 1;
@@ -610,9 +704,6 @@ void DistIntersectorPhysBAM::setActuatorDisk() {
   }
 }
 //----------------------------------------------------------------------------
-
-
-
 void DistIntersectorPhysBAM::setdXdSb(int N, double* dxdS, double* dydS, double* dzdS){
 
   if(N != numStNodes) {
@@ -920,6 +1011,14 @@ void DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X,
   is_active = new DistVec<bool>(domain->getNodeDistInfo());
   is_occluded = new DistVec<bool>(domain->getNodeDistInfo());
   edge_intersects = new DistVec<bool>(domain->getEdgeDistInfo());
+  edge_intersects_constraint = new DistVec<bool>(domain->getEdgeDistInfo());
+  //a2m : TODO change the name and initialize only for specific vonditions
+  //if(ContainsAnEmbeddedConstraint == true){
+  if(true){
+	  edge_intersects_embedded_constraint = new DistVec<bool>(domain->getEdgeDistInfo());//true if the edge intersect the embedded constraint
+	  Embedded_Constraint_Alpha = new DistVec<double>(domain->getEdgeDistInfo());//Contains the alpha for reconstruction
+	  EmbeddedConstraintNormal = -3;//normal of the embedded constraint
+  }
 
 	edge_SI  = new DistVec<bool>(domain->getEdgeDistInfo());
 
@@ -1055,7 +1154,14 @@ void DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X,
 	  
   }
   ///////////////////////////////////////////////////////
-
+//a2m : embedded constraint
+  if(ContainsAnEmbeddedConstraint == true){
+  	EmbeddedConstraintNormal = ConstraintNormal;
+  	#pragma omp parallel for
+   	 	for(int iSub = 0; iSub < numLocSub; ++iSub){
+  			intersector[iSub]->findIntersectionsEmbeddedConstraint((X(iSub)));
+  		}
+  	}
 }
 
 //----------------------------------------------------------------------------
@@ -1819,6 +1925,9 @@ IntersectorPhysBAM::IntersectorPhysBAM(SubDomain &sub,SVec<double,3> &X,
   LevelSetStructure((*distInt.status)(sub.getLocSubNum()),(*distInt.distance)(sub.getLocSubNum()),
 		    (*distInt.is_swept)(sub.getLocSubNum()), (*distInt.is_active)(sub.getLocSubNum()),
 							(*distInt.is_occluded)(sub.getLocSubNum()), (*distInt.edge_intersects)(sub.getLocSubNum()),
+							(*distInt.edge_intersects_constraint)(sub.getLocSubNum()),
+							(*distInt.edge_intersects_embedded_constraint)(sub.getLocSubNum()),
+							(*distInt.Embedded_Constraint_Alpha)(sub.getLocSubNum()),
 							(*distInt.edge_SI)(sub.getLocSubNum()),
 							(*distInt.xi_SI)(sub.getLocSubNum()),(*distInt.eta_SI)(sub.getLocSubNum()),
 							(*distInt.nWall_SI)(sub.getLocSubNum()),
@@ -1850,6 +1959,10 @@ IntersectorPhysBAM::IntersectorPhysBAM(SubDomain &sub,SVec<double,3> &X,
   is_active = false;
   is_occluded = false;
   edge_intersects = false;
+  edge_intersects_constraint = false;
+  edge_intersects_embedded_constraint = false;
+  Embedded_Constraint_Alpha =false;
+  EmbeddedConstraintNormal = distInt.EmbeddedConstraintNormal;
   edge_SI = false;
 }
 
@@ -1878,6 +1991,7 @@ void IntersectorPhysBAM::reset(const bool findStatus,const bool retry)
   is_occluded = false;
   nFirstLayer = 0;
   edge_intersects = false;
+  edge_intersects_constraint = false;
   edge_SI = false;
 
   TriID_SI = -1;
@@ -1888,7 +2002,61 @@ void IntersectorPhysBAM::reset(const bool findStatus,const bool retry)
   xyz.Remove_All();
   xyz_n.Remove_All();
 }
+//----------------------------------------------------------------------------
+//a2m
+int IntersectorPhysBAM::findIntersectionsEmbeddedConstraint(SVec<double,3>&X){
+	EmbeddedConstraintNormal = distIntersector.ConstraintNormal;
+	for (int l=0; l<edges.size(); l++) {
+		int (*ptr)[2] = edges.getPtr();//gives us a pointer on the edge
+		int p = ptr[l][0], q = ptr[l][1];//p is the iD of node 1, and q is the Id of node 2
+		double* position1 = X[p];
+		double* position2 = X[q];
+		if(edge_intersects_embedded_constraint[l] == true){//The edge was active at the previous step
+			if((position1[distIntersector.ConstraintNormal]-distIntersector.ConstraintPosition)*(position2[distIntersector.ConstraintNormal]-distIntersector.ConstraintPosition)>0){//the edge should ne longer be active
+				if(is_active[p] == false){
+					is_swept[p] = true;//swept nodes are to be populated
+					if((position1[distIntersector.ConstraintNormal]-distIntersector.ConstraintPosition)>=0){
+						is_active[p] = true;//The node should now be active
+					}
+				}
+				if(is_active[q] == false){
+					is_swept[q] = true;
+					if((position2[distIntersector.ConstraintNormal]-distIntersector.ConstraintPosition)>=0){
+                                	        is_active[q] = true;
+					}
+				}
+			}
+		}
+		//else{
+			if(position1[distIntersector.ConstraintNormal]-distIntersector.ConstraintPosition <0){
+				//we are on the left of the symmetry plane
+				is_active[p] = false;
+			}
 
+			if(position2[distIntersector.ConstraintNormal]-distIntersector.ConstraintPosition <0){
+                	        //we are on the right of the symmetry plane
+                	        is_active[q] = false;
+                	}
+		//}
+		if((position1[distIntersector.ConstraintNormal]-distIntersector.ConstraintPosition)*(position2[distIntersector.ConstraintNormal]-distIntersector.ConstraintPosition)<=0){//each node is on a different side of the plane
+			edge_intersects_embedded_constraint[l] = true;
+			edge_intersects[l] = true;
+			//As the edge intersect the embedded Constraint, we can now compute the alpha at which it does it :
+			//first, a test to check if we are at a reasonnable distance
+			double min = std::numeric_limits<double>::min();
+			if(fabs(position2[distIntersector.ConstraintNormal] - position1[distIntersector.ConstraintNormal])<5*min){
+				Embedded_Constraint_Alpha[l] = 0.5;//The edge is too parallel withthe constraint to decide
+			}
+			else{
+				Embedded_Constraint_Alpha[l] = fabs((distIntersector.ConstraintPosition-position1[distIntersector.ConstraintNormal])/(position2[distIntersector.ConstraintNormal] - position1[distIntersector.ConstraintNormal]));
+			}
+		}
+		else{//we are not intersecting the constraint
+			edge_intersects_embedded_constraint[l] = false;
+		}
+	}
+	return 0;
+}
 //----------------------------------------------------------------------------
 
 /*
@@ -2013,6 +2181,14 @@ int IntersectorPhysBAM::findIntersections(SVec<double,3>&X,Vec<bool>& tId,Commun
           edge_intersects[l] = true;
           CrossingEdgeRes[l] = edgeRes(i).y;
           ReverseCrossingEdgeRes[l] = edgeRes(i).z;
+	  if(true){//TODO : do only if actuator disk
+    	    if(fabs(distIntersector.actuatorDiskPressureJump[CrossingEdgeRes[l].triangleID-1])>0){//this edge itesects an actuator disk
+    		  edge_intersects_constraint[l]=true;
+    	   }
+    	    if(fabs(distIntersector.massJump[CrossingEdgeRes[l].triangleID-1])>0){
+    	    	edge_intersects_constraint[l]=true;
+    	    }
+          }	  
 
 	  if (distIntersector.cracking) {
 
@@ -2095,7 +2271,6 @@ int IntersectorPhysBAM::computeSweptNodes(SVec<double,3>& X, Vec<bool>& tId,Comm
 
 LevelSetResult
 IntersectorPhysBAM::getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j, double *Xr, double *Xg) {
-
   if (!edge_intersects[l]) {
 
     int (*ptr)[2] = edges.getPtr();
@@ -2109,13 +2284,14 @@ IntersectorPhysBAM::getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j, 
 
     exit(-1);
   }
-
+  LevelSetResult lsRes;
+bool notAnEmbeddedPlane = !edge_intersects_embedded_constraint[l];
+if(notAnEmbeddedPlane){
   const IntersectionResult<double>& result = i_less_j ? CrossingEdgeRes[l] : ReverseCrossingEdgeRes[l];
   
   double alpha0      = result.alpha;
   int trueTriangleID = result.triangleID-1;
 
-  LevelSetResult lsRes;
   lsRes.alpha      = alpha0;
 
   lsRes.xi[0]      = result.zeta[0];
@@ -2132,11 +2308,13 @@ IntersectorPhysBAM::getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j, 
 
   lsRes.porosity   = distIntersector.porosity[trueTriangleID];
   lsRes.structureType   = distIntersector.structureType[trueTriangleID];
+  lsRes.actuatorDiskMethod = distIntersector.actuatorDiskMethod[trueTriangleID];
+
   lsRes.actuatorDiskPressureJump = distIntersector.actuatorDiskPressureJump[trueTriangleID];
   lsRes.isCorrectedMethod = distIntersector.isCorrectedMethod[trueTriangleID];
   lsRes.gamma = distIntersector.gamma;
   lsRes.actuatorDiskReconstructionMethod = distIntersector.actuatorDiskReconstructionMethod[trueTriangleID];
-
+  lsRes.massInflow = distIntersector.massJump[trueTriangleID];
 
 
   if(!distIntersector.interpolatedNormal){
@@ -2173,8 +2351,37 @@ IntersectorPhysBAM::getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j, 
     lsRes.gradPhi = lsRes.xi[0]*ns0 + lsRes.xi[1]*ns1 + lsRes.xi[2]*ns2;
     lsRes.gradPhi /= lsRes.gradPhi.norm();
   }
-
-
+}
+else{
+	double alpha0 = i_less_j ? Embedded_Constraint_Alpha[l] : (1.0 - Embedded_Constraint_Alpha[l]);
+			lsRes.alpha      = alpha0;
+			lsRes.normVel = Vec3D(0,0,0);//The embedded constraint is not moving
+			lsRes.porosity = 0;//no Porosity
+			lsRes.structureType   = BoundaryData::SYMMETRYPLANE;
+			Vec3D GradPhi;
+			switch (EmbeddedConstraintNormal){
+				case 0: //Nx normal
+					GradPhi[0] = 1.0;
+					GradPhi[1] = 0.0;
+					GradPhi[2] = 0.0;
+					break;
+				case 1://Ny Normal
+					GradPhi[0] = 0.0;
+					GradPhi[1] = 1.0;
+					GradPhi[2] = 0.0;
+					break;
+				case 2://Nz Normal
+					GradPhi[0] = 0.0;
+					GradPhi[1] = 0.0;
+					GradPhi[2] = 1.0;
+					break;
+				default :
+					fprintf(stderr,"ERROR: Unknown Embeded Constraint Normal code! The coed is %d\n",EmbeddedConstraintNormal);
+					exit(-1);
+					break;
+			}
+			lsRes.gradPhi = GradPhi;
+}
   return lsRes;
 }
 
