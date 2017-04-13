@@ -102,7 +102,6 @@ PostOperator<dim>::PostOperator(IoData &iod, VarFcn *vf, DistBcData<dim> *bc,
   map<int, SurfaceData *> &sMap = iod.surfaces.surfaceMap.dataMap;
   map<int, SurfaceData *>::iterator it;
   for(it = sMap.begin(); it != sMap.end(); ++it) {
-	  printf("this is a data map. It's number is %d",it->first);
     if(it->second->computeForces == SurfaceData::TRUE
        || (it->second->computeForces == SurfaceData::UNSPECIFIED 
           && it->second->forceResults == SurfaceData::YES) ){
