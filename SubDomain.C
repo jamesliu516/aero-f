@@ -474,7 +474,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
 
         if(LSS)
         {
-            if(LSS->edgeWithSI(l) || LSS->edgeIntersectsWall(0.0, l)) validEdge = false;
+            if(LSS->edgeWithSI(l) || LSS->edgeIntersectsStructure(0.0, l)) validEdge = false;
             if(!LSS->isActive(0.0, i) || !LSS->isActive(0.0, j)) validEdge = false;
             if(!includeSweptNodes && (LSS->isSwept(0.0, i) || LSS->isSwept(0.0, j))) validEdge = false;
         }
@@ -528,7 +528,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
             int i = edgePtr[l][0];
             int j = edgePtr[l][1];
 
-            if( fluidId[i] != fluidId[j] || (LSS && (LSS->edgeIntersectsWall(0.0,l) || !LSS->isActive(0.0,i) || !LSS->isActive(0.0,j))) ) {
+            if( fluidId[i] != fluidId[j] || (LSS && (LSS->edgeIntersectsStructure(0.0,l) || !LSS->isActive(0.0,i) || !LSS->isActive(0.0,j))) ) {
                 for (int k=0; k<dim; ++k)
                 {
                     ddx[i][k] = ddy[i][k] = ddz[i][k] = ddx[j][k] = ddy[j][k] = ddz[j][k] = 0.0;
@@ -657,7 +657,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
 
     double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
 
-	if (((!LSS)&&(fluidId[i]==fluidId[j]))||(LSS && LSS->isActive(0.0,i) && LSS->isActive(0.0,j) && !LSS->edgeIntersectsWall(0.0,l))) {
+	if (((!LSS)&&(fluidId[i]==fluidId[j]))||(LSS && LSS->isActive(0.0,i) && LSS->isActive(0.0,j) && !LSS->edgeIntersectsStructure(0.0,l))) {
       if(R[i][0]>0.0 && fabs(R[i][0]*R[i][3]*R[i][5]) > 1.0e-10) // should be positive for a well posed least square problem
         computeLocalWeightsLeastSquares(dx, R[i], Wi);
       else{ // gradient is set to 0.0
@@ -731,7 +731,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
     for (int l=0; l<edges.size(); ++l) {
       int i = edgePtr[l][0];
       int j = edgePtr[l][1];
-      if (fluidId[i]!=fluidId[j] || (LSS && LSS->edgeIntersectsWall(0.0,l))) {
+      if (fluidId[i]!=fluidId[j] || (LSS && LSS->edgeIntersectsStructure(0.0,l))) {
         for (int k=0; k<dim; ++k)
           ddx[i][k] = ddy[i][k] = ddz[i][k] = ddx[j][k] = ddy[j][k] = ddz[j][k] = 0.0;
       }
