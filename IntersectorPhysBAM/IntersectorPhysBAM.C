@@ -164,7 +164,7 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iodata,
     double XScale = (iod.problem.mode==ProblemData::NON_DIMENSIONAL) ? 1.0 : iod.ref.rv.length;
     init(struct_mesh, struct_restart_pos, XScale);
   }
-  //checkInputFileCorecnessEmbeddedContraint();
+  checkInputFileCorecnessEmbeddedContraint();
   setStructureType();
   setPorosity();
   setActuatorDisk();
@@ -290,6 +290,7 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface,
       	int l = 0;
       	 while((copyForType[l] != '\0') && (l<MAXLINE)) {
       		copyForType[l] = tolower(copyForType[l]);
+      		l++;
       	 }
       	 if(strstr(copyForType,"symmetry")!=NULL){
       		if(boundaryConditionsMap.count(surfaceid)!=0){
@@ -651,6 +652,9 @@ void DistIntersectorPhysBAM::setStructureType() {
 
   if(faceID) {
     for(int i=0; i<numStElems; i++) {
+    	if(boundaryConditionsMap.count(faceID[i])!=0){
+    			structureType[i] = boundaryConditionsMap.at(faceID[i]);
+    	}
       map<int,SurfaceData*>::iterator it = surfaceMap.find(faceID[i]);
       if (it != surfaceMap.end()) {
         map<int,BoundaryData *>::iterator it2 = bcMap.find(it->second->bcID);
@@ -2098,7 +2102,7 @@ void IntersectorPhysBAM::setInactiveNodesSymmetry(SVec<double,3>& X,std::map<int
 	//loop over the symmetry planes
 	for(std::map<int,SymmetryInfo>::iterator it = SymmetryPlaneList.begin(); it!=SymmetryPlaneList.end(); ++it){
 		SymmetryInfo planeInfo = it->second;
-		if(true){printf("We found a symmetry plane !\n it's number is %d\n it's normal is  %f %f %f and the point is %f %f %f \n",it->first,planeInfo.normal.v[0],planeInfo.normal.v[1],planeInfo.normal.v[2],planeInfo.xCoordinate,planeInfo.yCoordinate,planeInfo.zCoordinate);}
+		if(false){printf("We found a symmetry plane !\n it's number is %d\n it's normal is  %f %f %f and the point is %f %f %f \n",it->first,planeInfo.normal.v[0],planeInfo.normal.v[1],planeInfo.normal.v[2],planeInfo.xCoordinate,planeInfo.yCoordinate,planeInfo.zCoordinate);}
 		for (int l=0; l<edges.size(); l++) {
 			int (*ptr)[2] = edges.getPtr();//gives us a pointer on the edge
 			int p = ptr[l][0], q = ptr[l][1];//p is the iD of node 1, and q is the Id of node 2
