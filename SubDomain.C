@@ -7748,14 +7748,15 @@ void SubDomain::extrapolatePhiV(LevelSetStructure &LSS, SVec<double,dimLS> &PhiV
 template<int dim>
 void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<double,3> &X,
                                     SVec<double,dim> &U, NodalGrad<dim, double> &ngrad,
-                                    VarFcn *varFcn,LevelSetStructure &LSS,bool viscSecOrder,Vec<int> &tag)
+                                    VarFcn *varFcn,
+                                    LevelSetStructure &LSS,bool viscSecOrder,Vec<int> &tag,FemEquationTerm *fet)
 {/*
  * This is populateGhostPoints used in Explicit Embedded framework
  * The ghost node population accuracy depends on viscSecOrder
  * if viscSecOrder is true, linear extrapolation
  * if viscSecOrder is False, constant extrapolation
  */
-
+    std::cout << "populate ghost nodes "  << std::endl;
     int i, j, k;
     double alpha;
 
@@ -7831,12 +7832,40 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                     }
 
 
-                }else{//It is a wall , extrapolation
-                    for (int k=1; k<4; ++k) {
-                        Vj[k] = ((resij.normVel)[k-1] - alpha*Vi[k])/(1.0-alpha);
-                        weights[k] = (1.0-alpha)*(1.0-alpha);
-                    }
+                }else {//It is a wall , extrapolation todo porous wall
+                    std::cout << "WALL " << "Integration is  " << " "<<  resij.integration << std::endl;
+                    if (resij.integration == BoundaryData::FULL) {
+                        for (int k = 1; k < 4; ++k) {
+                            Vj[k] = ((resij.normVel)[k - 1] - alpha * Vi[k]) / (1.0 - alpha);
+                            weights[k] = (1.0 - alpha) * (1.0 - alpha);
+                        }
+                    } else if (resij.integration == BoundaryData::WALLFUNCTION) {
+                        //the distance to the wall
+                        Vec3D normal = resij.gradPhi;
+                        normal = normal / normal.norm();//structure normal
+                        Vec3D dX_i_j(X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]);//vector XiXj
+                        double d2wi = (1 - alpha) * fabs(normal * dX_i_j), d2wj = alpha * fabs(normal * dX_i_j);
 
+                        //normal: wall normal ; tgW1: tangential velocity direction; tgW2: the third direction
+                        Vec3D tgW1, tgW2;
+                        higherOrderFSI->computeWallVersors(Vi, normal, varFcn, tgW1, tgW2);
+                        //dudn: tangential velocity over wall normal
+                        double dudn, dTdn, TWall = T; //todo T is useless,dTdn is useless
+                        Vec3D v_s = resij.normVel;
+                        higherOrderFSI->computeDuDTwf(Vi, varFcn, d2wi, v_s, TWall,
+                                                      tgW1, tgW2, fet, dudn, dTdn);
+                        //populate ghost node, extrapolation for normal velocity and dudn for tangential direction
+                        Vec3D uf = varFcn->getVelocity(Vi);
+                        double ug_n = (v_s - alpha * uf) * normal / (1 - alpha);
+                        double ug_tg2 = (v_s - alpha * uf) * tgW2 / (1 - alpha);
+                        double ug_tg1 = uf * tgW1 - dudn * (d2wi + d2wj);
+                        for (int k = 1; k < 4; ++k) {
+                            Vj[k] = ug_n * normal[k - 1] + ug_tg1 * tgW1[k - 1] + ug_tg2 * tgW2[k - 1];
+                            //todo debug
+                            std::cout << "WALL " << ug_n <<" " << ug_tg1 << " " << ug_tg2 << std::endl;
+                            weights[k] = (1.0 - alpha) * (1.0 - alpha);
+                        }
+                    }
                 }
 //update turbulence viscosity
                 if (dim==6) {  // One Equation Turbulent Model
@@ -7916,9 +7945,35 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
 
                     }
                 }else { //It is a wall , extrapolation
-                    for (int k = 1; k < 4; ++k) {
-                        Vi[k] = ((resji.normVel)[k - 1] - alpha * Vj[k]) / (1.0 - alpha);
-                        weights[k] = (1.0 - alpha) * (1.0 - alpha);
+                    if (resji.integration == BoundaryData::FULL) {
+                        for (int k = 1; k < 4; ++k) {
+                            Vi[k] = ((resji.normVel)[k - 1] - alpha * Vj[k]) / (1.0 - alpha);
+                            weights[k] = (1.0 - alpha) * (1.0 - alpha);
+                        }
+                    } else if (resji.integration == BoundaryData::WALLFUNCTION) {
+                        //the distance to the wall
+                        Vec3D normal = resji.gradPhi;
+                        normal = normal / normal.norm();//structure normal
+                        Vec3D dX_j_i(X[i][0] - X[j][0], X[i][1] - X[j][1], X[i][2] - X[j][2]);//vector XiXj
+                        double d2wj = (1 - alpha) * fabs(normal * dX_j_i), d2wi = alpha * fabs(normal * dX_j_i);
+
+                        //normal: wall normal ; tgW1: tangential velocity direction; tgW2: the third direction
+                        Vec3D tgW1, tgW2;
+                        higherOrderFSI->computeWallVersors(Vj, normal, varFcn, tgW1, tgW2);
+                        //dudn: tangential velocity over wall normal
+                        double dudn, dTdn, TWall = T; //todo T is useless
+                        Vec3D v_s = resji.normVel;
+                        higherOrderFSI->computeDuDTwf(Vj, varFcn, d2wj, v_s, TWall,
+                                                      tgW1, tgW2, fet, dudn, dTdn);
+                        //populate ghost node, extrapolation for normal velocity and dudn for tangential direction
+                        Vec3D uf = varFcn->getVelocity(Vj);
+                        double ug_n = (v_s - alpha * uf) * normal / (1 - alpha);
+                        double ug_tg2 = (v_s - alpha * uf) * tgW2 / (1 - alpha);
+                        double ug_tg1 = uf * tgW1 - dudn * (d2wi + d2wj);
+                        for (int k = 1; k < 4; ++k) {
+                            Vi[k] = ug_n * normal[k - 1] + ug_tg1 * tgW1[k - 1] + ug_tg2 * tgW2[k - 1];
+                            weights[k] = (1.0 - alpha) * (1.0 - alpha);
+                        }
                     }
                 }
 
@@ -8073,7 +8128,7 @@ void SubDomain::populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<do
 //------------------------------------------------------------------------------
 //d2d
 template<int dim>
-void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<double,3> &X, 
+void SubDomain::populateGhostPoints_e(Vec<GhostPoint<dim>*> &ghostPoints, SVec<double,3> &X,
 												SVec<double,dim> &U, NodalGrad<dim, double> &ngrad, 
 												VarFcn *varFcn, LevelSetStructure &LSS, Vec<int> &fluidId, 
 												FemEquationTerm *fet)

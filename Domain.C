@@ -4731,18 +4731,18 @@ void Domain::populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints, DistSVe
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) 
 		  subDomain[iSub]->populateGhostPoints((*ghostPoints)(iSub), X(iSub), U(iSub), (*ngrad)(iSub),
-															varFcn, (*distLSS)(iSub), viscSecOrder, tag(iSub));
+															varFcn, (*distLSS)(iSub), viscSecOrder, tag(iSub),fet);
   
   assembleGhostPoints(*ghostPoints,varFcn);
 
   for (iSub = 0; iSub < numLocSub; ++iSub) 
 		  subDomain[iSub]->reduceGhostPoints((*ghostPoints)(iSub), X(iSub));
   }
-  else
+  else //Dante's method
   {
 #pragma omp parallel for
 	  for (iSub = 0; iSub < numLocSub; ++iSub)
-		  subDomain[iSub]->populateGhostPoints((*ghostPoints)(iSub), X(iSub), U(iSub), (*ngrad)(iSub),
+		  subDomain[iSub]->populateGhostPoints_e((*ghostPoints)(iSub), X(iSub), U(iSub), (*ngrad)(iSub),
 															varFcn, (*distLSS)(iSub), tag(iSub), fet);
 	  
 	  assembleGhostPoints(*ghostPoints, varFcn);

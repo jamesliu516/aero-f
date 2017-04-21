@@ -1009,6 +1009,7 @@ BoundaryData::BoundaryData()
   sourceTermExpression = (SourceTermExpression)OLD;
   pressureJump = 0.0;
   massFlow = 0.0;
+  integration = (Integration) FULL;
 
   for (int i=0; i<SIZE; ++i) {
     inVar[i] = false;
@@ -1050,6 +1051,9 @@ Assigner *BoundaryData::getAssigner()  {
   new ClassToken<BoundaryData>(ca, "SourceTermExpression", this,
                                   (int BoundaryData::*)(&BoundaryData::sourceTermExpression), 2,
                                    "Old", OLD, "Corrected", CORRECTED);
+  new ClassToken<BoundaryData>(ca, "Integration", this,
+                               (int BoundaryData::*)(&BoundaryData::integration), 2,
+                               "FULL", FULL, "WALLFUNCTION", WALLFUNCTION);
 
   new ClassDouble<BoundaryData>(ca, "MassFlow", this, &BoundaryData::massFlow);
 
