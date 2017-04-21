@@ -966,20 +966,20 @@ bool HigherOrderFSI::setFEGhostPoint(int dir, int i, VarFcn *varFun, SVec<double
 					             + face_t*(fluidId[n1] - fluidId[n2]));
 	
 	Vec3D Xf;
-	for(int k=0; k<3; ++k)
+	for(int k=0; k<3; ++k)//stencil point
 		Xf[k] = X[n2][k] + face_r*(X[n0][k] - X[n2][k])
                        + face_t*(X[n1][k] - X[n2][k]);
 
 	double* Vf = new double[dim];
 
-	for (int k=0; k<dim; ++k)
+	for (int k=0; k<dim; ++k)//stencil primitive variable
 		Vf[k] = V2[k] + face_r*(V0[k] - V2[k])
                     + face_t*(V1[k] - V2[k]);
 
 	double** dVf = new double* [dim];
 	for(int k=0; k<dim; ++k) dVf[k] = new double [3];
 
-	for(int k=0; k<dim; ++k) 
+	for(int k=0; k<dim; ++k) //stencil primitive gradient
 	{		
 		dVf[k][0] = dV.getX()[n2][k] 
 			       + face_r*(dV.getX()[n0][k] - dV.getX()[n2][k])
@@ -1026,16 +1026,16 @@ bool HigherOrderFSI::setFEGhostPoint(int dir, int i, VarFcn *varFun, SVec<double
 	//	and viceversa; P isn't relevant for viscous flux)	
 	Vg[0] = Vf[0];
 
-	Vec3D nW, tgW1, tgW2;
+	Vec3D nW = nWall/nWall.norm(), tgW1, tgW2;
 	double dudn, dTdn;
 	bool wWF;
 	if(fet->withWallFcn()) 
 	{
-		computeWallVersors(Vf, nWall, varFun, nW, tgW1, tgW2);
+		computeWallVersors(Vf, nW, varFun, tgW1, tgW2);
 		
 		//fprintf(stdout, "%f,%f,%f ", xWall[0],xWall[1],xWall[2]);
 		wWF = computeDuDTwf(Vf, varFun, xi, vWall, TWall, 
-								  nW, tgW1, tgW2, fet, dudn, dTdn);
+								  tgW1, tgW2, fet, dudn, dTdn);
 	}
 
 	// Velocity	
@@ -1314,20 +1314,20 @@ void HigherOrderFSI::setTurboG(double* Vf, double** dVf,
 }
 
 //------------------------------------------------------------------------------
-
+// un is the normal velocity at stencil, ut is the tangential velocity at the stencil
+// tgw1 is the same direction of ut
+// tgw2=tgw1 X nwall
 inline
-void HigherOrderFSI::computeWallVersors(double *V1, Vec3D &nWall, VarFcn *vf,
-													 Vec3D &nW, Vec3D &tgW1, Vec3D &tgW2)
+void HigherOrderFSI::computeWallVersors(double *V1, Vec3D &nW, VarFcn *vf,
+                                        Vec3D &tgW1, Vec3D &tgW2)
 {
 
 	double norm;
 	const double tol = 1.0e-8;
 
-	norm = nWall.norm();
-	nW = nWall*(1.0/norm);
 
 	Vec3D uf = vf->getVelocity(V1);
-	uf += tol;
+	uf += tol;//todo what is this??
 	
 	Vec3D un = (uf*nW)*nW;
 
@@ -1346,15 +1346,15 @@ void HigherOrderFSI::computeWallVersors(double *V1, Vec3D &nWall, VarFcn *vf,
 inline
 bool HigherOrderFSI::computeDuDTwf(double *V1, VarFcn *vf, double d2w, 
 											  Vec3D &vWall, double TWall, 
-											  Vec3D &nW, Vec3D &tgW1, Vec3D &tgW2,
+											  Vec3D &tgW1, Vec3D &tgW2,
 											  FemEquationTerm *fet, 
 											  double &dudn, double &dTdn)
 {
 
 	Vec3D u1 = vf->getVelocity(V1);
 	
-	double un  =    u1 * tgW1;
-	double unW = vWall * tgW1;
+	double un  =    u1 * tgW1;//tangential velocity
+	double unW = vWall * tgW1;//tangential wall velocity
 
 	double Du = un - unW;
 	
