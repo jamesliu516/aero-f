@@ -1323,14 +1323,15 @@ void HigherOrderFSI::computeWallVersors(double *V1, Vec3D &nW, VarFcn *vf,
 {
 
 	double norm;
-	const double tol = 1.0e-8;
+	const double tol = 1.0e-10;
 
 
 	Vec3D uf = vf->getVelocity(V1);
+    //std::cout << "uf " << uf[0] <<" " << uf[1] << " " << uf[2] <<std::endl;
 	uf += tol;//todo what is this??
 	
 	Vec3D un = (uf*nW)*nW;
-
+    //std::cout << "un " << un[0] <<" " << un[1] << " " << un[2] <<std::endl;
 	tgW1 = uf - un;
 	norm = tgW1.norm(); 
 	tgW1 *= (1.0/norm);
@@ -1357,12 +1358,13 @@ bool HigherOrderFSI::computeDuDTwf(double *V1, VarFcn *vf, double d2w,
 	double unW = vWall * tgW1;//tangential wall velocity
 
 	double Du = un - unW;
+    //dzh
+    //std::cout << Du << std::endl;
 	
 	double rho = vf->getDensity(V1);
 	double T   = vf->computeTemperature(V1);
 
 	double DT = T - TWall;
-
 	double utau = fet->computeNormDerivWallFcn(rho, T, Du, DT, d2w, dudn, dTdn);
 
 	//double yp = d2w*utau*rho/1.0e-6;

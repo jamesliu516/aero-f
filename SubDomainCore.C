@@ -6825,20 +6825,31 @@ bool SubDomain::getFEMstencil2(int Ni, SVec<double,3> &X,
 
 	Vec3D X_i = X[Ni];
 
+
 	Vec3D dir = X_i - xWall;
 		
 	double norm = sqrt(dir * dir);
 
-	if(norm > geomTol) 
-		dir *= 1.0 / norm;
+
+      if (norm < geomTol) {
+        std::cout << "WARNING***, in SubDomain::getFEMstencil2 too close to the surface" << std::endl;
+
+        dir *= 1.0 / norm;
+      }
 	else
 	{
 		// X_i and xWall coincide: use nWall as searching direction
+      //dzh
+      //std::cout << "Ni is occluded" << Ni << std::endl;
+
 	   norm = sqrt(normWall * normWall);
 		dir = normWall * (1.0/norm);
 	}
+  //dzh
+  //std::cout << "Ni " << Ni << "xx "<<" " << X_i[0]<<" " <<X_i[1] <<" xx "  <<  xWall[0] << " " <<xWall[1] << " dir " << dir[0] <<" "<< dir[1]<<" " << dir[2] << std::endl;
 
-	Vec3D ve_p = X_i + 1000.0*dir;
+
+  Vec3D ve_p = X_i + 1000.0*dir;
 	Vec3D ve_m = X_i - 1000.0*dir;
 
 	int Esize;
@@ -7011,6 +7022,9 @@ bool SubDomain::getFEMstencil2(int Ni, SVec<double,3> &X,
 	}
  
 	bool Wmode = (Wmode0_m || Wmode1_m) || (Wmode0_p || Wmode1_p);
+  //dzh
+  std::cout << "Ni " << Ni << "X[]" << X[Ni][0] << " " << X[Ni][1] << " " << X[Ni][2] << " " << Wmode0_m  <<  Wmode1_m  << Wmode0_p
+            << Wmode1_p <<" " << ele0_p <<" "<<  face0_p<< " " << r0_p << " " <<t0_p << std::endl;
 
 	return Wmode;
 
