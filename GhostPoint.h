@@ -176,28 +176,36 @@ void addNeighbour(bool w1, double *Vi_1, int fId1,
 
 double* getPrimitiveState(int dir)
 {
-	
 	if(dir > 0)
 	{
 		if(Ws[0] <= 0)
 		{
-			fprintf(stderr, " *** Error: in getting ghost point: dir = %d, w = %f\n", dir, Ws[0]);
-			exit(-1);
+			fprintf(stderr, " *** Warning: in GhostPoint.h getPrimitiveState: no ghost value for dir = %d, its weight = %f\n", dir, Ws[0]);
+			if(Ws[dim] <= 0)
+				exit(-1);
+			else{
+				fprintf(stderr, " *** Warning: using the ghost value in the other direction dir = %d\n", -dir);
+				for(int k=0; k<dim; k++) V_tmp[k] = V[k+dim];
+			}
 		}
-
-		for(int k=0; k<dim; k++) V_tmp[k] = V[k];
+		else
+			for(int k=0; k<dim; k++) V_tmp[k] = V[k];
 	}
 	else
 	{
 		if(Ws[dim] <= 0)
 		{
-			fprintf(stderr, " *** Error: in getting ghost point: dir = %d, w = %f\n", dir, Ws[dim]);
-			exit(-1);
+			fprintf(stderr, "*** Warning: in GhostPoint.h getPrimitiveState: no ghost value for dir = %d, its weight = %f\n", dir, Ws[dim]);
+			if(Ws[dim] <= 0)
+				exit(-1);
+			else{
+				fprintf(stderr, " *** Warning: using the ghost value in the other direction dir = %d\n", -dir);
+				for(int k=0; k<dim; k++) V_tmp[k] = V[k];
+			}
 		}
-
-		for(int k=0; k<dim; k++) V_tmp[k] = V[k+dim];
+		else
+			for(int k=0; k<dim; k++) V_tmp[k] = V[k+dim];
 	}
-
 	return V_tmp;
 
 }

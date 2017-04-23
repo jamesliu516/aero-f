@@ -7832,12 +7832,7 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
 
 
                 }else {//It is a wall , extrapolation todo porous wall
-                    if (resij.integration == BoundaryData::FULL) {
-                        for (int k = 1; k < 4; ++k) {
-                            Vj[k] = ((resij.normVel)[k - 1] - alpha * Vi[k]) / (1.0 - alpha);
-                            weights[k] = (1.0 - alpha) * (1.0 - alpha);
-                        }
-                    } else if (resij.integration == BoundaryData::WALLFUNCTION) {
+                    if (fet->withWallFcn() && resij.structureType!=BoundaryData::POROUSWALL && resij.structureType!=BoundaryData::ACTUATORDISK) {
                         //the distance to the wall
                         Vec3D normal = resij.gradPhi;
                         normal = normal / normal.norm();//structure normal
@@ -7871,6 +7866,13 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                             weights[k] = (1.0 - alpha) * (1.0 - alpha);
                         }
                     }
+                    else {
+                        for (int k = 1; k < 4; ++k) {
+                            Vj[k] = ((resij.normVel)[k - 1] - alpha * Vi[k]) / (1.0 - alpha);
+                            weights[k] = (1.0 - alpha) * (1.0 - alpha);
+                        }
+                    }
+
                 }
 //update turbulence viscosity
                 if (dim==6) {  // One Equation Turbulent Model
@@ -7949,13 +7951,8 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                         weights[k] = (1.0-alpha)*(1.0-alpha);//Weight as we have more than one edge linked to the ghost point
 
                     }
-                }else { //It is a wall , extrapolation
-                    if (resji.integration == BoundaryData::FULL) {
-                        for (int k = 1; k < 4; ++k) {
-                            Vi[k] = ((resji.normVel)[k - 1] - alpha * Vj[k]) / (1.0 - alpha);
-                            weights[k] = (1.0 - alpha) * (1.0 - alpha);
-                        }
-                    } else if (resji.integration == BoundaryData::WALLFUNCTION) {
+                }else { //It is a wall , extrapolation todo add wall type
+                    if (fet->withWallFcn() && resji.structureType!=BoundaryData::POROUSWALL && resji.structureType!=BoundaryData::ACTUATORDISK) {
                         //the distance to the wall
                         Vec3D normal = resji.gradPhi;
                         normal = normal / normal.norm();//structure normal
@@ -7977,6 +7974,12 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                         double ug_tg1 = uf * tgW1 - dudn * (d2wi + d2wj);
                         for (int k = 1; k < 4; ++k) {
                             Vi[k] = ug_n * normal[k - 1] + ug_tg1 * tgW1[k - 1] + ug_tg2 * tgW2[k - 1];
+                            weights[k] = (1.0 - alpha) * (1.0 - alpha);
+                        }
+                    }
+                    else{
+                        for (int k = 1; k < 4; ++k) {
+                            Vi[k] = ((resji.normVel)[k - 1] - alpha * Vj[k]) / (1.0 - alpha);
                             weights[k] = (1.0 - alpha) * (1.0 - alpha);
                         }
                     }
@@ -8175,11 +8178,8 @@ void SubDomain::populateGhostPoints_e(Vec<GhostPoint<dim>*> &ghostPoints, SVec<d
                                                      xWall, vWall, nWall, isIsoTherm, TWall,
                                                      fet, Vg2_i, fId2);
 
-            //if( fabs(X[i][0]-0.974286)<1.0e-4 && fabs(X[i][1]-0.005102) < 1.0e-4 && fabs(X[i][2]) <1.0e-5)
 
-            //dzh
-                //std::cout <<"addNeighbor " << i << " + " <<gotIt1 <<  " - " << gotIt2 << std::endl;
-                if(gotIt1 || gotIt2) ghostPoints[i]->addNeighbour(gotIt1, Vg1_i, fluidId[i],
+            if(gotIt1 || gotIt2) ghostPoints[i]->addNeighbour(gotIt1, Vg1_i, fluidId[i],
                                                                   gotIt2, Vg2_i, fluidId[i], weights);
         }
     }

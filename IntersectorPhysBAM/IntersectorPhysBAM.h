@@ -169,7 +169,6 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     void setSymmetry();
     void setMassInflow();
     void setActuatorDisk();
-	void setIntegration();
     void makerotationownership();
     void updatebc();
 
