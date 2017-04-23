@@ -720,7 +720,7 @@ void DistIntersectorPhysBAM::setIntegration() {
       if (it != surfaceMap.end()) {
         map<int,BoundaryData *>::iterator it2 = bcMap.find(it->second->bcID);
         if(it2 != bcMap.end()) { // the bc data have been defined
-          integration[i] = it2->second->type;
+          integration[i] = it2->second->integration;
         }
       }
     }

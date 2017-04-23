@@ -230,7 +230,7 @@ void ElemTet::computeGalerkinTerm_e(FemEquationTerm *fet, SVec<double,3> &X,
 		{
 			int Ni = nodeNum(i);
 
-			if(!LSS->isActive(0, Ni)) continue;
+			if(!LSS->isActive(0, Ni)) continue;//if it is ghost, we do not need to compute viscous flux on it
 						
 			for(int j=0; j<4; ++j)
 			{
@@ -260,7 +260,13 @@ void ElemTet::computeGalerkinTerm_e(FemEquationTerm *fet, SVec<double,3> &X,
 
 					int dir = LSS->edgeIntersectsStructure(0, edgeNum(e)) ? -1 : 1;
 
+
+                    //dzh
+                    //std::cout << "X[i] " << X[Ni][0] << " " << X[Ni][1] << " " << X[Ni][2] << " "<<std::endl;
+                    //std::cout << "X[j] " << X[Nj][0] << " " << X[Nj][1] << " " << X[Nj][2] << " "<<std::endl;
+                    //std::cout << "Nj " << Nj << std::endl;
 					Ve[j] = gp->getPrimitiveState(dir);
+                    //std::cout << "Nj " << Nj << std::endl;
 				}				
 				else
 					Ve[j] = V[Nj];

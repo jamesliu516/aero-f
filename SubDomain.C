@@ -7756,7 +7756,6 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
  * if viscSecOrder is true, linear extrapolation
  * if viscSecOrder is False, constant extrapolation
  */
-    std::cout << "populate ghost nodes "  << std::endl;
     int i, j, k;
     double alpha;
 
@@ -7833,7 +7832,6 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
 
 
                 }else {//It is a wall , extrapolation todo porous wall
-                    std::cout << "WALL " << "Integration is  " << " "<<  resij.integration << std::endl;
                     if (resij.integration == BoundaryData::FULL) {
                         for (int k = 1; k < 4; ++k) {
                             Vj[k] = ((resij.normVel)[k - 1] - alpha * Vi[k]) / (1.0 - alpha);
@@ -7844,6 +7842,8 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                         Vec3D normal = resij.gradPhi;
                         normal = normal / normal.norm();//structure normal
                         Vec3D dX_i_j(X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]);//vector XiXj
+                        //std::cout <<"normal " << normal[0] << " " <<  normal[1]  << " " <<  normal[2] << std::endl;
+                        //std::cout <<"Xj " << X[j][0] << " " <<  X[j][1]  << " " <<  X[j][2]  << "Xi " << X[i][0] << " " <<  X[i][1]  << " " <<  X[i][2] <<std::endl;
                         double d2wi = (1 - alpha) * fabs(normal * dX_i_j), d2wj = alpha * fabs(normal * dX_i_j);
 
                         //normal: wall normal ; tgW1: tangential velocity direction; tgW2: the third direction
@@ -7852,6 +7852,10 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                         //dudn: tangential velocity over wall normal
                         double dudn, dTdn, TWall = T; //todo T is useless,dTdn is useless
                         Vec3D v_s = resij.normVel;
+                        //std::cout << "Vi " << Vi[1] << " " << Vi[2] << " " << Vi[3] <<std::endl;
+                        //std::cout << "before computeDuDTwf d2_wi" <<d2wi <<" tgW1 " << tgW1[0] <<" "<< tgW1[1]<<" " << tgW1[2]
+                        //         << " tgW2 " << tgW2[0] << " " << tgW2[1] <<" "<<  tgW2[2] << std::endl;
+
                         higherOrderFSI->computeDuDTwf(Vi, varFcn, d2wi, v_s, TWall,
                                                       tgW1, tgW2, fet, dudn, dTdn);
                         //populate ghost node, extrapolation for normal velocity and dudn for tangential direction
@@ -7859,10 +7863,11 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                         double ug_n = (v_s - alpha * uf) * normal / (1 - alpha);
                         double ug_tg2 = (v_s - alpha * uf) * tgW2 / (1 - alpha);
                         double ug_tg1 = uf * tgW1 - dudn * (d2wi + d2wj);
+                        //std::cout << "Wall " << "dudn"  <<dudn <<" d2wi+d2wj " << d2wi + d2wj << "ug_n " << ug_n << "ug_tg1 " << ug_tg1 << "ug_tg_2 " << ug_tg2 << std::endl;
                         for (int k = 1; k < 4; ++k) {
                             Vj[k] = ug_n * normal[k - 1] + ug_tg1 * tgW1[k - 1] + ug_tg2 * tgW2[k - 1];
                             //todo debug
-                            std::cout << "WALL " << ug_n <<" " << ug_tg1 << " " << ug_tg2 << std::endl;
+
                             weights[k] = (1.0 - alpha) * (1.0 - alpha);
                         }
                     }
@@ -8129,57 +8134,59 @@ void SubDomain::populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<do
 //d2d
 template<int dim>
 void SubDomain::populateGhostPoints_e(Vec<GhostPoint<dim>*> &ghostPoints, SVec<double,3> &X,
-												SVec<double,dim> &U, NodalGrad<dim, double> &ngrad, 
-												VarFcn *varFcn, LevelSetStructure &LSS, Vec<int> &fluidId, 
-												FemEquationTerm *fet)
+                                      SVec<double,dim> &U, NodalGrad<dim, double> &ngrad,
+                                      VarFcn *varFcn, LevelSetStructure &LSS, Vec<int> &fluidId,
+                                      FemEquationTerm *fet)
 {
 
-	double *Vg1_i = new double[dim];
-	double *Vg2_i = new double[dim];
+    double *Vg1_i = new double[dim];
+    double *Vg2_i = new double[dim];
 
-	double *weights = new double[dim];
+    double *weights = new double[dim];
 
-	for(int k=0; k<dim; ++k) weights[k] = 1.0;
+    for(int k=0; k<dim; ++k) weights[k] = 1.0;
 
-	bool wRcn, isIsoTherm, gotIt, gotIt1, gotIt2;
-	double TWall;
+    bool wRcn, isIsoTherm, gotIt, gotIt1, gotIt2;
+    double TWall;
 
-	int fId1, fId2;
+    int fId1, fId2;
 
-	Vec3D xWall, nWall, vWall;
+    Vec3D xWall, nWall, vWall;
 
-	for(int i=0; i<nodes.size(); ++i)
-	{
-		wRcn = LSS.xWallNode(i, xWall);
+    for(int i=0; i<nodes.size(); ++i)
+    {
+        wRcn = LSS.xWallNode(i, xWall);
 
-		if(wRcn) 
-		{
-			if(!ghostPoints[i]) ghostPoints[i] = new GhostPoint<dim>(varFcn);
+        if(wRcn)
+        {
+            if(!ghostPoints[i]) ghostPoints[i] = new GhostPoint<dim>(varFcn);
 
-			bool dummy = LSS.vWallNode(i, vWall);
+            bool dummy = LSS.vWallNode(i, vWall);
 
-			isIsoTherm = LSS.getTwall(TWall);
+            isIsoTherm = LSS.getTwall(TWall);
 
-			LSS.nWallNode(i, nWall);
+            LSS.nWallNode(i, nWall);
 
-			gotIt1 = higherOrderFSI->setFEGhostPoint(1, i, varFcn, U, ngrad, X, fluidId,
-																  xWall, vWall, nWall, isIsoTherm, TWall,
-																  fet, Vg1_i, fId1);
+            gotIt1 = higherOrderFSI->setFEGhostPoint(1, i, varFcn, U, ngrad, X, fluidId,
+                                                     xWall, vWall, nWall, isIsoTherm, TWall,
+                                                     fet, Vg1_i, fId1);
 
-			gotIt2 = higherOrderFSI->setFEGhostPoint(-1, i, varFcn, U, ngrad, X, fluidId,
-																  xWall, vWall, nWall, isIsoTherm, TWall,
-																  fet, Vg2_i, fId2);
+            gotIt2 = higherOrderFSI->setFEGhostPoint(-1, i, varFcn, U, ngrad, X, fluidId,
+                                                     xWall, vWall, nWall, isIsoTherm, TWall,
+                                                     fet, Vg2_i, fId2);
 
-			if( fabs(X[i][0]-0.974286)<1.0e-4 && fabs(X[i][1]-0.005102) < 1.0e-4 && fabs(X[i][2]) <1.0e-5) 
+            //if( fabs(X[i][0]-0.974286)<1.0e-4 && fabs(X[i][1]-0.005102) < 1.0e-4 && fabs(X[i][2]) <1.0e-5)
 
-			if(gotIt1 || gotIt2) ghostPoints[i]->addNeighbour(gotIt1, Vg1_i, fluidId[i], 
-																			  gotIt2, Vg2_i, fluidId[i], weights);			
-		}
-	}
+            //dzh
+                //std::cout <<"addNeighbor " << i << " + " <<gotIt1 <<  " - " << gotIt2 << std::endl;
+                if(gotIt1 || gotIt2) ghostPoints[i]->addNeighbour(gotIt1, Vg1_i, fluidId[i],
+                                                                  gotIt2, Vg2_i, fluidId[i], weights);
+        }
+    }
 
-	delete [] Vg1_i;
-	delete [] Vg2_i;
-	delete [] weights;
+    delete [] Vg1_i;
+    delete [] Vg2_i;
+    delete [] weights;
 
 }
 //--------------------------------------------------------------------------
@@ -8350,7 +8357,7 @@ void SubDomain::setFEMstencil(SVec<double,3> &X, LevelSetStructure &LSS,
 	{
 		Vec3D xwall, nwall;
 
-	   bool isIGhost = LSS.xWallNode(i, xwall);
+	   bool isIGhost = LSS.xWallNode(i, xwall); //closest wall node
 
 		if(!isIGhost) continue;
 
