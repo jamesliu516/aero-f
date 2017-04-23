@@ -162,7 +162,6 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iodata,
   setSymmetry();
   setActuatorDisk();
   setMassInflow();
-  setIntegration();
   makerotationownership();
   updatebc();
 

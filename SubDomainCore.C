@@ -7022,9 +7022,6 @@ bool SubDomain::getFEMstencil2(int Ni, SVec<double,3> &X,
 	}
  
 	bool Wmode = (Wmode0_m || Wmode1_m) || (Wmode0_p || Wmode1_p);
-  //dzh
-  std::cout << "Ni " << Ni << "X[]" << X[Ni][0] << " " << X[Ni][1] << " " << X[Ni][2] << " " << Wmode0_m  <<  Wmode1_m  << Wmode0_p
-            << Wmode1_p <<" " << ele0_p <<" "<<  face0_p<< " " << r0_p << " " <<t0_p << std::endl;
 
 	return Wmode;
 
