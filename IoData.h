@@ -609,7 +609,6 @@ struct BoundaryData  {
   double pressureJump;
   double massFlow;
   enum SourceTermExpression {OLD = 1,CORRECTED = 2} sourceTermExpression;
-    enum Integration {FULL = 1, WALLFUNCTION = 2} integration;
 
   BoundaryData();
   Assigner *getAssigner();

@@ -104,7 +104,6 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     int *actuatorDiskReconstructionMethod;//method used to compute the velocity at the interface. 1 : vi+Vj/2 2:vi 3 Vi*grad (extrapolation)
     double *massJump;
     bool* isCorrectedMethod;//For the actuatorDisk
-	int* integration;
     double gamma;//Value of Gamma, used for the actuatorDiskComputaion
 
     // surface rotation

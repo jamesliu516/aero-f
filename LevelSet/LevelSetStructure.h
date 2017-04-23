@@ -28,7 +28,7 @@ struct LevelSetResult {
   bool isCorrectedMethod;
   int actuatorDiskReconstructionMethod;
   double massInflow;
-	int integration;
+
 
   Vec3D dnds;
   double dads;
@@ -44,7 +44,6 @@ struct LevelSetResult {
     actuatorDiskReconstructionMethod = -1;
     gamma = 0.0;//error value
     isCorrectedMethod = false;
-	  integration = 1;
     massInflow = 0.0;
     dads = 0.0;
    }
@@ -64,7 +63,6 @@ struct LevelSetResult {
 	        gamma = 0.0;//error value
 	        isCorrectedMethod = false;
 	        massInflow = 0.0;
-	        integration = 1;
 		    dnds = 0.0;
 		    dads = 0.0;
 		   }
