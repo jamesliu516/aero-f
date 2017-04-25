@@ -1323,18 +1323,33 @@ void HigherOrderFSI::computeWallVersors(double *V1, Vec3D &nW, VarFcn *vf,
 {
 
 	double norm;
-	const double tol = 1.0e-10;
+	const double tol = 1.0e-12;
 
 
 	Vec3D uf = vf->getVelocity(V1);
-    //std::cout << "uf " << uf[0] <<" " << uf[1] << " " << uf[2] <<std::endl;
-	uf += tol;//todo what is this??
+	//uf += tol;//todo what is this??
 	
 	Vec3D un = (uf*nW)*nW;
-    //std::cout << "un " << un[0] <<" " << un[1] << " " << un[2] <<std::endl;
 	tgW1 = uf - un;
-	norm = tgW1.norm(); 
-	tgW1 *= (1.0/norm);
+
+	norm = tgW1.norm();
+    if(norm > tol)
+	    tgW1 *= (1.0/norm);
+    else{
+    //std::cout << "else in HIGHORDERFSI" << std::endl;
+        //tgW1 is any unit vector perpendicular to uW
+        Vec3D e1(1.0,0.0,0.0),e2(0.0,1.0,0.0);
+        e1 = nW^e1;
+        if(e1.norm( ) > tol)
+            tgW1 = e1/e1.norm();
+        else {
+            e2 = nW ^ e2;
+            tgW1 = e2/e2.norm();
+        }
+        //std::cout << "uf " << uf[0] <<" "<<uf[1] <<" " <<uf[2] <<"un " << un[0] <<" "
+        //          << un[1]<<" " <<un[2]<<"uW " << nW[0] <<" "<< nW[1]<<" " <<nW[2]<<" tgW1 " << tgW1[0] <<" " << tgW1[1]<<" " << tgW1[2] <<" "<<norm <<    std::endl;
+
+    }
 
 	tgW2 = tgW1 ^ nW;	
 	norm = tgW2.norm();
