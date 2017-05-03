@@ -6831,13 +6831,14 @@ bool SubDomain::getFEMstencil2(int Ni, SVec<double,3> &X,
 	double norm = sqrt(dir * dir);
 
 
-      if (norm < geomTol) {
-        std::cout << "WARNING***, in SubDomain::getFEMstencil2 too close to the surface" << std::endl;
+      if (norm > geomTol) {
+
 
         dir *= 1.0 / norm;
       }
 	else
 	{
+	    std::cout << "WARNING***, in SubDomain::getFEMstencil2 too close to the surface" << std::endl;
 		// X_i and xWall coincide: use nWall as searching direction
       //dzh
       //std::cout << "Ni is occluded" << Ni << std::endl;
