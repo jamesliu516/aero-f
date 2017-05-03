@@ -177,11 +177,11 @@ double WallFcn::computeFrictionVelocity(double ut, double delta, double rho, dou
   double utau = sqrt(mu * ut / (reynolds * rho * delta));//utau for viscous sublayer formular estimation
 
   double res;
-  double target;
+  double target, dplus;
   int it;
   for (it=0; it<maxits; ++it) {//solve for u_tau
 
-    double dplus = reynolds * utau * delta * rho / mu;
+    dplus = reynolds * utau * delta * rho / mu;
     //dzh
     //std::cout  << "utau is " << utau << " dplus is " << dplus << std::endl;
 
@@ -225,6 +225,7 @@ double WallFcn::computeFrictionVelocity(double ut, double delta, double rho, dou
   if (utau <= 0.0)
     fprintf(stderr, "*** Warning: utau=%e\n", utau);
 
+  //std::cout << "yplus= " << dplus << " utau is " << utau <<std::endl;
   return utau;
 
 }
