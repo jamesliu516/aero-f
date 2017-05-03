@@ -1041,12 +1041,9 @@ void EmbeddedTsDesc<dim>::getForcesAndMoments(map<int,int> & surfOutMap, DistSVe
     if(it != surfOutMap.end() && it->second != -2)
       idx = it->second;
     else {
-      idx = 0;
+      idx = 0;//default
     }
-    if(idx == -1){
-    	idx = 0;
-    }
-    //if(idx !=-1){//We want to compute the force
+    if(idx !=-1){//We want to compute the force
 		Fi[idx][0] += Fs[i][0];
 		Fi[idx][1] += Fs[i][1];
 		Fi[idx][2] += Fs[i][2];
@@ -1054,7 +1051,7 @@ void EmbeddedTsDesc<dim>::getForcesAndMoments(map<int,int> & surfOutMap, DistSVe
 		Mi[idx][0] += Xstruc[i][1]*Fs[i][2]-Xstruc[i][2]*Fs[i][1];
 		Mi[idx][1] += Xstruc[i][2]*Fs[i][0]-Xstruc[i][0]*Fs[i][2];
 		Mi[idx][2] += Xstruc[i][0]*Fs[i][1]-Xstruc[i][1]*Fs[i][0];
-   // }
+    }
   }
 }
 

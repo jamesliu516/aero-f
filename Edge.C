@@ -3444,7 +3444,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	*/
 
         switch (structureType) {
-          case BoundaryData::DIRECTSTATE:
+          case BoundaryData::WALL:
           case BoundaryData::SYMMETRYPLANE:
           case BoundaryData::POROUSWALL:
             if (structureType == BoundaryData::SYMMETRYPLANE)
@@ -3574,7 +3574,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         		fluidId[j],resji,&jPorous,&jActuatorDisk,
 				&jMassInflow,&reconstructionMethod,i,j);//Check for discrepencies
         switch (structureType) {
-          case BoundaryData::DIRECTSTATE:
+          case BoundaryData::WALL:
           case BoundaryData::SYMMETRYPLANE:
           case BoundaryData::POROUSWALL:
             if (structureType == BoundaryData::SYMMETRYPLANE)

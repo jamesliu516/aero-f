@@ -7794,9 +7794,20 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                     weights[k] = (1.0-alpha)*(1.0-alpha);
                 }
 
-// Update temperature, Replace fourth variable with temperature, constant extrapolation
-                double T = varFcn->computeTemperature(Vi,tagI);
-                Vj[4] = T;
+// Update temperature, Replace fourth variable with temperature, constant extrapolation or wall temperature
+                if((resij.heatFluxType==SurfaceData::ADIABATIC)||(resij.structureType!=BoundaryData::WALL)){
+                	double T = varFcn->computeTemperature(Vi,tagI);
+                	Vj[4] = T;
+                }else{
+                	double Twall = resij.wallTemperature;
+                	double Tpoint = varFcn->computeTemperature(Vi,tagI);
+                	Vj[4] = Tpoint + (Twall- Tpoint)/(1-alpha);
+                	//printf("Je suis venu, et ma wall temperature est %f point %f ghost %f edge %d \n",Twall,Tpoint,Vj[4],l);
+                	if(Twall == -1){//sanity Check
+                		printf("You are imposing a temperature that has not beens specified. aborting simulation");
+                		exit(1);
+                	}
+                }
 
 
 
@@ -7882,14 +7893,25 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                     weights[k] = (1.0 - alpha) * (1.0 - alpha);
                 }
 
-// Replace fourth variable with temperature
+// Replace fourth variable with temperature, constant extrapolation or wall temperature
+                if((resji.heatFluxType==SurfaceData::ADIABATIC)||(resji.structureType!=BoundaryData::WALL)){
                 double T = varFcn->computeTemperature(Vj,tagJ);
                 Vi[4] = T;
+                }else{
+                	double Twall = resji.wallTemperature;
+                	double Tpoint = varFcn->computeTemperature(Vj,tagJ);
+                	Vi[4] = Tpoint + (Twall- Tpoint)/(1-alpha);
+                	//printf("Je suis venu, et ma wall temperature est %f point %f ghost %f edge %d \n",Twall,Tpoint,Vi[4],l);
+                	if(Twall == -1){//sanity Check
+                	   printf("You are imposing a temperature that has not beens specified. aborting simulation");
+                	   exit(1);
+                	}
+                }
 
 
 
 // Update velocity
-                if(resji.structureType==BoundaryData::SYMMETRYPLANE){//It is not a symmetry plane
+                if(resji.structureType==BoundaryData::SYMMETRYPLANE){//It is a symmetry plane
                     //It is a symmetry plane
                     //0)Find ghost node i's , mirroring point ii
                     //1)extrapolate velocity  from node j to ii, using gradient of node j

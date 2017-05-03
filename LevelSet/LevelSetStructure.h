@@ -21,6 +21,9 @@ struct LevelSetResult {
   Vec3D gradPhi;
   Vec3D normVel; //NOTE: this is the velocity, NOT normal velocity.
   int structureType;
+  double wallTemperature;
+  int isWallFunction;
+  int heatFluxType;
   double porosity;
   double actuatorDiskPressureJump;
   int actuatorDiskMethod;
@@ -45,6 +48,9 @@ struct LevelSetResult {
     isCorrectedMethod = false;
     massInflow = 0.0;
     dads = 0.0;
+    wallTemperature = -1.0;
+    isWallFunction = BcsWallData::FULL;
+    heatFluxType = SurfaceData::ISOTHERMAL;
    }
   
    LevelSetResult(double gpx, double gpy, double gpz,
@@ -62,6 +68,9 @@ struct LevelSetResult {
 	        gamma = 0.0;//error value
 	        isCorrectedMethod = false;
 	        massInflow = 0.0;
+	        wallTemperature = -1.0;
+	        isWallFunction = BcsWallData::FULL;
+	        heatFluxType = SurfaceData::ISOTHERMAL;
 		    dnds = 0.0;
 		    dads = 0.0;
 		   }
