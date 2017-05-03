@@ -1225,7 +1225,7 @@ double EmbeddedTsDesc<dim>::currentPressure(double t)
 //------------------------------------------------------------------------------
 
 template<int dim>
-void EmbeddedTsDesc<dim>::computeDistanceToWall(IoData &ioData)
+void EmbeddedTsDesc<dim>::computeDistanceToWall(IoData &ioData, double t)
 {
 	if(ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY)
 	{
@@ -1234,11 +1234,8 @@ void EmbeddedTsDesc<dim>::computeDistanceToWall(IoData &ioData)
 		{
       double t0 = this->timer->getTime();
 
-      // sjg, 02/2017: insert check to evaluate whether wall distance needs to be
-      // reevaluated or just left constant right here ...
-
-
-      wall_computer->ComputeWallFunction(*this->distLSS,*this->X,*this->geoState);
+      // sjg, 04/2017: send structure time step to wall distance for predictors
+      wall_computer->ComputeWallFunction(*this->distLSS,*this->X,*this->geoState,t);
 
       this->timer->addWallDistanceTime(t0);
 

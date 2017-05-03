@@ -173,7 +173,7 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   void fixSolution(DistSVec<double,dim>& U,DistSVec<double,dim>& dU);
   double currentPressure(double t);
 
-  void computeDistanceToWall(IoData &ioData);
+  void computeDistanceToWall(IoData &ioData, double t);
 
   MeshMotionHandler *createEmbeddedALEMeshMotionHandler(IoData &, GeoSource &, DistLevelSetStructure *);
 

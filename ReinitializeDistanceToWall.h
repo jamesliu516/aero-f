@@ -25,17 +25,30 @@ class ReinitializeDistanceToWall
   DistVec<int> tag;
   DistSVec<double, dimLS> dummyPhi;
 
+  int predictorActive;
+  int *nPredictors;
+  double *tPredictors;
+  double ***d2wPredictors;
+  DistSVec<double, 1> d2wallnm1, d2wallnm2;
+  double tnm1, tnm2;
+
 public:
   ReinitializeDistanceToWall(IoData &ioData, Domain &domain);
   ~ReinitializeDistanceToWall();
 
-  void ComputeWallFunction(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState);
+  void ComputeWallFunction(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState, double t);
+
+  // sjg, 04/2017
+  int UpdatePredictorsCheckTol(double t);
+  void ReinitializePredictors(int update, double t, DistLevelSetStructure *LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState);
+
   void DistanceToClosestPointOnMovingStructure(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState);
   void PrescribedValues(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState);
   void GetLevelsFromInterfaceAndMarchForward(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState);
   void PseudoFastMarchingMethod(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState, int iterativeLevel);
-  void computeExactErrors(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState);
-  void computePercentChange(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState);
+  void ComputeExactErrors(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState);
+  void ComputePercentChange(DistLevelSetStructure &LSS, DistGeoState &distGeoState);
+  void PrintIntersectedValues(DistLevelSetStructure *LSS, DistSVec<double, 3> &X);
 
 private:
   void InitializeWallFunction(SubDomain &subD, LevelSetStructure &LSS, Vec<bool> &done, SVec<double, 3> &X, SVec<double, 1> &d2w, Vec<int> &tag);

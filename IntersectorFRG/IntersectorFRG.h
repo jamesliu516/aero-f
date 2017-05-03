@@ -248,8 +248,8 @@ protected:
   map<int, int> n2p;  //node Id (index from 0) -> particle Id (index from 0 NOT 1!!!)
   list<int> particle; //particles in the scope
 
-  map<int, IntersectionResult<double>> CrossingEdgeRes;
-  map<int, IntersectionResult<double>> ReverseCrossingEdgeRes;
+  map<int, IntersectionResult<double> > CrossingEdgeRes;
+  map<int, IntersectionResult<double> > ReverseCrossingEdgeRes;
   Vec<int> &status0; //<! status at the previous time-step.
 
   PhysBAMInterface<double> *physInterface;
@@ -268,7 +268,7 @@ protected:
   void noCheckFloodFill(SubDomain &sub, int &nUndecided);
   int findNewSeedsAfterMerging(Vec<int> &status_temp, Vec<bool> &poly, int &nUndecided); //not used!
   int findNewSeedsAfterMerging(SVec<int, 2> &status_and_weight, int &nUndecided);
-  int findSeedsByPoints(SubDomain &sub, SVec<double, 3> &X, list<pair<Vec3D, int>> P, int &nUndecided);
+  int findSeedsByPoints(SubDomain &sub, SVec<double, 3> &X, list<pair<Vec3D, int> > P, int &nUndecided);
   void addToPackage(int node, int trID);
 
   void reFlagRealNodes(SVec<double, 3> &X, Vec<bool> &ISactive_bk);                                                                        //d2d
