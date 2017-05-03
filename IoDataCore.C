@@ -1024,8 +1024,8 @@ Assigner *BoundaryData::getAssigner()  {
   ClassAssigner *ca = new ClassAssigner("normal", 20, nullAssigner);
 
   new ClassToken<BoundaryData>(ca, "Type", this,
-                              (int BoundaryData::*)(&BoundaryData::type), 6,
-                               "DirectState", DIRECTSTATE, "MassFlow", MASSFLOW, "PorousWall", POROUSWALL, "SymmetryPlane", SYMMETRYPLANE,"ActuatorDisk", ACTUATORDISK, "MassInflow", MASSINFLOW);
+                              (int BoundaryData::*)(&BoundaryData::type), 7,
+                               "DirectState", DIRECTSTATE, "MassFlow", MASSFLOW, "PorousWall", POROUSWALL, "SymmetryPlane", SYMMETRYPLANE,"ActuatorDisk", ACTUATORDISK, "MassInflow", MASSINFLOW,"Wall",WALL);
   new ClassDouble<BoundaryData>(ca, "Density", this, &BoundaryData::density);
   new ClassDouble<BoundaryData>(ca, "VelocityX", this, &BoundaryData::velocityX);
   new ClassDouble<BoundaryData>(ca, "VelocityY", this, &BoundaryData::velocityY);

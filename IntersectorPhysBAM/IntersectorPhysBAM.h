@@ -64,9 +64,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
   using DistLevelSetStructure::is_active;
   using DistLevelSetStructure::is_occluded;
   using DistLevelSetStructure::edge_intersects;
-  //using DistLevelSetStructure::edge_intersects_embedded_constraint;
   using DistLevelSetStructure::edge_intersects_constraint;
-  //using DistLevelSetStructure::Embedded_Constraint_Alpha;
 
   using DistLevelSetStructure::edge_SI;
   using DistLevelSetStructure::xi_SI;
@@ -112,6 +110,9 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     std::map <int, BoundaryData::Type> boundaryConditionsMap;
     int *faceID;
 	int *structureType;
+	double* wallTemperature;
+	int* isWallFunction;
+	int* heatFluxType;
     double *porosity;
     bool *isSymmetryPlane;//Embedded plane
 	int * actuatorDiskMethod;
@@ -134,8 +135,6 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     //added by arthur Morlot, February 2016
     bool ContainsAnEmbeddedConstraint;
     int ConstraintType;//0 is no Constraint, 1 is symmetry, 2 is inlet
-    //int ConstraintNormal;//0 is Nx, 1 is Ny, 2 is Nz
-    //double ConstraintPosition;//value to dompletely define the plane
     std::map<int,SymmetryInfo> SymmetryPlaneList;//Map of all the symmetry planes in the file to decide which nodes must be innactives.
 
     double interface_thickness;
@@ -182,6 +181,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     void init(int nNodes, double *xyz, int nElems, int (*abc)[3], char *restartSolidSurface);
     void setPorosity();
 	void setStructureType();
+	void setWallInformation();
     void getSymmetryPlanesInformation();
     void setMassInflow();
     void setActuatorDisk();
