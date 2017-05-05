@@ -33,18 +33,7 @@ void ElemTet::computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
 	{   
 		for(int i=0;i<4;++i)	isTetInactive = isTetInactive && !LSS->isActive(0,nodeNum(i));
 
-		for(int l=0; l<6; ++l) {
-			if(LSS->edgeIntersectsStructure(0,edgeNum(l))){
-				 switch(LSS->getLevelSetDataAtEdgeCenter(0.0,edgeNum(l),true).structureType){
-				 case BoundaryData::ACTUATORDISK:
-				 case BoundaryData::MASSINFLOW:
-					 isAtTheInterface = isAtTheInterface || false;
-					 break;
-				 default:
-					 isAtTheInterface = isAtTheInterface || true;
-				 }
-			}
-		}
+		for(int l=0; l<6; ++l) isAtTheInterface = isAtTheInterface || LSS->edgeIntersectsWall(0,edgeNum(l));
 
     if(isTetInactive) return;
   }
