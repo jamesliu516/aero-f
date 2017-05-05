@@ -1178,7 +1178,7 @@ double TsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
 {
   if (wallRecType==BcsWallData::CONSTANT)
     spaceOp->computeResidual(*X, *A, U, *R, timeState);
-  else //wallRecTyp == ExactRiemann
+  else //wallRecTyp == EXACT_RIEMANN
     spaceOp->computeResidual(riemann1, *X, *A, U, *R, timeState);
 
   spaceOp->applyBCsToResidual(U, *R);

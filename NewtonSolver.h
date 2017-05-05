@@ -109,7 +109,7 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
 
     // compute the nonlinear function value
     probDesc->computeFunction(it, Q, F);
-    res2 = probDesc->recomputeResidual(F, Finlet);
+    res2 = probDesc->recomputeResidual(F, Finlet); //do nothing and return 0, if we use stegerwarming or Ghidaglia or modified Ghidaglia
     res = F*F-res2;
     probDesc->printf(9, " ... deubgging: it = %d, res2 = %f, res = %f\n", it, res2, res);
 		if(res < 0.0)

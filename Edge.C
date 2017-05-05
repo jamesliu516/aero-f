@@ -3194,7 +3194,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
           int i = ptr[l][0];
           int j = ptr[l][1];
 
-          bool intersect = LSS.edgeIntersectsStructure(0,l);//||LSS.edgeIntersectsConstraint(0,l));//Take care of the actuatorDisk
+          bool intersect = LSS.edgeIntersectsStructure(0,l);
 
           bool iActive = LSS.isActive(0.0,i);
           bool jActive = LSS.isActive(0.0,j);
@@ -4495,7 +4495,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, GeoState &geoSt
                                               Vec<double> &irey, SVec<double,3> &X,
                                               Vec<double> &ctrlVol, SVec<double,dim> &V,
                                               GenMat<Scalar,neq> &A)
-{
+{//A is the Jacobian matrix
 
   int k;
   double edgeirey;
@@ -5193,25 +5193,25 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 //d2d embedded structure
 template<class Scalar,int dim,int neq>
 void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
-                                             FluxFcn** fluxFcn,
-                                             GeoState& geoState, SVec<double,3>& X,
-                                             SVec<double,dim>& V, Vec<double>& ctrlVol,
-                                             LevelSetStructure &LSS,
-                                             Vec<int> &fluidId, int Nriemann,
-                                             GenMat<Scalar,neq>& A,Vec<double>& irey) {
+                                              FluxFcn** fluxFcn,
+                                              GeoState& geoState, SVec<double,3>& X,
+                                              SVec<double,dim>& V, Vec<double>& ctrlVol,
+                                              LevelSetStructure &LSS,
+                                              Vec<int> &fluidId, int Nriemann,
+                                              GenMat<Scalar,neq>& A,Vec<double>& irey) {
 
 
-  int farfieldFluid = 0; 
+  int farfieldFluid = 0;
 
-  Vec<Vec3D>&     normal = geoState.getEdgeNormal();
-  Vec<double>& normalVel = geoState.getEdgeNormalVel();
+  Vec<Vec3D> &normal = geoState.getEdgeNormal();
+  Vec<double> &normalVel = geoState.getEdgeNormalVel();
 
-  double Vi[2*dim], Vj[2*dim], Wstar[2*dim];
+  double Vi[2 * dim], Vj[2 * dim], Wstar[2 * dim];
 
-  double dUdU[neq*neq],  dfdUi[neq*neq], dfdUj[neq*neq];
-  double  dkk[neq*neq], dW1dW1[neq*neq],  dWdU[neq*neq];
+  double dUdU[neq * neq], dfdUi[neq * neq], dfdUj[neq * neq];
+  double dkk[neq * neq], dW1dW1[neq * neq], dWdU[neq * neq];
 
-  double dWdW[dim*dim];
+  double dWdW[dim * dim];
 
   Scalar *Aii, *Ajj, *Aij, *Aji;
 
@@ -5222,337 +5222,382 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
   int k;
 
   VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
- 
 
-  for (int l=0; l<numEdges; ++l) {
+
+  for (int l = 0; l < numEdges; ++l) {
 
     double area = normal[l].norm();
-    if (area < 1e-18) continue; 
+    if (area < 1e-18) continue;
 
     int i = ptr[l][0];
     int j = ptr[l][1];
 
-    bool intersect = LSS.edgeIntersectsStructure(0,l);
-    bool intersectConstraint = LSS.edgeIntersectsConstraint(0,l);
+    bool intersect = LSS.edgeIntersectsStructure(0, l);
 
-    bool iActive = LSS.isActive(0.0,i);
-    bool jActive = LSS.isActive(0.0,j);
+    bool iActive = LSS.isActive(0.0, i);
+    bool jActive = LSS.isActive(0.0, j);
 
     bool iPorous = false;
     bool jPorous = false;
-       
-    if( !iActive ) {
+
+    if (!iActive) {
       Aii = A.getElem_ii(i);
-      for (k=0; k<neq; ++k)
-	Aii[k+k*neq] = 1.0*ctrlVol[i];
+      for (k = 0; k < neq; ++k)
+        Aii[k + k * neq] = 1.0 * ctrlVol[i];
     }
-    
-    if( !jActive ) {
+    //The diagonal blocks are scaled by the control
+    // volume in SubDomain::computeJacobianFiniteVolumeTerm.
+    if (!jActive) {
       Ajj = A.getElem_ii(j);
-      for (k=0; k<neq; ++k)
-	Ajj[k+k*neq] = 1.0*ctrlVol[j];
+      for (k = 0; k < neq; ++k)
+        Ajj[k + k * neq] = 1.0 * ctrlVol[j];
     }
 
-    double edgeirey = 0.5*(irey[i]+irey[j]);
+    //double edgeirey = 0.5 * (irey[i] + irey[j]);
 
-    if( !iActive && !jActive ) {
+    if (!iActive && !jActive) {
       continue;
     }
 
     double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
-    length = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
+    length = sqrt(dx[0] * dx[0] + dx[1] * dx[1] + dx[2] * dx[2]);
 
-    for(k=0; k<dim; k++) {
-      Vi[k]     = V[i][k];
-      Vj[k]     = V[j][k];
-      Vi[k+dim] = Vi[k];
-      Vj[k+dim] = Vj[k];
+    for (k = 0; k < dim; k++) {
+      Vi[k] = V[i][k];
+      Vj[k] = V[j][k];
+      Vi[k + dim] = Vi[k];
+      Vj[k + dim] = Vj[k];
     }
- 
     if (!intersect) {  // same fluid
-
-      if(!(iActive && jActive)) {
-	fprintf(stderr,"Really odd too... \n");
-        //fprintf(stderr,"Really odd too... (-(%d),-(%d): intersect = %d; 
-        //        iSwept = %d, jSwept = %d, iOccluded = %d, jOcculded = %d, model = %d/%d.\n",
-        //        iActive, jActive, intersect, LSS.isSwept(0.0,i), LSS.isSwept(0.0,j), 
-        //        LSS.isOccluded(0.0,i), LSS.isOccluded(0.0,j), 
-	//	LSS.fluidModel(0.0,i), LSS.fluidModel(0.0,j));
+      if (!(iActive && jActive)) {
+        fprintf(stderr, "Really odd too !intersect and !(iActive && jActive)... \n");
         continue;
       }
-
-      fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Vi, Vj, dfdUi, dfdUj, fluidId[i]);
-
+      fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Vi, Vj, dfdUi, dfdUj,
+                                             fluidId[i]);
+/*we need to update  dr_i/dU_i dr_i/dU_j dr_j/dU_i and dr_j/dU_j
+* dr_i/dU_i += df/dU_i  (only for master edge)
+* dr_i/dU_j += df/dU_j
+* dr_j/dU_j -= df/dU_j  (only for master edge)
+* dr_j/dU_i -= df/dU_i
+*/
       Aii = A.getElem_ii(i);
       Ajj = A.getElem_ii(j);
-
-      if (masterFlag[l]) {
-        for (k=0; k<neq*neq; ++k) {
+      if (masterFlag[l]) {   //Only the diagonal blocks are assembled (see calls to sndDiagBlocks and addRcvDiagBlocks
+        // in Domain::computeJacobianFiniteVolumeTerm)
+        for (k = 0; k < neq * neq; ++k) {
           Aii[k] += dfdUi[k];
-	  Ajj[k] -= dfdUj[k];
+          Ajj[k] -= dfdUj[k];
         }
       }
-
       Aij = A.getElem_ij(l);
       Aji = A.getElem_ji(l);
       if (Aij && Aji) {
         double voli = 1.0 / ctrlVol[i];
         double volj = 1.0 / ctrlVol[j];
- 
-        for (k=0; k<neq*neq; ++k) {
-	  Aij[k] += dfdUj[k] * voli;
-	  Aji[k] -= dfdUi[k] * volj;
-	}
+        for (k = 0; k < neq * neq; ++k) {
+          Aij[k] += dfdUj[k] * voli;  //The diagonal blocks are scaled by the control
+          // volume in SubDomain::computeJacobianFiniteVolumeTerm.
+          Aji[k] -= dfdUi[k] * volj;
+        }
       }
-      //a2m : in case of an actuator Disk, we must modify the jacobian
-      if(intersectConstraint){
-    	  LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
-    	  LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
-    	  bool isActuatorDisk = (resij.structureType == BoundaryData::ACTUATORDISK);
-    	  if(isActuatorDisk){
-    		  //first, we find in which cell the actuator disk falls :
-    		  if(resij.alpha>0.5){//the actuator disk falls in the i cell
-    		        switch (Nriemann) {
-    		          case 0: //structure normal
-    		            normalDir = (dx[0]*resij.gradPhi[0]+dx[1]*resij.gradPhi[1]+dx[2]*resij.gradPhi[2]>=0.0) ? -1.0*resij.gradPhi : resij.gradPhi;
-    		            break;
-    		          case 1: //fluid normal
-    		            normalDir = -1.0/(normal[l].norm())*normal[l];
-    		            break;
-    		          default:
-    		            fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
-    		            exit(-1);
-    		        }
-    		        double VelocityReconstructed[3];
-    		        double VelocityNormalProduct = 0 ;
-    		        //assumes average velocity reconstruction
-    		        for (int var=0;var<3;var++){
-    		        	VelocityReconstructed[var] = (Vi[var+1]+Vj[var+1])/2;
-    		        	VelocityNormalProduct += VelocityReconstructed[var]*normalDir[var];
-    		        }
-    		        double deltap = resij.actuatorDiskPressureJump;
-    		        bool invertedEdge = (dx[0]*resij.gradPhi[0]+dx[1]*resij.gradPhi[1]+dx[2]*resij.gradPhi[2]>=0.0) ? false : true;
-    		        if(invertedEdge){
-    		        	deltap = - deltap;
-    		        }
-    		        double gamma= resij.gamma;
-    		        //and now we can add the jacobian of the source term to the jacobian
-    		        Aij[neq*(neq-1)]-= gamma/(gamma-1)*area*deltap/Vi[0]*VelocityNormalProduct;
-    		        Aij[neq*(neq-1)+1]+= gamma/(gamma-1)*area*deltap/Vi[0]*normalDir[0];
-    		        Aij[neq*(neq-1)+2]+= gamma/(gamma-1)*area*deltap/Vi[0]*normalDir[1];
-    		        Aij[neq*(neq-1)+3]+= gamma/(gamma-1)*area*deltap/Vi[0]*normalDir[2];
-    		  }
-    		  else{//The intersection is in the cell j
-    		        switch (Nriemann) {
-    		          case 0: //structure normal
-    		            normalDir = (dx[0]*resji.gradPhi[0]+dx[1]*resji.gradPhi[1]+dx[2]*resji.gradPhi[2]>=0.0) ? resji.gradPhi : -1.0*resji.gradPhi;
-    		            break;
-    		          case 1: //fluid normal
-    		            normalDir = 1.0/(normal[l].norm())*normal[l];
-    		            break;
-    		          default:
-    		            fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
-    		            exit(-1);
-    		        }
-    		        double VelocityReconstructed[3];
-    		        double VelocityNormalProduct = 0 ;
-    		        //assumes average velocity reconstruction
-    		        for (int var=0;var<3;var++){
-    		        	VelocityReconstructed[var] = (Vi[var+1]+Vj[var+1])/2;
-    		        	VelocityNormalProduct += VelocityReconstructed[var]*(-1*normalDir[var]);
-    		        }
-    		        double deltap = resij.actuatorDiskPressureJump;
-    		        bool invertedEdge = (dx[0]*resji.gradPhi[0]+dx[1]*resji.gradPhi[1]+dx[2]*resji.gradPhi[2]>=0.0) ? true : false;
-    		        if(invertedEdge){
-    		        	deltap = -deltap;
-    		        }
-    		        double gamma = resji.gamma;
-    		        //and now we can add the jacobian of the source term to the jacobian
-    		        Aji[neq*(neq-1)]-= gamma/(gamma-1)*area*deltap/Vi[0]*VelocityNormalProduct;
-    		        Aji[neq*(neq-1)+1]+= gamma/(gamma-1)*area*deltap/Vi[0]*(-1*normalDir[0]);
-    		        Aji[neq*(neq-1)+2]+= gamma/(gamma-1)*area*deltap/Vi[0]*(-1*normalDir[1]);
-    		        Aji[neq*(neq-1)+3]+= gamma/(gamma-1)*area*deltap/Vi[0]*(-1*normalDir[2]);
-    		  }
-    	  }
-      }//End of actuator disk treatement
-
-    } else if (masterFlag[l]) {
-
-      if(iActive) {
-
+    } else { // the edge is intersected
+      if (iActive) {
+/*we need to update  dr_i/dU_i dr_i/dU_j dr_j/dU_i and dr_j/dU_j
+* f_i and f_j are flux left node i and node j
+* dr_i/dU_i += df_i/dU_i (only for master edge)
+* dr_i/dU_j += df_i/dU_j
+* dr_j/dU_j += df_j/dU_j (only for master edge)
+* dr_j/dU_i += df_j/dU_i
+* for symmetry plane and wall f_i does not depend on U_j and f_j does not depend on U_i
+* for porous wall and actuator disk f_i and f_j depends on both U_i and U_j
+*/
         LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
-
-        if (jActive && fluidId[i]==fluidId[j] && resij.porosity > 0.0){
-	  iPorous = true;
-	}
+        int structureType = resij.structureType;
 
         switch (Nriemann) {
           case 0: //structure normal
-            normalDir = (dx[0]*resij.gradPhi[0]+dx[1]*resij.gradPhi[1]+dx[2]*resij.gradPhi[2]>=0.0) ? -1.0*resij.gradPhi : resij.gradPhi;
-            //if(fluidId[i]==farfieldFluid)       normalDir =      resij.gradPhi;
-            //else                                normalDir = -1.0*resij.gradPhi;
-            break;
+            normalDir = (dx[0] * resij.gradPhi[0] + dx[1] * resij.gradPhi[1] + dx[2] * resij.gradPhi[2] >=
+                         0.0) ? -1.0 * resij.gradPhi : resij.gradPhi;
+                //if(fluidId[i]==farfieldFluid)       normalDir =      resij.gradPhi;
+                //else                                normalDir = -1.0*resij.gradPhi;
+                break;
           case 1: //fluid normal
-            normalDir = -1.0/(normal[l].norm())*normal[l];
-            break;
+            normalDir = -1.0 / (normal[l].norm()) * normal[l];
+                break;
           default:
-            fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
-            exit(-1);
+            fprintf(stderr, "ERROR: Unknown RiemannNormal code!\n");
+                exit(-1);
         }
 
-        if(std::abs(1.0-normalDir.norm())>0.1)
-          fprintf(stderr,"KW: normalDir.norm = %e. This is too bad...\n", normalDir.norm());
 
-        if(resij.structureType==BoundaryData::SYMMETRYPLANE){
-        	riemann.computeSymmetryPlaneRiemannSolution(Vi, resij.normVel, normalDir, varFcn, Wstar, j, fluidId[i]);
-        }
-        else{
-        	riemann.computeFSIRiemannSolution(Vi, resij.normVel, normalDir, varFcn, Wstar, j, fluidId[i]);
-        }
-        if (neq > 2) {
-        	//TODO : modify for the symmetry plane
-        	if(resij.structureType==BoundaryData::SYMMETRYPLANE){
-        	        	riemann.computeSymmetryRiemannJacobian(Vi, resij.normVel, normalDir, varFcn, Wstar, j, dWdW, fluidId[i]);
-        	        }
-        	else{
-          riemann.computeFSIRiemannJacobian(Vi, resij.normVel, normalDir, varFcn, Wstar, j, dWdW, fluidId[i]);
-        	}
-          for (k=0; k<neq*neq; ++k) {
-	    dW1dW1[k] = dWdW[k + (dim-neq)*int(k/neq)];
-	  }
-          
-          fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[i])->getVarFcnBase()->postMultiplyBydVdU(Vi, dW1dW1, dWdU);
-          fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[i])->getVarFcnBase()->preMultiplyBydUdV(Wstar, dWdU, dUdU);
-          //varFcn->postMultiplyBydVdU(Wstar, dWdW, dWdU,fluidId[i]);
-          //varFcn->preMultiplyBydUdV(Vi, dWdU, dUdU,fluidId[i]);
-        }
-        else {
-          for (k=0; k<neq*neq; ++k) {
-            dUdU[k] = 0.;
-          }
-        }
+        if (std::abs(1.0 - normalDir.norm()) > 0.1)
+          fprintf(stderr, "KW: normalDir.norm = %e. This is too bad...\n", normalDir.norm());
+        if (jActive && fluidId[i] == fluidId[j] && resij.porosity > 0.0)          iPorous = true;
 
-        fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Vi, Wstar, dfdUi, dfdUj, fluidId[i],false);
-        DenseMatrixOp<double, neq, neq*neq>::applyToDenseMatrix(&dfdUj,0,&dUdU, 0, &dkk,0);
-
-        if (iPorous) {
-          for (k=0; k<neq*neq; ++k) {
-            dfdUi[k] = (1.0 - resij.porosity)*dfdUi[k];
-            dkk[k] = (1.0 - resij.porosity)*dkk[k];
-          }
-        }
-        Aii = A.getElem_ii(i);
-        for (k=0; k<neq*neq; ++k) {
-          Aii[k] += dfdUi[k]+dkk[k];
-        }
-
-        if (iPorous) {
-          fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Vi, Vj, dfdUi, dfdUj, fluidId[i]);
-          for (k=0; k<neq*neq; ++k) {
-            dfdUi[k] = resij.porosity*dfdUi[k];
-            dfdUj[k] = resij.porosity*dfdUj[k];
-          }
-
-          for (k=0; k<neq*neq; ++k) {
-            Aii[k] += (dfdUi[k]);
-          }
-          Scalar *Aij = A.getElem_ij(l);
-          if (Aij) {
-            double voli = 1.0 / ctrlVol[i];
-          
-            for (k=0; k<neq*neq; ++k) {
-              Aij[k] += (dfdUj[k])*voli;
+        switch (structureType) {
+          case BoundaryData::DIRECTSTATE:
+          case BoundaryData::SYMMETRYPLANE:
+          case BoundaryData::POROUSWALL:
+          {
+            if (structureType == BoundaryData::SYMMETRYPLANE) {
+              riemann.computeSymmetryPlaneRiemannSolution(Vi, resij.normVel, normalDir, varFcn, Wstar, j,
+                                                          fluidId[i]);
+            } else {
+              riemann.computeFSIRiemannSolution(Vi, resij.normVel, normalDir, varFcn, Wstar, j,
+                                                fluidId[i]);
             }
+            if (neq > 2) {
+
+              if (structureType == BoundaryData::SYMMETRYPLANE) {
+                riemann.computeSymmetryRiemannJacobian(Vi, resij.normVel, normalDir, varFcn, Wstar, j,
+                                                       dWdW, fluidId[i]);
+              } else {
+                riemann.computeFSIRiemannJacobian(Vi, resij.normVel, normalDir, varFcn, Wstar, j, dWdW,
+                                                  fluidId[i]);
+              }
+              for (k = 0; k < neq * neq; ++k) {//for dWdW is dim by dim, discard the turbulence part, becomes a neq by neq matrix
+                dW1dW1[k] = dWdW[k + (dim - neq) * int(k / neq)];
+              }
+              fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[i])->getVarFcnBase()->postMultiplyBydVdU(Vi, dW1dW1, dWdU);
+              fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[i])->getVarFcnBase()->preMultiplyBydUdV(Wstar, dWdU, dUdU);
+              // dUU = dU/dV(Wstar) * dW1dW1 *dV/dU(Vi), which is dU^*/dU_i
+            } else {
+              for (k = 0; k < neq * neq; ++k) {
+                dUdU[k] = 0.;
+              }
+            }
+            // dfUi = df/dUi, dfdUj = df/dU^* over conservartive varilables
+            fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Vi, Wstar, dfdUi,
+                                                   dfdUj, fluidId[i], false);
+            // dkk is final riemann results dkk = df/dU^* * dU^*/dU
+            DenseMatrixOp<double, neq, neq * neq>::applyToDenseMatrix(&dfdUj, 0, &dUdU, 0, &dkk, 0);
+
+            Aii = A.getElem_ii(i);
+            Aij = A.getElem_ij(l);
+            if (masterFlag[l]) {
+              if (structureType == BoundaryData::POROUSWALL && jActive) {//porous flux (1-alpha) * FS + alpha*FF
+                for (k = 0; k < neq * neq; ++k) {
+                  Aii[k] += (1.0 - resij.porosity) * (dfdUi[k] + dkk[k]);
+                }
+              } else {//wall or symmetry plane
+                for (k = 0; k < neq * neq; ++k) {
+                  Aii[k] += (dfdUi[k] + dkk[k]);
+                }
+              }
+            }//consider the contribution of FF for porous wall
+            if (structureType == BoundaryData::POROUSWALL && jActive) {
+              fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Vi, Vj, dfdUi,
+                                                     dfdUj, fluidId[i]);
+              if (masterFlag[l]) {
+                for (k = 0; k < neq * neq; ++k) {
+                  Aii[k] += resij.porosity * dfdUi[k];
+                }
+              }
+              if (Aij) {
+                double voli = 1.0 / ctrlVol[i];
+                for (k = 0; k < neq * neq; ++k) {
+                  Aij[k] += resij.porosity * dfdUj[k] * voli;
+                }
+              }
+            }
+            break;
+          }
+          case BoundaryData::ACTUATORDISK:
+          { // FF + sourceTerm(for the close node)
+            assert(jActive);
+            Aii = A.getElem_ii(i);
+            Aij = A.getElem_ij(l);
+            fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Vi, Vj, dfdUi,
+                                                   dfdUj, fluidId[i]);
+            if (masterFlag[l]) {
+              for (k = 0; k < neq * neq; ++k) {
+                Aii[k] += dfdUi[k];
+              }
+            }
+            if (Aij) {
+              double voli = 1.0 / ctrlVol[i];
+              for (k = 0; k < neq * neq; ++k) {
+                Aij[k] += dfdUj[k] * voli;
+              }
+            }
+            if (resij.alpha >= 0.5) { // add source term to node i
+              double dSdV[neq * neq];
+              if (neq > 2) { //todo what is neq?
+                double dSdV_temp[dim * dim];
+                // df_source/dV_i =  df_source/dV_j
+                riemann.computeActuatorDiskJacobianSourceTerm(Vi, Vj, resij.actuatorDiskPressureJump, resij.gradPhi,
+                                                              normal[l], varFcn, dSdV_temp, true, fluidId[i]);
+
+                for (k = 0; k < neq * neq; ++k) {
+                  dSdV[k] = dSdV_temp[k + (dim - neq) * int(k / neq)];
+                }
+              }
+              if (masterFlag[l]) {
+                //df_source/dUi = df_source/dV_i * dV_i/dU_i
+                fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[i])->getVarFcnBase()->postMultiplyBydVdU(Vi, dSdV, dfdUi);
+                for (k = 0; k < neq * neq; ++k) {
+                  Aii[k] -= dfdUi[k]; //'-', because the source term is added to node i
+                }
+              }
+              if (Aij) {
+                fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[i])->getVarFcnBase()->postMultiplyBydVdU(Vj, dSdV, dfdUj);
+                double voli = 1.0 / ctrlVol[i];
+                for (k = 0; k < neq * neq; ++k) {
+                  Aij[k] -= dfdUj[k] * voli;
+                }
+              }
+            }
+            break;
           }
         }
       }
-
       // for node j
-      if(jActive){
+      if (jActive) {
         LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
-        if (iActive && fluidId[i]==fluidId[j] && resji.porosity > 0.0)  jPorous = true;
-
+        int structureType = resji.structureType;
         switch (Nriemann) {
           case 0: //structure normal
-            normalDir = (dx[0]*resji.gradPhi[0]+dx[1]*resji.gradPhi[1]+dx[2]*resji.gradPhi[2]>=0.0) ? resji.gradPhi : -1.0*resji.gradPhi;
-            //if(fluidId[j]==farfieldFluid)       normalDir =      resji.gradPhi;
-            //else                                normalDir = -1.0*resji.gradPhi;
-            break;
+            normalDir = (dx[0] * resji.gradPhi[0] + dx[1] * resji.gradPhi[1] + dx[2] * resji.gradPhi[2] >=
+                         0.0) ? resji.gradPhi : -1.0 * resji.gradPhi;
+                //if(fluidId[j]==farfieldFluid)       normalDir =      resji.gradPhi;
+                //else                                normalDir = -1.0*resji.gradPhi;
+                break;
           case 1: //fluid normal
-            normalDir = 1.0/(normal[l].norm())*normal[l];
-            break;
+            normalDir = 1.0 / (normal[l].norm()) * normal[l];
+                break;
           default:
-            fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
-            exit(-1);
+            fprintf(stderr, "ERROR: Unknown RiemannNormal code!\n");
+                exit(-1);
         }
-        if(std::abs(1.0-normalDir.norm())>0.1)
-          fprintf(stderr,"KW: normalDir.norm = %e. This is too bad...\n", normalDir.norm());
-  
-        if(resji.structureType ==BoundaryData::SYMMETRYPLANE ){
-        	riemann.computeSymmetryPlaneRiemannSolution(Vj, resji.normVel, normalDir, varFcn, Wstar, i, fluidId[j]);
-        }
-        else{
-        	riemann.computeFSIRiemannSolution(Vj,resji.normVel,normalDir,varFcn,Wstar,i,fluidId[j]);
-        }
-        if (neq > 2) {
-        	//TODO : modify for the symmetry plane
-        	if(resji.structureType ==BoundaryData::SYMMETRYPLANE ){
-        		riemann.computeSymmetryRiemannJacobian(Vj,resji.normVel,normalDir,varFcn,Wstar,i,dWdW,fluidId[j]);
-        	}
-        	else{
-          riemann.computeFSIRiemannJacobian(Vj,resji.normVel,normalDir,varFcn,Wstar,i,dWdW,fluidId[j]);
-        	}
-          for (k=0; k<neq*neq; ++k) {
-	    dW1dW1[k] = dWdW[k + (dim-neq)*int(k/neq)];
-	  }
-          
-          fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[j])->getVarFcnBase()->postMultiplyBydVdU(Vj, dW1dW1, dWdU);
-          fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[j])->getVarFcnBase()->preMultiplyBydUdV(Wstar, dWdU, dUdU);
-          //varFcn->postMultiplyBydVdU(Wstar, dWdW, dWdU,fluidId[j]);
-          //varFcn->preMultiplyBydUdV(Vj, dWdU, dUdU,fluidId[j]);
-        }
-        else {
-          for (k=0; k<neq*neq; ++k) {
-            dUdU[k] = 0.;
-          }
-        }
-  
-        fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Wstar,Vj, dfdUi, dfdUj, fluidId[j],false); 
-        DenseMatrixOp<double, neq, neq*neq>::applyToDenseMatrix(&dfdUi,0,&dUdU, 0, &dkk,0);
+        if (std::abs(1.0 - normalDir.norm()) > 0.1)
+          fprintf(stderr, "KW: normalDir.norm = %e. This is too bad...\n", normalDir.norm());
 
-        if (jPorous) {
-          for (k=0; k<neq*neq; ++k) {
-            dfdUj[k] = (1.0 - resji.porosity)*dfdUj[k];
-            dkk[k] = (1.0 - resji.porosity)*dkk[k];
-          }
-        }
-        Ajj = A.getElem_ii(j);
-        for (k=0; k<neq*neq; ++k) {
-          Ajj[k] -= dfdUj[k]+dkk[k];
-        }
-        if (jPorous) {
-          fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Vi, Vj, dfdUi, dfdUj, fluidId[j]);
-          for (k=0; k<neq*neq; ++k) {
-            dfdUi[k] = resji.porosity*dfdUi[k];
-            dfdUj[k] = resji.porosity*dfdUj[k];
-          }
 
-          for (k=0; k<neq*neq; ++k) {
-            Ajj[k] -= (dfdUj[k]);
-          }
-          Scalar *Aji = A.getElem_ji(l);
-          if (Aji) {
-            double volj = 1.0 / ctrlVol[j];
-          
-            for (k=0; k<neq*neq; ++k) {
-              Aji[k] -= (dfdUi[k])*volj;
+        if (iActive && fluidId[i] == fluidId[j] && resji.porosity > 0.0) jPorous = true;
+        switch (structureType) {
+          case BoundaryData::DIRECTSTATE:
+          case BoundaryData::SYMMETRYPLANE:
+          case BoundaryData::POROUSWALL:
+          {
+            if (resji.structureType == BoundaryData::SYMMETRYPLANE) {
+              riemann.computeSymmetryPlaneRiemannSolution(Vj, resji.normVel, normalDir, varFcn, Wstar, i,
+                                                          fluidId[j]);
+            } else {
+              riemann.computeFSIRiemannSolution(Vj, resji.normVel, normalDir, varFcn, Wstar, i,
+                                                fluidId[j]);
             }
+            if (neq > 2) {
+              if (resji.structureType == BoundaryData::SYMMETRYPLANE) {
+                riemann.computeSymmetryRiemannJacobian(Vj, resji.normVel, normalDir, varFcn, Wstar, i,
+                                                       dWdW, fluidId[j]);
+              } else {
+                riemann.computeFSIRiemannJacobian(Vj, resji.normVel, normalDir, varFcn, Wstar, i, dWdW,
+                                                  fluidId[j]);
+              }
+              for (k = 0; k < neq * neq; ++k) {
+                dW1dW1[k] = dWdW[k + (dim - neq) * int(k / neq)];
+              }
+              //dUU = dUdV(Wstar) * dW1dW1* dVdU(Vj) over conservative variables
+              fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[j])->getVarFcnBase()->postMultiplyBydVdU(Vj, dW1dW1, dWdU);
+              fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[j])->getVarFcnBase()->preMultiplyBydUdV(Wstar, dWdU, dUdU);
+            } else {
+              for (k = 0; k < neq * neq; ++k) {
+                dUdU[k] = 0.;
+              }
+            }
+            //dfdUi = df/dWstar dfdUj = df/dVj
+            fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Wstar, Vj, dfdUi,
+                                                   dfdUj, fluidId[j], false);
+            //dkk = df/dWstar *dUdU
+            DenseMatrixOp<double, neq, neq * neq>::applyToDenseMatrix(&dfdUi, 0, &dUdU, 0, &dkk, 0);
+            Ajj = A.getElem_ii(j);
+            Aji = A.getElem_ji(l);
+            if (masterFlag[l]) {
+              if (structureType == BoundaryData::POROUSWALL && iActive) {
+                for (k = 0; k < neq * neq; ++k) {
+                  Ajj[k] -= (1.0 - resji.porosity) * (dfdUj[k] + dkk[k]);
+                }
+              } else {
+                for (k = 0; k < neq * neq; ++k) {
+                  Ajj[k] -= dfdUj[k] + dkk[k];
+                }
+              }
+            }//consider the contribution of FF for porous wall
+            if (structureType == BoundaryData::POROUSWALL && iActive) {
+              fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Vi, Vj, dfdUi,
+                                                     dfdUj, fluidId[j]);
+              if (masterFlag[l]) {
+                for (k = 0; k < neq * neq; ++k) {
+                  Ajj[k] -= resji.porosity * (dfdUj[k]);
+                }
+              }
+              if (Aji) {
+                double volj = 1.0 / ctrlVol[j];
+
+                for (k = 0; k < neq * neq; ++k) {
+                  Aji[k] -= resji.porosity * (dfdUi[k]) * volj;
+                }
+              }
+            }
+            break;
+          }
+          case BoundaryData::ACTUATORDISK: {
+            assert(iActive);
+            Ajj = A.getElem_ii(j);
+            Aji = A.getElem_ji(l);
+            fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Vi, Vj, dfdUi,
+                                                   dfdUj, fluidId[j]);
+
+            if (masterFlag[l]) {
+              for (k = 0; k < neq * neq; ++k) {
+                Ajj[k] -= (dfdUj[k]);
+              }
+            }
+            if (Aji) {
+              double volj = 1.0 / ctrlVol[j];
+
+              for (k = 0; k < neq * neq; ++k) {
+                Aji[k] -= (dfdUi[k]) * volj;
+              }
+            }
+            if (resji.alpha > 0.5) { // add source term to node j
+              double dSdV[neq * neq];
+              if (neq == 5) {
+                double dSdV_temp[dim * dim];
+                riemann.computeActuatorDiskJacobianSourceTerm(Vi, Vj, resji.actuatorDiskPressureJump,
+                                                              resji.gradPhi,
+                                                              normal[l], varFcn, dSdV_temp, true,
+                                                              fluidId[j]);
+
+                for (k = 0; k < neq * neq; ++k) {
+                  dSdV[k] = dSdV_temp[k + (dim - neq) * int(k / neq)];
+                }
+              }
+              if (masterFlag[l]) {
+                fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[j])->getVarFcnBase()->postMultiplyBydVdU(Vj, dSdV, dfdUj);
+                for (k = 0; k < neq * neq; ++k) {
+                  Ajj[k] -= dfdUj[k];
+                }
+              }
+              if (Aji) {
+                fluxFcn[BC_INTERNAL]->getFluxFcnBase(fluidId[j])->getVarFcnBase()->postMultiplyBydVdU(Vi, dSdV, dfdUi);
+                double volj = 1.0 / ctrlVol[j];
+                for (k = 0; k < neq * neq; ++k) {
+                  Aji[k] -= dfdUi[k] * volj;
+                }
+              }
+            }
+            break;
           }
         }
       }
     }
   }
 }
+
+
+
 
 //------------------------------------------------------------------------------
 // d2d newfv jac

@@ -206,7 +206,8 @@ public:
                         DistLevelSetStructure *distLSS, double *vfar, bool limit,
 			DistVec<int> *fluidId);
 
-  void populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints,DistSVec<double,3> &X,DistSVec<double,dim> &U,VarFcn *varFcn,DistLevelSetStructure *distLSS,bool linFSI,DistVec<int> &tag);
+  void populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints,DistSVec<double,3> &X,DistSVec<double,dim> &U,VarFcn *varFcn,
+						   DistLevelSetStructure *distLSS,bool linFSI,DistVec<int> &tag);
   
   template <int neq>
   void populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints,DistSVec<double,neq> &U,VarFcn *varFcn,DistLevelSetStructure *distLSS,DistVec<int> &tag) {
