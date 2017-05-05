@@ -796,6 +796,7 @@ void DistIntersectorPhysBAM::setActuatorDisk() {
     }
   }
 }
+
 //----------------------------------------------------------------------------
 void DistIntersectorPhysBAM::checkInputFileCorecnessEmbeddedContraint(){
 

@@ -375,6 +375,15 @@ void ExactRiemannSolver<dim>::computeActuatorDiskSourceTerm(double *Vi, double *
 
 }
 
+template<int dim>
+void ExactRiemannSolver<dim>::computeActuatorDiskJacobianSourceTerm(double *Vi, double *Vj,double dp,double *n_s,
+                                                            double *n_f, VarFcn *vf,
+                                                            double *dSdV,bool method, int Id)
+
+{    actuatorDiskRiemann->computeJacobianSourceTerm(Vi, Vj,dp, n_s, n_f, vf, dSdV,method, Id);
+
+}
+
 //------------------------------------------------------------------------------
 template<int dim>
 int ExactRiemannSolver<dim>::computeSymmetryPlaneRiemannSolution(double *Vi, double *Vstar,
