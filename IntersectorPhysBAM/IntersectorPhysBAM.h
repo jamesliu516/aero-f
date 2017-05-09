@@ -126,7 +126,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
 
 	 bool externalSI;
 
-	 bool isoThermalwall;	 
+	 bool isoThermalwall;
 	 double Twall;
 
 	 bool withViscousTerms;
@@ -139,7 +139,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     double *triSize;
     Vec3D *triNorms;
     Vec3D *nodalNormal; //memory allocated only if interpolatedNormal == true
-  
+
     DistSVec<double,3> *X; //pointer to fluid node coords
     DistSVec<double,3> *Xn; //pointer to fluid node coords at previous time
 
@@ -173,7 +173,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     void updatebc();
 
     void setdXdSb(int, double*, double*, double*); //
-    void updateXb(double); //  
+    void updateXb(double); //
 
     EdgePair makeEdgePair(int,int,int);
     bool checkTriangulatedSurface();
@@ -182,7 +182,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     void initialize(Domain *, DistSVec<double,3> &X, DistSVec<double,3> &Xn, IoData &iod, DistVec<int>* point_based_id = 0,
                     DistVec<int>* oldStatus = 0);
     void updateStructure(double *xs, double *Vs, int nNodes, int (*abc)[3]=0);
-   
+
     void updateCracking(int (*abc)[3]);
     void expandScope();
     void updatePhysBAMInterface(Vec3D *particles, int size,const DistSVec<double,3>& fluid_nodes,const bool fill_scope,const bool retry);
@@ -209,9 +209,9 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     int getSurfaceID(int k) {
       if (!surfaceID)
         return 0;
- 
+
       if (k >=0 && k < numStNodes) {
-	return surfaceID[k]; 
+	return surfaceID[k];
       }
       else {
         fprintf(stderr,"Error:: SurfaceID requested for invalid point.\n");
@@ -253,12 +253,12 @@ class IntersectorPhysBAM : public LevelSetStructure {
 
     //added by arthur Morlot : THings used for the embedded symmetry plane (not the embedded constraint)
     int EmbeddedConstraintNormal;
- 
+
     std::map<int,IntersectionResult<double> > CrossingEdgeRes;
     std::map<int,IntersectionResult<double> > ReverseCrossingEdgeRes;
 
     virtual CrackingSurface* getCrackingSurface() {
-      return distIntersector.cracking; 
+      return distIntersector.cracking;
     }
 
     SubDomain &subD;
@@ -296,7 +296,7 @@ class IntersectorPhysBAM : public LevelSetStructure {
     void reset(const bool findStatus,const bool retry); //<! set status0=status and reset status and nFirstLayer.
     /** find intersections for each edge that has nodes with different statuses */
     double isPointOnSurface(Vec3D pt, int N1, int N2, int N3);
-    /** check the distance of apoint to a surface defined by a triangle. (used for debug only) */ 
+    /** check the distance of apoint to a surface defined by a triangle. (used for debug only) */
     void printFirstLayer(SubDomain& sub, SVec<double,3>& X, int TYPE = 1);
 
     LevelSetResult getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j, double *Xr=0, double *Xg=0);
@@ -311,8 +311,8 @@ class IntersectorPhysBAM : public LevelSetStructure {
 	 bool vWallNode(int i, Vec3D &vWall);
 
 	 bool getTwall(double &Tw)
-	 { 
-		 Tw = distIntersector.Twall; 
+	 {
+		 Tw = distIntersector.Twall;
 		 return distIntersector.isoThermalwall;
 	 }
 
@@ -325,11 +325,11 @@ class IntersectorPhysBAM : public LevelSetStructure {
 
 	 double piercing(Vec3D x0, int tria, double xi[3]);
 
-    void derivativeOFnormal(Vec3D  xA, Vec3D  xB, Vec3D  xC, 
-			    Vec3D dxA, Vec3D dxB, Vec3D dxC, 
+    void derivativeOFnormal(Vec3D  xA, Vec3D  xB, Vec3D  xC,
+			    Vec3D dxA, Vec3D dxB, Vec3D dxC,
 			    Vec3D &dnds);
 
-    double derivativeOFalpha(Vec3D  xA, Vec3D  xB, Vec3D  xC, 
+    double derivativeOFalpha(Vec3D  xA, Vec3D  xB, Vec3D  xC,
 	  		     Vec3D dxA, Vec3D dxB, Vec3D dxC,
 			     Vec3D X1, Vec3D X2);
 

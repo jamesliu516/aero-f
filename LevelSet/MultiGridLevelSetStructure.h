@@ -1,6 +1,6 @@
 #ifndef _MULTIGRID_LEVEL_SET_STRUCTURE_H_
 #define _MULTIGRID_LEVEL_SET_STRUCTURE_H_
- 
+
 #include "LevelSetStructure.h"
 
 template <typename Scalar> class MultiGridLevel;
@@ -139,7 +139,7 @@ class DistMultiGridLevelSetStructure : public DistLevelSetStructure {
     virtual DistVec<ClosestPoint> *getClosestPointsPointer() { return dummycp; }
 
     void setdXdSb(int, double*, double*, double*){}
-    void updateXb(double) {} //  
+    void updateXb(double) {} //
     void testAlpha(Vec3D, Vec3D, int, int, int, double*, double){}
 };
 

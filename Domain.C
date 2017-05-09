@@ -5435,13 +5435,18 @@ void Domain::pseudoFastMarchingMethod(DistVec<int> &Tag, DistSVec<double,3> &X,
   levelPat->exchange();
   volPat->exchange();
 
-  // sjg, 05/2017: need to exchange nPreditors info between processes???? ***************************************
-
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
     subDomain[iSub]->maxRcvDataAndCountUpdates(*levelPat, reinterpret_cast<int (*)[1]>(Tag.subData(iSub)),nSortedNodes[iSub],sortedNodes(iSub));
     subDomain[iSub]->minRcvData(*volPat, reinterpret_cast<double (*)[dimLS]>(d2wall.subData(iSub)));
   }
+
+  // int nsorted = 0;
+  // if (level==0) {
+  //   for (iSub = 0; iSub < numLocSub; ++iSub)
+  //     nsorted += nSortedNodes[iSub];
+  //   fprintf(stderr,"Inactive nodes = %d\n",nsorted);
+  // }
 }
 
 //------------------------------------------------------------------------------
