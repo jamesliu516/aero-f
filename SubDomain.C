@@ -8953,30 +8953,27 @@ void SubDomain::avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS
 
 //------------------------------------------------------------------------------
 template<int dimLS>
-void SubDomain::TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Phi, int level,LevelSetStructure *LSS)
+void SubDomain::TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Phi, int level, LevelSetStructure *LSS)
 {
-  if(!NodeToNode)
+  if (!NodeToNode)
      NodeToNode = createEdgeBasedConnectivity();
 
-  if(level==1){
+  if (level==1) {
   // tag nodes that are closest to interface by looking at phi[i]*phi[j]
-    Tag = 0;
+    Tag = -1;
     edges.TagInterfaceNodes(lsdim,Tag,Phi,LSS);
-
-  }else{
+  }
+  else {
   // tag nodes that are neighbours of already tagged nodes.
     int nNeighs,nei,k,lowerLevel=level-1;
     for(int i=0; i<nodes.size(); i++){
-
       if(Tag[i]==lowerLevel){
-
         nNeighs = NodeToNode->num(i);
         for(k=0;k<nNeighs;k++){
           nei = (*NodeToNode)[i][k];
           if(nei==i) continue;
-          if(Tag[nei]==0) Tag[nei] = level;
+          if(Tag[nei]==-1) Tag[nei] = level;
         }
-
       }
     }
   }
@@ -9038,6 +9035,7 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
     firstCheckedNode = nSortedNodes;
     edges.pseudoFastMarchingMethodInitialization(X,Tag,d2wall,sortedNodes,nSortedNodes,LSS);
     nPredictors = nSortedNodes-firstCheckedNode;
+    // fprintf(stderr,"nPredictors = %d\n",nPredictors);
   }
   else {
   // Tag nodes that are neighbours of already Tagged nodes and compute their distance
@@ -9087,7 +9085,8 @@ void SubDomain::TagInterfaceNodes(int lsdim, SVec<bool,2> &Tag, SVec<double,dimL
         Tag[i][0] = Tag[j][0] = true;
       else
         Tag[i][1] = Tag[j][1] = true;
-    } else {
+    }
+    else {
       if(LSS->edgeIntersectsStructure(0.0,l)) {
         Tag[i][0] = Tag[j][0] = true;
 //        fprintf(stderr,"BUG: Sub %d: (%d,%d) intersects but phi[i]=%e, phi[j]=%e.\n", globSubNum,

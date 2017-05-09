@@ -17,7 +17,7 @@ class ReinitializeDistanceToWall
 {
   IoData &iod;
   Domain &dom;
-  DistVec<bool> done;
+  // DistVec<bool> done;           // could delete?
   DistSVec<double, 1> d2wall;
   DistVec<int> sortedNodes;
   int *nSortedNodes, *firstCheckedNode;
@@ -38,20 +38,20 @@ public:
 
   void ComputeWallFunction(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState, double t);
 
-  // sjg, 04/2017
+  // sjg, 04/2017: wall distance predictor
   int UpdatePredictorsCheckTol(double t);
   void ReinitializePredictors(int update, double t, DistLevelSetStructure *LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState);
 
-  void DistanceToClosestPointOnMovingStructure(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState);
+  void DistanceToClosestPointOnMovingStructure(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState, int *nPredLoc, double t);
   void PrescribedValues(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState);
   void GetLevelsFromInterfaceAndMarchForward(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState);
-  void PseudoFastMarchingMethod(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState, int iterativeLevel);
+  void PseudoFastMarchingMethod(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState, int iterativeLevel, int *nPredLoc);
   void ComputeExactErrors(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState);
   void ComputePercentChange(DistLevelSetStructure &LSS, DistGeoState &distGeoState);
   void PrintIntersectedValues(DistLevelSetStructure *LSS, DistSVec<double, 3> &X);
 
-private:
-  void InitializeWallFunction(SubDomain &subD, LevelSetStructure &LSS, Vec<bool> &done, SVec<double, 3> &X, SVec<double, 1> &d2w, Vec<int> &tag);
-};
+// private:
+  // void InitializeWallFunction(SubDomain &subD, LevelSetStructure &LSS, SVec<double, 3> &X, SVec<double, 1> &d2w, Vec<int> &tag);
+}; //Vec<bool> &done,
 
 #endif

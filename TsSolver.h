@@ -210,6 +210,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
   double dt, dts;
   int it = probDesc->getInitialIteration();
   double t = probDesc->getInitialTime();
+  double t0 = t;
 
   // setup solution output files
   probDesc->setupOutputToDisk(ioData, &lastIt, it, t, U);
@@ -218,7 +219,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
   dts = probDesc->computePositionVector(&lastIt, it, t, U); // [F] receive displacement from structure ...
 
   // For an embedded viscous simulation with turbulence model, compute the distance to the wall
-  probDesc->computeDistanceToWall(ioData,t);
+  probDesc->computeDistanceToWall(ioData,t-t0);
 
   if (lastIt)
     probDesc->outputPositionVectorToDisk(U);
@@ -346,7 +347,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
       if (ioData.problem.alltype == ProblemData::_UNSTEADY_AEROELASTIC_ ||
           ioData.problem.alltype == ProblemData::_ACC_UNSTEADY_AEROELASTIC_ ||
           ioData.problem.alltype == ProblemData::_FORCED_) {
-        if (!lastIt) probDesc->computeDistanceToWall(ioData,t);
+        if (!lastIt) probDesc->computeDistanceToWall(ioData,t-t0);
       }
 
     probDesc->outputToDisk(ioData, &lastIt, it, itSc, itNl, t, dt, U);
