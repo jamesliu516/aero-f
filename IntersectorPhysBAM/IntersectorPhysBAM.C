@@ -597,7 +597,7 @@ void DistIntersectorPhysBAM::setPorosity() {
         			setToPorous=true;
         		}
         	}
-          if((it2->second->type == BoundaryData::POROUSWALL)||(setToPorous)) {
+          if((structureType[i]== BoundaryData::POROUSWALL)||(setToPorous)) {
             porosity[i] = it2->second->porosity;
           }
         }
@@ -750,7 +750,7 @@ void DistIntersectorPhysBAM::setActuatorDisk() {
         			setToActuator=true;
         		}
         	}
-          if((it2->second->type == BoundaryData::ACTUATORDISK)||(setToActuator)) {
+          if((structureType[i]== BoundaryData::ACTUATORDISK)||(setToActuator)) {
         	  actuatorDiskPressureJump[i] = it2->second->pressureJump;
         	  if (iod.problem.mode == ProblemData::DIMENSIONAL)
         		  actuatorDiskPressureJump[i]/= iod.ref.rv.pressure;
@@ -796,7 +796,6 @@ void DistIntersectorPhysBAM::setActuatorDisk() {
     }
   }
 }
-
 //----------------------------------------------------------------------------
 void DistIntersectorPhysBAM::checkInputFileCorecnessEmbeddedContraint(){
 

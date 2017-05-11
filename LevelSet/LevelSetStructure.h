@@ -32,7 +32,6 @@ struct LevelSetResult {
   int actuatorDiskReconstructionMethod;
   double massInflow;
 
-
   Vec3D dnds;
   double dads;
 
