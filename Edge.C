@@ -1761,8 +1761,6 @@ void EdgeSet::computeDerivativeOfFiniteVolumeTerm(FluxFcn** fluxFcn, RecFcn* rec
     int i = ptr[l][0];
     int j = ptr[l][1];
 
-    //TODO : upgrade for embedded BC
-
     bool intersect = LSS.edgeIntersectsStructure(0,l);
 
     bool iActive = LSS.isActive(0.0,i);
@@ -2540,7 +2538,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     int i = ptr[l][0];
     int j = ptr[l][1];
 
-    //TODO : upgrade for multiple embedded BC
     bool intersect = LSS.edgeIntersectsStructure(0,l);
 
     bool iActive, jActive;
@@ -3241,7 +3238,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       }
     }
 
-    if (iActive && jActive && !LSS.edgeIntersectsStructure(0.0,l)){
+    if (iActive && jActive && !intersect){
       //Vi and Vj are reconstructed states
       recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
     } else {
@@ -4325,7 +4322,6 @@ void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFc
     if (!masterFlag[l]) continue;
     int i = ptr[l][0];
     int j = ptr[l][1];
-    //TODO : upgrade to support diffferent embedded BC
     bool intersect = LSS ? LSS->edgeIntersectsStructure(0.0,l) : false;
     int iCovered, jCovered;
     if(LSS && !LSS->withCracking()) {
@@ -5336,7 +5332,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
         if (jActive && fluidId[i] == fluidId[j] && resij.porosity > 0.0)          iPorous = true;
 
         switch (structureType) {
-          case BoundaryData::DIRECTSTATE:
+          case BoundaryData::WALL:
           case BoundaryData::SYMMETRYPLANE:
           case BoundaryData::POROUSWALL:
           {
@@ -5476,7 +5472,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 
         if (iActive && fluidId[i] == fluidId[j] && resji.porosity > 0.0) jPorous = true;
         switch (structureType) {
-          case BoundaryData::DIRECTSTATE:
+          case BoundaryData::WALL:
           case BoundaryData::SYMMETRYPLANE:
           case BoundaryData::POROUSWALL:
           {
@@ -5637,8 +5633,6 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 		int i = ptr[l][0];
 		int j = ptr[l][1];
 		
-		//TODO : upgrade to support multiple BC
-
 		bool withSI  = LSS.edgeWithSI(l);
 		bool iActive = LSS.isActive(0.0, i);
 		bool jActive = LSS.isActive(0.0, j);
@@ -6112,8 +6106,6 @@ void EdgeSet::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS
   double uroe,uroed[2];
   Scalar df[2];
 
-  //TODO : upgrade to support multiple types of embedded surface
-
   for (int l=0; l<numEdges; ++l) {
     int i = ptr[l][0];
     int j = ptr[l][1];
@@ -6201,7 +6193,7 @@ void EdgeSet::TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Ph
   for(int l=0; l<numEdges; l++){
     int i = ptr[l][0];
     int j = ptr[l][1];
-    if(LSS) intersect = LSS->edgeIntersectsWall(0,l);//We should not be computing the distance to the actuator disk
+    if(LSS) intersect = LSS->edgeIntersectsWall(0,l);
     if(Phi[i][lsdim]*Phi[j][lsdim]<=0.0 || intersect){
       Tag[i] = tag;
       Tag[j] = tag;
