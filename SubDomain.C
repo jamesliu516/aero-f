@@ -9596,7 +9596,7 @@ void SubDomain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orde
 }
 
 //-----------------------------------------------------------------------------------------------
-//d2d SkinFriction PressureCoefficient
+//d2d SkinFriction PressureCoefficient original FIVER
 template<int dim,int dimLS>
 void SubDomain::computeEMBNodeScalarQuantity(SVec<double,3> &X, SVec<double,dim> &V,
                                              PostFcn *postFcn, VarFcn *varFcn,
@@ -9685,12 +9685,12 @@ void SubDomain::computeEMBNodeScalarQuantity(SVec<double,3> &X, SVec<double,dim>
         int norm[4] = { 0, 0, 0, 0 };
         for (int e=0; e<6; ++e) { //loop all edges
             int l = E->edgeNum(e);
-	if (LSS.edgeIntersectsWall(0,l)) {
+            if (LSS.edgeIntersectsStructure(0,l)) {
                 int i = E->edgeEnd(e,0);//fluid node i and node j
                 int j = E->edgeEnd(e,1);
-                LevelSetResult lsResij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, (T[i]<T[j]));//intersector small -> large
-                norm[i] = (lsResij.gradPhi*(Xstruct[lsResij.trNodes[0]]-Xf[i]) <= 0) ? -1 : 1; // +1 if
-                LevelSetResult lsResji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, (T[i]>=T[j]));
+                LevelSetResult lsResij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, (T[i]<T[j]));  //intersector small -> large
+                norm[i] = (lsResij.gradPhi*(Xstruct[lsResij.trNodes[0]]-Xf[i]) <= 0) ? -1 : 1;  //  1: fluid node is in -norm direction
+                LevelSetResult lsResji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, (T[i]>=T[j])); // -1: fluid node is in  norm direction
                 norm[j] = (lsResji.gradPhi*(Xstruct[lsResji.trNodes[0]]-Xf[j]) <= 0) ? -1 : 1;
             }
         }
@@ -9701,16 +9701,16 @@ void SubDomain::computeEMBNodeScalarQuantity(SVec<double,3> &X, SVec<double,dim>
         Vec3D nf[2] = {-normal,normal};
         for (int i=0; i<4; i++) {
             double dist = dbary[i].norm();
-            if (norm[i] < 0) {
+            if (norm[i] < 0) { //node Xf[i] is in norm direction
 
                 if( (LSS.isActive(0,T[i]) || (cs && !LSS.isOccluded(0,T[i]))) && dist < mindist[0] && normal*(Xp-Xf[i]) <= 0. ) {
                     mindist[0] = dist;
-                    node[0] = T[i];
+                    node[0] = T[i]; //0: closest node info in norm direction
                 }
-            } else if(norm[i] > 0) {
+            } else if(norm[i] > 0) { //node Xf[i] is in -norm direction
                 if( (LSS.isActive(0,T[i])|| (cs && !LSS.isOccluded(0,T[i]))) && dist < mindist[1] && normal*(Xp-Xf[i]) > 0. ) {
                     mindist[1] = dist;
-                    node[1] = T[i];
+                    node[1] = T[i];  //1: closest node info in -norm direction
                 }
             }
         }
@@ -9745,14 +9745,20 @@ void SubDomain::computeEMBNodeScalarQuantity(SVec<double,3> &X, SVec<double,dim>
             for(int i=0; i<4; ++i) {
                 gp = (*ghostPoints)[T[i]];
                 if (gp) {
-                    if (norm[i] <= 0.) vtet[1][i] = gp->getPrimitiveState(); // norm[i] <= 0 populate ghost nodes to vtet[1]
-                    else               vtet[0][i] = gp->getPrimitiveState();
+                    if (norm[i] <= 0.) vtet[1][i] = gp->getPrimitiveState(); // norm direction populate ghost nodes to vtet[1](for -norm triangle)
+                    else               vtet[0][i] = gp->getPrimitiveState(); //-norm direction populate ghost nodes to vtet[0](for norm triangle)
                 }
             }
         }
 
         double Cplocal = 0.0, Cflocal = 0.0;
         for (int n = 0; n < 2; ++n) {
+            //todo assume, only one side works!, it cannot handle thin shell
+            //0: in  normal direction
+            //1: in -normal direction
+            if(node[0] >=0 and node[1] >=0)
+                fprintf(stderr, "*** Error: In Skin Friction computation, "
+                        "only one side works!, it cannot handle thin shell could not open\n");
 
             int i = node[n];
             if (i < 0) continue;
@@ -9767,7 +9773,7 @@ void SubDomain::computeEMBNodeScalarQuantity(SVec<double,3> &X, SVec<double,dim>
                           gradZ[i][k]*vectorIJ[2];
             }
 
-            double S = sqrt(nf[n]*nf[n]);
+            double S = sqrt(nf[n]*nf[n]); //normal, triangle area
 
             int fid(0);
             fid = fluidId[i]?fluidId[i]:0;
@@ -9776,9 +9782,12 @@ void SubDomain::computeEMBNodeScalarQuantity(SVec<double,3> &X, SVec<double,dim>
 
             // Viscous Simulation
             if(ghostPoints) {
-                Vec3D t(1.0, 0.0, 0.0);
+
                 Vec3D F = postFcn->computeViscousForce(dp1dxj, nf[n], d2w, Vwall, Vface, vtet[n]);
-                //nf[n] is the norm and vtet is the primitive variables , compute F = -tau * n
+                //nf[n] is the norm and vtet is the primitive variables , compute F = -tau * (-unit_normal*S)
+                Vec3D unit_nf = nf[n]/nf[n].norm();
+                Vec3D t = F - (F*unit_nf) * unit_nf;
+                if (t.norm() > 1e-12) t = t/t.norm();//get the unit tangential direction
                 Cflocal += 2.0 * t * F / S;
             }
 
