@@ -1784,7 +1784,7 @@ void TsOutput<dim>::openAsciiFiles()
         fprintf(stderr, "*** Error: could not open \'%s\'\n", embeddedsurfaceCp);
         exit(1);
       }
-      fprintf(fpEmbeddedSurfaceCp, "Scalar %s under load for FluidNodes\n", embeddedsurfaceCp);
+      fprintf(fpEmbeddedSurfaceCp, "Scalar PressureCoefficient under load for FluidNodes\n");
     }
     fflush(fpEmbeddedSurfaceCp);
     
@@ -1800,7 +1800,7 @@ void TsOutput<dim>::openAsciiFiles()
         fprintf(stderr, "*** Error: could not open \'%s\'\n", embeddedsurfaceCf);
         exit(1);
       }
-      fprintf(fpEmbeddedSurfaceCf, "Scalar %s under load for FluidNodes\n", embeddedsurfaceCf);
+      fprintf(fpEmbeddedSurfaceCf, "Scalar SkinFriction under load for FluidNodes\n");
     }
     fflush(fpEmbeddedSurfaceCf);
     
