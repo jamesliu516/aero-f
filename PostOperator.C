@@ -1433,7 +1433,7 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
 	  {		  
     if(ghostPoints) gp = ghostPoints->operator[](iSub);
 
-      subDomain[iSub]->computeEMBNodeScalarQuantity(X(iSub), (*V)(iSub), postFcn, varFcn, 
+      subDomain[iSub]->computeEMBNodeScalarQuantity(*(spaceOp->iod), X(iSub), (*V)(iSub), postFcn, varFcn,
 																		fluidId(iSub), Phi ? &((*Phi)(iSub)):(SVec<double,1>*)0,
      						   subEmbQ[iSub], numStructNodes, numStructElems, stElem, Xstruct, 
 						   (*distLSS)(iSub), 1.0, gp, (*ngrad)(iSub) );
