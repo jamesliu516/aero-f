@@ -5357,6 +5357,12 @@ void SubDomain::maxRcvDataAndCountUpdates(CommPattern<Scalar> &sp, Scalar (*w)[d
       sharedNodeID = (*sharedNodes)[iSub][iNode];
       for (int j = 0; j < dim; ++j) {
         if (buffer[iNode][j] > w[sharedNodeID][j]) {
+
+          //sjg 05/2017: trying to debug
+          if (w[sharedNodeID][j] > 0)
+            fprintf(stderr,"PROBLEM (SubDomain::maxRcvDataAndCountUpdates): prev tag = %e, new tag = %e",
+              w[sharedNodeID][j],buffer[iNode][j]);
+
           w[sharedNodeID][j]        = buffer[iNode][j];
           sortedNodes[nSortedNodes] = sharedNodeID;
           nSortedNodes++;
@@ -8992,28 +8998,59 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
   if(!NodeToElem)
      NodeToElem = createNodeToElementConnectivity();
   if(level > 0 && level == iterativeLevel) {
+    // account for all fixed nodes, with correct ordering in sortedNodes
     nSortedNodes     = 0;
-    firstCheckedNode = 0;
+    // firstCheckedNode = 0;
+
+    // NO - NOT CORRECT
+    // int nSortedNodesMin = 0;
+    // for(int i=0;i<Tag.size();++i) {
+    //   if(Tag[i] <= iterativeLevel-1) {
+    //     sortedNodes[nSortedNodes] = i;
+    //     nSortedNodes++;
+    //     nSortedNodesMin++;
+    //   }
+    //   else if(Tag[i] == iterativeLevel) {
+    //     sortedNodes[nSortedNodes] = i;
+    //     nSortedNodes++;
+    //   }
+    //   else { // (Tag[i] > iterativeLevel)
+	  //     Tag[i] = -1;
+    //   }
+    // }
+    // firstCheckedNode = nSortedNodesMin;
+
+    // ORIGINAL
+    // for(int i=0;i<Tag.size();++i) {
+    //   if(Tag[i] < iterativeLevel-1) {
+    //     sortedNodes[nSortedNodes] = i;
+    //     nSortedNodes++;
+    //   }
+    // }
+    // for(int i=0;i<Tag.size();++i) {
+    //   if(Tag[i] == iterativeLevel-1) {
+    //     sortedNodes[nSortedNodes] = i;
+    //     nSortedNodes++;
+    //   }
+    //   // firstCheckedNode = nSortedNodes;
+    // }
+
     for(int i=0;i<Tag.size();++i) {
-      if(Tag[i] < iterativeLevel-1) {
-	sortedNodes[nSortedNodes] = i;
-	nSortedNodes++;
+      // if(Tag[i] <= iterativeLevel-1) {
+      if(Tag[i] <= iterativeLevel-1 && Tag[i] >= 0) {     // POTENTIAL BUG FOR NEW ITERATIVE METHOD!!
+        // sortedNodes[nSortedNodes] = i;
+        nSortedNodes++;
       }
     }
-    for(int i=0;i<Tag.size();++i) {
-      if(Tag[i] == iterativeLevel-1) {
-	sortedNodes[nSortedNodes] = i;
-	nSortedNodes++;
-      }
-      firstCheckedNode = nSortedNodes;
-    }
+    firstCheckedNode = nSortedNodes;
     for(int i=0;i<Tag.size();++i) {
       if(Tag[i] == iterativeLevel) {
-	sortedNodes[nSortedNodes] = i;
-	nSortedNodes++;
+        sortedNodes[nSortedNodes] = i;
+        nSortedNodes++;
       }
-      if(Tag[i] > iterativeLevel) {
-	Tag[i] = -1;
+      // if(Tag[i] > iterativeLevel) {
+      else if(Tag[i] > iterativeLevel) {
+	      Tag[i] = -1;
       }
     }
   }
@@ -9023,10 +9060,10 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
     for(int i=0;i<Tag.size();++i) {
       if(!LSS->isActive(0.0,i))
       {
-	d2wall[i][0] = 0.0;
-	Tag[i]       = 0;
-	sortedNodes[nSortedNodes] = i;
-	nSortedNodes++;
+        d2wall[i][0] = 0.0;
+        Tag[i]       = 0;
+        sortedNodes[nSortedNodes] = i;
+        nSortedNodes++;
       }
     }
   }
@@ -9040,8 +9077,8 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
   else {
   // Tag nodes that are neighbours of already Tagged nodes and compute their distance
     int nNeighs,nTets,nei,tet,lowerLevel=level-1;
-    int inter = nSortedNodes,fixedNode;
-    for(int i=firstCheckedNode;i<inter; i++){
+    int inter = nSortedNodes, fixedNode;
+    for(int i=firstCheckedNode;i<inter; i++) {
       fixedNode = sortedNodes[i];
 //      if(Tag[fixedNode] == 0) continue; //structure nodes
       // Should be useless. Remove the following assert.Adam 2011.09
@@ -9053,6 +9090,11 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
 	 // Not necessary because of following test.
        // if(nei==i) continue;
         if(Tag[nei]<0) {
+
+// debugging iterative method!!!
+if (level==233) fprintf(stderr,"A neighbor is tagged as level 233!\n");
+
+
           Tag[nei] = level;
           sortedNodes[nSortedNodes] = nei;
           nTets = NodeToElem->num(nei);
@@ -9237,7 +9279,6 @@ template<int dimLS>
 double SubDomain::computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
                                        SVec<double,3> &X, SVec<double,1> &Psi,SVec<double,dimLS> &Phi)
 {
-
   if(level==2)
 		for(int i=0; i<nodes.size(); i++) if(Tag[i]==-1) Tag[i]=1;
 

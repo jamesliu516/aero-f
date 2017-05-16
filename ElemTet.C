@@ -3091,6 +3091,7 @@ void ElemTet::FastMarchingDistanceUpdate(int node, Vec<int> &Tag, int level,
 }
 
 //------------------------------------------------------------------------------
+
 template<int dim>
 double ElemTet::computeDistancePlusPhi(int i, SVec<double,3> &X, SVec<double,dim> &Psi)
 {
@@ -3114,6 +3115,7 @@ double ElemTet::computeDistancePlusPhi(int i, SVec<double,3> &X, SVec<double,dim
   double phi[3] = {Psi[oppn[0]][0],
                    Psi[oppn[1]][0]-Psi[oppn[0]][0],
                    Psi[oppn[2]][0]-Psi[oppn[0]][0]};
+
   // coordinate basis to do our computations (not orthogonal!!)
   Vec3D Y0(X[nodeNum(i)][0]-X[oppn[0]][0],X[nodeNum(i)][1]-X[oppn[0]][1], X[nodeNum(i)][2]-X[oppn[0]][2]);
   Vec3D Y1(X[oppn[1]][0]-X[oppn[0]][0],X[oppn[1]][1]-X[oppn[0]][1], X[oppn[1]][2]-X[oppn[0]][2]);
@@ -3129,6 +3131,8 @@ double ElemTet::computeDistancePlusPhi(int i, SVec<double,3> &X, SVec<double,dim
   return minimum;
 
 }
+
+//------------------------------------------------------------------------------
 
 template<int dim, class Obj>
 void ElemTet::integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),
