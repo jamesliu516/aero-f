@@ -6209,10 +6209,10 @@ void EdgeSet::pseudoFastMarchingMethodInitialization(SVec<double,3>& X,
 				LevelSetStructure *LSS)
 {
   assert(LSS);
-  // bool intersect;
   double d2wtmp;
 
-//  int tag = 1;
+  // bool intersect;
+  // int tag = 1;
   for(int l=0; l<numEdges; l++) {
 /*    if(!iActive && !jActive) {
       if(Tag[i]<0) {
