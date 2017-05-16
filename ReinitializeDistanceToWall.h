@@ -17,7 +17,6 @@ class ReinitializeDistanceToWall
 {
   IoData &iod;
   Domain &dom;
-  // DistVec<bool> done;           // could delete?
   DistSVec<double, 1> d2wall;
   DistVec<int> sortedNodes;
   int *nSortedNodes, *firstCheckedNode;
@@ -46,15 +45,12 @@ private:
   void InitializeWallFunction(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState, int *nPredLoc, double t);
   void GetLevelsFromInterfaceAndMarchForward(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState);
   int PseudoFastMarchingMethod(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState, int iterativeLevel, int *nPredLoc);
-  void GetLevelsFromInterfaceAndMarchForward2(int max_level, DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState);
+  void IterativeMethodUpdate(int max_level, DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState);
 
   void ComputeExactErrors(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState);
   void PrescribedValues(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState);
   void ComputePercentChange(DistLevelSetStructure &LSS, DistGeoState &distGeoState);
   void PrintIntersectedValues(DistLevelSetStructure *LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState);
-
-// private:
-  // void InitializeWallFunction(SubDomain &subD, LevelSetStructure &LSS, SVec<double, 3> &X, SVec<double, 1> &d2w, Vec<int> &tag);
-}; //Vec<bool> &done,
+};
 
 #endif

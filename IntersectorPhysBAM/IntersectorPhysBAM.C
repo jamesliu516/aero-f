@@ -2451,7 +2451,6 @@ double IntersectorPhysBAM::isPointOnSurface(Vec3D pt, int N1, int N2, int N3)
 
   // if (fabs(dist-distance) > 1e-12)
   //   fprintf(stderr,"d-d1 = %e\n",dist-distance);
-
   return dist;
 }
 
