@@ -2394,10 +2394,10 @@ double IntersectorPhysBAM::isPointOnSurface(Vec3D pt, int N1, int N2, int N3)
   Vec3D xB = solidX[N2];
   Vec3D xC = solidX[N3];
 
-  Vec3D normal = (xB-xA)^(xC-xA);
-  normal /=  normal.norm();
-
-  double distance = fabs((pt-xA)*normal);
+  // // previous implementation considers only normal projection (all barycentric coords. assumed > 0)
+  // Vec3D normal = (xB-xA)^(xC-xA);
+  // normal /=  normal.norm();
+  // double dist = fabs((pt-xA)*normal);
 
   // sjg, 05/2017: must consider that closest point on triangle may be an edge or vertex!
   Vec3D ABC = (xB-xA)^(xC-xA);
@@ -2407,6 +2407,7 @@ double IntersectorPhysBAM::isPointOnSurface(Vec3D pt, int N1, int N2, int N3)
   //calculate the projection.
   double dist, xi[3];
   dist = fabs((pt-xA)*ABC);
+  double distance = dist;
 
   //calculate barycentric coords.
   Vec3D xp = pt - ABC*ABC;
@@ -2448,8 +2449,8 @@ double IntersectorPhysBAM::isPointOnSurface(Vec3D pt, int N1, int N2, int N3)
     }
   }
 
-  if (fabs(dist-distance) > 0)
-    fprintf(stderr,"d-d1 = %e\n",dist-distance);
+  // if (fabs(dist-distance) > 1e-12)
+  //   fprintf(stderr,"d-d1 = %e\n",dist-distance);
 
   return dist;
 }
