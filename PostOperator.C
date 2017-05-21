@@ -1401,10 +1401,16 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
 	double* tmp1;
 	double* tmp2;
 
+    /******       stencil point, perpendicular line from gaussian point
+     *       A1---*---A2
+     *
+     *          gaussian point
+     *         ___*___interface
+     */
 	if(externalSI)
 	{
-		StNodeDir = new int*    [numStructElems];
-		StX1      = new double* [numStructElems];
+		StNodeDir = new int*    [numStructElems]; // for both side, stencil triagle id
+		StX1      = new double* [numStructElems]; // barycenter coordinates
 		StX2      = new double* [numStructElems];
 
 		for(int i=0; i<numStructElems; ++i)

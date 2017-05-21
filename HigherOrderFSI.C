@@ -934,10 +934,10 @@ bool HigherOrderFSI::setFEGhostPoint(int dir, int i, VarFcn *varFun, SVec<double
 
 	if(dir > 0)
 	{
-		idxTet  = FEMData_p[i].tet;
-		idxFace = FEMData_p[i].face;
-		face_r  = FEMData_p[i].r;
-		face_t  = FEMData_p[i].t;
+		idxTet  = FEMData_p[i].tet; // stencil tet
+		idxFace = FEMData_p[i].face; // stencil face
+		face_r  = FEMData_p[i].r; //stencil face coordinate1
+		face_t  = FEMData_p[i].t; //stencil face coordinate2
 	}
 	else
 	{
@@ -961,10 +961,10 @@ bool HigherOrderFSI::setFEGhostPoint(int dir, int i, VarFcn *varFun, SVec<double
 	varFun->conservativeToPrimitive(U[n0], V0, fluidId[n0]);
 	varFun->conservativeToPrimitive(U[n1], V1, fluidId[n1]);
 	varFun->conservativeToPrimitive(U[n2], V2, fluidId[n2]);
-
+    //stencil fluid id
 	fId = (int) (fluidId[n2] + face_r*(fluidId[n0] - fluidId[n2])
 					             + face_t*(fluidId[n1] - fluidId[n2]));
-	
+
 	Vec3D Xf;
 	for(int k=0; k<3; ++k)//stencil point
 		Xf[k] = X[n2][k] + face_r*(X[n0][k] - X[n2][k])
@@ -1001,7 +1001,7 @@ bool HigherOrderFSI::setFEGhostPoint(int dir, int i, VarFcn *varFun, SVec<double
 		double dV_[dim];
 		for(int k=0; k<dim; ++k) dV_[k] = dVf[k][j];
 
-		double dT = varFun->computeDerivativeOfTemperature(Vf, dV_);
+		double dT = varFun->computeDerivativeOfTemperature(Vf, dV_);//todo check
 
 		dVf[4][j] = dT;
 	}
@@ -1013,12 +1013,12 @@ bool HigherOrderFSI::setFEGhostPoint(int dir, int i, VarFcn *varFun, SVec<double
 	Vf[4] = T;
 
 	Vec3D Dir = xWall - Xf;
-	double xi = sqrt(Dir*Dir);
-	if(xi != 0) Dir *= 1.0 / xi;
+	double xi = sqrt(Dir*Dir); //wall distance
+	if(xi != 0) Dir *= 1.0 / xi; //unit vector from Xf to xWall
 
 	Vec3D d;
 	for(int k=0; k<3; ++k) d[k] = X[i][k] - Xf[k];
-	double eta = sqrt(d*d);
+	double eta = sqrt(d*d); // distance from ghost node to stencil
 
 	double coeff_1, coeff_2, coeff_3;
 	 
@@ -1329,8 +1329,8 @@ void HigherOrderFSI::computeWallVersors(double *V1, Vec3D &nW, VarFcn *vf,
 	Vec3D uf = vf->getVelocity(V1);
 	//uf += tol;//todo what is this??
 	
-	Vec3D un = (uf*nW)*nW;
-	tgW1 = uf - un;
+	Vec3D un = (uf*nW)*nW; //normal velocity
+	tgW1 = uf - un;         // tangential velocity direction
 
 	norm = tgW1.norm();
     if(norm > tol)

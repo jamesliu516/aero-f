@@ -74,7 +74,12 @@ public:
     fprintf(stderr,"Calling a PostFcn Function for Viscous Forces. Doesn't make sense!\n");
     exit(-1);
   }
-  virtual void computeForceTransmitted(double [4][3], double *[3], Vec3D &, double [3], double *, double *[3], 
+    virtual double computeSkinFriction(Vec3D& n, double dist, double* Vwall,  double* Vtet[4], double* bary)
+    {
+        fprintf(stderr,"Calling a PostFcn Function for Viscous Forces. Doesn't make sense!\n");
+        exit(-1);
+    }
+    virtual void computeForceTransmitted(double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
 	double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0, int fid = 0) = 0;
 
   virtual double computeHeatPower(double [4][3], Vec3D&, double [3],
@@ -157,6 +162,12 @@ public:
     fprintf(stderr,"Calling a PostFcnEuler Function for Viscous Forces. Doesn't make sense!\n");
     exit(-1);
   }
+    virtual double computeSkinFriction(Vec3D& n, double dist, double* Vwall,  double* Vtet[4], double* bary)
+
+    {
+        fprintf(stderr, "Calling a PostFcn Function for Viscous Forces. Doesn't make sense!\n");
+        exit(-1);
+    }
   virtual void computeForceTransmitted(double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
 				       double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0, int fid = 0);
   virtual double computeHeatPower(double [4][3], Vec3D&, double [3],
@@ -221,8 +232,10 @@ public:
 
   virtual Vec3D computeViscousForceCVBoundary(Vec3D& n,  double* Vi, double dudxj[3][3]);
   virtual Vec3D computeViscousForce(double [4][3], Vec3D&, double [3], double*, double* [3], double* [4]);
+    virtual double computeSkinFriction(Vec3D& n, double dist, double* Vwall,  double* Vtet[4], double* bary);
 
-  virtual void computeForceTransmitted(double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
+
+    virtual void computeForceTransmitted(double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
 				       double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0, int fid = 0);
   double computeHeatPower(double [4][3], Vec3D&, double [3],
 			  double*, double* [3], double* [4]);
