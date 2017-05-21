@@ -1401,6 +1401,22 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
 	double* tmp1;
 	double* tmp2;
 
+    //-------------------------------------------------------------------
+    // Daniel Huang adds this part, compute the fluid mesh size around each embedded surface Gaussian point
+    int qOrder = (spaceOp->iod)->embed.qOrder;
+    Quadrature quadrature_formula(qOrder);
+    int nqPoint = quadrature_formula.n_point;
+    double * interfaceFluidMeshSize = new double[numStructElems*nqPoint];
+    for(int i= 0; i < numStructElems*nqPoint; i++) interfaceFluidMeshSize[i] = 0.0;
+#pragma omp parallel for
+    for (int iSub=0; iSub<numLocSub; iSub++)
+    {subDomain[iSub]->computeInterfaceFluidMeshSize(*(spaceOp->iod), X(iSub),  numStructElems, stElem, Xstruct,
+                                                    interfaceFluidMeshSize);
+
+    }
+    com->globalMax(numStructElems*nqPoint, interfaceFluidMeshSize);
+    //--------------------------------------------------------------
+
     /******       stencil point, perpendicular line from gaussian point
      *       A1---*---A2
      *
@@ -1425,31 +1441,33 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
 		}
 	}
 
+
+
 #pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; iSub++) 
-  {
-	  for (int is=0; is<numStructNodes; is++) 
-	  {
-      subEmbQ[iSub][is][0] = 0.0;
-      subEmbQ[iSub][is][1] = 0.0;
-      subEmbQ[iSub][is][2] = 0.0;
-    }
+    for (int iSub=0; iSub<numLocSub; iSub++)
+    {
+        for (int is=0; is<numStructNodes; is++)
+        {
+            subEmbQ[iSub][is][0] = 0.0;
+            subEmbQ[iSub][is][1] = 0.0;
+            subEmbQ[iSub][is][2] = 0.0;
+        }
 
-	  if(!externalSI)
-	  {		  
-    if(ghostPoints) gp = ghostPoints->operator[](iSub);
+        if(!externalSI)
+        {
+            if(ghostPoints) gp = ghostPoints->operator[](iSub);
 
-      subDomain[iSub]->computeEMBNodeScalarQuantity(*(spaceOp->iod), X(iSub), (*V)(iSub), postFcn, varFcn,
-																		fluidId(iSub), Phi ? &((*Phi)(iSub)):(SVec<double,1>*)0,
-     						   subEmbQ[iSub], numStructNodes, numStructElems, stElem, Xstruct, 
-						   (*distLSS)(iSub), 1.0, gp, (*ngrad)(iSub) );
+            subDomain[iSub]->computeEMBNodeScalarQuantity(*(spaceOp->iod), X(iSub), (*V)(iSub), postFcn, varFcn,
+                                                          fluidId(iSub), Phi ? &((*Phi)(iSub)):(SVec<double,1>*)0,
+                                                          numStructNodes, numStructElems, stElem, Xstruct, (*distLSS)(iSub),
+                                                          1.0, gp, (*ngrad)(iSub), interfaceFluidMeshSize, subEmbQ[iSub] );
 
-	  } 
-	  else 
-		  subDomain[iSub]->computeEMBNodeScalarQuantity_step1(X(iSub), (*V)(iSub),
-																				numStructElems, stElem, Xstruct, 
-																				(*distLSS)(iSub), 
-																				StNodeDir, StX1, StX2, true);
+        }
+        else
+            subDomain[iSub]->computeEMBNodeScalarQuantity_step1(X(iSub), (*V)(iSub),
+                                                                numStructElems, stElem, Xstruct,
+                                                                (*distLSS)(iSub),
+                                                                StNodeDir, StX1, StX2, true);
     }
   
   if(externalSI)
@@ -1537,10 +1555,10 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
 	  delete [] tmp1;
 	  delete [] tmp2;
   }
+    delete [] interfaceFluidMeshSize;
 
 }
-// -----------------------------------------------------------------------------------------------------------------------------
-
+// ----------------------------------------------------------------------------------------------------------------------------
 template<int dim>
 template<int dimLS>
 void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,

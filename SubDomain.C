@@ -9607,11 +9607,11 @@ template<int dim,int dimLS>
 void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec<double,dim> &V,
                                              PostFcn *postFcn, VarFcn *varFcn,
                                              Vec<int> &fluidId, SVec<double,dimLS>* phi,
-                                             double (*Qnty)[3], int sizeQnty, int numStructElems, int (*stElem)[3],
+                                              int sizeQnty, int numStructElems, int (*stElem)[3],
                                              Vec<Vec3D>& Xstruct, LevelSetStructure &LSS,
                                              double pInfty,
                                              Vec<GhostPoint<dim>*> *ghostPoints,
-                                             NodalGrad<dim, double> &ngrad)
+                                             NodalGrad<dim, double> &ngrad, double* interfaceFluidMeshSize,double (*Qnty)[3])
 {
     if (iod.problem.framework == ProblemData::EMBEDDEDALE)
         myTree->reconstruct<&Elem::computeBoundingBox>(X, elems.getPointer(), elems.size());
@@ -9660,7 +9660,6 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
             ElemForceCalcValid myObj;
             Elem *E = myTree->search<&Elem::isPointInside, ElemForceCalcValid,
                     &ElemForceCalcValid::Valid>(&myObj, X, Xp);
-
             if (!E)
                 continue;
 
@@ -9680,6 +9679,8 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
                     double max_edge_len = (Xf[i] - Xf[j]).norm();
                     if (max_edge_len > dh) dh = max_edge_len;
                 }
+
+            std::cout << "error is " <<dh - interfaceFluidMeshSize[nqPoint*nSt + nq] << std::endl;
 // Compute barycentric coordinates
             Vec3D bary;
             E->computeBarycentricCoordinates(X, Xp, bary);
@@ -9874,9 +9875,8 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
 
 }
 
-//-----------------------------------------------------------------------------------------------
 
-
+// ---------------------------------------------------------------------------------------------------------
 template<int dim>
 void SubDomain::computederivativeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int order, SVec<double,3> &X,
 						       double (*dFs)[3], int sizeFs, int numStructElems, int (*stElem)[3], 
