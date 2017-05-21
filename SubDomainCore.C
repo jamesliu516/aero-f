@@ -7055,3 +7055,62 @@ void SubDomain::printPoint(int Ni, SVec<double,3> &X, Vec3D &xWall, V6NodeData &
 			  Xf[0],Xf[1],Xf[2]);
 
 }
+
+//-----------------------------------------------------------------------------------------------
+void SubDomain::computeInterfaceFluidMeshSize(IoData &iod,SVec<double,3> &X,
+                                              int numStructElems, int (*stElem)[3],
+                                              Vec<Vec3D>& Xstruct, double *interfaceFluidMeshSize) {
+  if (iod.problem.framework == ProblemData::EMBEDDEDALE)
+    myTree->reconstruct<&Elem::computeBoundingBox>(X, elems.getPointer(), elems.size());
+
+  int qOrder = iod.embed.qOrder;
+  Quadrature quadrature_formula(qOrder);
+  int nqPoint = quadrature_formula.n_point;
+  double (*qloc)[3](quadrature_formula.qloc);
+  double *qweight(quadrature_formula.weight);
+
+  int iElem = -1;
+  int T[4];       //nodes in a tet.
+  int stNode[3];
+  Vec3D Xst[3];
+  Vec3D Xp;
+  double max_edge_len = 0.0, dh =0.0;
+
+  for (int nSt = 0; nSt < numStructElems; ++nSt) {//loop all structure surface elements(triangle)
+
+    for (int j = 0; j < 3; ++j) {
+      stNode[j] = stElem[nSt][j]; // get element node numbers
+      Xst[j] = Xstruct[stNode[j]]; //get node coordinates
+    }
+
+    for (int nq = 0; nq < nqPoint; ++nq) {
+      for (int j = 0; j < 3; ++j) { // get quadrature points
+        Xp[j] = qloc[nq][0] * Xst[0][j] + qloc[nq][1] * Xst[1][j] + qloc[nq][2] * Xst[2][j];
+      }
+
+      ElemForceCalcValid myObj;
+      Elem *E = myTree->search<&Elem::isPointInside, ElemForceCalcValid,
+              &ElemForceCalcValid::Valid>(&myObj, X, Xp);
+
+      if (!E)
+        continue;
+
+
+      for (int i = 0; i < 4; i++) T[i] = (*E)[i];//loop fluid element E 4 nodes
+
+      Vec3D Xf[4];
+      for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 3; ++j) Xf[i][j] = X[T[i]][j]; // fluid element 4 nodes coordinates
+
+      max_edge_len = 0.0;
+      for (int i = 0; i < 4; i++)
+        for (int j = i + 1; j < 4; j++) {
+          dh = (Xf[i] - Xf[j]).norm();
+          if (dh > max_edge_len) max_edge_len = dh;
+        }
+
+      interfaceFluidMeshSize[nqPoint*nSt + nq] = max_edge_len;
+
+    }
+  }
+}
