@@ -1361,19 +1361,18 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------
-
 template<int dim>
 template<int dimLS>
 void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
-						 DistSVec<double,dim>& U,
-						 DistVec<double>& A,
-						 double** EmbQs,
-						 DistTimeState<dim> *timeState,
-						 DistVec<int>& fluidId, 
-																 DistSVec<double,dim>* Wextij,
-						 DistSVec<double,dimLS> *Phi, 
-						 DistLevelSetStructure *distLSS,
-																 DistVec<GhostPoint<dim>*> *ghostPoints, bool externalSI)
+                                                 DistSVec<double,dim>& U,
+                                                 DistVec<double>& A,
+                                                 double** EmbQs,
+                                                 DistTimeState<dim> *timeState,
+                                                 DistVec<int>& fluidId,
+                                                 DistSVec<double,dim>* Wextij,
+                                                 DistSVec<double,dimLS> *Phi,
+                                                 DistLevelSetStructure *distLSS,
+                                                 DistVec<GhostPoint<dim>*> *ghostPoints, bool externalSI)
 {
 
   int iSub;
@@ -1387,178 +1386,250 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
   int   (*stElem)[3]  = distLSS->getStructElems();
   Vec<Vec3D>& Xstruct = distLSS->getStructPosition();
 
-	typedef double subArray[3];
-	subArray **subEmbQ = new subArray * [numLocSub];
-	for(int i=0; i<numLocSub; ++i) subEmbQ[i] = new subArray[numStructNodes];
+  typedef double subArray[3];
+  subArray **subEmbQ = new subArray * [numLocSub];
+  for(int i=0; i<numLocSub; ++i) subEmbQ[i] = new subArray[numStructNodes];
 
   Vec<GhostPoint<dim>*> *gp = 0;
 
-	int**  StNodeDir;
+  int**  StNodeDir;
 
-	double** StX1;
-	double** StX2;
+  double** StX1;
+  double** StX2;
 
-	double* tmp1;
-	double* tmp2;
+  double* tmp1;
+  double* tmp2;
 
-    //-------------------------------------------------------------------
-    // Daniel Huang adds this part, compute the fluid mesh size around each embedded surface Gaussian point
-    int qOrder = (spaceOp->iod)->embed.qOrder;
-    Quadrature quadrature_formula(qOrder);
-    int nqPoint = quadrature_formula.n_point;
-    double * interfaceFluidMeshSize = new double[numStructElems*nqPoint];
-    for(int i= 0; i < numStructElems*nqPoint; i++) interfaceFluidMeshSize[i] = 0.0;
+  //-------------------------------------------------------------------
+  // Daniel Huang adds this part, compute the fluid mesh size around each embedded surface Gaussian point
+  int qOrder = (spaceOp->iod)->embed.qOrder;
+  Quadrature quadrature_formula(qOrder);
+  int nqPoint = quadrature_formula.n_point;
+  double * interfaceFluidMeshSize = new double[numStructElems*nqPoint];
+  for(int i= 0; i < numStructElems*nqPoint; i++) interfaceFluidMeshSize[i] = 0.0;
 #pragma omp parallel for
-    for (int iSub=0; iSub<numLocSub; iSub++)
-    {subDomain[iSub]->computeInterfaceFluidMeshSize(*(spaceOp->iod), X(iSub),  numStructElems, stElem, Xstruct,
-                                                    interfaceFluidMeshSize);
+  for (int iSub=0; iSub<numLocSub; iSub++)
+  {subDomain[iSub]->computeInterfaceFluidMeshSize(*(spaceOp->iod), X(iSub),  numStructElems, stElem, Xstruct,
+                                                  interfaceFluidMeshSize);
 
-    }
-    com->globalMax(numStructElems*nqPoint, interfaceFluidMeshSize);
+  }
+  com->globalMax(numStructElems*nqPoint, interfaceFluidMeshSize);
 
   int * strucOrientation = distLSS->getStructOrientation();
-    //--------------------------------------------------------------
+  //--------------------------------------------------------------
 
-    /******       stencil point, perpendicular line from gaussian point
-     *       A1---*---A2
-     *
-     *          gaussian point
-     *         ___*___interface
-     */
-	if(externalSI)
-	{
-		StNodeDir = new int*    [numStructElems]; // for both side, stencil triagle id
-		StX1      = new double* [numStructElems]; // barycenter coordinates
-		StX2      = new double* [numStructElems];
+  /******       stencil point, perpendicular line from gaussian point
+   *       A1---*---A2
+   *
+   *          gaussian point
+   *         ___*___interface
+   */
+  if(externalSI)
+  {
+    StNodeDir = new int*    [numStructElems]; // for both side, stencil triagle id
+    StX1      = new double* [numStructElems]; // barycenter coordinates
+    StX2      = new double* [numStructElems];
 
-		for(int i=0; i<numStructElems; ++i)
-		{
-			StNodeDir[i] = new int    [2];
-			StX1[i]      = new double [3];
-			StX2[i]      = new double [3];
+    for(int i=0; i<numStructElems; ++i)
+    {
+      StNodeDir[i] = new int    [2];
+      StX1[i]      = new double [3];
+      StX2[i]      = new double [3];
 
-			StNodeDir[i][0] = StNodeDir[i][1] = 0;
-			StX1[i][0] = StX1[i][1] = StX1[i][2] = 0.0;
-			StX2[i][0] = StX2[i][1] = StX2[i][2] = 0.0;
-		}
-	}
-
+      StNodeDir[i][0] = StNodeDir[i][1] = 0;
+      StX1[i][0] = StX1[i][1] = StX1[i][2] = 0.0;
+      StX2[i][0] = StX2[i][1] = StX2[i][2] = 0.0;
+    }
 
 
 #pragma omp parallel for
     for (int iSub=0; iSub<numLocSub; iSub++)
     {
-        for (int is=0; is<numStructNodes; is++)
-        {
-            subEmbQ[iSub][is][0] = 0.0;
-            subEmbQ[iSub][is][1] = 0.0;
-            subEmbQ[iSub][is][2] = 0.0;
-        }
-
-        if(!externalSI)
-        {
-            if(ghostPoints) gp = ghostPoints->operator[](iSub);
-
-            subDomain[iSub]->computeEMBNodeScalarQuantity(*(spaceOp->iod), X(iSub), (*V)(iSub), postFcn, varFcn,
-                                                          fluidId(iSub), Phi ? &((*Phi)(iSub)):(SVec<double,1>*)0,
-                                                          numStructNodes, numStructElems, stElem, Xstruct, (*distLSS)(iSub),
-                                                          1.0, gp, (*ngrad)(iSub), interfaceFluidMeshSize, strucOrientation,
-                                                          subEmbQ[iSub] );
-
-        }
-        else
-            subDomain[iSub]->computeEMBNodeScalarQuantity_step1(X(iSub), (*V)(iSub),
-                                                                numStructElems, stElem, Xstruct,
-                                                                (*distLSS)(iSub),
-                                                                StNodeDir, StX1, StX2, true);
+      for (int is=0; is<numStructNodes; is++)
+      {
+        subEmbQ[iSub][is][0] = 0.0;
+        subEmbQ[iSub][is][1] = 0.0;
+        subEmbQ[iSub][is][2] = 0.0;
+      }
+      subDomain[iSub]->computeEMBNodeScalarQuantity_step1(X(iSub), (*V)(iSub),
+                                                          numStructElems, stElem, Xstruct,
+                                                          (*distLSS)(iSub),
+                                                          StNodeDir, StX1, StX2, true);
     }
-  
-  if(externalSI)
-  {
-	  tmp1 = new double[numStructElems];
-	  tmp2 = new double[numStructElems];
 
-	  for(int i=0; i<numStructElems; ++i) 
-	  { 
-		  tmp1[i] = (double) StNodeDir[i][0];
-		  tmp2[i] = (double) StNodeDir[i][1];
-	  }
 
-	  com->globalSum(numStructElems, tmp1);
-	  com->globalSum(numStructElems, tmp2);
 
-	  for(int i=0; i<numStructElems; ++i) 
-	  {
-		  StNodeDir[i][0] = (int) tmp1[i];
-		  StNodeDir[i][1] = (int) tmp2[i];
-	  }
-	  
-	  for(int k=0; k<3; ++k)
-	  {
-		  for(int i=0; i<numStructElems; ++i) 
-		  {
-			  tmp1[i] = StX1[i][k];
-			  tmp2[i] = StX2[i][k];
-		  }
-		  
-		  com->globalSum(numStructElems, tmp1);
-		  com->globalSum(numStructElems, tmp2);
-		  
-		  for(int i=0; i<numStructElems; ++i) 
-		  {
-			  StX1[i][k] = tmp1[i];
-			  StX2[i][k] = tmp2[i];
-		  }
-	  }
-  }
+    tmp1 = new double[numStructElems];
+    tmp2 = new double[numStructElems];
+
+    for(int i=0; i<numStructElems; ++i)
+    {
+      tmp1[i] = (double) StNodeDir[i][0];
+      tmp2[i] = (double) StNodeDir[i][1];
+    }
+
+    com->globalSum(numStructElems, tmp1);
+    com->globalSum(numStructElems, tmp2);
+
+    for(int i=0; i<numStructElems; ++i)
+    {
+      StNodeDir[i][0] = (int) tmp1[i];
+      StNodeDir[i][1] = (int) tmp2[i];
+    }
+
+    for(int k=0; k<3; ++k)
+    {
+      for(int i=0; i<numStructElems; ++i)
+      {
+        tmp1[i] = StX1[i][k];
+        tmp2[i] = StX2[i][k];
+      }
+
+      com->globalSum(numStructElems, tmp1);
+      com->globalSum(numStructElems, tmp2);
+
+      for(int i=0; i<numStructElems; ++i)
+      {
+        StX1[i][k] = tmp1[i];
+        StX2[i][k] = tmp2[i];
+      }
+    }
 
 #pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; iSub++) 
-  {
-	  if(externalSI)
-	  {
-		  if(ghostPoints) gp = ghostPoints->operator[](iSub);
+    for (int iSub=0; iSub<numLocSub; iSub++)
+    {
 
-		  subDomain[iSub]->computeEMBNodeScalarQuantity_step2(X(iSub), (*V)(iSub), postFcn, varFcn, 
-																				fluidId(iSub), 
-																				subEmbQ[iSub], numStructNodes, numStructElems, stElem, Xstruct, 
-																				(*distLSS)(iSub), 1.0, gp, (*ngrad)(iSub), 
-																				StNodeDir, StX1, StX2);
-	  }
+      if(ghostPoints) gp = ghostPoints->operator[](iSub);
 
-	  // Assembly of local contributions
-	  for(int is=0; is<numStructNodes; is++) 
-	  {
-		  if(subEmbQ[iSub][is][0]) 
-		  {
-	EmbQs[is][0] = subEmbQ[iSub][is][0];
-	EmbQs[is][1] = subEmbQ[iSub][is][1]/subEmbQ[iSub][is][0]; //Cp
-	EmbQs[is][2] = subEmbQ[iSub][is][2]/subEmbQ[iSub][is][0]; //Cf
+      subDomain[iSub]->computeEMBNodeScalarQuantity_step2(X(iSub), (*V)(iSub), postFcn, varFcn,
+                                                          fluidId(iSub),
+                                                          subEmbQ[iSub], numStructNodes, numStructElems, stElem, Xstruct,
+                                                          (*distLSS)(iSub), 1.0, gp, (*ngrad)(iSub),
+                                                          StNodeDir, StX1, StX2);
+
+      // Assembly of local contributions
+      for(int is=0; is<numStructNodes; is++)
+      {
+
+
+          EmbQs[is][0] += subEmbQ[iSub][is][0];
+          EmbQs[is][1] += subEmbQ[iSub][is][1]; //Cp
+          EmbQs[is][2] += subEmbQ[iSub][is][2]; //Cf
+
       }
-    } 
-    
+
+    }
+    for(int is=0; is<numStructNodes; is++)
+    {
+      if(EmbQs[is][0])
+      EmbQs[is][1] /= EmbQs[is][0]; //Cp
+      EmbQs[is][2] /= EmbQs[is][0]; //Cf
+
+    }
+
+
+
+
+    for(int i=0; i<numStructElems; ++i)
+    {
+      delete [] StNodeDir[i];
+      delete [] StX1[i];
+      delete [] StX2[i];
+    }
+
+    delete [] StNodeDir;
+    delete [] StX1;
+    delete [] StX2;
+    delete [] tmp1;
+    delete [] tmp2;
+  }
+
+  else {
+//compute pressure coefficient
+#pragma omp parallel for
+    for (int iSub = 0; iSub < numLocSub; iSub++) {
+      for (int is = 0; is < numStructNodes; is++) {
+        subEmbQ[iSub][is][0] = 0.0;
+        subEmbQ[iSub][is][1] = 0.0;
+        subEmbQ[iSub][is][2] = 0.0;
+      }
+
+        if(ghostPoints) gp = ghostPoints->operator[](iSub);
+        subDomain[iSub]->computeEMBNodeScalarQuantity(*(spaceOp->iod), X(iSub), (*V)(iSub), postFcn, varFcn,
+                                                       fluidId(iSub), Phi ? &((*Phi)(iSub)):(SVec<double,1>*)0,
+                                                       numStructNodes, numStructElems, stElem, Xstruct, (*distLSS)(iSub),
+                                                       1.0, gp, (*ngrad)(iSub), interfaceFluidMeshSize, strucOrientation,
+                                                       subEmbQ[iSub] );
+
+    }
+#pragma omp parallel for
+    for (int iSub = 0; iSub < numLocSub; iSub++) {
+
+      // Assembly of local contributions
+      for (int is = 0; is < numStructNodes; is++) {
+
+          EmbQs[is][0] += subEmbQ[iSub][is][0];
+          EmbQs[is][1] += subEmbQ[iSub][is][1]; //Cp
+          EmbQs[is][2] += subEmbQ[iSub][is][2]; //Cp
+
+      }
+
+    }
+
+    for(int is=0; is<numStructNodes; is++)
+    {
+      if(EmbQs[is][0])
+        EmbQs[is][1] /= EmbQs[is][0]; //Cp
+      EmbQs[is][2] /= EmbQs[is][0]; //Cf
+
+    }
+/*
+//compute skin coefficient
+#pragma omp parallel for
+    for (int iSub = 0; iSub < numLocSub; iSub++) {
+      for (int is = 0; is < numStructNodes; is++) {
+        subEmbQ[iSub][is][0] = 0.0;
+        subEmbQ[iSub][is][1] = 0.0;
+        subEmbQ[iSub][is][2] = 0.0;
+      }
+
+      if(ghostPoints) gp = ghostPoints->operator[](iSub);
+      subDomain[iSub]->computeEMBSkinFriction(*(spaceOp->iod), X(iSub), (*V)(iSub), postFcn, varFcn,
+                                               fluidId(iSub), Phi ? &((*Phi)(iSub)):(SVec<double,1>*)0,
+                                               numStructNodes, numStructElems, stElem, Xstruct, (*distLSS)(iSub),
+                                               1.0, gp, (*ngrad)(iSub), interfaceFluidMeshSize, strucOrientation,
+                                               subEmbQ[iSub] );
+
+    }
+#pragma omp parallel for
+    for (int iSub = 0; iSub < numLocSub; iSub++) {
+
+      // Assembly of local contributions
+      for (int is = 0; is < numStructNodes; is++) {
+        if (subEmbQ[iSub][is][0]) {
+          EmbQs[is][0] = subEmbQ[iSub][is][0];
+          EmbQs[is][2] = subEmbQ[iSub][is][2] / subEmbQ[iSub][is][0]; //Cp
+        }
+      }
+
+    }
+
+
+
+
+
+
+
+*/
+
   }
 
   // Cleaning  
   for(int i=0; i<numLocSub; ++i) delete [] subEmbQ[i];
   delete [] subEmbQ;
-  
-  if(externalSI)
-  {
-	  for(int i=0; i<numStructElems; ++i)
-	  {
-		  delete [] StNodeDir[i];
-		  delete [] StX1[i];
-		  delete [] StX2[i];
-	  }
 
-	  delete [] StNodeDir;
-	  delete [] StX1;
-	  delete [] StX2;
-	  delete [] tmp1;
-	  delete [] tmp2;
-  }
-    delete [] interfaceFluidMeshSize;
+
+  delete [] interfaceFluidMeshSize;
 
 }
 // ----------------------------------------------------------------------------------------------------------------------------
