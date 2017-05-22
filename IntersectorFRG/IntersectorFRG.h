@@ -83,8 +83,10 @@ class DistIntersectorFRG : public DistLevelSetStructure {
     Vec<Vec3D> *solidXnp1;//pointer to Xs_np1
     Vec<Vec3D> *solidX0;  //pointer to Xs0
     Vec<Vec3D> *solidXdS; //pointer to dXdSb
+	int * strucOrientation;//structure orientation, 1: (x1 -x0)^(x2 -x0) points the fluid, otherwise -1
 
-    int *faceID;
+
+	int *faceID;
     double *porosity;
 
     // surface rotation
@@ -173,6 +175,7 @@ class DistIntersectorFRG : public DistLevelSetStructure {
     int getNumStructNodes () { return numStNodes; }
     int getNumStructElems () { return numStElems; }
     int (*getStructElems())[3] { return stElem; }
+	int *getStructOrientation() { return strucOrientation; }
 
     int getSurfaceID(int k) {
       if (!surfaceID)

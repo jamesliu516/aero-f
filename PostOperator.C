@@ -1415,6 +1415,8 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
 
     }
     com->globalMax(numStructElems*nqPoint, interfaceFluidMeshSize);
+
+  int * strucOrientation = distLSS->getStructOrientation();
     //--------------------------------------------------------------
 
     /******       stencil point, perpendicular line from gaussian point
@@ -1460,7 +1462,8 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
             subDomain[iSub]->computeEMBNodeScalarQuantity(*(spaceOp->iod), X(iSub), (*V)(iSub), postFcn, varFcn,
                                                           fluidId(iSub), Phi ? &((*Phi)(iSub)):(SVec<double,1>*)0,
                                                           numStructNodes, numStructElems, stElem, Xstruct, (*distLSS)(iSub),
-                                                          1.0, gp, (*ngrad)(iSub), interfaceFluidMeshSize, subEmbQ[iSub] );
+                                                          1.0, gp, (*ngrad)(iSub), interfaceFluidMeshSize, strucOrientation,
+                                                          subEmbQ[iSub] );
 
         }
         else

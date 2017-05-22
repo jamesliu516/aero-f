@@ -7114,3 +7114,51 @@ void SubDomain::computeInterfaceFluidMeshSize(IoData &iod,SVec<double,3> &X,
     }
   }
 }
+
+
+void SubDomain::computeStrucOrientation(SVec<double,3> &X,
+                                     int numStructElems, int (*stElem)[3],
+                                     Vec<Vec3D>& Xstruct, Vec<bool>&is_active,
+                                        int *strucOrientation) {
+
+  int stNode[3];
+  Vec3D Xst[3],Xf[4];
+  Vec3D Xp, normal;
+  int T[4];       //nodes in a tet.
+  double max_edge_len = 0.0, dh =0.0;
+
+  for (int nSt = 0; nSt < numStructElems; ++nSt) {//loop all structure surface elements(triangle)
+
+    for (int j = 0; j < 3; ++j) {
+      stNode[j] = stElem[nSt][j]; // get element node numbers
+      Xst[j] = Xstruct[stNode[j]]; //get node coordinates
+    }
+    Xp = (Xst[0] + Xst[1] + Xst[2])/3.0;
+    ElemForceCalcValid myObj;
+    Elem *E = myTree->search<&Elem::isPointInside, ElemForceCalcValid,
+            &ElemForceCalcValid::Valid>(&myObj, X, Xp);
+
+    if (!E)
+      continue;
+
+    normal = 0.5*(Xst[1]-Xst[0])^(Xst[2]-Xst[0]);
+
+    for (int i = 0; i < 4; i++) T[i] = (*E)[i];//loop fluid element E 4 nodes
+
+
+    for (int i = 0; i < 4; i++) {
+      for (int j = 0; j < 3; ++j) Xf[i][j] = X[T[i]][j]; // fluid element 4 nodes coordinates
+      std::cout  << "i is " << is_active[T[i]] <<std::endl;
+      if(is_active[T[i]] && (Xf[i] - Xp)*normal > 0.0)
+        strucOrientation[nSt] = 1;
+
+      std::cout  << "inner product " << (Xf[i] - Xp)*normal <<std::endl;
+
+    }
+
+
+  }
+
+
+
+}
