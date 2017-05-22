@@ -9611,7 +9611,8 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
                                              Vec<Vec3D>& Xstruct, LevelSetStructure &LSS,
                                              double pInfty,
                                              Vec<GhostPoint<dim>*> *ghostPoints,
-                                             NodalGrad<dim, double> &ngrad, double* interfaceFluidMeshSize,double (*Qnty)[3])
+                                             NodalGrad<dim, double> &ngrad, double* interfaceFluidMeshSize,
+                                             int* strucOrientation, double (*Qnty)[3])
 {
     if (iod.problem.framework == ProblemData::EMBEDDEDALE)
         myTree->reconstruct<&Elem::computeBoundingBox>(X, elems.getPointer(), elems.size());
@@ -9817,6 +9818,13 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
                 if(ghostPoints) {
                     //step 1. find the fluid velocity at Xp + dh *normal
 
+                    assert((-unit_nf *S - normal * strucOrientation[nSt]).norm() < 1e-8);
+                    if((-unit_nf *S - normal * strucOrientation[nSt]).norm() > 1e-8) {
+                        fprintf(stderr, "ERROR: %d\n", strucOrientation[nSt]);
+                        std::cout <<"unit_nf is " << unit_nf[0] <<" " << unit_nf[1] <<" "<< unit_nf[2]<<
+                        "normal "<< normal[0]/S <<" " << normal[1]/S << " " <<normal[2]/S<< std::endl;
+                        exit(-1);
+                    }
                     Vec3D Xpp = Xp - dh * unit_nf;
                     std::cout << unit_nf[0] <<" " << unit_nf[1] <<" " << unit_nf[2] <<" " <<std::endl;
                     std::cout << Xp[0] <<" " << Xp[1] <<" " << Xp[2] <<" " <<std::endl;

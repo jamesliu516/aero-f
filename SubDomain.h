@@ -1709,14 +1709,17 @@ public:
 				    double pInfty,
 				    Vec<GhostPoint<dim>*> *ghostPoints,
 				    NodalGrad<dim, double> &ngrad,double* interfaceFluidMeshSize,
-									double (*Qnty)[3]);
+									int* strucOrientation, double (*Qnty)[3]);
 
 
     void computeInterfaceFluidMeshSize(IoData &iod,SVec<double,3> &X,
                                                   int numStructElems, int (*stElem)[3],
-                                                  Vec<Vec3D>& Xstruct, double *interfaceFluidMeshSize);
-
-    template<int dim,int dimLS>
+                                                  Vec<Vec3D>& Xstruct,
+									   double *interfaceFluidMeshSize);
+	void computeStrucOrientation(SVec<double,3> &X,
+											int numStructElems, int (*stElem)[3],
+											Vec<Vec3D>& Xstruct,  Vec<bool>&is_active, int *strucOrientation);
+	template<int dim,int dimLS>
 	  void computeEMBNodeScalarQuantity_e(SVec<double,3> &X, SVec<double,dim> &V, 
 													  PostFcn *postFcn, VarFcn *varFcn, 
 													  Vec<int> &fluidId, SVec<double,dim> &Wextij, SVec<double,dimLS>* phi,

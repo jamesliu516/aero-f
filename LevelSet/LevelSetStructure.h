@@ -243,6 +243,7 @@ class DistLevelSetStructure {
 	 DistVec<double> *eta_node;
 	 DistVec<Vec3D> *nWall_node;
 
+
   protected:
     int numLocSub;
     int numFluid;
@@ -295,6 +296,9 @@ class DistLevelSetStructure {
 
     virtual void updateXb(double) = 0;
     virtual void setdXdSb(int, double*, double*, double*) = 0;
+	virtual int* getStructOrientation() = 0;
+
+
 };
 
 #endif
