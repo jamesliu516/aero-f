@@ -1570,20 +1570,28 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
 
           EmbQs[is][0] += subEmbQ[iSub][is][0];
           EmbQs[is][1] += subEmbQ[iSub][is][1]; //Cp
-          EmbQs[is][2] += subEmbQ[iSub][is][2]; //Cp
+          EmbQs[is][2] += subEmbQ[iSub][is][2]; //Cf
 
       }
 
     }
+    std::cout << "finished accumulate EmbQs" <<std::endl;
 
     for(int is=0; is<numStructNodes; is++)
     {
-      if(EmbQs[is][0])
+      if(EmbQs[is][0]) {
         EmbQs[is][1] /= EmbQs[is][0]; //Cp
-      EmbQs[is][2] /= EmbQs[is][0]; //Cf
-
+        EmbQs[is][2] /= EmbQs[is][0]; //Cf
+      }
     }
-/*
+    std::cout << "start compute skin coefficient " <<std::endl;
+
+
+
+    for(int i=0; i < numStructNodes; ++i) {
+      EmbQs[i][0] = EmbQs[i][2] = 0.0;
+    }
+
 //compute skin coefficient
 #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; iSub++) {
@@ -1606,21 +1614,21 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
 
       // Assembly of local contributions
       for (int is = 0; is < numStructNodes; is++) {
-        if (subEmbQ[iSub][is][0]) {
-          EmbQs[is][0] = subEmbQ[iSub][is][0];
-          EmbQs[is][2] = subEmbQ[iSub][is][2] / subEmbQ[iSub][is][0]; //Cp
-        }
+          EmbQs[is][0] += subEmbQ[iSub][is][0];
+          EmbQs[is][2] += subEmbQ[iSub][is][2]; //Cf
       }
+
+    }
+
+    for(int is=0; is<numStructNodes; is++)
+    {
+      if(EmbQs[is][0])
+      EmbQs[is][2] /= EmbQs[is][0]; //Cf
 
     }
 
 
 
-
-
-
-
-*/
 
   }
 
