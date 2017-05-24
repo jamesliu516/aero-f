@@ -5345,7 +5345,7 @@ void SubDomain::maxRcvData(CommPattern<Scalar> &sp, Scalar (*w)[dim])
 // Adam 2011.09: Called from Domain::pseudoFastMarchingMethod.
 // Need to take into account the updated value after communication
 template<class Scalar, int dim>
-void SubDomain::maxRcvDataAndCountUpdates(CommPattern<Scalar> &sp, Scalar (*w)[dim],int &nSortedNodes, Vec<int> &sortedNodes)
+void SubDomain::maxRcvDataAndCountUpdates(CommPattern<Scalar> &sp, Scalar (*w)[dim], int &nSortedNodes, Vec<int> &sortedNodes)
 {
   assert(dim == 1); // if you intend to use it in Vectorial mode, modify it your way
 
@@ -5360,6 +5360,31 @@ void SubDomain::maxRcvDataAndCountUpdates(CommPattern<Scalar> &sp, Scalar (*w)[d
           w[sharedNodeID][j]        = buffer[iNode][j];
           sortedNodes[nSortedNodes] = sharedNodeID;
           nSortedNodes++;
+        }
+      }
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+// sjg, 05/2017: overloaded function to allow for updating num predictors @ level 1
+template<class Scalar, int dim>
+void SubDomain::maxRcvDataAndCountUpdates(CommPattern<Scalar> &sp, Scalar (*w)[dim], int &nSortedNodes, Vec<int> &sortedNodes, int &nPredictors)
+{
+  assert(dim == 1); // if you intend to use it in Vectorial mode, modify it your way
+
+  int sharedNodeID;
+  for (int iSub = 0; iSub < numNeighb; ++iSub) {
+    SubRecInfo<Scalar> sInfo = sp.recData(rcvChannel[iSub]);
+    Scalar (*buffer)[dim] = reinterpret_cast<Scalar (*)[dim]>(sInfo.data);
+    for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode) {
+      sharedNodeID = (*sharedNodes)[iSub][iNode];
+      for (int j = 0; j < dim; ++j) {
+        if (buffer[iNode][j] > w[sharedNodeID][j]) {
+          w[sharedNodeID][j]        = buffer[iNode][j];
+          sortedNodes[nSortedNodes] = sharedNodeID;
+          nSortedNodes++;
+          nPredictors++;
         }
       }
     }
@@ -9011,7 +9036,7 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
     //   // firstCheckedNode = nSortedNodes;
     // }
 
-    // improved
+    // improved (hopefully)
     for(int i=0;i<Tag.size();++i) {
       if(Tag[i] <= iterativeLevel-1 && Tag[i] >= 0) {
         // sortedNodes[nSortedNodes] = i;
@@ -9029,7 +9054,8 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
       }
     }
   }
-  else if(level == 0) { // just get inactive nodes
+  else if(level == 0) {
+    // just get inactive nodes
     nSortedNodes     = 0;
     firstCheckedNode = 0;
     for(int i=0;i<Tag.size();++i) {
@@ -9043,7 +9069,7 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
     }
   }
   else if(level==1) {
-    // Tag is globally set to -1. 0 level are inactive nodes.
+    // Tag is globally set to -1, 0 level are inactive nodes
     firstCheckedNode = nSortedNodes;
     edges.pseudoFastMarchingMethodInitialization(X,Tag,d2wall,sortedNodes,nSortedNodes,LSS);
     nPredictors = nSortedNodes-firstCheckedNode;

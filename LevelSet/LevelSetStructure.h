@@ -205,6 +205,7 @@ LevelSetStructure(Vec<int>& status,
       getCrackingSurface() { return NULL; }
 
     virtual double isPointOnSurface(Vec3D, int, int, int) = 0;
+    virtual double isPointOnSurface(int) = 0;
 
     virtual int numOfFluids() = 0;
 

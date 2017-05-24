@@ -74,6 +74,7 @@ class MultiGridLevelSetStructure : public LevelSetStructure {
     bool isNearInterface(double, int) const { return false; }
 
     double isPointOnSurface(Vec3D, int, int, int) { return 0.0; }
+    double isPointOnSurface(int) {return 0.0; }
 
     void findNodesNearInterface(SVec<double, 3>&, SVec<double, 3>&, SVec<double, 3>&) { }
 

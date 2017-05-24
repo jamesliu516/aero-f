@@ -3087,7 +3087,8 @@ void ElemTet::FastMarchingDistanceUpdate(int node, Vec<int> &Tag, int level,
     exit(-1);
   }
   double distance = computeDistancePlusPhi(i,X,d2wall);
-  d2wall[nodeNum(i)][0] = min(d2wall[nodeNum(i)][0], distance);
+  // d2wall[nodeNum(i)][0] = min(d2wall[nodeNum(i)][0], distance);
+  d2wall[node][0] = min(d2wall[node][0], distance);
 }
 
 //------------------------------------------------------------------------------

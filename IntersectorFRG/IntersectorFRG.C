@@ -3269,8 +3269,7 @@ void IntersectorFRG::projection(Vec3D x0, int tria, double& xi1, double& xi2, do
 
 //----------------------------------------------------------------------------
 
-double IntersectorFRG::isPointOnSurface(Vec3D pt, int N1, int N2, int N3)
-{
+double IntersectorFRG::isPointOnSurface(Vec3D pt, int N1, int N2, int N3) {
   Vec<Vec3D> &solidX = distIntersector.getStructPosition();
   Vec3D X1 = solidX[N1];
   Vec3D X2 = solidX[N2];
@@ -3283,6 +3282,14 @@ double IntersectorFRG::isPointOnSurface(Vec3D pt, int N1, int N2, int N3)
 }
 
 //----------------------------------------------------------------------------
+
+double IntersectorFRG::isPointOnSurface(int nodeId) {
+  printf("**Error** IntersectorFRG::isPointOnSurface(int nodeId) is not implemented for IntersectorFRG! Try IntersectorPhysBAM instead.\n");
+  exit(-1);
+}
+
+//----------------------------------------------------------------------------
+
 void IntersectorFRG::derivativeOFnormal(Vec3D  xA, Vec3D  xB, Vec3D  xC,
 		   		        Vec3D dxA, Vec3D dxB, Vec3D dxC,
 				        Vec3D &dnds){
