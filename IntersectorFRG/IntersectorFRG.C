@@ -227,7 +227,7 @@ void ClosestTriangle::checkVertex(int ip1, int trId, double trDist) {
     if((thisSign != isPositive || !isConsistent)/* && !hasBeenFixed*/) { // need to figure out the correct sign...
       isConsistent = false;
       if(repeated1 != -1) {// this triangle and another traversed triangle share an edge that has this damn node.
-        //Step 1. Determine if it is a "hill" or a "dent". 
+        //Step 1. Determine if it is a "hill" or a "dent".
         int repeated = repeated1;
         double dist2node = (structX[triNodes[trId][repeated]]-x).norm();
         if(dist2node<dist2othernode) {
@@ -239,16 +239,16 @@ void ClosestTriangle::checkVertex(int ip1, int trId, double trDist) {
           Vec3D ip1_x = x - structX[ip1];
           double alpha = ip1_x*structNorm[trId];
           double beta  = ip1_x*structNorm[nd2tri[triNodes[trId][repeated]]];
-          if(type==1) 
+          if(type==1)
             isPositive = (alpha>=0&&beta>=0) ? true : false;
           else
             isPositive = (alpha<0&&beta<0) ? false : true;
-         
+
 //          hasBeenFixed = true; //the sign is determined.
         }
       }
       if(repeated2 != -1) {// this triangle and another traversed triangle share an edge that has this damn node.
-        //Step 1. Determine if it is a "hill" or a "dent". 
+        //Step 1. Determine if it is a "hill" or a "dent".
         int repeated = repeated2;
         double dist2node = (structX[triNodes[trId][repeated]]-x).norm();
         if(dist2node<dist2othernode) {
@@ -260,11 +260,11 @@ void ClosestTriangle::checkVertex(int ip1, int trId, double trDist) {
           Vec3D ip1_x = x - structX[ip1];
           double alpha = ip1_x*structNorm[trId];
           double beta  = ip1_x*structNorm[nd2tri[triNodes[trId][repeated]]];
-          if(type==1) 
+          if(type==1)
             isPositive = (alpha>=0&&beta>=0) ? true : false;
           else
             isPositive = (alpha<0&&beta<0) ? false : true;
-         
+
 //          hasBeenFixed = true; //the sign is determined.
         }
       }
@@ -299,7 +299,7 @@ void ClosestTriangle::checkVertex(int ip1, int trId, double trDist) {
 int ClosestTriangle::registerNodes(int ip1, int trId, int& repeated1, int& repeated2)
 {
     map<int,int>::iterator it;
-      
+
     unsigned int repeated_node = 0;
     repeated1 = repeated2 = -1;
 
@@ -360,7 +360,7 @@ int ClosestTriangle::registerNodes(int ip1, int trId, int& repeated1, int& repea
       fprintf(stderr,"ERROR (for debug): node %d doesn't belong to triangle %d!\n", ip1+1, trId+1);
 
     return repeated_node;
-} 
+}
 
 //----------------------------------------------------------------------------
 
@@ -440,16 +440,16 @@ double ClosestTriangle::findSignedVertexDistance()
 
   double ry = 0.0;
   Vec3D npx = x - xp;
-  npx = 1.0/npx.norm()*npx; 
+  npx = 1.0/npx.norm()*npx;
   for(set<int>::iterator it=vertices.begin(); it!=vertices.end(); it++) {
-    Vec3D xr = structX[*it]; 
+    Vec3D xr = structX[*it];
 
     double d_xp_xr = (xp-xr).norm();
     if(d_xp_xr>=ry)
       ry = d_xp_xr;
 
     if(npx*(xp-xr)<1.0e-14) continue;
-    double t = npx*(x-xr)/(npx*(xp-xr)); 
+    double t = npx*(x-xr)/(npx*(xp-xr));
     Vec3D xt = xr + t*(xp-xr);
     double d_x_xt = (xt - x).norm();
     if(d_x_xt>=rr) {
@@ -459,7 +459,7 @@ double ClosestTriangle::findSignedVertexDistance()
   }
   if(rr<1.0e-14) {fprintf(stderr,"ERROR: (in IntersectorFRG) distance = %e.\n",rr);exit(-1);}
   dir *= 1.0/rr; //normalize dir
-  rr = std::min(1.5*rr, std::max((x-xp).norm(), ry)); 
+  rr = std::min(1.5*rr, std::max((x-xp).norm(), ry));
   rr *= 0.05;
 
   int nTrial = 50;
@@ -470,15 +470,15 @@ double ClosestTriangle::findSignedVertexDistance()
     else
       x_trial = x + (double(iTrial+1.0)*rr)*dir;
 
-    int sign = findTesterStatus(x_trial); 
+    int sign = findTesterStatus(x_trial);
     if(sign!=0) {
       minDist = (double)sign*std::abs(minDist);
 //      fprintf(stderr,"NOTE: x = (%e, %e, %e), node = %d, x_trial = (%e, %e, %e). sign = %d, minDist = %e\n", x[0], x[1], x[2], n1+1, x_trial[0], x_trial[1], x_trial[2], sign, minDist);
       return minDist;
-    }// else 
+    }// else
  //     fprintf(stderr,"NOTE: x = (%e, %e, %e), node = %d, x_trial = (%e, %e, %e). I = %d, sign = %d\n", x[0], x[1], x[2], n1+1, x_trial[0], x_trial[1], x_trial[2], iTrial, sign);
   }
-  
+
   fprintf(stderr,"ERROR: (in IntersectorFRG) failed in determining node status! nTrial = %d.\n", nTrial);
   fail = true;
 //  exit(-1);
@@ -504,20 +504,20 @@ int ClosestTriangle::findTesterStatus(Vec3D xt) const
 
   for(set<int>::iterator it=elements.begin(); it!=elements.end(); it++) {
     double xi[3];
-    double dist = project(xt, *it, xi[0], xi[1]); 
+    double dist = project(xt, *it, xi[0], xi[1]);
     xi[2] = 1.0 - xi[0] - xi[1]; // project onto the plane determined by this triangle
 
-    if((n1==triNodes[*it][0] || xi[0] >= -eps) && 
+    if((n1==triNodes[*it][0] || xi[0] >= -eps) &&
        (n1==triNodes[*it][1] || xi[1] >= -eps) &&
-       (n1==triNodes[*it][2] || xi[2] >= -eps)) { 
+       (n1==triNodes[*it][2] || xi[2] >= -eps)) {
       if(std::abs(mindist) >= std::abs(dist)) {
         mindist = dist;
         myMode = 0;
         nn1 = nn2 = -1;
-        bestTriangle = *it; 
+        bestTriangle = *it;
       }
     }
-    else { 
+    else {
       if(!(n1==triNodes[*it][0] || xi[0] >= -eps))
         checkEdgeForTester(xt, *it, triNodes[*it][1], triNodes[*it][2], triNodes[*it][0], dist, nn1, nn2, mindist, myMode, bestTriangle, eps);
       if(!(n1==triNodes[*it][1] || xi[1] >= -eps))
@@ -528,7 +528,7 @@ int ClosestTriangle::findTesterStatus(Vec3D xt) const
 //    if(debug)
 //      fprintf(stderr,"NOTE (debug): node = %d, trId = %d. | mode = %d, nn1 = %d, nn2 = %d, bestTriangle = %d, mindist = %e.\n",
 //              n1+1, *it+1, myMode, nn1+1, nn2+1, bestTriangle+1, mindist);
-  }  
+  }
 //  if(debug)
 //    fprintf(stderr,"NOTE (final): node = %d, mode = %d, nn1 = %d, nn2 = %d, bestTriangle = %d, mindist = %e.\n",
 //            n1+1, myMode, nn1+1, nn2+1, bestTriangle+1, mindist);
@@ -547,7 +547,7 @@ int ClosestTriangle::findTesterStatus(Vec3D xt) const
 
 //----------------------------------------------------------------------------
 
-void ClosestTriangle::checkEdgeForTester(Vec3D xt, int trId, int ip1, int ip2, int p3, double trDist, int &nn1, int &nn2, 
+void ClosestTriangle::checkEdgeForTester(Vec3D xt, int trId, int ip1, int ip2, int p3, double trDist, int &nn1, int &nn2,
                                          double &mindist, int &myMode, int &bestTriangle, const double eps) const
 {
   int p1, p2;
@@ -564,14 +564,14 @@ void ClosestTriangle::checkEdgeForTester(Vec3D xt, int trId, int ip1, int ip2, i
     double d2 = project(structX[p3], bestTriangle, xi1, xi2);
     if(d2*mindist>0)
       mindist = -mindist;
-    return; 
+    return;
   } else {
     double dist, alpha;
     double sign = trDist >= 0 ? 1 : -1;
     dist = sign*edgeProject(xt, p1, p2, alpha);
     if((alpha<-eps && p1==n1) || (alpha>1.0+eps && p2==n1))
       return;
-    
+
     if(std::abs(dist) < std::abs(mindist)) {
       bestTriangle = trId;
       nn1 = p1;
@@ -579,7 +579,7 @@ void ClosestTriangle::checkEdgeForTester(Vec3D xt, int trId, int ip1, int ip2, i
       myMode = 1;
       mindist = dist;
     }
-  } 
+  }
 }
 
 //----------------------------------------------------------------------------
@@ -588,7 +588,7 @@ double ClosestTriangle::piercing(Vec3D x0, int tria, double xi[3])
 {
 
    const double tol = 1.0e-12;
-	
+
 	double dist;
 
 	dist = std::abs( project(x0, tria, xi[0], xi[1]) );
@@ -596,9 +596,9 @@ double ClosestTriangle::piercing(Vec3D x0, int tria, double xi[3])
 	xi[2] = 1.0 - xi[0] - xi[1];
 
 	if(xi[0] >= tol && xi[1] >= tol && xi[2] >= tol)
-	{		
+	{
 		return dist;
-	} 
+	}
 	else
 	{
 		dist = 1.0e16;
@@ -609,44 +609,44 @@ double ClosestTriangle::piercing(Vec3D x0, int tria, double xi[3])
 			{
 				int p1 = triNodes[tria][(i+1)%3];
 				int p2 = triNodes[tria][(i+2)%3];
-				
+
 				double alpha;
 				double d2l = std::abs(edgeProject(x0, p1, p2, alpha));
 
-				if(alpha >= tol && alpha <= 1.0 + tol) 
+				if(alpha >= tol && alpha <= 1.0 + tol)
 				{
-					if(dist > d2l) 
+					if(dist > d2l)
 					{
-						dist        = d2l; 
-						xi[i]       = 0.0; 
-						xi[(i+1)%3] = 1.0-alpha; 
+						dist        = d2l;
+						xi[i]       = 0.0;
+						xi[(i+1)%3] = 1.0-alpha;
 						xi[(i+2)%3] = alpha;
 					}
-				} 
-				else 
+				}
+				else
 				{
-					if(alpha < tol) 
+					if(alpha < tol)
 					{
 						double d2p = (x0 - structX[p1]).norm();
 
-						if(dist > d2p) 
+						if(dist > d2p)
 						{
-							dist        = d2p; 
+							dist        = d2p;
 							xi[i]       = 0.0;
-							xi[(i+2)%3] = 0.0; 
+							xi[(i+2)%3] = 0.0;
 							xi[(i+1)%3] = 1.0;
 						}
 					}
 
-					if(alpha > 1.0+tol) 
+					if(alpha > 1.0+tol)
 					{
 						double d2p = (x0 - structX[p2]).norm();
 
-						if(dist > d2p) 
+						if(dist > d2p)
 						{
-							dist        = d2p; 
+							dist        = d2p;
 							xi[i]       = 0.0;
-							xi[(i+1)%3] = 0.0; 
+							xi[(i+1)%3] = 0.0;
 							xi[(i+2)%3] = 1.0;
 						}
 					}
@@ -661,9 +661,9 @@ double ClosestTriangle::piercing(Vec3D x0, int tria, double xi[3])
 
 //----------------------------------------------------------------------------
 
-DistIntersectorFRG::DistIntersectorFRG(IoData &iodata, 
-													Communicator *comm, 
-													int nNodes,	double *xyz, 
+DistIntersectorFRG::DistIntersectorFRG(IoData &iodata,
+													Communicator *comm,
+													int nNodes,	double *xyz,
 													int nElems, int (*abc)[3]) : DistLevelSetStructure(),iod(iodata)
 {
 
@@ -676,7 +676,7 @@ DistIntersectorFRG::DistIntersectorFRG(IoData &iodata,
   {
 	  withViscousTerms = true;
 
-	  if(iod.bc.wall.type == BcsWallData::ISOTHERMAL) 
+	  if(iod.bc.wall.type == BcsWallData::ISOTHERMAL)
 	  {
 		  isoThermalwall = true;
 		  Twall = iod.bc.wall.temperature;
@@ -701,15 +701,15 @@ DistIntersectorFRG::DistIntersectorFRG(IoData &iodata,
   struct_mesh        = new char[sp + strlen(iod.input.embeddedSurface)];
   sprintf(struct_mesh,"%s%s", iod.input.prefix, iod.input.embeddedSurface);
 
-  if (iod.input.restart_file_package[0] == 0) 
+  if (iod.input.restart_file_package[0] == 0)
   {
     struct_restart_pos = new char[sp + strlen(iod.input.embeddedpositions)];
     if(iod.input.embeddedpositions[0] != 0)
       sprintf(struct_restart_pos,"%s%s", iod.input.prefix, iod.input.embeddedpositions);
     else //no restart position file provided
-      strcpy(struct_restart_pos,""); 
-  } 
-  else 
+      strcpy(struct_restart_pos,"");
+  }
+  else
   {
     struct_restart_pos = new char[256];
     char dummy[256], tmp[256];
@@ -722,10 +722,10 @@ DistIntersectorFRG::DistIntersectorFRG(IoData &iodata,
 				    dummy,
 				    dummy,
 				    struct_restart_pos, comm);
-				    
-				    
+
+
   }
-  
+
   //nodal or facet normal?
   interpolatedNormal = (iod.embed.structNormal==EmbeddedFramework::NODE_BASED) ?  true : false;
 
@@ -772,7 +772,7 @@ DistIntersectorFRG::DistIntersectorFRG(IoData &iodata,
 
 //----------------------------------------------------------------------------
 
-DistIntersectorFRG::~DistIntersectorFRG() 
+DistIntersectorFRG::~DistIntersectorFRG()
 {
   delete [] stElem;
   delete [] node2node;
@@ -834,7 +834,7 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface, dou
   // load the nodes and initialize all node-based variables.
 
   // load solid nodes at t=0
-  int num0 = 0; 
+  int num0 = 0;
   int num1 = 0;
 
   double x1,x2,x3;
@@ -845,7 +845,7 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface, dou
 
   std::list<int> indexList;
   std::list<Vec3D> nodeList;
-  std::list<int> elemIdList;    
+  std::list<int> elemIdList;
   std::list<int> elemList1;
   std::list<int> elemList2;
   std::list<int> elemList3;
@@ -872,7 +872,7 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface, dou
         k++;
       }
       if(underscore_pos > -1)
-        sscanf(key2+(underscore_pos+1),"%d",&surfaceid); 
+        sscanf(key2+(underscore_pos+1),"%d",&surfaceid);
     }
     if (!skip) {
       if (type_read == 1) {
@@ -905,7 +905,7 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface, dou
 
   numStElems = elemList1.size();
 
-  // feed data to Xss. 
+  // feed data to Xss.
   Xs      = new Vec3D[numStNodes];
   Xs0     = new Vec3D[numStNodes];
   Xs_n    = new Vec3D[numStNodes];
@@ -946,7 +946,7 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface, dou
   }
 
   stElem = new int[numStElems][3];
-  
+
   it_1 = elemList1.begin();
   it_2 = elemList2.begin();
   it_3 = elemList3.begin();
@@ -963,7 +963,7 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface, dou
     it_2++;
     it_3++;
     it_4++;
-  } 
+  }
 
   fclose(topFile);
 
@@ -979,7 +979,7 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface, dou
 
     while(1) {
       nInputs = fscanf(resTopFile,"%s", c1);
-      if(nInputs!=1) break;    
+      if(nInputs!=1) break;
       char *endptr;
       num1 = strtol(c1, &endptr, 10);
       if(endptr == c1) break;
@@ -995,7 +995,7 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface, dou
 
     for (int k=0; k<numStNodes; k++)
       Xs[k] = Vec3D(0,0,0);
-    
+
     for (it2=nodeList2.begin(); it2!=nodeList2.end(); it2++)
       Xs[it2->first-1] = it2->second;
 
@@ -1008,11 +1008,11 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface, dou
 
   // Verify (1)triangulated surface is closed (2) normal's of all triangles point outward.
   com->fprintf(stderr,"- IntersectorFRG: Checking the embedded structure surface...   ");
-  if (checkTriangulatedSurface()) 
+  if (checkTriangulatedSurface())
     com->fprintf(stderr,"Ok.\n");
   else {
     com->fprintf(stderr,"\n");
-    exit(-1); 
+    exit(-1);
   }
 
 //  getBoundingBox();
@@ -1028,7 +1028,7 @@ void DistIntersectorFRG::init(int nNodes, double *xyz, int nElems, int (*abc)[3]
 
   // node set
   numStNodes = nNodes;
-  // feed data to Xss. 
+  // feed data to Xss.
   Xs      = new Vec3D[numStNodes];
   Xs0     = new Vec3D[numStNodes];
   Xs_n    = new Vec3D[numStNodes];
@@ -1141,7 +1141,7 @@ void DistIntersectorFRG::setPorosity() {
 
 //----------------------------------------------------------------------------
 void DistIntersectorFRG::setdXdSb(int N, double* dxdS, double* dydS, double* dzdS){
-  
+
   if(N != numStNodes) {
     fprintf(stderr, "Error num nodes: %d %d\n", N,  numStNodes);
     exit(-1);
@@ -1218,7 +1218,7 @@ void DistIntersectorFRG::makerotationownership() {
 //----------------------------------------------------------------------------
 void DistIntersectorFRG::updatebc() {
   map<int,RotationData*> &rotationMap= iod.rotations.rotationMap.dataMap;
-  if (rotOwn)  { 
+  if (rotOwn)  {
     for (int k=0; k<numStNodes; k++) {
       if (rotOwn[k]>=0) {    // node belongs to a (potential) "rotating" surface
         map<int,RotationData *>::iterator it =  rotationMap.find(rotOwn[k]);
@@ -1228,7 +1228,7 @@ void DistIntersectorFRG::updatebc() {
 	    Xsdot[k][0] = vel*it->second->nx + Xsdot[k][0];
 	    Xsdot[k][1] = vel*it->second->ny + Xsdot[k][1];
 	    Xsdot[k][2] = vel*it->second->nz + Xsdot[k][2];
-	  } 
+	  }
           else {
             double XScale = (iod.problem.mode==ProblemData::NON_DIMENSIONAL) ? 1.0 : iod.ref.rv.length;
 	    double tref = iod.ref.rv.time;
@@ -1242,7 +1242,7 @@ void DistIntersectorFRG::updatebc() {
 	    Xsdot[k][1] = oz*xd-ox*zd + Xsdot[k][1];
 	    Xsdot[k][2] = ox*yd-oy*xd + Xsdot[k][2];
 	  }
-	} 
+	}
         else  { // no rotation data -> use velocity from mesh motion if any
           Xsdot[k][0] = Xsdot[k][0];
           Xsdot[k][1] = Xsdot[k][1];
@@ -1281,7 +1281,7 @@ DistIntersectorFRG::initializePhysBAM() { //NOTE: In PhysBAM array index starts 
   PhysBAM::GEOMETRY_PARTICLES<PhysBAM::VECTOR<double,3> > *physbam_solids_particle=new PhysBAM::GEOMETRY_PARTICLES<PhysBAM::VECTOR<double,3> >();
   physbam_solids_particle->array_collection.Resize(numStNodes);
   for (int i=0; i<numStNodes; i++) physbam_solids_particle->X(i+1) = PhysBAM::VECTOR<double,3>(Xs[i][0],Xs[i][1], Xs[i][2]);
-  
+
   // Initialize the Triangle list.
   PhysBAM::ARRAY<PhysBAM::VECTOR<int,3> > physbam_stElem(numStElems);
   for (int i=0; i<numStElems; i++) physbam_stElem(i+1) = PhysBAM::VECTOR<int,3>(stElem[i][0]+1,stElem[i][1]+1,stElem[i][2]+1);
@@ -1342,7 +1342,7 @@ bool DistIntersectorFRG::checkTriangulatedSurface()
 //----------------------------------------------------------------------------
 
 void DistIntersectorFRG::buildConnectivity() {
-  for(int i=0; i<numStElems; i++) 
+  for(int i=0; i<numStElems; i++)
     for(int j=0; j<3; j++) {// assume triangle elements
       node2node[stElem[i][j]].insert(stElem[i][(j+1)%3]);
       node2node[stElem[i][j]].insert(stElem[i][(j+2)%3]);
@@ -1378,7 +1378,7 @@ void DistIntersectorFRG::buildSolidNormals() {
 
     // calculate the normal.
     triNorms[iTriangle] = Vec3D(dx2, dy2, dz2)^Vec3D(dx3,dy3,dz3);
-    
+
     if(interpolatedNormal){ // compute nodal normal (weighted by area)
       nodalNormal[n1] += triNorms[iTriangle];
       nodalNormal[n2] += triNorms[iTriangle];
@@ -1412,8 +1412,8 @@ void DistIntersectorFRG::expandScope()
   for(int iSub=0; iSub<numLocSub; iSub++) {
     int *sndChannel = subs[iSub]->getSndChannel();
     for(int iNei=0; iNei<subs[iSub]->getNumNeighb(); iNei++)
-      trader.setLen(sndChannel[iNei], 1+intersector[iSub]->package[iNei].size());     
-  }    
+      trader.setLen(sndChannel[iNei], 1+intersector[iSub]->package[iNei].size());
+  }
   trader.finalize();
 
   // 2. send packages to neighbour subdomains.
@@ -1424,7 +1424,7 @@ void DistIntersectorFRG::expandScope()
     for(int iNei=0; iNei<subs[iSub]->getNumNeighb(); iNei++) {
       SubRecInfo<int> sInfo = trader.getSendBuffer(sndChannel[iNei]);
       int *buffer = reinterpret_cast<int*>(sInfo.data);
-      buffer[0] = intersector[iSub]->package[iNei].size(); 
+      buffer[0] = intersector[iSub]->package[iNei].size();
       int count = 0;
       for(it=intersector[iSub]->package[iNei].begin(); it!= intersector[iSub]->package[iNei].end(); it++)
         buffer[++count] = *it;
@@ -1512,13 +1512,13 @@ DistIntersectorFRG::initialize(Domain *d, DistSVec<double,3> &X, DistSVec<double
     intersector[i]->computeFirstLayerNodeStatus((*tId)(i), (*distance)(i));
   }
   findInAndOut();
-  finishStatusByPoints(iod, point_based_id);   
+  finishStatusByPoints(iod, point_based_id);
 
   if (oldStatus)
     *status = *oldStatus;
- 
+
 #pragma omp parallel for
-  for(int iSub = 0; iSub < numLocSub; ++iSub) 
+  for(int iSub = 0; iSub < numLocSub; ++iSub)
   {
     intersector[iSub]->findIntersections(X(iSub), false);
     for(int i = 0; i < (*is_active)(iSub).size(); ++i)
@@ -1527,7 +1527,7 @@ DistIntersectorFRG::initialize(Domain *d, DistSVec<double,3> &X, DistSVec<double
   }
   }
 
-  
+
 
   ///////////////////////////////////////////////////////
   if(externalSI)
@@ -1538,9 +1538,9 @@ DistIntersectorFRG::initialize(Domain *d, DistSVec<double,3> &X, DistSVec<double
 #pragma omp parallel for
 	  for(int iSub = 0; iSub < numLocSub; ++iSub)
 	  {
-		  for(int i=0; i<X(iSub).size(); ++i) 
+		  for(int i=0; i<X(iSub).size(); ++i)
 			  ISactive_bk(iSub)[i] = (*is_active)(iSub)[i];
-		  
+
 		  intersector[iSub]->reFlagRealNodes(X(iSub), ISactive_bk(iSub));
 
 		  for(int i=0; i<X(iSub).size(); ++i)
@@ -1561,7 +1561,7 @@ DistIntersectorFRG::initialize(Domain *d, DistSVec<double,3> &X, DistSVec<double
 #pragma omp parallel for
  	  for(int iSub = 0; iSub < numLocSub; ++iSub)
  		  intersector[iSub]->ComputeSIbasedIntersections(iSub, X(iSub), (*boxMin)(iSub), (*boxMax)(iSub), withViscousTerms);
-	  
+
   }
   ///////////////////////////////////////////////////////
 
@@ -1570,10 +1570,10 @@ DistIntersectorFRG::initialize(Domain *d, DistSVec<double,3> &X, DistSVec<double
 
 //----------------------------------------------------------------------------
 
-void 
+void
 DistIntersectorFRG::findPoly() {
   if(!poly) {
-//    com->fprintf(stderr,"ERROR: poly not initialized.\n"); 
+//    com->fprintf(stderr,"ERROR: poly not initialized.\n");
     exit(-1);
   }
 
@@ -1583,7 +1583,7 @@ DistIntersectorFRG::findPoly() {
   domain->assemble(domain->getLevelPat(), tester);
 
 #pragma omp parallel for
-  for(int iSub=0; iSub<numLocSub; iSub++) 
+  for(int iSub=0; iSub<numLocSub; iSub++)
     for(int i=0; i<tester(iSub).size(); i++)
       if(tester(iSub)[i]>2)
         (*poly)(iSub)[i] = true;
@@ -1591,7 +1591,7 @@ DistIntersectorFRG::findPoly() {
 
 //----------------------------------------------------------------------------
 
-void DistIntersectorFRG::updateStructure(double *xs, double *Vs, int nNodes, int (*abc)[3]) 
+void DistIntersectorFRG::updateStructure(double *xs, double *Vs, int nNodes, int (*abc)[3])
 {
 //  com->fprintf(stderr,"DistIntersectorFRG::updateStructure called!\n");
   if(nNodes!=numStNodes) {
@@ -1599,7 +1599,7 @@ void DistIntersectorFRG::updateStructure(double *xs, double *Vs, int nNodes, int
     exit(-1);
   }
 
-  for (int i=0; i<nNodes; i++) 
+  for (int i=0; i<nNodes; i++)
     for(int j=0; j<3; j++) {
       Xs_n[i][j] = Xs_np1[i][j];
       Xs_np1[i][j] = xs[3*i+j];
@@ -1612,7 +1612,7 @@ void DistIntersectorFRG::updateStructure(double *xs, double *Vs, int nNodes, int
 
 //----------------------------------------------------------------------------
 
-void DistIntersectorFRG::updatePhysBAMInterface() 
+void DistIntersectorFRG::updatePhysBAMInterface()
 {
   for (int i=0; i<numStNodes; i++)
     globPhysInterface->particles.X(i+1) = PhysBAM::VECTOR<double,3>(Xs[i][0], Xs[i][1], Xs[i][2]);
@@ -1622,7 +1622,7 @@ void DistIntersectorFRG::updatePhysBAMInterface()
 //----------------------------------------------------------------------------
 
 /** compute the intersections, node statuses and normals for the initial geometry */
-int DistIntersectorFRG::recompute(double dtf, double dtfLeft, double dts, bool findStatus, bool retry) 
+int DistIntersectorFRG::recompute(double dtf, double dtfLeft, double dts, bool findStatus, bool retry)
 {
   if(!findStatus) {
     fprintf(stderr,"ERROR: findStatus = %d. IntersectorFRG always needs to determine status.\n", findStatus);
@@ -1650,7 +1650,7 @@ int DistIntersectorFRG::recompute(double dtf, double dtfLeft, double dts, bool f
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
     //#pragma omp flush (abortOmp)
     //if (!abortOmp) {
-      intersector[iSub]->reset(retry); 
+      intersector[iSub]->reset(retry);
       intersector[iSub]->rebuildPhysBAMInterface(Xs, numStNodes, stElem, numStElems);
       intersector[iSub]->getClosestTriangles((*X)(iSub), (*boxMin)(iSub), (*boxMax)(iSub), (*tId)(iSub), (*distance)(iSub), true);
       intersector[iSub]->computeFirstLayerNodeStatus((*tId)(iSub), (*distance)(iSub));
@@ -1725,7 +1725,7 @@ void DistIntersectorFRG::findInAndOut()
 //  one = 1;
 
 #pragma omp parallel for
-  for(int iSub=0; iSub<numLocSub; iSub++) 
+  for(int iSub=0; iSub<numLocSub; iSub++)
     intersector[iSub]->floodFill(*(domain->getSubDomain()[iSub]),nUndecided[iSub]);
 
   while(1) { //get out only when all nodes are decided
@@ -1737,24 +1737,24 @@ void DistIntersectorFRG::findInAndOut()
     com->globalMax(1,&total);
 //    com->fprintf(stderr,"total = %d\n",total);
     if(total==0) //done!
-      break; 
+      break;
 
     //2. try to get a seed from neighbor subdomains, then floodFill
 #pragma omp parallel for
     for(int iSub=0; iSub<numLocSub; iSub++)
       for(int i=0; i<status_and_weight(iSub).size(); i++) {
-        status_and_weight(iSub)[i][0] = (*status)(iSub)[i] + 1; 
+        status_and_weight(iSub)[i][0] = (*status)(iSub)[i] + 1;
           //status(temp) = 0(UNDECIDED),1(INSIDE),or -1(OUTSIDE).
         status_and_weight(iSub)[i][1] = ((*status)(iSub)[i]==IntersectorFRG::UNDECIDED) ? 0 : 1;
-      } 
-         
+      }
+
     domain->assemble(domain->getFsPat(),status_and_weight);
 
 #pragma omp parallel for
     for(int iSub=0; iSub<numLocSub; iSub++) {
       int nNewSeed = intersector[iSub]->findNewSeedsAfterMerging(status_and_weight(iSub), nUndecided[iSub]);
       if(nNewSeed)
-        intersector[iSub]->floodFill(*(domain->getSubDomain()[iSub]),nUndecided[iSub]);      
+        intersector[iSub]->floodFill(*(domain->getSubDomain()[iSub]),nUndecided[iSub]);
     }
   }
 }
@@ -1806,7 +1806,7 @@ void IntersectorFRG::reFlagRealNodes(SVec<double,3>& X, Vec<bool> &ISactive_bk)
 
 	bool i_less_j;
 
-	for(int l=0; l<edges.size(); l++) 
+	for(int l=0; l<edges.size(); l++)
 	{
 		if(edge_intersects[l])
 		{
@@ -1824,37 +1824,37 @@ void IntersectorFRG::reFlagRealNodes(SVec<double,3>& X, Vec<bool> &ISactive_bk)
 			IntersectionResult<double>& Res_ji = ReverseCrossingEdgeRes[l];
 
 			IntersectionResult<double> Res;
-			
-			if(ISactive_bk[i]) 
+
+			if(ISactive_bk[i])
 				i_less_j = true;
 			else
 				i_less_j = false;
 
 			double alpha_1, alpha_2;
-			
-			if(Res_ij.triangleID > 0 && Res_ji.triangleID > 0 && Res_ij.triangleID == Res_ji.triangleID) 
+
+			if(Res_ij.triangleID > 0 && Res_ji.triangleID > 0 && Res_ij.triangleID == Res_ji.triangleID)
 			{
 				Res = Res_ij;
 				alpha_1 = i_less_j ? Res.alpha : 1.0 - Res.alpha;
-			}  
-			else if(Res_ij.triangleID > 0 && Res_ji.triangleID > 0 && Res_ij.triangleID != Res_ji.triangleID) 
+			}
+			else if(Res_ij.triangleID > 0 && Res_ji.triangleID > 0 && Res_ij.triangleID != Res_ji.triangleID)
 			{
 				Res = i_less_j ? Res_ij : Res_ji;
 				alpha_1 = Res.alpha;
 			}
-			else if(Res_ij.triangleID > 0 && Res_ji.triangleID < 0) 
+			else if(Res_ij.triangleID > 0 && Res_ji.triangleID < 0)
 			{
 				Res = Res_ij;
 				alpha_1 = i_less_j ? Res.alpha : 1.0 - Res.alpha;
 			}
-			else if(Res_ij.triangleID<0 && Res_ji.triangleID>0) 
+			else if(Res_ij.triangleID<0 && Res_ji.triangleID>0)
 			{
 				Res = Res_ji;
 				alpha_1 = i_less_j ? 1.0 - Res.alpha : Res.alpha;
 			}
 
 			alpha_2 = 1.0 - alpha_1;
-		
+
 			if(alpha_1 > 0.5 && is_active[i]) is_active[i] = false;
 			if(alpha_2 > 0.5 && is_active[j]) is_active[j] = false;
 		}
@@ -1864,10 +1864,10 @@ void IntersectorFRG::reFlagRealNodes(SVec<double,3>& X, Vec<bool> &ISactive_bk)
 }
 
 //----------------------------------------------------------------------------
-void IntersectorFRG::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X,  
-																 SVec<double,3> &boxMin, SVec<double,3> &boxMax, 
+void IntersectorFRG::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X,
+																 SVec<double,3> &boxMin, SVec<double,3> &boxMax,
 																 bool withViscousTerms)
-{	
+{
 
 	double l1, l2, l1_i, l1_j, l2_i, l2_j, lambda[3];
 
@@ -1901,7 +1901,7 @@ void IntersectorFRG::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X,
 		int j = ptr[l][1];
 
 		edge_SI[l] = false;
-	  
+
 		if(!is_active[i] || !is_active[j])
 		{
 			if(is_active[i] == is_active[j]) continue;
@@ -1913,7 +1913,7 @@ void IntersectorFRG::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X,
 
 			int nFound_i = structureTree.findCandidatesInBox(boxMin[i], boxMax[i], candidates_i, nMaxCand_i);
 
-			if(nFound_i > nMaxCand_i) 
+			if(nFound_i > nMaxCand_i)
 			{
 				nMaxCand_i = nFound_i;
 
@@ -1926,7 +1926,7 @@ void IntersectorFRG::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X,
 
 			int nFound_j = structureTree.findCandidatesInBox(boxMin[j], boxMax[j], candidates_j, nMaxCand_j);
 
-			if(nFound_j > nMaxCand_j) 
+			if(nFound_j > nMaxCand_j)
 			{
 				nMaxCand_j = nFound_j;
 
@@ -1939,7 +1939,7 @@ void IntersectorFRG::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X,
 
 			int trId;
 			double dist_si, dist_i, dist_j, xi[3];
-			
+
 			double min_dist_si = 1.0e16;
 			double min_dist_i  = 1.0e16;
 			double min_dist_j  = 1.0e16;
@@ -1952,13 +1952,13 @@ void IntersectorFRG::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X,
 
 			if(nFound_i > 0)
 			{
-				for(int l = 0; l < nFound_i; ++l) 
+				for(int l = 0; l < nFound_i; ++l)
 				{
 					int trId = candidates_i[l].trId();
 
 					dist_si = closestTriangle.piercing(X_ij, trId, lambda);
 
-					if(dist_si < min_dist_si) 
+					if(dist_si < min_dist_si)
 					{
 						min_dist_si = dist_si;
 
@@ -1972,7 +1972,7 @@ void IntersectorFRG::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X,
 
 			if(nFound_j > 0)
 			{
-				for(int l = 0; l < nFound_j; ++l) 
+				for(int l = 0; l < nFound_j; ++l)
 				{
 					int trId = candidates_j[l].trId();
 
@@ -2002,7 +2002,7 @@ void IntersectorFRG::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X,
 
 			double norm = sqrt(nn * nn);
 			if(norm != 0.0) nn *= (1.0 / norm);
-			
+
 			   xi_SI[l] = l1;
 		     eta_SI[l] = l2;
 			nWall_SI[l] = nn;
@@ -2013,21 +2013,21 @@ void IntersectorFRG::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X,
 
 			ARRAY<int> candidates_i;
 			VECTOR<double,3> min_corner_i(boxMin[i][0],boxMin[i][1],boxMin[i][2]);
-			VECTOR<double,3> max_corner_i(boxMax[i][0],boxMax[i][1],boxMax[i][2]);		
-			bool t_i = physbam_interface.HasCloseTriangle(locIndex+1, VECTOR<double,3>(X[i][0],X[i][1],X[i][2]), 
+			VECTOR<double,3> max_corner_i(boxMax[i][0],boxMax[i][1],boxMax[i][2]);
+			bool t_i = physbam_interface.HasCloseTriangle(locIndex+1, VECTOR<double,3>(X[i][0],X[i][1],X[i][2]),
 																		 min_corner_i, max_corner_i, &shrunk_index, &occluded, &candidates_i);
-																		 
+
 
 
 			ARRAY<int> candidates_j;
 			VECTOR<double,3>min_corner_j(boxMin[j][0],boxMin[j][1],boxMin[j][2]);
 			VECTOR<double,3>max_corner_j(boxMax[j][0],boxMax[j][1],boxMax[j][2]);
-			bool t_j= physbam_interface.HasCloseTriangle(locIndex+1, VECTOR<double,3>(X[i][0],X[i][1],X[i][2]), 
+			bool t_j= physbam_interface.HasCloseTriangle(locIndex+1, VECTOR<double,3>(X[i][0],X[i][1],X[i][2]),
 																		min_corner_j, max_corner_j, &shrunk_index, &occluded, &candidates_j);
 
-			int trId;		
+			int trId;
 			double dist_si, dist_i, dist_j, xi[3];
-			
+
 			double min_dist_si = 1.0e16;
 			double min_dist_i  = 1.0e16;
 			double min_dist_j  = 1.0e16;
@@ -2037,16 +2037,16 @@ void IntersectorFRG::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X,
 
 			Tri_i = Tri_j =-1;
 			l1_i = l1_j = l2_i = l2_j = -1.0;
-			
-			if(t_i) 
+
+			if(t_i)
 			{
-				for(int iArray=1; iArray <= candidates_i.Size(); iArray++) 
-				{					
+				for(int iArray=1; iArray <= candidates_i.Size(); iArray++)
+				{
 					trId = candidates_i(iArray) - 1;
-			
+
 					dist_si = piercing(X_ij, trId, lambda);
 
-					if(dist_si < min_dist_si) 
+					if(dist_si < min_dist_si)
 					{
 						min_dist_si = dist_si;
 
@@ -2068,19 +2068,19 @@ void IntersectorFRG::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X,
 							l2_i  = lambda[1];
 						}
 					}
-					
+
 				}
 			}
 
-			if(t_j) 
-			{		  
-				for(int iArray=1; iArray <= candidates_j.Size(); iArray++) 
+			if(t_j)
+			{
+				for(int iArray=1; iArray <= candidates_j.Size(); iArray++)
 				{
 					trId = candidates_j(iArray) - 1;
 
 					dist_si = piercing(X_ij, trId, lambda);
 
-					if(dist_si < min_dist_si) 
+					if(dist_si < min_dist_si)
 					{
 						min_dist_si = dist_si;
 
@@ -2105,7 +2105,7 @@ void IntersectorFRG::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X,
 
 				}
 			}
-			
+
 			Vec3D d2, d3, nn;
 
 			for(int id=0; id<3; ++id)
@@ -2118,7 +2118,7 @@ void IntersectorFRG::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X,
 
 			double norm = sqrt(nn * nn);
 			if(norm != 0.0) nn *= (1.0 / norm);
-			
+
 			   xi_SI[l] = l1;
 		     eta_SI[l] = l2;
 			nWall_SI[l] = nn;
@@ -2133,7 +2133,7 @@ void IntersectorFRG::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X,
 				}
 
 				nn = d2^d3;
-				
+
 				double norm = sqrt(nn * nn);
 				if(norm != 0.0) nn *= 1.0 / norm;
 
@@ -2152,7 +2152,7 @@ void IntersectorFRG::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X,
 				}
 
 				nn = d2^d3;
-				
+
 				double norm = sqrt(nn * nn);
 				if(norm != 0.0) nn *= 1.0 / norm;
 
@@ -2161,7 +2161,7 @@ void IntersectorFRG::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X,
  				nWall_node[j] = nn;
 				TriID_node[j] = Tri_j;
 			}
-		*/		
+		*/
 		}
 
 	}
@@ -2173,12 +2173,12 @@ void IntersectorFRG::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X,
 		int i = ptr[l][0]; int j = ptr[l][1];
 
 		if(edge_SI[l])
-		{			
-			if( (!is_active[i] && !is_active[j]) ||  
+		{
+			if( (!is_active[i] && !is_active[j]) ||
 				 ( is_active[i] &&  is_active[j]) )
-			{		
+			{
 				std::cout << "error SI edge and " << std::boolalpha << is_active[i] << " " << is_active[j] << " " << edge_intersects[l] << endl;
-				std::cout << i << " Xi = " << X[i][0]<<" "<<X[i][1]<<" "<<X[i][2] 
+				std::cout << i << " Xi = " << X[i][0]<<" "<<X[i][1]<<" "<<X[i][2]
 							 << " " << j << " Xj = " << X[j][0]<<" "<<X[j][1]<<" "<<X[j][2] <<endl;
 				exit(-1);
 			}
@@ -2186,10 +2186,10 @@ void IntersectorFRG::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X,
 		else
 		{
 			if( is_active[i] != is_active[j] )
-			{	
-				std::cout << "error  edge without SI and " << std::boolalpha << is_active[i] << " " << is_active[j] 
+			{
+				std::cout << "error  edge without SI and " << std::boolalpha << is_active[i] << " " << is_active[j]
 							 << " " << edge_intersects[l] << endl;
-				std::cout << i << " Xi = " << X[i][0]<<" "<<X[i][1]<<" "<<X[i][2] << " " 
+				std::cout << i << " Xi = " << X[i][0]<<" "<<X[i][1]<<" "<<X[i][2] << " "
 							 << j << " Xj = " << X[j][0]<<" "<<X[j][1]<<" "<<X[j][2] <<endl;
 				exit(-1);
 			}
@@ -2243,9 +2243,9 @@ void DistIntersectorFRG::finishStatusByPoints(IoData &iod, DistVec<int> *point_b
     for(int iSub=0; iSub<numLocSub; iSub++)
       for(int i=0; i<(*status)(iSub).size(); i++)
         if((*status)(iSub)[i]==IntersectorFRG::OUTSIDE)
-          (*status)(iSub)[i]=1; 
+          (*status)(iSub)[i]=1;
 
-    twoPhase = true; 
+    twoPhase = true;
     return;
   }
 
@@ -2271,7 +2271,7 @@ void DistIntersectorFRG::finishStatusByPoints(IoData &iod, DistVec<int> *point_b
       if(myID>=numFluid) { //myID should start from 0
         com->fprintf(stderr,"ERROR:FluidModel %d doesn't exist! NumPhase = %d\n", myID, numFluid);
         exit(-1);
-      } 
+      }
     }
   } else {
     com->fprintf(stderr, "ERROR: (INTERSECTOR) Point-based initial conditions are required for multi-phase FSI.\n");
@@ -2299,7 +2299,7 @@ void DistIntersectorFRG::finishStatusByPoints(IoData &iod, DistVec<int> *point_b
     // 3. flood fill if seeds are found
     if(nSeeds>0)
       intersector[iSub]->noCheckFloodFill(*(domain->getSubDomain()[iSub]),nUndecided[iSub]);
-  }   
+  }
 
   int total0 = 0;
   while(1) { //get out only when all nodes are decided
@@ -2356,7 +2356,7 @@ void DistIntersectorFRG::finishStatusByPoints(IoData &iod, DistVec<int> *point_b
           (*status)(iSub)[i] = IntersectorFRG::OUTSIDECOLOR;
         }
       }
-  } else 
+  } else
     twoPhase = (numFluid<3) ? true : false;
 }
 
@@ -2369,9 +2369,9 @@ void DistIntersectorFRG::finishStatusByPoints(IoData &iod)
     for(int iSub=0; iSub<numLocSub; iSub++)
       for(int i=0; i<(*status)(iSub).size(); i++)
         if((*status)(iSub)[i]==IntersectorFRG::OUTSIDE)
-          (*status)(iSub)[i]=1; 
+          (*status)(iSub)[i]=1;
 
-    twoPhase = true; 
+    twoPhase = true;
     return;
   }
 
@@ -2388,7 +2388,7 @@ void DistIntersectorFRG::finishStatusByPoints(IoData &iod)
       if(myID>=numFluid) { //myID should start from 0
         com->fprintf(stderr,"ERROR:FluidModel %d doesn't exist! NumPhase = %d\n", myID, numFluid);
         exit(-1);
-      } 
+      }
     }
   } else {
     com->fprintf(stderr, "ERROR: (INTERSECTOR) Point-based initial conditions are required for multi-phase FSI.\n");
@@ -2398,7 +2398,7 @@ void DistIntersectorFRG::finishStatusByPoints(IoData &iod)
   list< pair<Vec3D,int> >::iterator iter;
   for(iter = Points.begin(); iter!=Points.end(); iter++)
     com->fprintf(stderr,"  - Detected point (%e %e %e) with FluidModel %d\n", (iter->first)[0], (iter->first)[1], (iter->first)[2], iter->second);
-  
+
 
   int nUndecided[numLocSub], total;
   DistVec<int> status_temp(domain->getNodeDistInfo());
@@ -2421,7 +2421,7 @@ void DistIntersectorFRG::finishStatusByPoints(IoData &iod)
     // 3. flood fill if seeds are found
     if(nSeeds>0)
       intersector[iSub]->noCheckFloodFill(*(domain->getSubDomain()[iSub]),nUndecided[iSub]);
-  }   
+  }
 
   int total0 = 0;
   while(1) { //get out only when all nodes are decided
@@ -2431,7 +2431,7 @@ void DistIntersectorFRG::finishStatusByPoints(IoData &iod)
     for(int iSub=0; iSub<numLocSub; iSub++)
       total += nUndecided[iSub];
     com->globalSum(1,&total);
-    com->fprintf(stderr,"Total number of undecided nodes = %d\n", total);    
+    com->fprintf(stderr,"Total number of undecided nodes = %d\n", total);
     if(total==0 || total==total0)
       break; //done
 
@@ -2470,7 +2470,7 @@ void DistIntersectorFRG::finishStatusByPoints(IoData &iod)
           (*status)(iSub)[i] = IntersectorFRG::OUTSIDECOLOR;
         }
       }
-  } else 
+  } else
     twoPhase = (numFluid<3) ? true : false;
 
   exit(-1);
@@ -2491,10 +2491,10 @@ void DistIntersectorFRG::finalizeStatus()
         status_and_weight(iSub)[i][0] = (*status)(iSub)[i];
         status_and_weight(iSub)[i][1] = 1;
       }
-    
+
 //      if(intersector[iSub]->locToGlobNodeMap[i]+1==151870)
 //        fprintf(stderr,"Before Assemble: CPU%d: status/weight of 151870 is %d/%d...\n", com->cpuNum(), status_and_weight(iSub)[i][0],status_and_weight(iSub)[i][1]);
-    }  
+    }
 
 
   domain->assemble(domain->getFsPat(),status_and_weight);
@@ -2509,7 +2509,7 @@ void DistIntersectorFRG::finalizeStatus()
           (*status)(iSub)[i] = status_and_weight(iSub)[i][0] / status_and_weight(iSub)[i][1];
 
         if((*status)(iSub)[i]<=0 || (*status)(iSub)[i]>numFluid)
-          fprintf(stderr,"ERROR: failed at determining status for node %d. Structure may have crossed two or more layers of nodes in one time-step!\n", 
+          fprintf(stderr,"ERROR: failed at determining status for node %d. Structure may have crossed two or more layers of nodes in one time-step!\n",
                   (intersector[iSub]->locToGlobNodeMap)[i]+1);
       }
 //      if((intersector[iSub]->locToGlobNodeMap)[i]+1==81680)
@@ -2536,7 +2536,7 @@ bool IntersectorFRG::finishStatusByHistory(SubDomain& sub)
       if(status0[i]!=INSIDE)
         status[i] = status0[i];
       else {//status0[i]==INSIDE
-        bool done = false;    
+        bool done = false;
         for(int iNei=0; iNei<nToN.num(i); iNei++)
           if(status0[nToN[i][iNei]]!=INSIDE) {
             status[i] = status0[nToN[i][iNei]];
@@ -2544,18 +2544,18 @@ bool IntersectorFRG::finishStatusByHistory(SubDomain& sub)
             break;
           }
         if(!done) {
-          good = false; 
-//          fprintf(stderr,"ERROR(CPU %d): F-S Interface moved over 2 (or more) layers of nodes in 1 time-step!\n", distIntersector.com->cpuNum()); 
+          good = false;
+//          fprintf(stderr,"ERROR(CPU %d): F-S Interface moved over 2 (or more) layers of nodes in 1 time-step!\n", distIntersector.com->cpuNum());
 //          fprintf(stderr,"Node %d: status = %d, status0 = %d\n",locToGlobNodeMap[i]+1,status[i],status0[i]);
-//          for(int iNei=0; iNei<nToN.num(i); iNei++) 
+//          for(int iNei=0; iNei<nToN.num(i); iNei++)
 //            fprintf(stderr,"Neighbor %d: status = %d, status0 = %d\n", locToGlobNodeMap[nToN[i][iNei]]+1, status[nToN[i][iNei]], status0[nToN[i][iNei]]);
         }
       }
-    } 
+    }
     else if(status[i]==UNDECIDED) {
       if(status0[i]!=UNDECIDED)
         status[i] = status0[i];
-      else  
+      else
         fprintf(stderr,"ERROR: Unable to determine node status for Node %d\n", locToGlobNodeMap[i]+1);
     }
 
@@ -2577,7 +2577,7 @@ void IntersectorFRG::floodFill(SubDomain& sub, int& nUndecided)
 
   // Propogate status to the entire subdomain.
   // List is used as a FIFO queue
-  Vec<int> seed(numNodes); //list of decided nodes  
+  Vec<int> seed(numNodes); //list of decided nodes
   Vec<int> level(numNodes);
   // Look for a start point
   // lead: In pointer
@@ -2599,9 +2599,9 @@ void IntersectorFRG::floodFill(SubDomain& sub, int& nUndecided)
       if(status[nToN[cur][i]] == UNDECIDED) {
         status[nToN[cur][i]] = curStatus;
         level[nToN[cur][i]] = curLevel+1;
-        seed[lead++] = nToN[cur][i]; 
+        seed[lead++] = nToN[cur][i];
         nUndecided--;
-      } else 
+      } else
         if(status[nToN[cur][i]] != curStatus && ( curLevel != 0 || level[nToN[cur][i]] != 0))
           std::cerr << "Incompatible nodes have met: " << locToGlobNodeMap[cur]+1 << "("<< status[cur]
                     << ") and " << locToGlobNodeMap[nToN[cur][i]]+1 << "(" << status[nToN[cur][i]] << ") "
@@ -2736,11 +2736,11 @@ void IntersectorFRG::rebuildPhysBAMInterface(Vec3D *Xs, int nsNodes, int (*sElem
 
 
 
-  // Initialize the Particles list 
+  // Initialize the Particles list
   int count = 0;
   physbam_solids_particle = new PhysBAM::GEOMETRY_PARTICLES<PhysBAM::VECTOR<double,3> >();
   physbam_solids_particle->array_collection.Resize(nPar);
-  for (list<int>::iterator lit=particle.begin(); lit!=particle.end(); lit++) 
+  for (list<int>::iterator lit=particle.begin(); lit!=particle.end(); lit++)
     physbam_solids_particle->X(++count) = PhysBAM::VECTOR<double,3>(Xs[*lit][0],Xs[*lit][1], Xs[*lit][2]);
 
   // Initialize the Triangle list
@@ -2816,18 +2816,18 @@ void IntersectorFRG::buildSolidNormals(Vec3D *Xs, int nsNodes, int (*sElem)[3], 
       ndNormal[n2p[n1]] += trNormal[iTr];
       ndNormal[n2p[n2]] += trNormal[iTr];
       ndNormal[n2p[n3]] += trNormal[iTr];
-    } 
+    }
 
     // normalize the normal.
     double nrm = trNormal[iTr].norm();
     if(nrm > 0.0)
        trNormal[iTr] /= nrm;
     else
-      fprintf(stderr,"ERROR: Area of Triangle %d is %e.\n", iscope[iTr]+1, 0.5*nrm); 
+      fprintf(stderr,"ERROR: Area of Triangle %d is %e.\n", iscope[iTr]+1, 0.5*nrm);
   }
 
   if(interp) //normalize nodal normals.
-    for(int i=0; i<nPt; i++) 
+    for(int i=0; i<nPt; i++)
       ndNormal[i] /= ndNormal[i].norm(); //TODO: need a local communication
 }
 */
@@ -2855,7 +2855,7 @@ int IntersectorFRG::buildScopeTopology(int (*sElem)[3], int nsElem)
 /** Find the closest structural triangle for each node. If no triangle intersect the bounding box of the node,
 * no closest triangle exists
 */
-void IntersectorFRG::getClosestTriangles(SVec<double,3> &X, SVec<double,3> &boxMin, SVec<double,3> &boxMax, Vec<int> &tId, Vec<double> &dist, bool useScope) 
+void IntersectorFRG::getClosestTriangles(SVec<double,3> &X, SVec<double,3> &boxMin, SVec<double,3> &boxMax, Vec<int> &tId, Vec<double> &dist, bool useScope)
 {
   int (*triNodes)[3] = distIntersector.stElem;
   Vec3D *structX = (distIntersector.getStructPosition()).data();
@@ -2882,7 +2882,7 @@ void IntersectorFRG::getClosestTriangles(SVec<double,3> &X, SVec<double,3> &boxM
   }
   KDTree<MyTriangle> structureTree(ntri, myTris);
 
-  // clear scope for refill 
+  // clear scope for refill
   scope.clear();
 
   // find candidates
@@ -2896,8 +2896,8 @@ void IntersectorFRG::getClosestTriangles(SVec<double,3> &X, SVec<double,3> &boxM
     for(int k=0; k<3; k++) {
       bMin[k] = boxMin[i][k] - extra;
       bMax[k] = boxMax[i][k] + extra;
-    } 
-*/    
+    }
+*/
     int nFound = structureTree.findCandidatesInBox(/*bMin*/boxMin[i], /*bMax*/boxMax[i], candidates, nMaxCand);
     if(nFound > nMaxCand) {
 //      std::cerr << "For Fluid node " << locToGlobNodeMap[i]+1 << ", number of candidates: " << nFound << std::endl;
@@ -2910,17 +2910,17 @@ void IntersectorFRG::getClosestTriangles(SVec<double,3> &X, SVec<double,3> &boxM
     for(int j = 0; j < nFound; ++j) {
       int myId = candidates[j].trId();
       scope.insert(myId);
-      addToPackage(i, myId);    
+      addToPackage(i, myId);
       closestTriangle.checkTriangle(myId);
 /*      //debug
       Vec3D Xi(X[i][0], X[i][1], X[i][2]);
       Vec3D Tester(-1.333232e+00, 6.207416e-01, 1.327290e-01);
       if((Xi-Tester).norm()<1e-5)
-        fprintf(stderr,"debug: fluid node = %d, TrId %d, n1/n2 = %d/%d, mode = %d, minDist = %e.\n", locToGlobNodeMap[i]+1, myId+1, 
+        fprintf(stderr,"debug: fluid node = %d, TrId %d, n1/n2 = %d/%d, mode = %d, minDist = %e.\n", locToGlobNodeMap[i]+1, myId+1,
                 closestTriangle.n1+1, closestTriangle.n2+1, closestTriangle.mode, closestTriangle.minDist);
       //end of debug
 */    }
-    
+
     if(nFound <= 0) {
       tId[i] = -1;
     }
@@ -2977,7 +2977,7 @@ int IntersectorFRG::findNewSeedsAfterMerging(Vec<int>& status_temp, Vec<bool>& p
       continue; // inside or on the boundary but the neighbor hasn't decided it, or lies on n>2 subdomains.
 
     myStatus = status_temp[i];
-//    if(myStatus!=INSIDE && myStatus!=OUTSIDE){ 
+//    if(myStatus!=INSIDE && myStatus!=OUTSIDE){
 //      fprintf(stderr,"horror!\n"); exit(-1);}
     if (status[i]==UNDECIDED) {
       status[i] = myStatus;
@@ -3004,7 +3004,7 @@ int IntersectorFRG::findSeedsByPoints(SubDomain& sub, SVec<double,3>& X, list<pa
       continue;
 
     for(iP=P.begin(); iP!=P.end(); iP++)
-      if(sub.isINodeinITet(iP->first, iElem, X)) 
+      if(sub.isINodeinITet(iP->first, iElem, X))
         for(int i=0; i<4; i++)
           if(status[myNodes[i]]==UNDECIDED) {
             status[myNodes[i]] = iP->second;
@@ -3043,7 +3043,7 @@ void IntersectorFRG::noCheckFloodFill(SubDomain& sub, int& nUndecided)
         status[nToN[cur][i]] = curStatus;
         seed[lead++] = nToN[cur][i];
         nUndecided--;
-      } 
+      }
   }
 }
 
@@ -3076,14 +3076,14 @@ int IntersectorFRG::findIntersections(SVec<double,3>&X, bool useScope)
       double coeff = iter*iter*TOL;
       Vec3D xpPrime = xp - coeff*dir;
       Vec3D xqPrime = xq + coeff*dir;
-      VECTOR<double,3> xyz1(xpPrime[0],xpPrime[1],xpPrime[2]), 
+      VECTOR<double,3> xyz1(xpPrime[0],xpPrime[1],xpPrime[2]),
                        xyz2(xqPrime[0],xqPrime[1],xqPrime[2]);
 
       if(useScope) {
         res1 = physInterface->Intersect(xyz1, xyz2, coeff*dir.norm());
         if(res1.triangleID>0)
           res1.triangleID = iscope[res1.triangleID-1] + 1;
-      } else 
+      } else
         res1 = distIntersector.getInterface().Intersect(xyz1,xyz2, coeff*dir.norm());
       // the triangle Id stored in edgeRes starts from 1, i.e. using PhysBAM convention.
 
@@ -3106,9 +3106,9 @@ int IntersectorFRG::findIntersections(SVec<double,3>&X, bool useScope)
         double coeff = iter*iter*TOL;
         Vec3D xpPrime = xp - coeff*dir;
         Vec3D xqPrime = xq + coeff*dir;
-        VECTOR<double,3> xyz1(xpPrime[0],xpPrime[1],xpPrime[2]), 
+        VECTOR<double,3> xyz1(xpPrime[0],xpPrime[1],xpPrime[2]),
                          xyz2(xqPrime[0],xqPrime[1],xqPrime[2]);
-        res1 = distIntersector.getInterface().Intersect(xyz1,xyz2, coeff*dir.norm()); 
+        res1 = distIntersector.getInterface().Intersect(xyz1,xyz2, coeff*dir.norm());
 
         if (res1.triangleID>0 /*|| edgeRes(2).y.triangleID>0*/) {
           CrossingEdgeRes[l] = res1;
@@ -3117,7 +3117,7 @@ int IntersectorFRG::findIntersections(SVec<double,3>&X, bool useScope)
           break;
         }
       }
- 
+
       if(res1.triangleID<0) {
          error++;
 //         fprintf(stderr,"WARNING: No intersection between node %d(status = %d, status0 = %d) and %d(status = %d, status0 = %d). \n",
@@ -3140,9 +3140,9 @@ void IntersectorFRG::addToPackage(int iNode, int trID)
 {
   int nSub = nodeToSubD.num(iNode);
   for(int iSub=0; iSub<nSub; iSub++) {
-    if(nodeToSubD[iNode][iSub]==globIndex) 
+    if(nodeToSubD[iNode][iSub]==globIndex)
       continue;
-    package[sub2pack[nodeToSubD[iNode][iSub]]].insert(trID);  
+    package[sub2pack[nodeToSubD[iNode][iSub]]].insert(trID);
   }
 }
 
@@ -3167,7 +3167,7 @@ IntersectorFRG::getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j, doub
   if (rij.triangleID>0 && rji.triangleID>0 && rij.triangleID==rji.triangleID) {
     result = rij;
     alpha0 = i_less_j ? result.alpha : 1.0-result.alpha;
-  }  
+  }
   else if (rij.triangleID>0 && rji.triangleID>0 && rij.triangleID!=rji.triangleID) {
     result = i_less_j ? rij : rji;
     alpha0 = result.alpha;
@@ -3199,7 +3199,7 @@ IntersectorFRG::getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j, doub
   lsRes.trNodes[2] = distIntersector.stElem[trueTriangleID][2];
   lsRes.normVel = lsRes.xi[0]*distIntersector.Xsdot[lsRes.trNodes[0]]
                 + lsRes.xi[1]*distIntersector.Xsdot[lsRes.trNodes[1]]
-                + lsRes.xi[2]*distIntersector.Xsdot[lsRes.trNodes[2]]; 
+                + lsRes.xi[2]*distIntersector.Xsdot[lsRes.trNodes[2]];
   lsRes.porosity = distIntersector.porosity[trueTriangleID];
 
   if(!distIntersector.interpolatedNormal) {
@@ -3209,9 +3209,9 @@ IntersectorFRG::getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j, doub
     if(distIntersector.with_sensitivity && Xr != 0 && Xg != 0){
       Vec3D *XX  = (distIntersector.getStructPosition()).data();
 
-      Vec3D dNdS;  
-      derivativeOFnormal(XX[lsRes.trNodes[0]], 
-			 XX[lsRes.trNodes[1]], 
+      Vec3D dNdS;
+      derivativeOFnormal(XX[lsRes.trNodes[0]],
+			 XX[lsRes.trNodes[1]],
 			 XX[lsRes.trNodes[2]],
 			 distIntersector.dXdSb[lsRes.trNodes[0]],
 			 distIntersector.dXdSb[lsRes.trNodes[1]],
@@ -3219,8 +3219,8 @@ IntersectorFRG::getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j, doub
       lsRes.dnds = dNdS;
 
       double dads;
-      dads = derivativeOFalpha(XX[lsRes.trNodes[0]], 
-                               XX[lsRes.trNodes[1]], 
+      dads = derivativeOFalpha(XX[lsRes.trNodes[0]],
+                               XX[lsRes.trNodes[1]],
        			       XX[lsRes.trNodes[2]],
        			       distIntersector.dXdSb[lsRes.trNodes[0]],
 			       distIntersector.dXdSb[lsRes.trNodes[1]],
@@ -3269,8 +3269,7 @@ void IntersectorFRG::projection(Vec3D x0, int tria, double& xi1, double& xi2, do
 
 //----------------------------------------------------------------------------
 
-double IntersectorFRG::isPointOnSurface(Vec3D pt, int N1, int N2, int N3) 
-{
+double IntersectorFRG::isPointOnSurface(Vec3D pt, int N1, int N2, int N3) {
   Vec<Vec3D> &solidX = distIntersector.getStructPosition();
   Vec3D X1 = solidX[N1];
   Vec3D X2 = solidX[N2];
@@ -3283,16 +3282,24 @@ double IntersectorFRG::isPointOnSurface(Vec3D pt, int N1, int N2, int N3)
 }
 
 //----------------------------------------------------------------------------
-void IntersectorFRG::derivativeOFnormal(Vec3D  xA, Vec3D  xB, Vec3D  xC, 
-		   		        Vec3D dxA, Vec3D dxB, Vec3D dxC, 
+
+double IntersectorFRG::isPointOnSurface(int nodeId) {
+  printf("**Error** IntersectorFRG::isPointOnSurface(int nodeId) is not implemented for IntersectorFRG! Try IntersectorPhysBAM instead.\n");
+  exit(-1);
+}
+
+//----------------------------------------------------------------------------
+
+void IntersectorFRG::derivativeOFnormal(Vec3D  xA, Vec3D  xB, Vec3D  xC,
+		   		        Vec3D dxA, Vec3D dxB, Vec3D dxC,
 				        Vec3D &dnds){
 
-  Vec3D V1, V2, Vp, dV1, dV2, dVp; 
+  Vec3D V1, V2, Vp, dV1, dV2, dVp;
   double sp, dsp;
 
   V1 = (xC - xA);
   V2 = (xB - xA);
-    
+
   dV1 = dxC - dxA;
   dV2 = dxB - dxA;
 
@@ -3310,8 +3317,8 @@ void IntersectorFRG::derivativeOFnormal(Vec3D  xA, Vec3D  xB, Vec3D  xC,
 
 //----------------------------------------------------------------------------
 
-double IntersectorFRG::derivativeOFalpha(Vec3D  xA, Vec3D  xB, Vec3D  xC, 
-		  		         Vec3D dxA, Vec3D dxB, Vec3D dxC, 
+double IntersectorFRG::derivativeOFalpha(Vec3D  xA, Vec3D  xB, Vec3D  xC,
+		  		         Vec3D dxA, Vec3D dxB, Vec3D dxC,
 					 Vec3D  X1, Vec3D  X2){
 
   Vec3D  u =  xB -  xA;
@@ -3322,7 +3329,7 @@ double IntersectorFRG::derivativeOFalpha(Vec3D  xA, Vec3D  xB, Vec3D  xC,
 
   Vec3D  n = u ^ v;
   Vec3D dn = (du ^ v) + (u ^ dv);
- 
+
   Vec3D d = X1 - X2;
 
   Vec3D  w = X2 - xA;
@@ -3332,7 +3339,7 @@ double IntersectorFRG::derivativeOFalpha(Vec3D  xA, Vec3D  xB, Vec3D  xC,
   double tmp2 = n*d;
   double tmp3 = n*w;
   double tmp4 = dn*d;
-  
+
   double dalpha_ds = -(tmp1/tmp2) + tmp3*tmp4/(tmp2*tmp2);
 
   return dalpha_ds;
@@ -3341,7 +3348,7 @@ double IntersectorFRG::derivativeOFalpha(Vec3D  xA, Vec3D  xB, Vec3D  xC,
 
 //----------------------------------------------------------------------------
 
-void 
+void
 DistIntersectorFRG::updateXb(double epsilon){
 
   for(int i=0; i<numStNodes; ++i){
@@ -3374,7 +3381,7 @@ void IntersectorFRG::xWallWithSI(int n, Vec3D &xWall)
 	Vec3D X1 = distIntersector.Xs[distIntersector.stElem[tria][1]];
 	Vec3D X2 = distIntersector.Xs[distIntersector.stElem[tria][2]];
 
-	for(int k=0; k<3; ++k) 
+	for(int k=0; k<3; ++k)
 		xWall[k] = X2[k] + l1*(X0[k] - X2[k]) + l2*(X1[k] - X2[k]);
 
 }
@@ -3383,7 +3390,7 @@ void IntersectorFRG::xWallWithSI(int n, Vec3D &xWall)
 
 void IntersectorFRG::vWallWithSI(int n, Vec3D &vWall)
 {
-  
+
 	double l1 =  xi_SI[n];
 	double l2 = eta_SI[n];
 
@@ -3393,7 +3400,7 @@ void IntersectorFRG::vWallWithSI(int n, Vec3D &vWall)
 	Vec3D v1 = distIntersector.Xsdot[distIntersector.stElem[tria][1]];
 	Vec3D v2 = distIntersector.Xsdot[distIntersector.stElem[tria][2]];
 
-	for(int k=0; k<3; ++k) 
+	for(int k=0; k<3; ++k)
 		vWall[k] = v2[k] + l1*(v0[k] - v2[k]) + l2*(v1[k] - v2[k]);
 
 }
@@ -3409,12 +3416,12 @@ bool IntersectorFRG::xWallNode(int i, Vec3D &xWall)
 	int tria  = TriID_node[i];
 
 	if(tria < 0) return false;
-	
+
 	Vec3D X0 = distIntersector.Xs[distIntersector.stElem[tria][0]];
 	Vec3D X1 = distIntersector.Xs[distIntersector.stElem[tria][1]];
 	Vec3D X2 = distIntersector.Xs[distIntersector.stElem[tria][2]];
 
-	for(int k=0; k<3; ++k) 
+	for(int k=0; k<3; ++k)
 		xWall[k] = X2[k] + l1*(X0[k] - X2[k]) + l2*(X1[k] - X2[k]);
 
 	return true;
@@ -3425,7 +3432,7 @@ bool IntersectorFRG::xWallNode(int i, Vec3D &xWall)
 
 bool IntersectorFRG::vWallNode(int i, Vec3D &vWall)
 {
-  
+
 	double l1 =  xi_node[i];
 	double l2 = eta_node[i];
 
@@ -3437,7 +3444,7 @@ bool IntersectorFRG::vWallNode(int i, Vec3D &vWall)
 	Vec3D v1 = distIntersector.Xsdot[distIntersector.stElem[tria][1]];
 	Vec3D v2 = distIntersector.Xsdot[distIntersector.stElem[tria][2]];
 
-	for(int k=0; k<3; ++k) 
+	for(int k=0; k<3; ++k)
 		vWall[k] = v2[k] + l1*(v0[k] - v2[k]) + l2*(v1[k] - v2[k]);
 
 	return true;

@@ -1,0 +1,11 @@
+{
+	"files.associations": {
+		"slist": "cpp",
+		"chrono": "cpp",
+		"limits": "cpp",
+		"*.ipp": "cpp",
+		"array": "cpp",
+		"initializer_list": "cpp",
+		"atomic": "cpp"
+	}
+}
