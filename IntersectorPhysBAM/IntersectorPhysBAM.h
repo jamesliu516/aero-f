@@ -99,7 +99,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
 	int *structureType;
     double *porosity;
     bool *isSymmetryPlane;//Embedded plane
-	int * actuatorDiskMethod;
+  int * actuatorDiskMethod;
     double *actuatorDiskPressureJump;
     int *actuatorDiskReconstructionMethod;//method used to compute the velocity at the interface. 1 : vi+Vj/2 2:vi 3 Vi*grad (extrapolation)
     double *massJump;
@@ -165,7 +165,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     void init(char *meshfile, char *restartfile, double XScale);
     void init(int nNodes, double *xyz, int nElems, int (*abc)[3], char *restartSolidSurface);
     void setPorosity();
-	void setStructureType();
+	  void setStructureType();
     void setSymmetry();
     void setMassInflow();
     void setActuatorDisk();
@@ -248,7 +248,7 @@ class IntersectorPhysBAM : public LevelSetStructure {
     static const int OUTSIDE = -2, UNDECIDED = -1, INSIDE = 0; //INSIDE: inside real fluid, OUTSIDE: not a fluid
     static int OUTSIDECOLOR;
 
-    int locIndex,globIndex;
+    int locIndex, globIndex;
     int *locToGlobNodeMap;
 
     //added by arthur Morlot : THings used for the embedded symmetry plane (not the embedded constraint)
@@ -295,8 +295,15 @@ class IntersectorPhysBAM : public LevelSetStructure {
 
     void reset(const bool findStatus,const bool retry); //<! set status0=status and reset status and nFirstLayer.
     /** find intersections for each edge that has nodes with different statuses */
+
+
     double isPointOnSurface(Vec3D pt, int N1, int N2, int N3);
-    /** check the distance of apoint to a surface defined by a triangle. (used for debug only) */
+    /** check the distance of a point to a surface defined by a triangle */
+    double isPointOnSurface(int nodeId);
+    /** sjg, 05/2017: new implementation to use nearby candidate triangles of fluid mesh vertex */
+
+
+
     void printFirstLayer(SubDomain& sub, SVec<double,3>& X, int TYPE = 1);
 
     LevelSetResult getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j, double *Xr=0, double *Xg=0);

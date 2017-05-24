@@ -2057,6 +2057,7 @@ int IntersectorPhysBAM::findIntersectionsEmbeddedConstraint(SVec<double,3>&X){
 	}
 	return 0;
 }
+
 //----------------------------------------------------------------------------
 
 /*
@@ -2081,7 +2082,7 @@ int IntersectorPhysBAM::hasCloseTriangle(SVec<double,3> &X, SVec<double,3> &Xn,
     VECTOR<double,3> min_corner(boxMin[i][0],boxMin[i][1],boxMin[i][2]), max_corner(boxMax[i][0],boxMax[i][1],boxMax[i][2]);
 
     int shrunk_index;
-	 bool occluded;
+	  bool occluded;
 
     tId[i] = physbam_interface.HasCloseTriangle(locIndex+1, VECTOR<double,3>(X[i][0],X[i][1],X[i][2]),
 																min_corner, max_corner, &shrunk_index, &occluded, &candidates);
@@ -2451,6 +2452,77 @@ double IntersectorPhysBAM::isPointOnSurface(Vec3D pt, int N1, int N2, int N3)
 
   // if (fabs(dist-distance) > 1e-12)
   //   fprintf(stderr,"d-d1 = %e\n",dist-distance);
+  return dist;
+}
+
+//----------------------------------------------------------------------------
+
+// sjg, 05/2017: new implementation to search candidate triangles for min.
+// distance using intersected bounding boxes
+double IntersectorPhysBAM::isPointOnSurface(int nodeId) {
+  ARRAY<int> cand;
+  SVec<double,3> boxMin = (*(distIntersector.boxMin))(locIndex);
+  SVec<double,3> boxMax = (*(distIntersector.boxMax))(locIndex);
+  SVec<double,3> X = (*(distIntersector.X))(locIndex);
+
+  VECTOR<double,3> min_corner(boxMin[nodeId][0],boxMin[nodeId][1],boxMin[nodeId][2]),
+    max_corner(boxMax[nodeId][0],boxMax[nodeId][1],boxMax[nodeId][2]);
+
+  int shrunk_index;
+  bool occluded;
+  PhysBAMInterface<double>& physbam_interface=*distIntersector.physInterface;
+  physbam_interface.HasCloseTriangle(locIndex+1, VECTOR<double,3>(X[nodeId][0],X[nodeId][1],X[nodeId][2]),
+    min_corner, max_corner, &shrunk_index, &occluded, &cand);
+
+  // should never have empty list of candidates (implies no bounding box for an
+  // element which traverses embedded surface)
+  assert(cand.Size()>0);
+
+  Vec3D x0(X[nodeId][0], X[nodeId][1], X[nodeId][2]);
+  double xi[3], disttmp, dist = 1.0e16;
+  const double eps = 0;
+  int trId;
+
+  int (*triNodes)[3] = distIntersector.stElem;
+  Vec3D *structX = (distIntersector.getStructPosition()).data();
+
+  for(int iArray=1; iArray<=cand.Size(); iArray++) {
+
+    // Speed improvement.  When we are doing cracking,
+    // we do not add phantom triangles to the triangle hierarchy.
+    // Added by Alex Main (October 2013)
+    if (!distIntersector.cracking)
+      trId = cand(iArray)-1;
+    else
+      trId = distIntersector.cracking->mapTriangleID(cand(iArray)-1);
+
+    disttmp = std::abs(project(x0, trId, xi[0], xi[1])); // project on plane
+    xi[2] = 1.0-xi[0]-xi[1];
+    if (!(xi[0] >= -eps && xi[1] >= -eps && xi[2] >= -eps)) {
+      disttmp = 1.0e16;
+      for (int i=0; i<3; i++) {
+        if(xi[i]<-eps) {
+          int p1 = triNodes[trId][(i+1)%3], p2 = triNodes[trId][(i+2)%3];
+          double alpha;
+          double d2l = std::abs(edgeProject(x0, p1, p2, alpha)); // project on line
+          if(alpha>=-eps && alpha<=1.0+eps) {
+            if(disttmp>d2l) disttmp = d2l;
+          } else {
+            if(alpha<-eps) {
+              double d2p = (x0-structX[p1]).norm();
+              if(disttmp>d2p) disttmp = d2p;
+            }
+            if(alpha>1.0+eps) {
+              double d2p = (x0-structX[p2]).norm();
+              if(disttmp>d2p) disttmp = d2p;
+            }
+          }
+        }
+      }
+    }
+    dist = min(dist,disttmp);
+  }
+
   return dist;
 }
 
