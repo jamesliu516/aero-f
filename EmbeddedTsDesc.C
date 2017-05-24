@@ -1234,7 +1234,6 @@ void EmbeddedTsDesc<dim>::computeDistanceToWall(IoData &ioData, double t)
 		{
       double t0 = this->timer->getTime();
 
-      // sjg, 04/2017: send structure time step to wall distance for predictors
       wall_computer->ComputeWallFunction(*this->distLSS,*this->X,*this->geoState,t);
 
       this->timer->addWallDistanceTime(t0);
