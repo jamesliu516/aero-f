@@ -9814,6 +9814,7 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
                     Cflocal +=  t * F / S;
                 }
                 std::cout << "Dante Cflocal " << Cflocal << std::endl;  // dzh
+                Cflocal = 0.0;
                 //new method to compute skin friction
                 if(ghostPoints) {
                     //step 1. find the fluid velocity at Xp + dh *normal
