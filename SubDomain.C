@@ -9081,15 +9081,15 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
     int inter = nSortedNodes, fixedNode;
     for(int i=firstCheckedNode;i<inter; i++) {
       fixedNode = sortedNodes[i];
-//      if(Tag[fixedNode] == 0) continue; //structure nodes
-      // Should be useless. Remove the following assert.Adam 2011.09
+      // if(Tag[fixedNode] == 0) continue; // structure nodes
+      // Should be useless. Remove the following if.Adam 2011.09
       // if(Tag[fixedNode]==lowerLevel){
       assert(Tag[fixedNode] == lowerLevel);
       nNeighs = NodeToNode->num(fixedNode);
       for(int k=0;k<nNeighs;k++){
         nei = (*NodeToNode)[fixedNode][k];
 	 // Not necessary because of following test.
-       // if(nei==i) continue;
+   // if(nei==i) continue;
         if(Tag[nei]<0) {
           Tag[nei] = level;
           sortedNodes[nSortedNodes] = nei;

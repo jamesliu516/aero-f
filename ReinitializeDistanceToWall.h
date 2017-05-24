@@ -18,10 +18,9 @@ class ReinitializeDistanceToWall
   IoData &iod;
   Domain &dom;
   DistSVec<double, 1> d2wall;
+  DistVec<int> tag;
   DistVec<int> sortedNodes;
   int *nSortedNodes, *firstCheckedNode;
-
-  DistVec<int> tag;
   DistSVec<double, dimLS> dummyPhi;
 
   int predictorActive;
@@ -30,6 +29,7 @@ class ReinitializeDistanceToWall
   double ***d2wPredictors;
   DistSVec<double, 1> d2wallnm1, d2wallnm2;
   double tnm1, tnm2;
+  int countReinits;
 
 public:
   ReinitializeDistanceToWall(IoData &ioData, Domain &domain);
