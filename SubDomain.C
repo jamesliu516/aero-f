@@ -9831,26 +9831,32 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
                     Elem *E = myTree->search<&Elem::isPointInside, ElemForceCalcValid,
                             &ElemForceCalcValid::Valid>(&myObj, X, Xpp);
                     if (!E) {
-                        std::cout << "No E" <<std::endl;
-                        continue;
-                    }
-                    E->computeBarycentricCoordinates(X, Xpp, bary);
+                        //continue;
+                        Vec3D F = postFcn->computeViscousForce(dp1dxj, nf[n], d2w, Vwall, Vface, vtet[n]);
+                        //nf[n] is the norm and vtet is the primitive variables , compute F = -tau * (-unit_normal*S)
 
-                    for (int i = 0; i < 4; i++) T[i] = (*E)[i];
-                    double *vtet_pp[4];
-                    for (int i = 0; i < 4; ++i) {
-                        vtet_pp[i] = V[T[i]];
-                        GhostPoint<dim> *gp = (*ghostPoints)[T[i]];
-                        if (gp) {
-                            vtet_pp[i] = gp->getPrimitiveState();
-                            std::cout  << "ghost node " << T[i] <<std::endl;
+                        Vec3D t = F - (F * unit_nf) * unit_nf;
+                        if (t.norm() > 1e-12) t = t / t.norm();//get the unit tangential direction
+                        Cflocal +=  t * F / S;
+                    }
+                    else {
+                        E->computeBarycentricCoordinates(X, Xpp, bary);
+
+                        for (int i = 0; i < 4; i++) T[i] = (*E)[i];
+                        double *vtet_pp[4];
+                        for (int i = 0; i < 4; ++i) {
+                            vtet_pp[i] = V[T[i]];
+                            GhostPoint<dim> *gp = (*ghostPoints)[T[i]];
+                            if (gp) {
+                                vtet_pp[i] = gp->getPrimitiveState();
+                                std::cout << "ghost node " << T[i] << std::endl;
+                            }
                         }
+                        std::cout << " before compute sk " << std::endl;
+                        double sk = postFcn->computeSkinFriction(unit_nf, dh, Vwall, vtet_pp, bary);
+
+                        Cflocal += sk;
                     }
-                    std::cout  <<" before compute sk " << std::endl;
-                    double sk = postFcn->computeSkinFriction(unit_nf, dh, Vwall, vtet_pp, bary);
-
-
-                    Cflocal += sk;
 
 
 
@@ -9897,6 +9903,7 @@ void SubDomain::computeEMBSkinFriction(IoData &iod,SVec<double,3> &X, SVec<doubl
                                        NodalGrad<dim, double> &ngrad, double* interfaceFluidMeshSize,
                                        int* strucOrientation, double (*Qnty)[3])
 {
+    std::cout << "In compute SkinFriction" <<std::endl;
     if (iod.problem.framework == ProblemData::EMBEDDEDALE)
         myTree->reconstruct<&Elem::computeBoundingBox>(X, elems.getPointer(), elems.size());
 
@@ -9937,7 +9944,7 @@ void SubDomain::computeEMBSkinFriction(IoData &iod,SVec<double,3> &X, SVec<doubl
 
                 Vec3D unit_nf = normal/S * strucOrientation[nSt];
                 Vec3D Xpp = Xp + dh * unit_nf;
-
+                std::cout << "dh is "<< dh << " strucOrientation is " << strucOrientation[nSt] <<std::endl;
 
                 Elem *E = myTree->search<&Elem::isPointInside, ElemForceCalcValid,
                         &ElemForceCalcValid::Valid>(&myObj, X, Xpp);
