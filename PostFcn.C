@@ -1776,28 +1776,23 @@ double PostFcnNS::computeSkinFriction(Vec3D& n, double dist, double* Vwall,  dou
     double sk = 0.0; //skin friction
     double T[4], T_pp;
     Vec3D v_pp;
-    std::cout <<"disk is " << dist <<std::endl;
-
-    std::cout <<"bary is " << bary[0] << " " << bary[1] << " "<<bary[2] <<std::endl;
     for (int i = 0; i < 4;  i ++)
         T[i] = NavierStokesTerm::varFcn->computeTemperature(Vtet[i]);
-    std::cout <<"T is " << T[0] << " " << T[1] << " "<< T[2] << " " << T[3] << std::endl;
     for (int i = 0; i < 3; i++) {
         v_pp[i] = bary[0] * Vtet[0][i + 1] + bary[1] * Vtet[1][i + 1] +
                     bary[2] * Vtet[2][i + 1] + (1 - bary[0] - bary[1] - bary[2]) * Vtet[3][i + 1];
     }
 
-    std::cout <<"v_pp is " << v_pp[0] << " " << v_pp[1] << " "<<v_pp[2] <<" " << v_pp.norm()<<std::endl;
     T_pp = bary[0] * T[0] + bary[1] *T[1] +
                   bary[2] *T[2] + (1 - bary[0] - bary[1] - bary[2]) * T[3];
-    std::cout <<"T_pp is " << T_pp <<std::endl;
 
     double mu     = viscoFcn->compute_mu(T_pp);
     mu     *= ooreynolds_mu;
-    std::cout << "n normal " << n.norm() << std::endl;
      v_pp = v_pp - (v_pp*n)*n; //tangential component
-    std::cout <<"v_pp2 is " << v_pp[0] << " " << v_pp[1] << " "<<v_pp[2] <<" " << v_pp.norm()<<std::endl;
-    sk = mu*v_pp.norm()/dist;
+    sk = 2*mu*v_pp.norm()/dist; //sk is the skin fraction coefficient
+
+    Vec3D orientation = v_pp^n;
+    if (orientation[2] < 0) sk = -sk;
 
     return sk;
 

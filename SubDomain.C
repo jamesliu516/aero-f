@@ -7760,13 +7760,13 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
  * if viscSecOrder is true, linear extrapolation
  * if viscSecOrder is False, constant extrapolation
  */
-    static int ite = 0;
-    ite++;
+
+
     int i, j, k;
     double alpha;
     double THRESHOLD = 0.5; //if intersection is too close to active node
-                             // alpha = (ghost_node - intersection)/(ghost node - active node) < threshold
-                              // set alpha  = 0.5
+    // alpha = (ghost_node - intersection)/(ghost node - active node) < threshold
+    // set alpha  = 0.5
     double HALF = 0.5;
     bool* edgeFlag = edges.getMasterFlag();
     int (*edgePtr)[2] = edges.getPtr();
@@ -7807,17 +7807,17 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
 
 // Update temperature, Replace fourth variable with temperature, constant extrapolation or wall temperature
                 if((resij.heatFluxType==SurfaceData::ADIABATIC)||(resij.structureType!=BoundaryData::WALL)){
-                	double T = varFcn->computeTemperature(Vi,tagI);
-                	Vj[4] = T;
+                    double T = varFcn->computeTemperature(Vi,tagI);
+                    Vj[4] = T;
                 }else{
-                	double Twall = resij.wallTemperature;
-                	double Tpoint = varFcn->computeTemperature(Vi,tagI);
-                	Vj[4] = Tpoint + (Twall- Tpoint)/(1-alpha);
-                	//printf("Je suis venu, et ma wall temperature est %f point %f ghost %f edge %d \n",Twall,Tpoint,Vj[4],l);
-                	if(Twall == -1){//sanity Check
-                		printf("You are imposing a temperature that has not beens specified. aborting simulation");
-                		exit(1);
-                	}
+                    double Twall = resij.wallTemperature;
+                    double Tpoint = varFcn->computeTemperature(Vi,tagI);
+                    Vj[4] = Tpoint + (Twall- Tpoint)/(1-alpha);
+                    //printf("Je suis venu, et ma wall temperature est %f point %f ghost %f edge %d \n",Twall,Tpoint,Vj[4],l);
+                    if(Twall == -1){//sanity Check
+                        printf("You are imposing a temperature that has not beens specified. aborting simulation");
+                        exit(1);
+                    }
                 }
                 double T = Vj[4];
 
@@ -7839,9 +7839,9 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                     Vec3D v_jj(Vi[1],Vi[2],Vi[3]);//constant extrapolation for velocity at jj
 
                     if(viscSecOrder)//use gradient to do extrapolation
-                    v_jj = Vec3D(Vi[1] + dVdx[i][1]*dX_i_jj[0] + dVdy[i][1]*dX_i_jj[1] + dVdz[i][1]*dX_i_jj[2],
-                                 Vi[2] + dVdx[i][2]*dX_i_jj[0] + dVdy[i][2]*dX_i_jj[1] + dVdz[i][2]*dX_i_jj[2],
-                                 Vi[3] + dVdx[i][3]*dX_i_jj[0] + dVdy[i][3]*dX_i_jj[1] + dVdz[i][3]*dX_i_jj[2]);
+                        v_jj = Vec3D(Vi[1] + dVdx[i][1]*dX_i_jj[0] + dVdy[i][1]*dX_i_jj[1] + dVdz[i][1]*dX_i_jj[2],
+                                     Vi[2] + dVdx[i][2]*dX_i_jj[0] + dVdy[i][2]*dX_i_jj[1] + dVdz[i][2]*dX_i_jj[2],
+                                     Vi[3] + dVdx[i][3]*dX_i_jj[0] + dVdy[i][3]*dX_i_jj[1] + dVdz[i][3]*dX_i_jj[2]);
                     Vec3D v_s = resij.normVel;
                     Vec3D v_j = v_jj - 2*(v_jj*normal)*normal + 2*(v_s*normal)*normal;//keep tangential velocity, reverse normal velocity
                     for (int k=1; k<3; k++) {
@@ -7912,10 +7912,7 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                 {ghostPoints[j]=new GhostPoint<dim>(varFcn);}
 
                 ghostPoints[j]->addNeighbour(Vj,weights,tagI);
-                if(ite%5000 == 0)
-                std::cout << "jghost "<< j << " " << Vj[0] << " "<< Vj[1]<<" " <<
-                          Vj[2]<<" "<< Vj[3] <<" "<< Vj[4] <<" "<< weights[1] << " i " << i <<" "<< Vi[0] << " "<< Vi[1]<<" " <<
-                                                                              Vi[2]<<" "<< Vi[3] <<" "<< Vi[4]<<std::endl;
+
             }
 //////////////////// Populate node j to ghost node i
 
@@ -7941,17 +7938,17 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
 
 // Replace fourth variable with temperature, constant extrapolation or wall temperature
                 if((resji.heatFluxType==SurfaceData::ADIABATIC)||(resji.structureType!=BoundaryData::WALL)){
-                double T = varFcn->computeTemperature(Vj,tagJ);
-                Vi[4] = T;
+                    double T = varFcn->computeTemperature(Vj,tagJ);
+                    Vi[4] = T;
                 }else{
-                	double Twall = resji.wallTemperature;
-                	double Tpoint = varFcn->computeTemperature(Vj,tagJ);
-                	Vi[4] = Tpoint + (Twall- Tpoint)/(1-alpha);
-                	//printf("Je suis venu, et ma wall temperature est %f point %f ghost %f edge %d \n",Twall,Tpoint,Vi[4],l);
-                	if(Twall == -1){//sanity Check
-                	   printf("You are imposing a temperature that has not beens specified. aborting simulation");
-                	   exit(1);
-                	}
+                    double Twall = resji.wallTemperature;
+                    double Tpoint = varFcn->computeTemperature(Vj,tagJ);
+                    Vi[4] = Tpoint + (Twall- Tpoint)/(1-alpha);
+                    //printf("Je suis venu, et ma wall temperature est %f point %f ghost %f edge %d \n",Twall,Tpoint,Vi[4],l);
+                    if(Twall == -1){//sanity Check
+                        printf("You are imposing a temperature that has not beens specified. aborting simulation");
+                        exit(1);
+                    }
                 }
                 double T = Vi[4];
 
@@ -8031,19 +8028,14 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                 {ghostPoints[i]=new GhostPoint<dim>(varFcn);}
 
                 ghostPoints[i]->addNeighbour(Vi,weights,tagJ);
-                if(ite%5000 == 0) //dzh
-                std::cout <<"ighost "<< i  <<  " "<< Vi[0] << " "<<
-                          Vi[1]<<" " << Vi[2]<<" "<< Vi[3] <<" "<< Vi[4] <<" "<< weights[1]
-                        << " j " <<j <<" "<< Vj[0] << " "<<
-                                     Vj[1]<<" " << Vj[2]<<" "<< Vj[3] <<" "<< Vj[4] <<std::endl;
+
             }
         }
     }
     delete[] Vi;
     delete[] Vj;
     delete[] weights;
-    if(ite%5000 == 0)
-    std::cout << std::endl;
+
 
 }
 
@@ -9674,14 +9666,14 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
                 for (int j = 0; j < 3; ++j) Xf[i][j] = X[T[i]][j]; // fluid element 4 nodes coordinates
 
 
-            double dh = 0.0;
-            for(int i = 0 ; i < 4; i++)
-                for(int j = i+1 ; j <4; j++) {
-                    double max_edge_len = (Xf[i] - Xf[j]).norm();
-                    if (max_edge_len > dh) dh = max_edge_len;
-                }
 
-            std::cout << "error is " <<dh - interfaceFluidMeshSize[nqPoint*nSt + nq] << std::endl;
+
+            double dh = 0.0;
+            for (int i = 0; i < 4; i++){
+                double temp = abs((Xf[i] - Xp)*normal/normal.norm());
+                if (temp > dh) dh = temp;
+            }
+
 // Compute barycentric coordinates
             Vec3D bary;
             E->computeBarycentricCoordinates(X, Xp, bary);
@@ -9813,19 +9805,14 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
                     if (t.norm() > 1e-12) t = t / t.norm();//get the unit tangential direction
                     Cflocal +=  t * F / S;
                 }
-                std::cout << "Dante Cflocal " << Cflocal << std::endl;  // dzh
+
                 Cflocal = 0.0;
                 //new method to compute skin friction
                 if(ghostPoints) {
                     //step 1. find the fluid velocity at Xp + dh *normal
 
                     assert((-unit_nf *S - normal * strucOrientation[nSt]).norm() < 1e-8);
-                    if((-unit_nf *S - normal * strucOrientation[nSt]).norm() > 1e-8) {
-                        fprintf(stderr, "ERROR: %d\n", strucOrientation[nSt]);
-                        std::cout <<"unit_nf is " << unit_nf[0] <<" " << unit_nf[1] <<" "<< unit_nf[2]<<
-                        "normal "<< normal[0]/S <<" " << normal[1]/S << " " <<normal[2]/S<< std::endl;
-                        exit(-1);
-                    }
+
                     Vec3D Xpp = Xp - dh * unit_nf;
                     std::cout << unit_nf[0] <<" " << unit_nf[1] <<" " << unit_nf[2] <<" " <<std::endl;
                     std::cout << Xp[0] <<" " << Xp[1] <<" " << Xp[2] <<" " <<std::endl;
@@ -9850,10 +9837,8 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
                             GhostPoint<dim> *gp = (*ghostPoints)[T[i]];
                             if (gp) {
                                 vtet_pp[i] = gp->getPrimitiveState();
-                                std::cout << "ghost node " << T[i] << std::endl;
                             }
                         }
-                        std::cout << " before compute sk " << std::endl;
                         double sk = postFcn->computeSkinFriction(unit_nf, dh, Vwall, vtet_pp, bary);
 
                         Cflocal += sk;
@@ -9881,7 +9866,7 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
                 Qnty[stNode[1]][2] += qweight[nq] * Cflocal * S;
                 Qnty[stNode[2]][2] += qweight[nq] * Cflocal * S;
 
-                std::cout << " nSt " << nSt <<" nq is " << nq <<" Cflocal is " << Cflocal << " qweight[nq] is " << qweight[nq] << std::endl;
+
 
             }
         }
@@ -9945,15 +9930,12 @@ void SubDomain::computeEMBSkinFriction(IoData &iod,SVec<double,3> &X, SVec<doubl
 
                 Vec3D unit_nf = normal/S * strucOrientation[nSt];
                 Vec3D Xpp = Xp + dh * unit_nf;
-                std::cout << "dh is "<< dh << " strucOrientation is " << strucOrientation[nSt] <<std::endl;
-
                 Elem *E = myTree->search<&Elem::isPointInside, ElemForceCalcValid,
                         &ElemForceCalcValid::Valid>(&myObj, X, Xpp);
                 if (!E) {
                     continue;
                 }
                 E->computeBarycentricCoordinates(X, Xpp, bary);
-
                 for (int i = 0; i < 4; i++) T[i] = (*E)[i];
                 double *vtet_pp[4];
                 for (int i = 0; i < 4; ++i) {
@@ -9961,11 +9943,9 @@ void SubDomain::computeEMBSkinFriction(IoData &iod,SVec<double,3> &X, SVec<doubl
                     GhostPoint<dim> *gp = (*ghostPoints)[T[i]];
                     if (gp) {
                         vtet_pp[i] = gp->getPrimitiveState();
-                        std::cout  << "ghost node " << T[i] <<std::endl;
                     }
                 }
                 Cflocal = postFcn->computeSkinFriction(unit_nf, dh, Vwall, vtet_pp, bary);
-
 
             Qnty[stNode[0]][0] += qweight[nq] * S; //aera of the structure element
             Qnty[stNode[1]][0] += qweight[nq] * S;
