@@ -1609,6 +1609,8 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
                                                subEmbQ[iSub] );
 
     }
+    std::cout << "finished computeEMBSkinFriction EmbQs" <<std::endl;
+    com->barrier();
 #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; iSub++) {
 
@@ -1619,6 +1621,7 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
       }
 
     }
+    std::cout << "finished my accumulate EmbQs" <<std::endl;
 
     for(int is=0; is<numStructNodes; is++)
     {
@@ -1631,6 +1634,8 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
 
 
   }
+
+  std::cout << "start cleanning " <<std::endl;
 
   // Cleaning  
   for(int i=0; i<numLocSub; ++i) delete [] subEmbQ[i];

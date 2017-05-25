@@ -7074,7 +7074,7 @@ void SubDomain::computeInterfaceFluidMeshSize(IoData &iod,SVec<double,3> &X,
   int stNode[3];
   Vec3D Xst[3];
   Vec3D Xp;
-  double max_edge_len = 0.0, dh =0.0;
+  double max_dist = 0.0, dh =0.0;
 
   for (int nSt = 0; nSt < numStructElems; ++nSt) {//loop all structure surface elements(triangle)
 
@@ -7082,6 +7082,8 @@ void SubDomain::computeInterfaceFluidMeshSize(IoData &iod,SVec<double,3> &X,
       stNode[j] = stElem[nSt][j]; // get element node numbers
       Xst[j] = Xstruct[stNode[j]]; //get node coordinates
     }
+    Vec3D normal = (Xst[1]-Xst[0])^(Xst[2]-Xst[0]);
+    normal = normal/normal.norm();
 
     for (int nq = 0; nq < nqPoint; ++nq) {
       for (int j = 0; j < 3; ++j) { // get quadrature points
@@ -7102,14 +7104,14 @@ void SubDomain::computeInterfaceFluidMeshSize(IoData &iod,SVec<double,3> &X,
       for (int i = 0; i < 4; i++)
         for (int j = 0; j < 3; ++j) Xf[i][j] = X[T[i]][j]; // fluid element 4 nodes coordinates
 
-      max_edge_len = 0.0;
-      for (int i = 0; i < 4; i++)
-        for (int j = i + 1; j < 4; j++) {
-          dh = (Xf[i] - Xf[j]).norm();
-          if (dh > max_edge_len) max_edge_len = dh;
+      max_dist = 0.0;
+      for (int i = 0; i < 4; i++){
+
+          dh = 2*abs((Xf[i] - Xp)*normal);
+          if (dh > max_dist) max_dist = dh;
         }
 
-      interfaceFluidMeshSize[nqPoint*nSt + nq] = max_edge_len;
+      interfaceFluidMeshSize[nqPoint*nSt + nq] = max_dist;
 
     }
   }
@@ -7117,15 +7119,16 @@ void SubDomain::computeInterfaceFluidMeshSize(IoData &iod,SVec<double,3> &X,
 
 
 void SubDomain::computeStrucOrientation(SVec<double,3> &X,
-                                     int numStructElems, int (*stElem)[3],
-                                     Vec<Vec3D>& Xstruct, Vec<bool>&is_active,
+                                        int numStructElems, int (*stElem)[3],
+                                        Vec<Vec3D>& Xstruct, Vec<bool>&is_active,
                                         int *strucOrientation) {
 
   int stNode[3];
-  Vec3D Xst[3],Xf[4];
+  Vec3D Xst[3],Xl,Xr;
   Vec3D Xp, normal;
-  int T[4];       //nodes in a tet.
+  int T[6];       //nodes in a tet.
   double max_edge_len = 0.0, dh =0.0;
+  int (*ptr)[2] = edges.getPtr();
 
   for (int nSt = 0; nSt < numStructElems; ++nSt) {//loop all structure surface elements(triangle)
 
@@ -7141,18 +7144,23 @@ void SubDomain::computeStrucOrientation(SVec<double,3> &X,
     if (!E)
       continue;
 
-    normal = 0.5*(Xst[1]-Xst[0])^(Xst[2]-Xst[0]);
+    normal = (Xst[1]-Xst[0])^(Xst[2]-Xst[0]);
+    normal  = normal /normal.norm();
 
-    for (int i = 0; i < 4; i++) T[i] = (*E)[i];//loop fluid element E 4 nodes
+    for (int i = 0; i < 6; i++) T[i] = E->edgeNum(i);//loop fluid element E 4 nodes
 
 
-    for (int i = 0; i < 4; i++) {
-      for (int j = 0; j < 3; ++j) Xf[i][j] = X[T[i]][j]; // fluid element 4 nodes coordinates
-      std::cout  << "i is " << is_active[T[i]] <<std::endl;
-      if(is_active[T[i]] && (Xf[i] - Xp)*normal > 0.0)
+    for (int i = 0; i < 6; i++) {
+
+      int node_l= ptr[T[i]][0], node_r = ptr[T[i]][1];
+      for (int j = 0; j < 3; ++j) {
+        Xl[j] = X[node_l][j];
+        Xr[j] = X[node_r][j];
+      } // fluid element 4 nodes coordinates
+      if((is_active[node_l] &&(Xl - Xp)*normal > 0.0 && !is_active[node_r]) || (is_active[node_r] &&(Xr - Xp)*normal > 0.0 && !is_active[node_l])) {
         strucOrientation[nSt] = 1;
+      }
 
-      std::cout  << "inner product " << (Xf[i] - Xp)*normal <<std::endl;
 
     }
 
