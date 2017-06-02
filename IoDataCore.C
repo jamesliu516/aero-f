@@ -1010,6 +1010,7 @@ BoundaryData::BoundaryData()
   pressureJump = 0.0;
   massFlow = 0.0;
 
+
   for (int i=0; i<SIZE; ++i) {
     inVar[i] = false;
     outVar[i] = false;

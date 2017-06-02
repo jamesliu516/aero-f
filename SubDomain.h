@@ -1272,10 +1272,11 @@ public:
 
   template<int dim>
     void populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<double,3> &X, SVec<double,dim> &U,
-									  NodalGrad<dim, double> &ngrad, VarFcn *varFcn, LevelSetStructure &LSS, bool linRecFSI, Vec<int> &tag);
+									  NodalGrad<dim, double> &ngrad, VarFcn *varFcn,
+							 LevelSetStructure &LSS, bool linRecFSI, Vec<int> &tag,FemEquationTerm *fet);
 
   template<int dim>
-    void populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<double,3> &X, SVec<double,dim> &U,
+    void populateGhostPoints_e(Vec<GhostPoint<dim>*> &ghostPoints, SVec<double,3> &X, SVec<double,dim> &U,
 									  NodalGrad<dim, double> &ngrad, VarFcn *varFcn, LevelSetStructure &LSS, Vec<int> &fluidId,
 									  FemEquationTerm *fet);
 
