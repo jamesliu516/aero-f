@@ -134,7 +134,7 @@ private:
 
 	bool HOtreatment;
 	bool viscQuadRcn;
-
+public:
 	void setVelocityG(double* Vf, double** dVf,
 							Vec3D Dir, double xi, double eta,
 							Vec3D &vWall, double* Vg);
@@ -154,12 +154,12 @@ private:
 						Vec3D Dir, double xi, double eta,
 						int dim, double* Vg);
 
-	void computeWallVersors(double *V1, Vec3D &nWall, VarFcn *vf, 
-									Vec3D &nW, Vec3D &tgW1, Vec3D &tgW2);
+	void computeWallVersors(double *V1, Vec3D &nW, VarFcn *vf,
+									Vec3D &tgW1, Vec3D &tgW2);
 
 	bool computeDuDTwf(double *V1, VarFcn *vf, double d2w, 
 							 Vec3D &vWall, double TWall, 
-							 Vec3D &nW, Vec3D &tgW1, Vec3D &tgW2,
+							 Vec3D &tgW1, Vec3D &tgW2,
 							 FemEquationTerm *fet, 
 							 double &dudn, double &dTdn);
 

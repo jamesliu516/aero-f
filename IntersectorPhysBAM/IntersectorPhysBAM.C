@@ -703,6 +703,7 @@ void DistIntersectorPhysBAM::setActuatorDisk() {
     }
   }
 }
+
 //----------------------------------------------------------------------------
 void DistIntersectorPhysBAM::setdXdSb(int N, double* dxdS, double* dydS, double* dzdS){
 

@@ -428,8 +428,9 @@ FemEquationTermSA::FemEquationTermSA(IoData &iod, VarFcn *vf) :
   turbThermalCondFcn(iod, viscoFcn, vf)
 {
 
-  if (iod.bc.wall.integration == BcsWallData::WALL_FUNCTION)
+  if (iod.bc.wall.integration == BcsWallData::WALL_FUNCTION) {
     wallFcn = new WallFcnSA(iod, varFcn, viscoFcn);
+  }
 
   x0 =  iod.eqs.tc.tr.bfix.x0;
   x1 =  iod.eqs.tc.tr.bfix.x1;
@@ -1208,7 +1209,6 @@ double FemEquationTermSA::computeNormDerivWallFcn(double rho, double T, double D
 																double DT1, double d2w, 
 																double &dudn, double &dTdn)
 {
-
 	double ut = wallFcn->computedudT(rho, T, Du1, DT1, d2w, dudn, dTdn);
 
 	return ut;

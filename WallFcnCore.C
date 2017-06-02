@@ -162,31 +162,45 @@ void WallFcn::computeDerivativeOfFaceValues(double d2wall[3], double *Vwall, dou
 
 double WallFcn::computeFrictionVelocity(double ut, double delta, double rho, double mu)
 {
+  //dzh
+  //std::cout  << "In computeFrictionVelocity "  << std::endl;
 
   int maxits = 20;
   double eps = 1.e-6;
 
   //double ut = u * t;
+  //dzh
+  //std::cout  << "ut is " << ut  << std::endl;
 
   if (ut < 0.0) ut = 0.0; 
 
-  double utau = sqrt(mu * ut / (reynolds * rho * delta));
+  double utau = sqrt(mu * ut / (reynolds * rho * delta));//utau for viscous sublayer formular estimation
 
   double res;
-  double target;
+  double target, dplus;
   int it;
-  for (it=0; it<maxits; ++it) {
+  for (it=0; it<maxits; ++it) {//solve for u_tau
 
-    double dplus = reynolds * utau * delta * rho / mu;
+    dplus = reynolds * utau * delta * rho / mu;
+    //dzh
+    //std::cout  << "utau is " << utau << " dplus is " << dplus << std::endl;
 
-    if (dplus < 1.0) {
+    /* Daniel Huang comments these lines, because it says dplus < 1, sublayer formular is valid
+      if (dplus < 1.0) {
       dplus = 1.0;
       utau = mu / (reynolds * delta * rho);
       break;
     }
 
-    double f = 2.5 * log(1.0 + vkcst*dplus) + 7.8 * (1.0 - exp(-eleventh*dplus) - eleventh*dplus*exp(-0.33*dplus));
+     If dplus is less than 5, viscous sublayer formular is valid*/
+    if (dplus < 5.0) {
+      return utau;
+    }
 
+    //dzh
+     // std::cout  << "it is " << it << std::endl;
+    double f = 2.5 * log(1.0 + vkcst*dplus) + 7.8 * (1.0 - exp(-eleventh*dplus) - eleventh*dplus*exp(-0.33*dplus));
+     // std::cout  << "f is " << f << std::endl;
     double F = utau * f - ut;
 
     res = F * F;
@@ -211,6 +225,7 @@ double WallFcn::computeFrictionVelocity(double ut, double delta, double rho, dou
   if (utau <= 0.0)
     fprintf(stderr, "*** Warning: utau=%e\n", utau);
 
+  //std::cout << "yplus= " << dplus << " utau is " << utau <<std::endl;
   return utau;
 
 }
@@ -451,9 +466,11 @@ double WallFcn::computedudT(double rho, double T, double du, double dT,
 	double mu = viscoFcn->compute_mu(T);
 
 	double utau = computeFrictionVelocity(du, delta, rho, mu);
+    //dzh
+    //std::cout << "du " <<du << " delta " << delta << " rho " << rho << " utau " << utau <<  " reynolds "<< reynolds <<" T " <<  T << std::endl;
 
 	dudn = reynolds * rho * utau*utau / mu;
-
+    //std::cout << "dudn in computedudT " << dudn  << std::endl;
 	dTdn = 0.0; // To be done *******
 
 	//double yp = reynolds * utau * delta * rho / mu;
