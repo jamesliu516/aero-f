@@ -1034,7 +1034,7 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
   output->writeMaterialConservationScalarsToDisk(it, 0.0, U, *A);
   output->writeCPUTimingToDisk(*lastIt, it, t, timer);
   writeErrorToDisk(it, cpu);
-  output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
+  output->writeBinaryVectorsToDisk( *lastIt, it, t, *X, *A, U, timeState);
   output->writeAvgVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
   output->writeProbesToDisk(*lastIt, it, t, *X, *A, U, timeState,fluidIdDummy);
   restart->writeToDisk<dim,1>(com->cpuNum(), *lastIt, it, t, dt, *timeState, *geoState);

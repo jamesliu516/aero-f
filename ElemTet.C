@@ -34,7 +34,7 @@ void ElemTet::computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
     {
         for(int i=0;i<4;++i)	isTetInactive = isTetInactive && !LSS->isActive(0,nodeNum(i));
 
-        for(int l=0; l<6; ++l) isAtTheInterface = isAtTheInterface || LSS->edgeIntersectsStructure(0,edgeNum(l));
+		for(int l=0; l<6; ++l) isAtTheInterface = isAtTheInterface || LSS->edgeIntersectsWall(0,edgeNum(l));
 
         if(isTetInactive) return;
     }
@@ -64,7 +64,7 @@ void ElemTet::computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
                 // We add a contribution for active nodes only
                 for(int e=0; e<6; e++)
                 {
-                    if((j == edgeEnd(e,0) || j == edgeEnd(e,1)) && LSS->edgeIntersectsStructure(0, edgeNum(e)))
+					if((j == edgeEnd(e,0) || j == edgeEnd(e,1)) && LSS->edgeIntersectsWall(0.0,edgeNum(e)))
                     {
                         int l = (j == edgeEnd(e,0) ? edgeEnd(e,1) : edgeEnd(e,0));
                         gp = (*ghostPoints)[nodeNum(l)];
@@ -258,7 +258,7 @@ void ElemTet::computeGalerkinTerm_e(FemEquationTerm *fet, SVec<double,3> &X,
 						}
 					}
 
-					int dir = LSS->edgeIntersectsStructure(0, edgeNum(e)) ? -1 : 1;
+					int dir = LSS->edgeIntersectsWall(0.0,edgeNum(e)) ? -1 : 1;
 
 
                     //dzh
@@ -337,8 +337,9 @@ void ElemTet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SV
   if (ghostPoints) { //LSS is also non-null pointer, checked in Domain.C
     for (int i=0;i<4;++i)
       isTetInactive = isTetInactive && !LSS->isActive(0,nodeNum(i));
-    for (int l=0; l<6; ++l)
-      isAtTheInterface = isAtTheInterface || LSS->edgeIntersectsStructure(0,edgeNum(l));
+    for (int l=0; l<6; ++l){
+      isAtTheInterface = isAtTheInterface || LSS->edgeIntersectsWall(0.0,edgeNum(l));
+    }
     if (isTetInactive) return;
   }
   
@@ -361,7 +362,7 @@ void ElemTet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SV
       int idx = nodeNum(j);
       if (LSS->isActive(0,idx)) { // Add contribution for active nodes only
         for (int e=0; e<6; e++) {
-          if ((j == edgeEnd(e,0) || j == edgeEnd(e,1)) && LSS->edgeIntersectsStructure(0,edgeNum(e))) 
+          if ((j == edgeEnd(e,0) || j == edgeEnd(e,1)) && LSS->edgeIntersectsWall(0.0,edgeNum(e)))
           {
             int l = (j == edgeEnd(e,0) ? edgeEnd(e,1) : edgeEnd(e,0));
             gp = (*ghostPoints)[nodeNum(l)];
@@ -683,8 +684,7 @@ void ElemTet::computeP1Avg_e(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, 
 							e = l; break;
 						}
 					}
-
-					int dir = LSS->edgeIntersectsStructure(0, edgeNum(e)) ? -1 : 1;
+					int dir = LSS->edgeIntersectsWall(0.0,edgeNum(e)) ? -1 : 1;
 
 					Ve[j] = gp->getPrimitiveState(dir);
 				}
@@ -971,8 +971,9 @@ void ElemTet::computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, SVec<double,3>
   if (ghostPoints) { //LSS is also non-null pointer, checked in Domain.C
     for (int i=0;i<4;++i)
       isTetInactive = isTetInactive && !LSS->isActive(0,nodeNum(i));
-    for (int l=0; l<6; ++l)
-      isAtTheInterface = isAtTheInterface || LSS->edgeIntersectsStructure(0,edgeNum(l));
+    for (int l=0; l<6; ++l){
+      isAtTheInterface = isAtTheInterface || LSS->edgeIntersectsWall(0.0,edgeNum(l));
+    }
     if (isTetInactive) return;
   }
   
@@ -988,7 +989,7 @@ void ElemTet::computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, SVec<double,3>
       int idx = nodeNum(j);
       if (LSS->isActive(0,idx)) { // Add contribution for active nodes only
         for (int e=0; e<6; e++) {
-          if ((j == edgeEnd(e,0) || j == edgeEnd(e,1)) && LSS->edgeIntersectsStructure(0,edgeNum(e))) 
+          if ((j == edgeEnd(e,0) || j == edgeEnd(e,1)) && LSS->edgeIntersectsWall(0.0,edgeNum(e)))
           {
             int l = (j == edgeEnd(e,0) ? edgeEnd(e,1) : edgeEnd(e,0));
             gp = (*ghostPoints)[nodeNum(l)];
@@ -1082,7 +1083,7 @@ void ElemTet::computeSmagorinskyLESTerm_e(SmagorinskyLESTerm *smag, SVec<double,
 						}
 					}
 
-					int dir = LSS->edgeIntersectsStructure(0, edgeNum(e)) ? -1 : 1;
+					int dir = LSS->edgeIntersectsWall(0.0,edgeNum(e)) ? -1 : 1;
 
 					Ve[j] = gp->getPrimitiveState(dir);
 				}				
@@ -1137,8 +1138,9 @@ void ElemTet::computeWaleLESTerm(WaleLESTerm *wale, SVec<double,3> &X,
   if (ghostPoints) { //LSS is also non-null pointer, checked in Domain.C
     for (int i=0;i<4;++i)
       isTetInactive = isTetInactive && !LSS->isActive(0,nodeNum(i));
-    for (int l=0; l<6; ++l)
-      isAtTheInterface = isAtTheInterface || LSS->edgeIntersectsStructure(0,edgeNum(l));
+    for (int l=0; l<6; ++l){
+      isAtTheInterface = isAtTheInterface || LSS->edgeIntersectsWall(0.0,edgeNum(l));
+    }
     if (isTetInactive) return;
   }
   
@@ -1154,7 +1156,7 @@ void ElemTet::computeWaleLESTerm(WaleLESTerm *wale, SVec<double,3> &X,
       int idx = nodeNum(j);
       if (LSS->isActive(0,idx)) { // Add contribution for active nodes only
         for (int e=0; e<6; e++) {
-          if ((j == edgeEnd(e,0) || j == edgeEnd(e,1)) && LSS->edgeIntersectsStructure(0,edgeNum(e))) 
+          if ((j == edgeEnd(e,0) || j == edgeEnd(e,1)) && LSS->edgeIntersectsWall(0.0,edgeNum(e)))
           {
             int l = (j == edgeEnd(e,0) ? edgeEnd(e,1) : edgeEnd(e,0));
             gp = (*ghostPoints)[nodeNum(l)];
@@ -1247,7 +1249,7 @@ void ElemTet::computeWaleLESTerm_e(WaleLESTerm *wale, SVec<double,3> &X,
 						}
 					}
 
-					int dir = LSS->edgeIntersectsStructure(0, edgeNum(e)) ? -1 : 1;
+					int dir = LSS->edgeIntersectsWall(0.0,edgeNum(e)) ? -1 : 1;
 
 					Ve[j] = gp->getPrimitiveState(dir);
 				}				
@@ -1303,8 +1305,9 @@ void ElemTet::computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs,
   if (ghostPoints) { //LSS is also non-null pointer, checked in Domain.C
     for (int i=0;i<4;++i)
       isTetInactive = isTetInactive && !LSS->isActive(0,nodeNum(i));
-    for (int l=0; l<6; ++l)
-      isAtTheInterface = isAtTheInterface || LSS->edgeIntersectsStructure(0,edgeNum(l));
+    for (int l=0; l<6; ++l){
+      isAtTheInterface = isAtTheInterface || LSS->edgeIntersectsWall(0.0,edgeNum(l));
+    }
     if (isTetInactive) return;
   }
   
@@ -1324,7 +1327,7 @@ void ElemTet::computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs,
       int idx = nodeNum(j);
       if (LSS->isActive(0,idx)) { // Add contribution for active nodes only
         for (int e=0; e<6; e++) {
-          if ((j == edgeEnd(e,0) || j == edgeEnd(e,1)) && LSS->edgeIntersectsStructure(0,edgeNum(e))) 
+          if ((j == edgeEnd(e,0) || j == edgeEnd(e,1)) && LSS->edgeIntersectsWall(0.0,edgeNum(e)))
           {
             int l = (j == edgeEnd(e,0) ? edgeEnd(e,1) : edgeEnd(e,0));
             gp = (*ghostPoints)[nodeNum(l)];
@@ -1424,7 +1427,7 @@ void ElemTet::computeDynamicLESTerm_e(DynamicLESTerm *dles, SVec<double,2> &Cs,
 						}
 					}
 
-					int dir = LSS->edgeIntersectsStructure(0, edgeNum(e)) ? -1 : 1;
+					int dir = LSS->edgeIntersectsWall(0.0,edgeNum(e)) ? -1 : 1;
 
 					Ve[j] = gp->getPrimitiveState(dir);
 				}				
@@ -1489,7 +1492,9 @@ void ElemTet::computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &
 	{
 		// Then LSS is also a non null pointer. It has already been checked in Domain.C
 		for(int i=0; i<4; ++i)    isTetInactive = isTetInactive && !LSS->isActive(0,nodeNum(i));
-		for(int l=0; l<6; ++l) isAtTheInterface = isAtTheInterface || LSS->edgeIntersectsStructure(0,edgeNum(l));
+		for(int l=0; l<6; ++l){
+			isAtTheInterface = isAtTheInterface || LSS->edgeIntersectsWall(0.0,edgeNum(l));
+		}
 
 		if(isTetInactive) return;
 	}
@@ -1519,7 +1524,7 @@ void ElemTet::computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &
 			{
 				for(int e=0; e<6; e++)
 				{
-					if((i == edgeEnd(e,0) || i == edgeEnd(e,1)) && LSS->edgeIntersectsStructure(0,edgeNum(e)))
+					if((i == edgeEnd(e,0) || i == edgeEnd(e,1)) && LSS->edgeIntersectsWall(0.0,edgeNum(e)))
 					{
 						int j = (i == edgeEnd(e,0) ? edgeEnd(e,1) : edgeEnd(e,0));
 						gp = (*ghostPoints)[nodeNum(j)];
@@ -1559,7 +1564,7 @@ void ElemTet::computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &
 						 * Aij is the matrix dr_i/du_j
 						 */
 						Aij = 0;
-						if(LSS->edgeIntersectsStructure(0,edgeNum(e)))
+						if(LSS->edgeIntersectsWall(0.0,edgeNum(e)))
 						{
 							Aij = A.getRealNodeElem_ij(nodeNum(i),nodeNum(j));
 						}
@@ -1881,8 +1886,7 @@ void ElemTet::computeJacobianGalerkinTerm_e(FemEquationTerm *fet, SVec<double,3>
 							e = l; break;
 						}
 					}
-
-					int dir = LSS->edgeIntersectsStructure(0, edgeNum(e)) ? -1 : 1;
+					int dir = LSS->edgeIntersectsWall(0.0,edgeNum(e)) ? -1 : 1;
 
 					Ve[j] = gp->getPrimitiveState(dir);
 				}
@@ -3312,14 +3316,14 @@ int ElemTet::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const V
   bool isAtTheInterface = false;
   if(LSS) { // Then LSS is a non null pointer and we are in the embedded case.
     for(int l=0; l<6; ++l) {
-      isAtTheInterface = isAtTheInterface || LSS->edgeIntersectsStructure(0,edgeNum(l));
+      isAtTheInterface = isAtTheInterface || LSS->edgeIntersectsWall(0.0,edgeNum(l));
     }
   }
 
   bool probeInside = false;
 
   // Embedded Case at the interface.
-  if(LSS && isAtTheInterface) // Then LSS is a non null pointer.
+  if(LSS && isAtTheInterface) // Then LSS is a non null pointer. and this is not a actuator disk
     {
       // Check if the probe is inside the structure
       Vec3D normal, Xinter;

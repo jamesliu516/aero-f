@@ -100,8 +100,7 @@ protected:
   int order;
   int failsafe;
   int rshift;
-// Included (MB)
-  IoData *iod;
+
 
   enum DescriptorCase {
     DESCRIPTOR, HYBRID, NONDESCRIPTOR
@@ -112,6 +111,8 @@ private:
   bool externalSI; //d2d
   int ccc;
 public:
+	// Included (MB)
+  IoData *iod;
 
   SpaceOperator(IoData &, VarFcn *, DistBcData<dim> *, DistGeoState *,
 		Domain *, DistSVec<double,dim> * = 0);

@@ -77,7 +77,7 @@ hasIntersection(Elem& elem, LevelSetStructure& LSS) {
   int nE = elem.numEdges();
   for (int i = 0; i < nE; ++i) {
 
-    if (LSS.edgeIntersectsStructure(0.0,elem.edgeNum(i)))
+    if (LSS.edgeIntersectsWall(0.0,elem.edgeNum(i)))
       return true;
   }
   return false;
@@ -3441,7 +3441,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 	*/
 
         switch (structureType) {
-          case BoundaryData::DIRECTSTATE:
+          case BoundaryData::WALL:
           case BoundaryData::SYMMETRYPLANE:
           case BoundaryData::POROUSWALL:
             if (structureType == BoundaryData::SYMMETRYPLANE)
@@ -3571,7 +3571,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         		fluidId[j],resji,&jPorous,&jActuatorDisk,
 				&jMassInflow,&reconstructionMethod,i,j);//Check for discrepencies
         switch (structureType) {
-          case BoundaryData::DIRECTSTATE:
+          case BoundaryData::WALL:
           case BoundaryData::SYMMETRYPLANE:
           case BoundaryData::POROUSWALL:
             if (structureType == BoundaryData::SYMMETRYPLANE)
@@ -5332,7 +5332,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
         if (jActive && fluidId[i] == fluidId[j] && resij.porosity > 0.0)          iPorous = true;
 
         switch (structureType) {
-          case BoundaryData::DIRECTSTATE:
+          case BoundaryData::WALL:
           case BoundaryData::SYMMETRYPLANE:
           case BoundaryData::POROUSWALL:
           {
@@ -5472,7 +5472,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 
         if (iActive && fluidId[i] == fluidId[j] && resji.porosity > 0.0) jPorous = true;
         switch (structureType) {
-          case BoundaryData::DIRECTSTATE:
+          case BoundaryData::WALL:
           case BoundaryData::SYMMETRYPLANE:
           case BoundaryData::POROUSWALL:
           {
@@ -6193,7 +6193,7 @@ void EdgeSet::TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Ph
   for(int l=0; l<numEdges; l++){
     int i = ptr[l][0];
     int j = ptr[l][1];
-    if(LSS) intersect = LSS->edgeIntersectsStructure(0,l);
+    if(LSS) intersect = LSS->edgeIntersectsWall(0,l);
     if(Phi[i][lsdim]*Phi[j][lsdim]<=0.0 || intersect){
       Tag[i] = tag;
       Tag[j] = tag;
@@ -6231,7 +6231,7 @@ void EdgeSet::pseudoFastMarchingMethodInitialization(SVec<double,3>& X,
       }
     }
 */
-    if(LSS->edgeIntersectsStructure(0,l)) {
+    if(LSS->edgeIntersectsWall(0,l)) {
       if(iActive && Tag[i] < 0) {
 	sortedNodes[nSortedNodes] = i;
  	nSortedNodes++;
