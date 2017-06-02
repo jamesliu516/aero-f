@@ -724,7 +724,7 @@ void HigherOrderFSI::extrapolateToWall_1(int l, int n, int Fid, VarFcn *varFun,
 	}
 
 
-	if(V_ext[0] < 1.0e-6 || V_ext[4] < 1.0e-6)
+	if(V_ext[0] < 0  || V_ext[4] < 0)
 	{
 		fprintf(stderr, "E: negative density/pressure at Xn=[%f,%f,%f], Xf=[%f,%f,%f]\n", X[n][0],X[n][1],X[n][2], Xf[0],Xf[1],Xf[2]);		
 		fprintf(stderr, "rho/P[n] = %f,%f, rho/P_n= %f,%f, rho/P_ext = %f,%f\n", V[n][0],V[n][4], V_n[0],V_n[4], V_ext[0],V_ext[4]);
@@ -798,7 +798,7 @@ void HigherOrderFSI::extrapolateToWall_2(int l, int n, int Fid, VarFcn *varFun,
 		V_ext[k+dim] = V_ext[k];
 	}	
 
-	if(V_ext[0] < 1.0e-6 || V_ext[4] < 1.0e-6)
+	if(V_ext[0] < 0 || V_ext[4] < 0)
 	{
 		fprintf(stderr, "E: negative density/pressure at Xn=[%f,%f,%f], Xf=[%f,%f,%f]\n", X[n][0],X[n][1],X[n][2], Xf[0],Xf[1],Xf[2]);		
 		fprintf(stderr, "rho/P_f = %f,%f, rho/P_n= %f,%f, rho/P_ext = %f,%f; xi_ijf = %f, xi_wf = %f, idxTet = %d\n", Vf[0],Vf[4], V_n[0],V_n[4], V_ext[0],V_ext[4], 
@@ -817,7 +817,7 @@ void HigherOrderFSI::interpolateToSI(int l, int n, int Fid, VarFcn *varFun,
 												 double* Vsi)
 {
 
-	if(Vstar[0] < 1.0e-6 || Vstar[4] < 1.0e-6)
+	if(Vstar[0] < 0 || Vstar[4] < 0)
 	{
 		fprintf(stderr, "*: negative density/pressure at Xw=[%f,%f,%f]\n", xWall[0], xWall[1], xWall[2]);
 		exit(-1);
@@ -901,7 +901,7 @@ void HigherOrderFSI::interpolateToSI(int l, int n, int Fid, VarFcn *varFun,
 	}
 
 */
-	// if(Vsi[0] < 1.0e-6 || Vsi[4] < 1.0e-6)
+	// if(Vsi[0] < 0 || Vsi[4] < 0)
 	// {
 	// 	fprintf(stderr, "I: negative density/pressure at Xn=[%f,%f,%f], Xf=[%f,%f,%f]\n", X[n][0],X[n][1],X[n][2], Xf[0],Xf[1],Xf[2]);
 	// 	fprintf(stderr, "%f, %f; %f, %f, --> %f, %f\n", Vf[0], Vf[4], Vstar_cp[0], Vstar_cp[4], Vsi[0], Vsi[4]);		

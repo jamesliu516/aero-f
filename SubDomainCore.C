@@ -1649,7 +1649,7 @@ void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const Vec<
 
 		if(LSS)
 		{			
-			if(LSS->edgeWithSI(l) || LSS->edgeIntersectsStructure(0.0, l)) validEdge = false;
+			if(LSS->edgeWithSI(l) || LSS->edgeIntersectsWall(0.0,l)) validEdge = false;
 			if(!LSS->isActive(0.0, i) || !LSS->isActive(0.0, j)) validEdge = false;			
 			if(!includeSweptNodes && (LSS->isSwept(0.0, i) || LSS->isSwept(0.0, j))) validEdge = false;
 		}
@@ -1714,7 +1714,7 @@ void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const Vec<
 
 	 if(LSS)
 	 {
-		 if(LSS->edgeIntersectsStructure(0.0, l)) checkN = false;
+		 if(LSS->edgeIntersectsWall(0.0,l)) checkN = false;
 
 		 if(!LSS->isActive(0.0, i) && !LSS->isActive(0.0, j)) checkN = false;
 	 }
@@ -1826,7 +1826,7 @@ void SubDomain::computeWeightsLeastSquaresEdgePartForEmbeddedStruct(LevelSetStru
 
 		if(externalSI && LSS.edgeWithSI(l)) validEdge = false;
 
-		if(LSS.edgeIntersectsStructure(0.0, l)) validEdge = false;
+		if(LSS.edgeIntersectsWall(0.0,l)) validEdge = false;
 
 		if(!LSS.isActive(0.0, i) || !LSS.isActive(0.0, j)) validEdge = false;
 		
@@ -2350,7 +2350,7 @@ void SubDomain::computeWeightsGalerkin(SVec<double,3> &X, const Vec<int> &fluidI
 		}
 		else
 		{
-			if( (!LSS->isActive(0.0, Nj) || !LSS->isActive(0.0, Nk)) || LSS->edgeIntersectsStructure(0.0, le) )
+			if( (!LSS->isActive(0.0, Nj) || !LSS->isActive(0.0, Nk)) || LSS->edgeIntersectsWall(0.0,le) )
 			{
 	e_flag = true;
 	break;
@@ -4366,7 +4366,7 @@ void SubDomain::computeOffWallNode(LevelSetStructure *LSS, CommPattern<int> &ntP
 
   for (int i=0; i<nodes.size(); ++i) offWallNode[i] = 0;
   for (int l=0; l<edges.size(); ++l) {
-    if(LSS->edgeIntersectsStructure(0.0,l)) { //at interface
+    if(LSS->edgeIntersectsWall(0.0,l)) { //at interface
       int i = edgePtr[l][0];
       int j = edgePtr[l][1];
       bool iIsActive = LSS->isActive(0.0,i);
@@ -6167,7 +6167,7 @@ void SubDomain::solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec
         fprintf(stderr,"Sub %d, Nei of 349859 (myId = %d): %d, fluidId = %d, occluded = %d, swept = %d, X = %d\n",
                 globSubNum, myId, locToGlobNodeMap[iNei]+1, fluidId[iNei], LSS.isOccluded(0.0,iNei), LSS.isSwept(0.0,iNei), (int)LSS.edgeIntersectsStructure(0.0,edges.findOnly(i,iNei)));
 
-      if(LSS.isOccluded(0.0,iNei) || LSS.isSwept(0.0,iNei) || LSS.edgeIntersectsStructure(0.0,edges.findOnly(i,iNei)))
+      if(LSS.isOccluded(0.0,iNei) || LSS.isSwept(0.0,iNei) || LSS.edgeIntersectsWall(0.0,edges.findOnly(i,iNei)))
         continue;
 
 

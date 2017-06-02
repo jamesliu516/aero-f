@@ -5,16 +5,16 @@ MultiGridLevelSetStructure::
 MultiGridLevelSetStructure(DistMultiGridLevelSetStructure& lss,
 			   SubDomain& sub,
 			   Vec<int>& status,Vec<double>& distance,Vec<bool>& is_swept,Vec<bool>& is_active,Vec<bool>& is_occluded,Vec<bool>& edge_intersects,
-			   Vec<bool>& edge_intersects_embedded_constraint,Vec<bool>& edge_intersects_constraint,Vec<double>& Embedded_Constraint_Alpha ,Vec<Vec3D>& surfaceNormals,
+			   /*Vec<bool>& edge_intersects_embedded_constraint,*/Vec<bool>& edge_intersects_constraint,/*Vec<double>& Embedded_Constraint_Alpha ,*/Vec<Vec3D>& surfaceNormals,
 			   LevelSetStructure* parent, int mySub,MultiGridLevel<double>* myLevel)
-	: LevelSetStructure(status, distance, is_swept, is_active, is_occluded, edge_intersects,edge_intersects_embedded_constraint,edge_intersects_constraint, Embedded_Constraint_Alpha,
+	: LevelSetStructure(status, distance, is_swept, is_active, is_occluded, edge_intersects,/*edge_intersects_embedded_constraint,*/edge_intersects_constraint, /*Embedded_Constraint_Alpha,*/
 							  /*dummy from here*/  edge_intersects, distance, distance, surfaceNormals, status, 
 							                                        distance, distance, surfaceNormals, status),
     distLSS(lss), parent(parent),
     subD(sub), mySub(mySub), myLevel(myLevel), edges(*myLevel->getEdges()[mySub]),
     status(status), distance(distance), is_swept(is_swept), is_active(is_active),
     surfaceNormals(surfaceNormals),
-    is_occluded(is_occluded), edge_intersects(edge_intersects),edge_intersects_embedded_constraint(edge_intersects_embedded_constraint),Embedded_Constraint_Alpha(Embedded_Constraint_Alpha),edge_intersects_constraint(edge_intersects_constraint)
+    is_occluded(is_occluded), edge_intersects(edge_intersects),/*edge_intersects_embedded_constraint(edge_intersects_embedded_constraint),Embedded_Constraint_Alpha(Embedded_Constraint_Alpha),*/edge_intersects_constraint(edge_intersects_constraint)
     {}
 
 void MultiGridLevelSetStructure::
@@ -291,9 +291,9 @@ initialize(Domain * d, DistSVec<double,3> &X, DistSVec<double,3> &Xn,
   is_active = new DistVec<bool>(myLevel->getNodeDistInfo());
   is_occluded = new DistVec<bool>(myLevel->getNodeDistInfo());
   edge_intersects = new DistVec<bool>(myLevel->getEdgeDistInfo());
-  edge_intersects_embedded_constraint = new DistVec<bool>(myLevel->getEdgeDistInfo());
+  //edge_intersects_embedded_constraint = new DistVec<bool>(myLevel->getEdgeDistInfo());
   edge_intersects_constraint = new DistVec<bool>(myLevel->getEdgeDistInfo());
-  Embedded_Constraint_Alpha = new DistVec<double>(myLevel->getEdgeDistInfo());
+  //Embedded_Constraint_Alpha = new DistVec<double>(myLevel->getEdgeDistInfo());
   surfaceNormals = new DistVec<Vec3D>(myLevel->getEdgeDistInfo());
 
 
@@ -305,9 +305,9 @@ initialize(Domain * d, DistSVec<double,3> &X, DistSVec<double,3> &Xn,
 					       (*is_active)(i),
 					       (*is_occluded)(i),
 					       (*edge_intersects)(i),
-						   (*edge_intersects_embedded_constraint)(i),
+						   //(*edge_intersects_embedded_constraint)(i),
 					       (*edge_intersects_constraint)(i),
-						   (*Embedded_Constraint_Alpha)(i),
+						   //(*Embedded_Constraint_Alpha)(i),
 					       (*surfaceNormals)(i),
 					       &(*parent)(i), i, 
 					       myLevel);

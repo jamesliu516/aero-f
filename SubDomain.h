@@ -1705,7 +1705,7 @@ public:
 
   // d2d
   template<int dim,int dimLS>
-  void computeEMBNodeScalarQuantity(SVec<double,3> &X, SVec<double,dim> &V,
+  void computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec<double,dim> &V,
                          	    PostFcn *postFcn, VarFcn *varFcn,
 				    Vec<int> &fluidId, SVec<double,dimLS>* phi,
 				    double (*Qnty)[3], int sizeQnty, int numStructElems, int (*stElem)[3],

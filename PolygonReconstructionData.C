@@ -21,6 +21,7 @@ int getPolygons(Elem &elem, LevelSetStructure &LSS, PolygonReconstructionData* p
     for(int i=0; i<6; ++i) {
         int l = elem.edgeNum(i);
         int ni=elem.edgeEnd(i,0), nj=elem.edgeEnd(i,1);
+        /*
         if(LSS.edgeIntersectsStructure(0, l)){//check the kind of intersection
         	LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0,l,true);
         	switch(resij.structureType){
@@ -33,7 +34,8 @@ int getPolygons(Elem &elem, LevelSetStructure &LSS, PolygonReconstructionData* p
         		break;
         	}//switch
         }//intersect
-        //isBlocked[ni][nj] = isBlocked[nj][ni] = (LSS.edgeIntersectsStructure(0, l) ? 1 : 0);
+        */
+        isBlocked[ni][nj] = isBlocked[nj][ni] = (LSS.edgeIntersectsWall(0, l) ? 1 : 0);
         edge[ni][nj] = edge[nj][ni] = l;
         if(isBlocked[ni][nj] == 1){
             ++parity[ni]; ++parity[nj];

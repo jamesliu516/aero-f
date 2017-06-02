@@ -118,24 +118,22 @@ void ReinitializeDistanceToWall<dimLS>::InitializeWallFunction(SubDomain& subD,
 
 	for(int l=0; l<subD.getEdges().size(); ++l)
 	{
-		if(LSS.edgeIntersectsStructure(0,l))
+		if(LSS.edgeIntersectsWall(0,l))
 		{
-			int i = ptrEdge[l][0];
-			int j = ptrEdge[l][1];
+    			int i = ptrEdge[l][0];
+    			int j = ptrEdge[l][1];
 
-			done[i] = true;
-			tag[i] = 1;
+    			done[i] = true;
+    			tag[i] = 1;
+    			LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
+    			d2w[i][0] = LSS.isPointOnSurface(X[i],resij.trNodes[0],resij.trNodes[1],resij.trNodes[2]);
 
-      LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
-      d2w[i][0] = LSS.isPointOnSurface(X[i],resij.trNodes[0],resij.trNodes[1],resij.trNodes[2]);
 
-			// ---
+		    	 done[j] = true;
+		    	 tag[j] = 1;
+		    	 LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
+		    	 d2w[j][0] = LSS.isPointOnSurface(X[j],resji.trNodes[0],resji.trNodes[1],resji.trNodes[2]);
 
-			done[j] = true; 
-			tag[j] = 1;
-
-      LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
-      d2w[j][0] = LSS.isPointOnSurface(X[j],resji.trNodes[0],resji.trNodes[1],resji.trNodes[2]);
     }
   }
 }
