@@ -277,8 +277,9 @@ public:
   int computeControlVolumes(int, double, SVec<double,3> &, Vec<double> &);
   void computeFaceNormals(SVec<double,3> &, Vec<Vec3D> &);
   void computeFaceEdgeNormals(SVec<double,3>&, SVec<double,6>&);
-  void computeEdgeDihedralAngle(double, SVec<double,6>&, Vec<double>&);
-  void propagateInfoAlongEdges(Vec<double>&);
+  void computeEdgeDihedralAngle(double, SVec<double,3>&, SVec<double,6>&,
+                                SVec<double,5>&);
+  void propagateInfoAlongEdges(double, SVec<double,3>&, SVec<double,5>&);
   void computeNormalsGCL1(SVec<double,3> &, SVec<double,3> &, SVec<double,3> &,
 			  Vec<Vec3D> &, Vec<double> &, Vec<Vec3D> &, Vec<double> &);
   void computeNormalsConfig(SVec<double,3> &Xconfig, SVec<double,3> &Xdot,
@@ -1064,6 +1065,9 @@ public:
 
   template<class Scalar, int dim>
   void addRcvData(CommPattern<Scalar> &, Scalar (*)[dim]);
+
+  template<class Scalar, int dim>
+  void otRcvData(CommPattern<Scalar> &, Scalar (*)[dim]);
 
   template<class Scalar, int dim>
   void RcvData(CommPattern<Scalar> &, Scalar (*)[dim]);

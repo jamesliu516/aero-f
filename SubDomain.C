@@ -4940,6 +4940,31 @@ void SubDomain::addRcvData(CommPattern<Scalar> &sp, Scalar (*w)[dim])
 //------------------------------------------------------------------------------
 
 template<class Scalar, int dim>
+void SubDomain::otRcvData(CommPattern<Scalar> &sp, Scalar (*w)[dim])
+{
+  for (int iSub = 0; iSub < numNeighb; ++iSub) {
+
+    SubRecInfo<Scalar> sInfo = sp.recData(rcvChannel[iSub]);
+    Scalar (*buffer)[dim] = reinterpret_cast<Scalar (*)[dim]>(sInfo.data);
+
+    for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode) {
+      if (buffer[iNode][dim-2]>0.0) {
+        bool copy = false;
+        if (w[ (*sharedNodes)[iSub][iNode] ][dim-2]==0.0) copy = true;
+        else
+          if 
+          (w[ (*sharedNodes)[iSub][iNode] ][dim-1] > buffer[iNode][dim-1])
+        copy = true;
+        if (copy) for (int j = 0; j < dim; ++j)  {
+	  w[ (*sharedNodes)[iSub][iNode] ][j] = buffer[iNode][j];
+        }
+      }
+    }
+  }
+}
+//------------------------------------------------------------------------------
+
+template<class Scalar, int dim>
 void SubDomain::RcvData(CommPattern<Scalar> &sp, Scalar (*w)[dim])
 {
   for (int iSub = 0; iSub < numNeighb; ++iSub) {
