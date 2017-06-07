@@ -4276,8 +4276,8 @@ bool LocalRiemannActuatorDisk<dim>::solveContactDiscontinuity(double rho_l, doub
         p_old = p_m;
     }
     if (!found)    {
-        std::cout << rho_l <<" "<< v_l << " " << p_l <<" " << rho_r << " " << v_r<< " " << p_r << " " << dp_l << " " << dp_r <<std::endl;
-        fprintf(stderr, " ***ERROR: Divergence in Newton-Raphason iteration in Actuator disk Riemann solver p_m is %f, dp_l is %f dp_r is %f ", p_m,  dp_l,  dp_r);
+        //std::cout << rho_l <<" "<< v_l << " " << p_l <<" " << rho_r << " " << v_r<< " " << p_r << " " << dp_l << " " << dp_r <<std::endl;
+        //fprintf(stderr, " ***ERROR: Divergence in Newton-Raphason iteration in Actuator disk Riemann solver p_m is %f, dp_l is %f dp_r is %f ", p_m,  dp_l,  dp_r);
         return false;
     }
 
