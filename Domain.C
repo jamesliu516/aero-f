@@ -29,7 +29,7 @@
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Domain::computeTimeStep(double cfl, double dualtimecfl, double viscous, FemEquationTerm *fet, VarFcn *varFcn, 
+void Domain::computeTimeStep(double cfl, double dualtimecfl, double viscous, FemEquationTerm *fet, VarFcn *varFcn,
 			     DistGeoState &geoState,
 			     DistSVec<double,3> &X, DistVec<double> &ctrlVol, DistSVec<double,dim> &V,
 			     DistVec<double> &dt, DistVec<double> &idti, DistVec<double> &idtv, DistVec<double> &dtau,
@@ -4732,7 +4732,7 @@ void Domain::populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints, DistSVe
   for (iSub = 0; iSub < numLocSub; ++iSub)
 		  subDomain[iSub]->populateGhostPoints((*ghostPoints)(iSub), X(iSub), U(iSub), (*ngrad)(iSub),
 															varFcn, (*distLSS)(iSub), viscSecOrder, tag(iSub),fet);
-  
+
   assembleGhostPoints(*ghostPoints,varFcn);
 
   for (iSub = 0; iSub < numLocSub; ++iSub)
@@ -5435,13 +5435,19 @@ void Domain::pseudoFastMarchingMethod(DistVec<int> &Tag, DistSVec<double,3> &X,
   levelPat->exchange();
   volPat->exchange();
 
+  if (level==1) {
 #pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub) {
-    if (level==1)
+    for (iSub = 0; iSub < numLocSub; ++iSub) {
       subDomain[iSub]->maxRcvDataAndCountUpdates(*levelPat,reinterpret_cast<int (*)[1]>(Tag.subData(iSub)),nSortedNodes[iSub],sortedNodes(iSub),nPredictors[iSub]);
-    else
+      subDomain[iSub]->minRcvData(*volPat,reinterpret_cast<double (*)[dimLS]>(d2wall.subData(iSub)));
+    }
+  }
+  else {
+#pragma omp parallel for
+    for (iSub = 0; iSub < numLocSub; ++iSub) {
       subDomain[iSub]->maxRcvDataAndCountUpdates(*levelPat,reinterpret_cast<int (*)[1]>(Tag.subData(iSub)),nSortedNodes[iSub],sortedNodes(iSub));
-    subDomain[iSub]->minRcvData(*volPat,reinterpret_cast<double (*)[dimLS]>(d2wall.subData(iSub)));
+      subDomain[iSub]->minRcvData(*volPat,reinterpret_cast<double (*)[dimLS]>(d2wall.subData(iSub)));
+    }
   }
 }
 

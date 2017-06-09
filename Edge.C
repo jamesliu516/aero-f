@@ -34,8 +34,8 @@ using std::min;
 
 template<int dim>
 inline
-void extendedLinearExtrapolationToIntersection(ElemSet& elems, int idxTet, int idxFace, 
-		double face_r, double face_t, SVec<double,3>& X, SVec<double,dim>& V, double* Wstar, 
+void extendedLinearExtrapolationToIntersection(ElemSet& elems, int idxTet, int idxFace,
+		double face_r, double face_t, SVec<double,3>& X, SVec<double,dim>& V, double* Wstar,
 		double alpha, double length, int i) {
   int n0_loc = elems[idxTet].faceDef(idxFace, 0);
   int n1_loc = elems[idxTet].faceDef(idxFace, 1);
@@ -6209,56 +6209,42 @@ void EdgeSet::pseudoFastMarchingMethodInitialization(SVec<double,3>& X,
 				LevelSetStructure *LSS)
 {
   assert(LSS);
-  double d2wtmp;
+  // double d2wtmp;
 
-  // bool intersect;
-  // int tag = 1;
   for(int l=0; l<numEdges; l++) {
-/*    if(!iActive && !jActive) {
-      if(Tag[i]<0) {
-        Tag[i] = 0;
-        d2wall[i][0] = 0.0;
-        sortedNodes[nSortedNodes] = i;
-        nSortedNodes++;
-      }
-      if(Tag[j]<0) {
-        Tag[j] = 0;
-        d2wall[j][0] = 0.0;
-        sortedNodes[nSortedNodes] = j;
-        nSortedNodes++;
-      }
-    }
-*/
     if(LSS->edgeIntersectsWall(0,l)) {
-      int i = ptr[l][0];
-      int j = ptr[l][1];
-      bool iActive = LSS->isActive(0.0,i);
-      bool jActive = LSS->isActive(0.0,j);
-      if(iActive && Tag[i] < 0) {
-      // if(iActive) {
-        // if (Tag[i] < 0) {
-          sortedNodes[nSortedNodes] = i;
-          nSortedNodes++;
-          Tag[i]  = 1;
-        // }
-        // Active nodes belonging to an edge cut by the structure are projected exactly on the surface.
-        // LevelSetResult resij = LSS->getLevelSetDataAtEdgeCenter(0.0, l, true);
-        // d2wtmp = LSS->isPointOnSurface(X[i],resij.trNodes[0],resij.trNodes[1],resij.trNodes[2]);
-        // d2wall[i][0] = min(d2wall[i][0],d2wtmp);
-        d2wall[i][0] = LSS->isPointOnSurface(i);
-      }
-      if(jActive && Tag[j] < 0) {
-      // if(jActive) {
-      //   if (Tag[j] < 0) {
-          sortedNodes[nSortedNodes] = j;
-          nSortedNodes++;
-          Tag[j]  = 1;
-        // }
-        // Active nodes belonging to an edge cut by the structure are projected exactly on the surface.
-        // LevelSetResult resji = LSS->getLevelSetDataAtEdgeCenter(0.0, l, false);
-        // d2wtmp = LSS->isPointOnSurface(X[j],resji.trNodes[0],resji.trNodes[1],resji.trNodes[2]);
-        // d2wall[j][0] = min(d2wall[j][0],d2wtmp);
-        d2wall[j][0] = LSS->isPointOnSurface(j);
+      LevelSetResult resij = LSS->getLevelSetDataAtEdgeCenter(0.0, l, true);
+      if (resij.structureType==BoundaryData::WALL || resij.structureType==BoundaryData::POROUSWALL) {
+        int i = ptr[l][0];
+        int j = ptr[l][1];
+        bool iActive = LSS->isActive(0.0,i);
+        bool jActive = LSS->isActive(0.0,j);
+        if(iActive && Tag[i] < 0) {
+        // if(iActive) {
+          // if (Tag[i] < 0) {
+            sortedNodes[nSortedNodes] = i;
+            nSortedNodes++;
+            Tag[i]  = 1;
+          // }
+          // Active nodes belonging to an edge cut by the structure are projected exactly on the surface.
+          // LevelSetResult resij = LSS->getLevelSetDataAtEdgeCenter(0.0, l, true);
+          // d2wtmp = LSS->isPointOnSurface(X[i],resij.trNodes[0],resij.trNodes[1],resij.trNodes[2]);
+          // d2wall[i][0] = min(d2wall[i][0],d2wtmp);
+          d2wall[i][0] = LSS->isPointOnSurface(i);
+        }
+        if(jActive && Tag[j] < 0) {
+        // if(jActive) {
+        //   if (Tag[j] < 0) {
+            sortedNodes[nSortedNodes] = j;
+            nSortedNodes++;
+            Tag[j]  = 1;
+          // }
+          // Active nodes belonging to an edge cut by the structure are projected exactly on the surface.
+          // LevelSetResult resji = LSS->getLevelSetDataAtEdgeCenter(0.0, l, false);
+          // d2wtmp = LSS->isPointOnSurface(X[j],resji.trNodes[0],resji.trNodes[1],resji.trNodes[2]);
+          // d2wall[j][0] = min(d2wall[j][0],d2wtmp);
+          d2wall[j][0] = LSS->isPointOnSurface(j);
+        }
       }
     }
   }
