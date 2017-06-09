@@ -285,7 +285,7 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface,
         k++;
       }
       if(underscore_pos > -1){
-        sscanf(key2+(underscore_pos+1),"%d",&surfaceid); 
+        sscanf(key2+(underscore_pos+1),"%d",&surfaceid);
       //Now we look for keywords for the type of structure
       	strcpy(copyForType,key2);
       	int l = 0;
@@ -2555,8 +2555,8 @@ double IntersectorPhysBAM::isPointOnSurface(int nodeId) {
   physbam_interface.HasCloseTriangle(locIndex+1, VECTOR<double,3>(X[nodeId][0],X[nodeId][1],X[nodeId][2]),
     min_corner, max_corner, &shrunk_index, &occluded, &cand);
 
-  // should never have empty list of candidates (implies no bounding box for an
-  // element which traverses embedded surface)
+  // should never have empty list of candidates (implies no bounding box intersection
+  // for an element which traverses embedded surface)
   assert(cand.Size()>0);
 
   Vec3D x0(X[nodeId][0], X[nodeId][1], X[nodeId][2]);

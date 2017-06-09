@@ -7,6 +7,7 @@
   // #define DELTA_CHECK
   // #define ERROR_CHECK
   // #define PRINT_INTERSECT
+
   #define USE_PREDICTORS
   #define PREDICTOR_DEBUG
 
@@ -40,7 +41,7 @@ ReinitializeDistanceToWall<dimLS>::~ReinitializeDistanceToWall()
 {
 
 #ifdef PREDICTOR_DEBUG
-  fprintf(stderr,"\nWall distance computer: total full domain reinitializations = %d\n\n",countReinits);
+  dom.getCommunicator()->fprintf(stderr,"\nWall distance computer: total full domain reinitializations = %d\n\n",countReinits);
 #endif
 
   delete[] nSortedNodes;
@@ -92,7 +93,6 @@ void ReinitializeDistanceToWall<dimLS>::ComputeWallFunction(DistLevelSetStructur
     countReinits++;
 #ifdef PREDICTOR_DEBUG
     dom.getCommunicator()->fprintf(stderr, "Performing a full domain wall distance update (update = %d)!\n",update);
-    dom.getCommunicator()->barrier();
 #endif
 
     // free memory from previous predictors if reinitializing
@@ -163,7 +163,6 @@ void ReinitializeDistanceToWall<dimLS>::ComputeWallFunction(DistLevelSetStructur
 #ifdef PREDICTOR_DEBUG
   else {
     dom.getCommunicator()->fprintf(stderr, "SUCCESS: Skipped wall distance calculation (update = %d)!\n",update);
-    dom.getCommunicator()->barrier();
   }
   dom.getCommunicator()->fprintf(stderr, "Times: tn = %e, tnm1 = %e, tnm2 = %e\n",tPredictors[0],tPredictors[1],tPredictors[2]);
   dom.getCommunicator()->fprintf(stderr, "    tlastinit = %e, tlastinit2 = %e\n\n",tnm1,tnm2);
@@ -195,11 +194,6 @@ int ReinitializeDistanceToWall<dimLS>::UpdatePredictorsCheckTol(double t)
     update = 2;
   else {
     // compute distance predictions
-=======
-    			done[i] = true;
-    			tag[i] = 1;
-    			LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
-    			d2w[i][0] = LSS.isPointOnSurface(X[i],resij.trNodes[0],resij.trNodes[1],resij.trNodes[2]);
 
   #ifdef PREDICTOR_DEBUG
     dom.getCommunicator()->fprintf(stderr,"\nUpdating predictors...\n");
@@ -209,15 +203,13 @@ int ReinitializeDistanceToWall<dimLS>::UpdatePredictorsCheckTol(double t)
     dtnm2 = tPredictors[1]-tPredictors[2];
     dtnm1 = tPredictors[0]-tPredictors[1];
     dtn = t-tPredictors[0];
-		    	 done[j] = true;
-		    	 tag[j] = 1;
-		    	 LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
-		    	 d2w[j][0] = LSS.isPointOnSurface(X[j],resji.trNodes[0],resji.trNodes[1],resji.trNodes[2]);
 
     // dom.getCommunicator()->fprintf(stderr, "dtn = %e, dtnm1 = %e, dtnm2 = %e\n",dtn,dtnm1,dtnm2);
 
-    double tolmax = 1.0e-2, tolmin = 1.0e-9, tolmin2 = 1.0e-4;
+    double tolmax = 1.0e-2, tolmin = 1.0e-9, tolmin2 = 1.0e-3;
     double maxdd = -1.0;
+    double delta, d2wp, deltatmp, deltam;
+    int i;
 
   #ifdef PREDICTOR_DEBUG
     double maxdel = -1.0, meandel = 0.0, maxd2w = -1.0, mind2w = 1.0e16;
@@ -227,65 +219,50 @@ int ReinitializeDistanceToWall<dimLS>::UpdatePredictorsCheckTol(double t)
   #pragma omp parallel for
     for (int iSub = 0; iSub < dom.getNumLocSub(); ++iSub) {
       for (int j = 0; j < nPredictors[iSub]; j++) {
-        double d2wp = (1.0+dtn/dtnm1*(dtn+2.0*dtnm1+dtnm2)/(dtnm1+dtnm2))*d2wPredictors[iSub][j][1]
+        d2wp = (1.0+dtn/dtnm1*(dtn+2.0*dtnm1+dtnm2)/(dtnm1+dtnm2))*d2wPredictors[iSub][j][1]
         -(dtn/dtnm1)*(dtn+dtnm1+dtnm2)/dtnm2*d2wPredictors[iSub][j][2]
         +(dtn/dtnm2)*(dtn+dtnm1)/(dtnm1+dtnm2)*d2wPredictors[iSub][j][3];
 
-        int i = d2wPredictors[iSub][j][0];
-        double delta;
-        if (d2wall(iSub)[i][0]>tolmin2)
-          delta = 2.0*fabs(d2wp-d2wall(iSub)[i][0])/d2wall(iSub)[i][0];
-        else delta = 0.0;
+        i = d2wPredictors[iSub][j][0];
+        // deltatmp = 2.0*fabs(d2wp-d2wall(iSub)[i][0])/d2wall(iSub)[i][0];
+        // if (d2wall(iSub)[i][0]>tolmin2)
+        //   delta = deltatmp;
+        // else delta = 0.0;
+        delta = 2.0*fabs(d2wp-d2wall(iSub)[i][0])/d2wall(iSub)[i][0];
 
   #ifdef PREDICTOR_DEBUG
         // for viewing maximum predicted change and other values
         maxdel = max(delta,maxdel);
+        // meandel += deltatmp;
         meandel += delta;
         mind2w = min(mind2w,d2wall(iSub)[i][0]);
         maxd2w = max(maxd2w,d2wall(iSub)[i][0]);
   #endif
 
-        if (delta > tolmax) {
-          update = 2;
-  #ifdef PREDICTOR_DEBUG
-          fprintf(stderr,
-            "Tolerance exceeded (2delta/d = %e > %e @ cpu %d, node %d\n    d2wp = %e, d2wall(tnm1) = %e\n    d2wnm1 = %e, d2wnm2 = %e, d2wnm3 = %e)\n",
-            delta,tolmax,dom.getCommunicator()->cpuNum(),j,d2wp,d2wall(iSub)[i][0],d2wPredictors[iSub][j][1],d2wPredictors[iSub][j][2],d2wPredictors[iSub][j][3]);
-          nvi++;
-  #else
-          goto exitlbl;
-  #endif
-        }
-        else {
-          double deltam = fabs(d2wp-d2wPredictors[iSub][j][1])/d2wPredictors[iSub][j][1];
+  //       if (delta > tolmax) {
+  //         update = 2;
+  // #ifdef PREDICTOR_DEBUG
+  //         fprintf(stderr,
+  //           "Tolerance exceeded (2delta/d = %e > %e @ cpu %d, node %d\n    d2wp = %e, d2wall(tnm1) = %e\n    d2wnm1 = %e, d2wnm2 = %e, d2wnm3 = %e)\n",
+  //           delta,tolmax,dom.getCommunicator()->cpuNum(),j,d2wp,d2wall(iSub)[i][0],d2wPredictors[iSub][j][1],d2wPredictors[iSub][j][2],d2wPredictors[iSub][j][3]);
+  //         nvi++;
+  // #else
+  //         goto exitlbl;
+  // #endif
+  //       }
+        // else {
+          deltam = fabs(d2wp-d2wPredictors[iSub][j][1])/d2wPredictors[iSub][j][1];
           maxdd  = max(deltam,maxdd);
 
           d2wPredictors[iSub][j][3] = d2wPredictors[iSub][j][2];
           d2wPredictors[iSub][j][2] = d2wPredictors[iSub][j][1];
           d2wPredictors[iSub][j][1] = d2wp;
-        }
+        // }
       }
     }
 
-    exitlbl:
-    dom.getCommunicator()->globalMax(1,&update);
-
-    if (update < 2) {
-      dom.getCommunicator()->globalMax(1,&maxdd);
-      if (maxdd < tolmin) {
-  #ifdef PREDICTOR_DEBUG
-        dom.getCommunicator()->fprintf(stderr,"max relative (dpn-dpnm1) = %e vs tol = %e)\n",
-          maxdd,tolmin);
-  #endif
-        update = 1;
-      }
-    }
-    else {
-  #ifdef PREDICTOR_DEBUG
-      dom.getCommunicator()->globalSum(1,&nvi);
-      dom.getCommunicator()->fprintf(stderr,"Total N = %d violating predictors\n",nvi);
-  #endif
-    }
+    // exitlbl:
+    // dom.getCommunicator()->globalMax(1,&update);
 
   #ifdef PREDICTOR_DEBUG
     // max and mean error outputs to view (for testing)
@@ -303,8 +280,30 @@ int ReinitializeDistanceToWall<dimLS>::UpdatePredictorsCheckTol(double t)
     dom.getCommunicator()->globalSum(1,&meandel);
     dom.getCommunicator()->globalSum(1,&nPredTot);
     meandel /= nPredTot;
-    dom.getCommunicator()->fprintf(stderr,"mean (2delta/d) = %e (N predictors = %d)\n\n",meandel,nPredTot);
+    dom.getCommunicator()->fprintf(stderr,"Mean (2delta/d) = %e (N predictors = %d)\n\n",meandel,nPredTot);
   #endif
+
+    if (meandel > tolmax) {
+      update = 2;
+      dom.getCommunicator()->fprintf(stderr,"Tolerance on mean delta exceeded! (tol = %e)!\n",tolmax);
+    }
+
+    if (update < 2) {
+      dom.getCommunicator()->globalMax(1,&maxdd);
+      if (maxdd < tolmin) {
+  #ifdef PREDICTOR_DEBUG
+        dom.getCommunicator()->fprintf(stderr,"max relative (dpn-dpnm1) = %e vs tol = %e)\n",
+          maxdd,tolmin);
+  #endif
+        update = 1;
+      }
+    }
+  //   else {
+  // #ifdef PREDICTOR_DEBUG
+  //     dom.getCommunicator()->globalSum(1,&nvi);
+  //     dom.getCommunicator()->fprintf(stderr,"Total N = %d violating predictors\n",nvi);
+  // #endif
+  //   }
 
   }
 
