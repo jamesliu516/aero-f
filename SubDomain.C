@@ -4956,7 +4956,7 @@ void SubDomain::otRcvData(CommPattern<Scalar> &sp, Scalar (*w)[dim])
         bool copy = false;
         if (w[ (*sharedNodes)[iSub][iNode] ][dim-2]==0.0) copy = true;
         else
-          if 
+          if
           (w[ (*sharedNodes)[iSub][iNode] ][dim-1] > buffer[iNode][dim-1])
         copy = true;
         if (copy) for (int j = 0; j < dim; ++j)  {
@@ -7463,7 +7463,7 @@ void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double
 
 				bool intEdge;
 
-				if(externalSI) 
+				if(externalSI)
 					intEdge = LSS.edgeWithSI(l) || LSS.edgeIntersectsWall(0.0, l);
 				else
 					intEdge = LSS.edgeIntersectsWall(0.0, l);
@@ -7541,7 +7541,7 @@ void SubDomain::computeWeightsLeastSquaresForEmbeddedStruct(SVec<double,3> &X, S
 
 				bool intEdge;
 
-				if(externalSI) 
+				if(externalSI)
 					intEdge = LSS.edgeWithSI(l) || LSS.edgeIntersectsWall(0.0, l);
 				else
 					intEdge = LSS.edgeIntersectsWall(0.0, l);
@@ -9129,6 +9129,7 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
      NodeToNode = createEdgeBasedConnectivity();
   if(!NodeToElem)
      NodeToElem = createNodeToElementConnectivity();
+
   if(level > 0 && level == iterativeLevel) {
     // account for all fixed nodes, with correct ordering in sortedNodes
     nSortedNodes     = 0;
@@ -9184,7 +9185,48 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
   else if(level==1) {
     // Tag is globally set to -1, 0 level are inactive nodes
     firstCheckedNode = nSortedNodes;
-    edges.pseudoFastMarchingMethodInitialization(X,Tag,d2wall,sortedNodes,nSortedNodes,LSS);
+
+    // faster to loop over nodes and retrieve distance info from intersector
+    // than to loop over all edges
+    bool doinit;
+    int nei, nNeighs, l;
+    LevelSetResult resij;
+    for(int i=0;i<Tag.size();++i) {
+      if (LSS->isNearInterface(0.0,i) && Tag[i] != 0) {
+        // must make sure wall intersected is actually a wall
+        doinit = false;
+        nNeighs = NodeToNode->num(i);
+        for (int k=0;k<nNeighs;k++) {
+          nei = (*NodeToNode)[i][k];
+
+          if(i==nei) continue;
+          l = edges.findOnly(i,nei);
+          if (LSS->edgeIntersectsWall(0,l)) {
+            resij = LSS->getLevelSetDataAtEdgeCenter(0.0, l, true);
+            if (resij.structureType==BoundaryData::WALL || resij.structureType==BoundaryData::POROUSWALL) {
+              doinit = true;
+              break;
+            }
+          }
+        }
+
+        if (doinit) {
+          sortedNodes[nSortedNodes] = i;
+          nSortedNodes++;
+          Tag[i]  = 1;
+          d2wall[i][0] = LSS->distToInterface(0.0,i);
+          // // for debugging!
+          // if(d2wall[i][0]<0) {
+          //   fprintf(stderr,"BUG: Node %d is near FS interface but its wall distance (%e) is invalid.\n",
+          //     locToGlobNodeMap[i]+1, d2wall[i][0]);
+          //   exit(-1);
+          // }
+        }
+      }
+    }
+
+    // edges.pseudoFastMarchingMethodInitialization(X,Tag,d2wall,sortedNodes,nSortedNodes,LSS);
+
     nPredictors = nSortedNodes-firstCheckedNode;
     // fprintf(stderr,"nPredictors = %d\n",nPredictors);
   }
@@ -10135,7 +10177,7 @@ void SubDomain::computeEmbSurfBasedForceLoad_e(IoData &iod, int forceApp, int or
 			ElemForceCalcValid myObj;
 			Elem* En = myTree->search<&Elem::isPointInside, ElemForceCalcValid,
 											  &ElemForceCalcValid::Valid>(&myObj, X, Xe);//element En contains Xe
-						
+
 			if(!En) continue;
 
 			if(dir == 0) elem_e1 = En;
@@ -10144,7 +10186,7 @@ void SubDomain::computeEmbSurfBasedForceLoad_e(IoData &iod, int forceApp, int or
 			for(int k=0; k<4; ++k)
 			{
 				int Nk = (*En)[k];
-				
+
 				if(LSS.isActive(0.0, Nk))//closest node active node in En todo consider side
 				{
 					Vec3D Xk;
@@ -10320,7 +10362,7 @@ void SubDomain::computeEMBNodeScalarQuantity_step1(SVec<double,3> &X, SVec<doubl
 		Vec3D XO[4];
 		for(int i=0; i<4; i++)
 			for(int j=0; j<3; ++j) XO[i][j] = X[T[i]][j]; // fluid nodes coordinates
-		
+
 		Vec3D bary;
 		E->computeBarycentricCoordinates(X, Xp, bary);
 		if(bary[0] < 0.0 || bary[1] < 0.0 || bary[2] < 0.0 || bary[0]+bary[1]+bary[2] > 1.0)
@@ -10340,7 +10382,7 @@ void SubDomain::computeEMBNodeScalarQuantity_step1(SVec<double,3> &X, SVec<doubl
 		for(int e=0; e<6; ++e)
 		{
 			int l = E->edgeNum(e);
-			
+
 			if(LSS.edgeIntersectsWall(0,l))
 			{
 				int i = E->edgeEnd(e, 0);
@@ -10648,7 +10690,7 @@ void SubDomain::computeEMBNodeScalarQuantity_step2(SVec<double,3> &X, SVec<doubl
 
 template<int dim>
 void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int order, SVec<double,3> &X,
-                                             double (*Fs)[3], int sizeFs, LevelSetStructure &LSS, double pInfty, 
+                                             double (*Fs)[3], int sizeFs, LevelSetStructure &LSS, double pInfty,
                                              SVec<double,dim> &Wstarij, SVec<double,dim> &Wstarji, SVec<double,dim> &V,
                                              Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, VarFcn* vf, Vec<int>* fid)
 {
