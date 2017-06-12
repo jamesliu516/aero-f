@@ -285,7 +285,6 @@ int ReinitializeDistanceToWall<dimLS>::UpdatePredictorsCheckTol(double t)
 
     if (meandel > tolmax) {
       update = 2;
-      dom.getCommunicator()->fprintf(stderr,"Tolerance on mean delta exceeded! (tol = %e)!\n",tolmax);
     }
 
     if (update < 2) {

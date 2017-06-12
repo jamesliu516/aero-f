@@ -270,7 +270,7 @@ class IntersectorPhysBAM : public LevelSetStructure {
 
     //added by arthur Morlot : THings used for the embedded symmetry plane (not the embedded constraint)
     //int EmbeddedConstraintNormal;
- 
+
     std::map<int,IntersectionResult<double> > CrossingEdgeRes;
     std::map<int,IntersectionResult<double> > ReverseCrossingEdgeRes;
 
@@ -316,7 +316,7 @@ class IntersectorPhysBAM : public LevelSetStructure {
 
 
     double isPointOnSurface(Vec3D pt, int N1, int N2, int N3);
-    /** check the distance of a point to a surface defined by a triangle */
+    /** check the distance of a point to a surface triangle */
     double isPointOnSurface(int nodeId);
     /** sjg, 05/2017: new implementation to use nearby candidate triangles of fluid mesh vertex */
 
