@@ -214,8 +214,8 @@ LevelSetStructure(Vec<int>& status,
     virtual class CrackingSurface*
       getCrackingSurface() { return NULL; }
 
-    virtual double isPointOnSurface(Vec3D, int, int, int) = 0;
-    virtual double isPointOnSurface(int) = 0;
+    // virtual double isPointOnSurface(Vec3D, int, int, int) = 0;
+    // virtual double isPointOnSurface(int) = 0;
 
     virtual int numOfFluids() = 0;
 
@@ -256,7 +256,7 @@ class DistLevelSetStructure {
     {}
     virtual ~DistLevelSetStructure()
     {delete status;delete distance;delete is_swept;delete is_active;delete is_occluded;delete edge_intersects;delete edge_intersects_constraint; /*delete edge_intersects_embedded_constraint; delete Embedded_Constraint_Alpha;*/
-	  delete edge_SI; delete nWall_SI; delete xi_SI; delete eta_SI; delete TriID_SI; 
+	  delete edge_SI; delete nWall_SI; delete xi_SI; delete eta_SI; delete TriID_SI;
 	  delete nWall_node; delete xi_node; delete eta_node; delete TriID_node;}
 
     int numOfFluids() {return numFluid;}

@@ -1140,8 +1140,8 @@ bool EmbeddedTsDesc<dim>::IncreasePressure(int it, double dt, double t, DistSVec
       this->com->fprintf(stderr,"recomputing fluid-structure intersections.\n");
       recomputeIntersections = true;
       this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts, true, TsDesc<dim>::failSafeFlag);
-    } else
-      recomputeIntersections = false;
+    }
+    else recomputeIntersections = false;
 
     this->timer->addIntersectionTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
