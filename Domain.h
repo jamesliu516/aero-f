@@ -440,10 +440,25 @@ public:
   template<int dimLS>
   void TagInterfaceNodes(int lsdim, DistSVec<bool,2> &Tag, DistSVec<double,dimLS> &Phi, DistLevelSetStructure *distLSS);
   template<int dimLS>
+
   void pseudoFastMarchingMethod(DistVec<int> &Tag, DistSVec<double,3> &X,
 				DistSVec<double,dimLS> &d2wall, int level, int iterativeLevel,
 				DistVec<int> &sortedNodes, int *nSortedNodes,
 				int *firstCheckedNode, int *nPredictors, DistLevelSetStructure *distLSS=0);
+  // template<int dimLS>
+  // void pseudoFastMarchingMethodSerial(DistVec<int> &Tag, DistSVec<double,3> &X,
+	// 			DistSVec<double,dimLS> &d2wall, int level, int iterativeLevel,
+	// 			DistVec<int> &sortedNodes, int *nSortedNodes,
+	// 			int *firstCheckedNode, int *nPredictors, DistLevelSetStructure *distLSS=0);
+  template<int dimLS>
+  void pseudoFastMarchingMethodSerial(int iSub, DistVec<int> &Tag, DistSVec<double,3> &X,
+				DistSVec<double,dimLS> &d2wall, int level, int iterativeLevel,
+				DistVec<int> &sortedNodes, int *nSortedNodes,
+				int *firstCheckedNode, int *nPredictors, DistLevelSetStructure *distLSS=0);
+  template<int dimLS>
+  void pseudoFastMarchingMethodComm(DistVec<int> &Tag, DistSVec<double,dimLS> &d2wall,
+          DistVec<int> &sortedNodes, int *nSortedNodes);
+
   //template<int dimLS>
   //void FinishReinitialization(DistVec<int> &Tag, DistSVec<double,dimLS> &Psi, int level);
 

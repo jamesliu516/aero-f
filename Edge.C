@@ -6202,58 +6202,61 @@ void EdgeSet::TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Ph
 }
 
 //------------------------------------------------------------------------------
-template<int dimLS>
-void EdgeSet::pseudoFastMarchingMethodInitialization(SVec<double,3>& X,
-				Vec<int> &Tag, SVec<double,dimLS> &d2wall,
-				Vec<int> &sortedNodes, int &nSortedNodes,
-				LevelSetStructure *LSS)
-{
-  assert(LSS);
-  // double d2wtmp;
 
-  for(int l=0; l<numEdges; l++) {
-    if(LSS->edgeIntersectsWall(0,l)) {
-      LevelSetResult resij = LSS->getLevelSetDataAtEdgeCenter(0.0, l, true);
-      if (resij.structureType==BoundaryData::WALL || resij.structureType==BoundaryData::POROUSWALL) {
-        int i = ptr[l][0];
-        int j = ptr[l][1];
-        bool iActive = LSS->isActive(0.0,i);
-        bool jActive = LSS->isActive(0.0,j);
-        if(iActive && Tag[i] < 0) {
-        // if(iActive) {
-          // if (Tag[i] < 0) {
-          sortedNodes[nSortedNodes] = i;
-          nSortedNodes++;
-          Tag[i]  = 1;
-          // }
-          // Active nodes belonging to an edge cut by the structure are projected exactly on the surface.
-          // LevelSetResult resij = LSS->getLevelSetDataAtEdgeCenter(0.0, l, true);
-          // d2wtmp = LSS->isPointOnSurface(X[i],resij.trNodes[0],resij.trNodes[1],resij.trNodes[2]);
-          // d2wall[i][0] = min(d2wall[i][0],d2wtmp);
+// template<int dimLS>
+// void EdgeSet::pseudoFastMarchingMethodInitialization(SVec<double,3>& X,
+// 				Vec<int> &Tag, SVec<double,dimLS> &d2wall,
+// 				Vec<int> &sortedNodes, int &nSortedNodes,
+// 				LevelSetStructure *LSS)
+// {
+//   assert(LSS);
+//   // double d2wtmp;
 
-          // d2wall[i][0] = LSS->isPointOnSurface(i);
-          d2wall[i][0] = LSS->distToInterface(0.0,i);
-        }
-        if(jActive && Tag[j] < 0) {
-        // if(jActive) {
-        //   if (Tag[j] < 0) {
-          sortedNodes[nSortedNodes] = j;
-          nSortedNodes++;
-          Tag[j]  = 1;
-          // }
-          // Active nodes belonging to an edge cut by the structure are projected exactly on the surface.
-          // LevelSetResult resji = LSS->getLevelSetDataAtEdgeCenter(0.0, l, false);
-          // d2wtmp = LSS->isPointOnSurface(X[j],resji.trNodes[0],resji.trNodes[1],resji.trNodes[2]);
-          // d2wall[j][0] = min(d2wall[j][0],d2wtmp);
+//   for(int l=0; l<numEdges; l++) {
+//     if(LSS->edgeIntersectsWall(0,l)) {
+//       LevelSetResult resij = LSS->getLevelSetDataAtEdgeCenter(0.0, l, true);
+//       if (resij.structureType==BoundaryData::WALL || resij.structureType==BoundaryData::POROUSWALL) {
+//         int i = ptr[l][0];
+//         int j = ptr[l][1];
+//         bool iActive = LSS->isActive(0.0,i);
+//         bool jActive = LSS->isActive(0.0,j);
+//         if(iActive && Tag[i] < 0) {
+//         // if(iActive) {
+//           // if (Tag[i] < 0) {
+//           sortedNodes[nSortedNodes] = i;
+//           nSortedNodes++;
+//           Tag[i]  = 1;
+//           // }
+//           // Active nodes belonging to an edge cut by the structure are projected exactly on the surface.
+//           // LevelSetResult resij = LSS->getLevelSetDataAtEdgeCenter(0.0, l, true);
+//           // d2wtmp = LSS->isPointOnSurface(X[i],resij.trNodes[0],resij.trNodes[1],resij.trNodes[2]);
+//           // d2wall[i][0] = min(d2wall[i][0],d2wtmp);
 
-          // d2wall[j][0] = LSS->isPointOnSurface(j);
-          d2wall[j][0] = LSS->distToInterface(0.0,j);
-        }
-      }
-    }
-  }
-}
+//           // d2wall[i][0] = LSS->isPointOnSurface(i);
+//           d2wall[i][0] = LSS->distToInterface(0.0,i);
+//         }
+//         if(jActive && Tag[j] < 0) {
+//         // if(jActive) {
+//         //   if (Tag[j] < 0) {
+//           sortedNodes[nSortedNodes] = j;
+//           nSortedNodes++;
+//           Tag[j]  = 1;
+//           // }
+//           // Active nodes belonging to an edge cut by the structure are projected exactly on the surface.
+//           // LevelSetResult resji = LSS->getLevelSetDataAtEdgeCenter(0.0, l, false);
+//           // d2wtmp = LSS->isPointOnSurface(X[j],resji.trNodes[0],resji.trNodes[1],resji.trNodes[2]);
+//           // d2wall[j][0] = min(d2wall[j][0],d2wtmp);
+
+//           // d2wall[j][0] = LSS->isPointOnSurface(j);
+//           d2wall[j][0] = LSS->distToInterface(0.0,j);
+//         }
+//       }
+//     }
+//   }
+// }
+
 //------------------------------------------------------------------------------
+
 template<int dim>
 void EdgeSet::ComputeAndAddActuatorDiskSourceTerm(Vec3D normalDir,
 		double controlVolumeArea, double pressureJumpValue,

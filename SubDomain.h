@@ -1109,13 +1109,13 @@ public:
   void minRcvData(CommPattern<Scalar> &, Scalar (*)[dim]);
 
   template<class Scalar, int dim>
+  void minRcvDataAndCountUpdates(CommPattern<Scalar> &sp, Scalar (*w)[dim], Vec<int> &, int &, Vec<int> &);
+
+  template<class Scalar, int dim>
   void maxRcvData(CommPattern<Scalar> &, Scalar (*)[dim]);
 
   template<class Scalar, int dim>
   void maxRcvDataAndCountUpdates(CommPattern<Scalar> &, Scalar (*)[dim],int &, Vec<int> &);
-
-  template<class Scalar, int dim>
-  void maxRcvDataAndCountUpdates(CommPattern<Scalar> &, Scalar (*)[dim],int &, Vec<int> &, int &);
 
   template<class Scalar1, class Scalar2, int dim1, int dim2>
   void TagPsiExchangeData(CommPattern<Scalar1> &splevel, Scalar1 (*level)[dim1],

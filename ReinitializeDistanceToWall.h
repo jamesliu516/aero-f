@@ -21,15 +21,16 @@ class ReinitializeDistanceToWall
   DistVec<int> tag;
   DistVec<int> sortedNodes;
   int *nSortedNodes, *firstCheckedNode;
-  DistSVec<double, dimLS> dummyPhi;
+  // DistSVec<double, dimLS> dummyPhi;
 
-  int predictorActive;
+  // predictors
   int *nPredictors;
-  double *tPredictors;
-  double ***d2wPredictors;
-  DistSVec<double, 1> d2wallnm1, d2wallnm2;
-  double tnm1, tnm2;
-  int countReinits;
+  // int **predictorList;
+  double *predictorTime;
+  DistSVec<double, 1> d2wnm1, d2wnm2, d2wnm3;
+  int countreinits, nPredTot; // predictorActive
+
+  double tolmin, tolmax;
 
 public:
   ReinitializeDistanceToWall(IoData &ioData, Domain &domain);
@@ -42,10 +43,10 @@ private:
   int UpdatePredictorsCheckTol(double t);
   void ReinitializePredictors(int update, double t, DistLevelSetStructure *LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState);
 
-  void InitializeWallFunction(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState, int *nPredLoc, double t);
-  void GetLevelsFromInterfaceAndMarchForward(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState);
   int PseudoFastMarchingMethod(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState, int iterativeLevel, int *nPredLoc);
-  void IterativeMethodUpdate(int max_level, DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState);
+  void IterativeMethodUpdate(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState, int *nPredLoc);
+  // void InitializeWallFunction(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState, int *nPredLoc, double t);
+  // void GetLevelsFromInterfaceAndMarchForward(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState);
 
   void ComputeExactErrors(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState);
   void PrescribedValues(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState);

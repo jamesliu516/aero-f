@@ -277,8 +277,8 @@ protected:
   int nFirstLayer;
   void printFirstLayer(SubDomain &sub, SVec<double, 3> &X, int TYPE = 1);
 
-  double isPointOnSurface(Vec3D pt, int N1, int N2, int N3);
-  double isPointOnSurface(int nodeId);
+  // double isPointOnSurface(Vec3D pt, int N1, int N2, int N3);
+  // double isPointOnSurface(int nodeId);
 
 public:
   IntersectorFRG(SubDomain &, SVec<double, 3> &X, Vec<int> &status0, DistIntersectorFRG &);
