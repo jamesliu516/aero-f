@@ -1228,7 +1228,7 @@ public:
   void pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
 				SVec<double,dimLS> &d2wall, int level, int iterativeLevel,
         Vec<int> &sortedNodes, int& nSortedNodes, int &firstCheckedNode,
-        int &nPredictors, LevelSetStructure *LSS=0);
+        LevelSetStructure *LSS=0);
 
   template<int dimLS>
   void FinishReinitialization(Vec<int> &Tag, SVec<double,dimLS> &Psi, int level);

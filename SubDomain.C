@@ -5370,13 +5370,10 @@ void SubDomain::minRcvDataAndCountUpdates(CommPattern<Scalar> &sp, Scalar (*w)[d
       sharedNodeID = (*sharedNodes)[iSub][iNode];
       for (int j = 0; j < dim; ++j) {
         if (buffer[iNode][j] < w[sharedNodeID][j]) {
-
-        // if (w[sharedNodeID][j]-buffer[iNode][j] > 1.0e-12) {
-          if (buffer[iNode][j] >= 1.0e10) {
-            fprintf(stderr,"Problem: updating node with d2w = %f with buffer value of %f (tag = %d)",
-            w[sharedNodeID][j],buffer[iNode][j],Tag[sharedNodeID]);
-          }
-
+          // if (buffer[iNode][j] >= 1.0e10) {
+          //   fprintf(stderr,"Problem: updating node with d2w = %f with buffer value of %f (tag = %d)",
+          //   w[sharedNodeID][j],buffer[iNode][j],Tag[sharedNodeID]);
+          // }
           if (Tag[sharedNodeID] < 0) {
             sortedNodes[nSortedNodes] = sharedNodeID;
             nSortedNodes++;
@@ -9131,7 +9128,7 @@ template<int dimLS>
 void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
 					 SVec<double,dimLS> &d2wall, int level, int iterativeLevel,
 					 Vec<int> &sortedNodes, int &nSortedNodes, int &firstCheckedNode,
-           int &nPredictors, LevelSetStructure *LSS)
+           LevelSetStructure *LSS)
 {
   if (!NodeToNode)
      NodeToNode = createEdgeBasedConnectivity();
@@ -9202,22 +9199,18 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
           nSortedNodes++;
           Tag[i]  = 1;
           d2wall[i][0] = LSS->distToInterface(0.0,i);
-
-          // for debugging!
-          if(d2wall[i][0]<=0.0 || d2wall[i][0] >= 1.0e10) {
-            fprintf(stderr,"PROBLEM: Node %d is near FS interface but its wall distance (%e) is invalid.\n",
-              locToGlobNodeMap[i]+1, d2wall[i][0]);
-            // exit(-1);
-          }
+          // // for debugging!
+          // if(d2wall[i][0]<=0.0 || d2wall[i][0] >= 1.0e10) {
+          //   fprintf(stderr,"PROBLEM: Node %d is near FS interface but its wall distance (%e) is invalid.\n",
+          //     locToGlobNodeMap[i]+1, d2wall[i][0]);
+          //   // exit(-1);
+          // }
         }
       }
     }
 
-    // legacy function
+    // outdated function
     // edges.pseudoFastMarchingMethodInitialization(X,Tag,d2wall,sortedNodes,nSortedNodes,LSS);
-
-    nPredictors = nSortedNodes-firstCheckedNode;
-    // fprintf(stderr,"nPredictors = %d\n",nPredictors);
   }
   else {
     // Tag nodes that are neighbours of already Tagged nodes and compute their distance
@@ -9229,11 +9222,10 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
       // Should be useless. Remove the following if.Adam 2011.09
       // if(Tag[fixedNode]==lowerLevel){
       assert(Tag[fixedNode] == lowerLevel);
-
-      if (Tag[fixedNode] != lowerLevel) {
-        fprintf(stderr,"Failed assert in SubDomain.C for Tag[fixedNode] != lowerlevel (Tag[fixedNode] = %d, lowerlevel = %d, node %d out of %d)\n",Tag[fixedNode],lowerLevel,i,nSortedNodes-firstCheckedNode+1);
-        exit(-1);
-      }
+      // if (Tag[fixedNode] != lowerLevel) {
+      //   fprintf(stderr,"Failed assert in SubDomain.C for Tag[fixedNode] != lowerlevel (Tag[fixedNode] = %d, lowerlevel = %d, node %d out of %d)\n",Tag[fixedNode],lowerLevel,i,nSortedNodes-firstCheckedNode+1);
+      //   exit(-1);
+      // }
 
       nNeighs = NodeToNode->num(fixedNode);
       for (int k=0;k<nNeighs;k++) {
