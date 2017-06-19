@@ -5470,7 +5470,6 @@ void Domain::pseudoFastMarchingMethodComm(DistVec<int> &Tag, DistSVec<double,dim
     subDomain[iSub]->sndData(*volPat,reinterpret_cast<double (*)[dimLS]>(d2wall.subData(iSub)));
   }
 
-  // levelPat->exchange();
   volPat->exchange();
 
 #pragma omp parallel for
