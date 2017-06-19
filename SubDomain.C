@@ -5375,12 +5375,14 @@ void SubDomain::minRcvDataAndCountUpdates(CommPattern<Scalar> &sp, Scalar (*w)[d
           //   w[sharedNodeID][j],buffer[iNode][j],Tag[sharedNodeID]);
           // }
           if (Tag[sharedNodeID] < 0) {
-            sortedNodes[nSortedNodes] = sharedNodeID;
+            // sortedNodes[nSortedNodes] = sharedNodeID;
             nSortedNodes++;
           }
           Tag[sharedNodeID] = 1;
           w[sharedNodeID][j] = buffer[iNode][j];
         }
+        else
+          Tag[sharedNodeID] = -1;
       }
     }
   }
@@ -9136,7 +9138,7 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
      NodeToElem = createNodeToElementConnectivity();
 
   if (level > 0 && level == iterativeLevel) {
-    // account for all fixed nodes, with correct ordering in sortedNodes
+    // account for all previously fixed nodes, with correct ordering in sortedNodes
     nSortedNodes     = 0;
     for (int i=0;i<Tag.size();++i) {
       if (Tag[i] <= iterativeLevel-1 && Tag[i] >= 0) {
@@ -9161,9 +9163,9 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
     firstCheckedNode = 0;
     for (int i=0;i<Tag.size();++i) {
       if (!LSS->isActive(0.0,i)) {
-        // d2wall[i][0] = 0.0;
+        d2wall[i][0] = 0.0; // not a problem as inactive nodes should be marked as ghost on all subdomains
         Tag[i] = 0;
-        sortedNodes[nSortedNodes] = i;
+        // sortedNodes[nSortedNodes] = i;
         nSortedNodes++;
       }
     }
@@ -9209,7 +9211,7 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
       }
     }
 
-    // outdated function
+    // depreciated
     // edges.pseudoFastMarchingMethodInitialization(X,Tag,d2wall,sortedNodes,nSortedNodes,LSS);
   }
   else {
@@ -9219,8 +9221,11 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
     for (int i = firstCheckedNode; i < inter; i++) {
       fixedNode = sortedNodes[i];
       // if(Tag[fixedNode] == 0) continue; // structure nodes
+      // -> if any nodes are inactive, will always have a level 1 node on the same subdomain
+
       // Should be useless. Remove the following if.Adam 2011.09
       // if(Tag[fixedNode]==lowerLevel){
+
       assert(Tag[fixedNode] == lowerLevel);
       // if (Tag[fixedNode] != lowerLevel) {
       //   fprintf(stderr,"Failed assert in SubDomain.C for Tag[fixedNode] != lowerlevel (Tag[fixedNode] = %d, lowerlevel = %d, node %d out of %d)\n",Tag[fixedNode],lowerLevel,i,nSortedNodes-firstCheckedNode+1);
