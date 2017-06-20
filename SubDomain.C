@@ -9129,8 +9129,8 @@ void SubDomain::TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &
 template<int dimLS>
 void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
 					 SVec<double,dimLS> &d2wall, int level, int iterativeLevel,
-					 Vec<int> &sortedNodes, int &nSortedNodes, int &firstCheckedNode,
-           LevelSetStructure *LSS)
+					 Vec<int> &sortedNodes, int &nSortedNodes, int &nActiveNodes,
+           int &firstCheckedNode, double &res, LevelSetStructure *LSS)
 {
   if (!NodeToNode)
      NodeToNode = createEdgeBasedConnectivity();
@@ -9138,41 +9138,61 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
      NodeToElem = createNodeToElementConnectivity();
 
   if (level > 0 && level == iterativeLevel) {
-    // account for all previously fixed nodes, with correct ordering in sortedNodes
+    // // account for all previously fixed nodes, with correct ordering in sortedNodes
+    // nSortedNodes     = 0;
+    // for (int i=0;i<Tag.size();++i) {
+    //   // modify strictly for calling with iterative level = 1
+    //   // if (Tag[i] <= iterativeLevel-1 && Tag[i] >= 0) {
+    //   if (Tag[i] == 0) {
+    //     // sortedNodes[nSortedNodes] = i;
+    //     nSortedNodes++;
+    //   }
+    // }
+    // firstCheckedNode = nSortedNodes;
+    // for (int i=0;i<Tag.size();++i) {
+    //   if (Tag[i] == iterativeLevel) {
+    //     sortedNodes[nSortedNodes] = i;
+    //     nSortedNodes++;
+    //   }
+    //   else if (Tag[i] > iterativeLevel) {
+	  //     Tag[i] = -1;
+    //   }
+    // }
+
+    // firstCheckedNode starts @ 0 for initial pass always
     nSortedNodes     = 0;
+    nActiveNodes     = 0;
+    firstCheckedNode = 0;
     for (int i=0;i<Tag.size();++i) {
-      if (Tag[i] <= iterativeLevel-1 && Tag[i] >= 0) {
-        // sortedNodes[nSortedNodes] = i;
+      // if (Tag[i] <= iterativeLevel-1 && Tag[i] >= 0) {
+      if (Tag[i] == 0) // modify strictly for calling with iterative level = 1
         nSortedNodes++;
-      }
-    }
-    firstCheckedNode = nSortedNodes;
-    for (int i=0;i<Tag.size();++i) {
-      if (Tag[i] == iterativeLevel) {
-        sortedNodes[nSortedNodes] = i;
+      else if (Tag[i] == iterativeLevel) {
+        sortedNodes[nActiveNodes] = i;
+        nActiveNodes++;
         nSortedNodes++;
+        res += d2wall[i][0]*d2wall[i][0];
       }
-      else if (Tag[i] > iterativeLevel) {
+      else if (Tag[i] > iterativeLevel)
 	      Tag[i] = -1;
-      }
     }
   }
   else if (level == 0) {
     // just get inactive nodes
     nSortedNodes     = 0;
+    nActiveNodes     = 0;
     firstCheckedNode = 0;
     for (int i=0;i<Tag.size();++i) {
       if (!LSS->isActive(0.0,i)) {
-        d2wall[i][0] = 0.0; // not a problem as inactive nodes should be marked as ghost on all subdomains
-        Tag[i] = 0;
-        // sortedNodes[nSortedNodes] = i;
         nSortedNodes++;
+        Tag[i] = 0;
+        d2wall[i][0] = 0.0; // not a problem as inactive nodes should be marked as ghost on all subdomains
       }
     }
   }
   else if (level == 1) {
-    // Tag is globally set to -1, 0 level are inactive nodes
-    firstCheckedNode = nSortedNodes;
+    // Tag is globally set to -1, 0 level are inactive nodes, firstCheckedNode = 0
+    // (level one is always called directly following level 0)
 
     // faster to loop over nodes and retrieve distance info from intersector
     // than to loop over all edges
@@ -9197,10 +9217,12 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
           }
         }
         if (doInit) {
-          sortedNodes[nSortedNodes] = i;
+          sortedNodes[nActiveNodes] = i;
           nSortedNodes++;
+          nActiveNodes++;
           Tag[i]  = 1;
           d2wall[i][0] = LSS->distToInterface(0.0,i);
+          res += d2wall[i][0]*d2wall[i][0];
           // // for debugging!
           // if(d2wall[i][0]<=0.0 || d2wall[i][0] >= 1.0e10) {
           //   fprintf(stderr,"PROBLEM: Node %d is near FS interface but its wall distance (%e) is invalid.\n",
@@ -9217,7 +9239,7 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
   else {
     // Tag nodes that are neighbours of already Tagged nodes and compute their distance
     int nNeighs, nTets, nei, tet, lowerLevel = level-1;
-    int inter = nSortedNodes, fixedNode;
+    int inter = nActiveNodes, fixedNode;
     for (int i = firstCheckedNode; i < inter; i++) {
       fixedNode = sortedNodes[i];
       // if(Tag[fixedNode] == 0) continue; // structure nodes
@@ -9239,13 +9261,15 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
         // if(nei==i) continue;
         if (Tag[nei] < 0) {
           Tag[nei] = level;
-          sortedNodes[nSortedNodes] = nei;
+          sortedNodes[nActiveNodes] = nei;
           nTets = NodeToElem->num(nei);
           for (int j=0; j<nTets; j++) {
             tet        = (*NodeToElem)[nei][j];
             elems[tet].FastMarchingDistanceUpdate(nei,Tag,lowerLevel,X,d2wall);
           }
           nSortedNodes++;
+          nActiveNodes++;
+          res += d2wall[nei][0]*d2wall[nei][0];
         }
       }
     }

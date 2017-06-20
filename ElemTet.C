@@ -188,8 +188,8 @@ void ElemTet::computeDerivativeOfGalerkinTerm(FemEquationTerm *fet, SVec<double,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void ElemTet::computeGalerkinTerm_e(FemEquationTerm *fet, SVec<double,3> &X, 
-												Vec<double> &d2wall, SVec<double,dim> &V, 
+void ElemTet::computeGalerkinTerm_e(FemEquationTerm *fet, SVec<double,3> &X,
+												Vec<double> &d2wall, SVec<double,dim> &V,
 												SVec<double,dim> &R, Vec<GhostPoint<dim>*> *ghostPoints,
 												LevelSetStructure *LSS)
 {
@@ -231,7 +231,7 @@ void ElemTet::computeGalerkinTerm_e(FemEquationTerm *fet, SVec<double,3> &X,
 			int Ni = nodeNum(i);
 
 			if(!LSS->isActive(0, Ni)) continue;//if it is ghost, we do not need to compute viscous flux on it
-						
+
 			for(int j=0; j<4; ++j)
 			{
 				int Nj = nodeNum(j);
@@ -267,7 +267,7 @@ void ElemTet::computeGalerkinTerm_e(FemEquationTerm *fet, SVec<double,3> &X,
                     //std::cout << "Nj " << Nj << std::endl;
 					Ve[j] = gp->getPrimitiveState(dir);
                     //std::cout << "Nj " << Nj << std::endl;
-				}				
+				}
 				else
 					Ve[j] = V[Nj];
 			}

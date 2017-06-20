@@ -20,7 +20,7 @@ class ReinitializeDistanceToWall
   DistSVec<double, 1> d2wall;
   DistVec<int> tag;
   DistVec<int> sortedNodes;
-  int *nSortedNodes, *firstCheckedNode;
+  int *nSortedNodes, *nActiveNodes, *firstCheckedNode;
   // DistSVec<double, dimLS> dummyPhi;
 
   // predictors
