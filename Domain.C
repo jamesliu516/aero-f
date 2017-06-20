@@ -5419,17 +5419,19 @@ void Domain::TagInterfaceNodes(int lsdim, DistVec<int> &Tag, DistSVec<double,dim
 //---------------------------------------Vec<int> &Tag---------------------------------------
 
 template<int dimLS>
-void Domain::pseudoFastMarchingMethod(DistVec<int> &Tag, DistSVec<double,3> &X,
+double Domain::pseudoFastMarchingMethod(DistVec<int> &Tag, DistSVec<double,3> &X,
 				DistSVec<double,dimLS> &d2wall, int level,  int iterativeLevel,
-				DistVec<int> &sortedNodes, int *nSortedNodes,
+				DistVec<int> &sortedNodes, int *nSortedNodes, int *nActiveNodes,
 				int *firstCheckedNode, DistLevelSetStructure *distLSS)
 {
   int iSub;
+  double res = 0.0;
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
     subDomain[iSub]->pseudoFastMarchingMethod<dimLS>
       (Tag(iSub),X(iSub),d2wall(iSub),level,iterativeLevel,sortedNodes(iSub),
-      *(nSortedNodes+iSub),*(firstCheckedNode+iSub),distLSS?&((*distLSS)(iSub)):NULL);
+      *(nSortedNodes+iSub),*(nActiveNodes+iSub),*(firstCheckedNode+iSub),res,
+      distLSS?&((*distLSS)(iSub)):NULL);
     subDomain[iSub]->sndData(*levelPat,reinterpret_cast<int (*)[1]>(Tag.subData(iSub)));
     subDomain[iSub]->sndData(*volPat,reinterpret_cast<double (*)[dimLS]>(d2wall.subData(iSub)));
   }
@@ -5437,32 +5439,41 @@ void Domain::pseudoFastMarchingMethod(DistVec<int> &Tag, DistSVec<double,3> &X,
   levelPat->exchange();
   volPat->exchange();
 
+  int nSortedNodesOld;
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
+    nSortedNodesOld = nSortedNodes[iSub];
     subDomain[iSub]->maxRcvDataAndCountUpdates
       (*levelPat,reinterpret_cast<int (*)[1]>(Tag.subData(iSub)),nSortedNodes[iSub],sortedNodes(iSub));
     subDomain[iSub]->minRcvData(*volPat,reinterpret_cast<double (*)[dimLS]>(d2wall.subData(iSub)));
+    nActiveNodes[iSub] += nSortedNodes[iSub]-nSortedNodesOld;
   }
+
+  return res;
 }
 
 //------------------------------------------------------------------------------
 
 template<int dimLS>
-void Domain::pseudoFastMarchingMethodSerial(int iSub, DistVec<int> &Tag, DistSVec<double,3> &X,
+double Domain::pseudoFastMarchingMethodSerial(int iSub, DistVec<int> &Tag, DistSVec<double,3> &X,
 				DistSVec<double,dimLS> &d2wall, int level,  int iterativeLevel,
-				DistVec<int> &sortedNodes, int *nSortedNodes,
+				DistVec<int> &sortedNodes, int *nSortedNodes, int *nActiveNodes,
 				int *firstCheckedNode, DistLevelSetStructure *distLSS)
 {
+  double res = 0.0;
   subDomain[iSub]->pseudoFastMarchingMethod<dimLS>
     (Tag(iSub),X(iSub),d2wall(iSub),level,iterativeLevel,sortedNodes(iSub),
-    *(nSortedNodes+iSub),*(firstCheckedNode+iSub),distLSS?&((*distLSS)(iSub)):NULL);
+    *(nSortedNodes+iSub),*(nActiveNodes+iSub),*(firstCheckedNode+iSub),res,
+    distLSS?&((*distLSS)(iSub)):NULL);
+
+  return res;
 }
 
 //------------------------------------------------------------------------------
 
 template<int dimLS>
 void Domain::pseudoFastMarchingMethodComm(DistVec<int> &Tag, DistSVec<double,dimLS> &d2wall,
-        DistVec<int> &sortedNodes, int *nSortedNodes)
+        DistVec<int> &sortedNodes, int *nSortedNodes, int *nActiveNodes)
 {
   int iSub;
 #pragma omp parallel for
@@ -5472,10 +5483,13 @@ void Domain::pseudoFastMarchingMethodComm(DistVec<int> &Tag, DistSVec<double,dim
 
   volPat->exchange();
 
+  int nSortedNodesOld;
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
+    nSortedNodesOld = nSortedNodes[iSub];
     subDomain[iSub]->minRcvDataAndCountUpdates
       (*volPat,reinterpret_cast<double (*)[dimLS]>(d2wall.subData(iSub)),Tag(iSub),nSortedNodes[iSub],sortedNodes(iSub));
+    nActiveNodes[iSub] += nSortedNodes[iSub]-nSortedNodesOld;
   }
 }
 
