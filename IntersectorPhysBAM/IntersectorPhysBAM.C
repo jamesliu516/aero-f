@@ -100,32 +100,6 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iodata,
 				   
   }
 
-	ContainsAnEmbeddedConstraint = false;
-	if(iod.embed.Embedded_Constraint.ConstraintType != EmbeddedConstraint::NOCONSTRAINT){
-		ContainsAnEmbeddedConstraint =true;
-		/*if(iod.embed.Embedded_Constraint.ConstraintType == EmbeddedConstraint::SYMMETRY){
-		ConstraintType =1;
-			switch(iod.embed.Embedded_Constraint.Symmetry_Constraint.Normal){
-				//read the plane normal
-				case SymmetryConstraint::Nx :
-					ConstraintNormal = 0;
-				break;
-				case SymmetryConstraint::Ny :
-                              	ConstraintNormal = 1;
-                              break;
-				case SymmetryConstraint::Nz :
-                              	ConstraintNormal = 2;
-                              break;
-				default :
-					ConstraintNormal = -1;
-			}
-			//read the plane position
-			ConstraintPosition = iod.embed.Embedded_Constraint.Symmetry_Constraint.planeposition;
-			//a2m : there's probably a better way to encode this, and inlet must still be implemented
-			 *
-		}*/
-	}
-
   interpolatedNormal = (iod.embed.structNormal==EmbeddedFramework::NODE_BASED) ? true : false;
   
   //initialize the following to 0(NULL)
@@ -152,11 +126,6 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iodata,
 
   boundaryConditionsMap = map<int, BoundaryData::Type>();
 
-
-
-  //SymmetryPlaneList  = new map<int,SymmetryInfo>();
-
-
   //Load files. Compute structure normals. Initialize PhysBAM Interface
   if(nNodes && xyz && nElems && abc)
     init(nNodes, xyz, nElems, abc, struct_restart_pos);
@@ -164,6 +133,7 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iodata,
     double XScale = (iod.problem.mode==ProblemData::NON_DIMENSIONAL) ? 1.0 : iod.ref.rv.length;
     init(struct_mesh, struct_restart_pos, XScale);
   }
+  //Set type of all intersections
   checkInputFileCorecnessEmbeddedContraint();
   setStructureType();
   setWallInformation();//has to be after setStructureType
@@ -293,6 +263,7 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface,
       		copyForType[l] = tolower(copyForType[l]);
       		l++;
       	 }
+      	 //Arthur Morlot : Read the name of the file and detects keyword for type
       	 if(strstr(copyForType,"symmetry")!=NULL){
       		if(boundaryConditionsMap.count(surfaceid)!=0){
       			printf("It seems that you have two Embedded surfaces with the same Id. \n. The id is %d. Aborting simulation\n",surfaceid);
@@ -607,6 +578,8 @@ void DistIntersectorPhysBAM::setPorosity() {
 }
 //----------------------------------------------------------------------------
 void DistIntersectorPhysBAM::getSymmetryPlanesInformation() {
+	//Created by Arthur Morlot. This function stores the information of the different symmetry planes in a list.
+	//This list will be read later to decide which nodes should be flagged as inactive
   map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
   map<int,BoundaryData *> &bcMap = iod.bc.bcMap.dataMap;
 
@@ -665,6 +638,7 @@ void DistIntersectorPhysBAM::setStructureType() {
   }
 }
 //----------------------------------------------------------------------------
+//Specify wall temperature
 void DistIntersectorPhysBAM::setWallInformation() {
 	map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
 	map<int,BoundaryData *> &bcMap = iod.bc.bcMap.dataMap;
@@ -682,8 +656,16 @@ void DistIntersectorPhysBAM::setWallInformation() {
 				if(structureType[i] == BoundaryData::WALL){
 					map<int,SurfaceData*>::iterator it = surfaceMap.find(faceID[i]);
 					 if (it != surfaceMap.end()) {//The surface have been specified
-						 wallTemperature[i] = it->second->temp;
-						 heatFluxType[i] = it->second->type;
+						 if(it->second->temp >0){//temperature is defined
+							 wallTemperature[i] = it->second->temp;
+						 }else{//read the wall temperature
+							 wallTemperature[i] = iod.bc.wall.temperature;
+						 }
+						 if(it->second->type == -1){//default value, undecided
+							 heatFluxType[i] = iod.bc.wall.type;
+						 }else{//the value was specified
+							 heatFluxType[i] = it->second->type;
+						 }
 						 isWallFunction[i] = iod.bc.wall.integration;
 					 }
 					 else{//Using the information available for wall when not specified
@@ -696,6 +678,7 @@ void DistIntersectorPhysBAM::setWallInformation() {
 	}
 }
 //----------------------------------------------------------------------------
+//Arthur Morlot : Created as a demonstrator. Currently not in use.
 void DistIntersectorPhysBAM::setMassInflow(){
 	  map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
 	  map<int,BoundaryData *> &bcMap = iod.bc.bcMap.dataMap;
@@ -798,21 +781,27 @@ void DistIntersectorPhysBAM::setActuatorDisk() {
 }
 //----------------------------------------------------------------------------
 void DistIntersectorPhysBAM::checkInputFileCorecnessEmbeddedContraint(){
-
+	//created by arthur Morlot. This checks that the Porous walls and actuator disks in the simulation have the associated values in the input file
 	  map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
 	  map<int,BoundaryData *> &bcMap = iod.bc.bcMap.dataMap;
 	  for(std::map<int,BoundaryData::Type>::iterator it3 = boundaryConditionsMap.begin(); it3 != boundaryConditionsMap.end(); it3++){
 		  int k =  it3->first;
 		  BoundaryData::Type type = it3->second;
 		  if(type ==BoundaryData::ACTUATORDISK || type == BoundaryData::POROUSWALL ){
-			  map<int,BoundaryData *>::iterator it2 = bcMap.find(k);
-			  if(it2 == bcMap.end()) {
-				  printf("Porous wall or Actuator disk detected in the Embedded Structure file, but no information on the porosity or jump value could be found in the Fluid file.\n aborting simulation");
-				  exit(1);
-			  }
+			  map<int,SurfaceData*>::iterator it = surfaceMap.find(k);
+			  	      if (it != surfaceMap.end()) {
+			  	        map<int,BoundaryData *>::iterator it2 = bcMap.find(it->second->bcID);
+			  	        if(it2 == bcMap.end()) { // the bc data have not  been defined
+							  printf("Porous wall or Actuator disk detected in the Embedded Structure file, but no information on the porosity or jump value could be found in the Fluid file even if the surface is defined.\n aborting simulation");
+							  exit(1);
+			  	        }
+			  	      }else{
+			  	    	printf("Porous wall or Actuator disk detected in the Embedded Structure file, but no information on the porosity or jump value could be found in the Fluid file.\n aborting simulation");
+			  	    	exit(1);
+			  	      }
 		  }
 	  }
-	}
+}
 //----------------------------------------------------------------------------
 void DistIntersectorPhysBAM::setdXdSb(int N, double* dxdS, double* dydS, double* dzdS){
 
@@ -1269,6 +1258,7 @@ if(SymmetryPlaneList.size()!=0){
 
 //TODO : depercated, to remove in next versions
 //a2m : embedded constraint
+/*
   if(ContainsAnEmbeddedConstraint == true){
 	printf("you are using a deprecated version of the infinte constraint. Infinite constraint are to be added in the top file.");
   	//EmbeddedConstraintNormal = ConstraintNormal;
@@ -1276,7 +1266,7 @@ if(SymmetryPlaneList.size()!=0){
    	 	for(int iSub = 0; iSub < numLocSub; ++iSub){
   			intersector[iSub]->findIntersectionsEmbeddedConstraint((X(iSub)));
   		}
-  	}
+  	*/
 }
 
 //----------------------------------------------------------------------------
@@ -1790,6 +1780,7 @@ void IntersectorPhysBAM::reFlagRealNodes(SVec<double,3>& X, Vec<bool> *bk_isActi
 }
 
 //----------------------------------------------------------------------------
+//Arthur Morlot : This function was created by Dante De Santis. It computes the Intersections for The new version of the ghost points
 void IntersectorPhysBAM::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X,  
 																	  SVec<double,3> &boxMin, SVec<double,3> &boxMax, 
 																	  bool withViscousTerms)
@@ -2124,7 +2115,7 @@ void IntersectorPhysBAM::setInactiveNodesSymmetry(SVec<double,3>& X,std::map<int
 	//loop over the symmetry planes
 	for(std::map<int,SymmetryInfo>::iterator it = SymmetryPlaneList.begin(); it!=SymmetryPlaneList.end(); ++it){
 		SymmetryInfo planeInfo = it->second;
-		if(true){printf("We found a symmetry plane !\n it's number is %d\n it's normal is  %f %f %f and the point is %f %f %f \n",it->first,planeInfo.normal.v[0],planeInfo.normal.v[1],planeInfo.normal.v[2],planeInfo.xCoordinate,planeInfo.yCoordinate,planeInfo.zCoordinate);}
+		if(false){printf("We found a symmetry plane !\n it's number is %d\n it's normal is  %f %f %f and the point is %f %f %f \n",it->first,planeInfo.normal.v[0],planeInfo.normal.v[1],planeInfo.normal.v[2],planeInfo.xCoordinate,planeInfo.yCoordinate,planeInfo.zCoordinate);}
 		for (int l=0; l<edges.size(); l++) {
 			int (*ptr)[2] = edges.getPtr();//gives us a pointer on the edge
 			int p = ptr[l][0], q = ptr[l][1];//p is the iD of node 1, and q is the Id of node 2
@@ -2157,10 +2148,12 @@ void IntersectorPhysBAM::setInactiveNodesSymmetry(SVec<double,3>& X,std::map<int
 
 
 //TODO : flag for review(arthur Morlot)
+/*
 int IntersectorPhysBAM::findIntersectionsEmbeddedConstraint(SVec<double,3>&X){
 	return 0;
 	printf("You are calling a deprecated method. infinite planes must be defined in the top file.");
 }
+*/
 //----------------------------------------------------------------------------
 
 /*
@@ -2285,7 +2278,8 @@ int IntersectorPhysBAM::findIntersections(SVec<double,3>&X,Vec<bool>& tId,Commun
           edge_intersects[l] = true;
           CrossingEdgeRes[l] = edgeRes(i).y;
           ReverseCrossingEdgeRes[l] = edgeRes(i).z;
-	  if(true){//TODO : do only if actuator disk
+	  if(true){//If actuator disk : set edge_intersect as false so that distance computations and ghost node computations do not involve it
+		  	   //instead, put edge_intersects_constraint as true
     	    if(fabs(distIntersector.actuatorDiskPressureJump[CrossingEdgeRes[l].triangleID-1])>0){//this edge itesects an actuator disk
     		  edge_intersects_constraint[l]=true;
     		  edge_intersects[l] = false;

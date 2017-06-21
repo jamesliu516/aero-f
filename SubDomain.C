@@ -7808,7 +7808,6 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                 	double Twall = resij.wallTemperature;
                 	double Tpoint = varFcn->computeTemperature(Vi,tagI);
                 	Vj[4] = Tpoint + (Twall- Tpoint)/(1-alpha);
-                	//printf("Je suis venu, et ma wall temperature est %f point %f ghost %f edge %d \n",Twall,Tpoint,Vj[4],l);
                 	if(Twall == -1){//sanity Check
                 		printf("You are imposing a temperature that has not beens specified. aborting simulation");
                 		exit(1);
@@ -7899,7 +7898,7 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                     if((resij.structureType==BoundaryData::SYMMETRYPLANE)) { // turbulence energy mirroring
                         Vj[5] = Vi[5];
                         Vj[6] = Vi[6];
-                    }else{ // turbulence energy at wall is 0???
+                    }else{ // turbulence energy at wall is 0 => incorrect for K-epsilon, but K-epsilon is no longer supported
                         Vj[5] = -alpha * Vi[5] / (1.0 - alpha);
                         Vj[6] = -alpha * Vi[6] / (1.0 - alpha);
                     }
@@ -7943,7 +7942,6 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                 	double Twall = resji.wallTemperature;
                 	double Tpoint = varFcn->computeTemperature(Vj,tagJ);
                 	Vi[4] = Tpoint + (Twall- Tpoint)/(1-alpha);
-                	//printf("Je suis venu, et ma wall temperature est %f point %f ghost %f edge %d \n",Twall,Tpoint,Vi[4],l);
                 	if(Twall == -1){//sanity Check
                 	   printf("You are imposing a temperature that has not beens specified. aborting simulation");
                 	   exit(1);
