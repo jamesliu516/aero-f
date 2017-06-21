@@ -13,9 +13,11 @@ class CurvatureDetection {
 
   int numLocSub;
   SubDomain** subDomain;
-  DistVec<double>* tag;
+//  DistVec<double>* tag;
   DistSVec<double,6>* normals;
-  CommPattern<double>* vec1;
+  DistSVec<double,5>* originAndTag;
+//  CommPattern<double>* vec1;
+  CommPattern<double>* vec5;
   CommPattern<double>* vec6;
 
 public:
@@ -23,7 +25,7 @@ public:
   CurvatureDetection(Domain*);
   ~CurvatureDetection();
 
-  void compute(double, DistSVec<double,3>&, DistVec<bool>&);
+  void compute(double, int, double,  DistSVec<double,3>&, DistVec<bool>&);
 
 };
 

@@ -1083,7 +1083,6 @@ double PitchingMeshMotionHandler::update(bool *lastIt, int it, double t,
 {
 
   if (*lastIt) return dt;
-
   double theta = (omega==0.0 && alpha_slope!=0.0) ? alpha_in + alpha_slope * (t + dt) : alpha_in + alpha_max * sin(omega * (t + dt));
   double costheta = cos(theta);
   double sintheta = sin(theta);

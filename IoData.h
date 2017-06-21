@@ -1416,12 +1416,25 @@ struct BFixData {
 
 //------------------------------------------------------------------------------
 
+struct DHFixData {
+
+  double angle;
+  int numLayers;
+  double maxDist;
+  
+  DHFixData();
+  ~DHFixData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+};
+
+//------------------------------------------------------------------------------
+
 struct SchemeFixData {
 
   static const int num = 10;
 
   enum Symmetry {NONE = 0, X = 1, Y = 2, Z = 3} symmetry;
-  double dihedralAngle;
 
   SFixData* spheres[num];
   BFixData* boxes[num];
@@ -1459,6 +1472,8 @@ struct SchemeFixData {
   CFixData cfix8;
   CFixData cfix9;
   CFixData cfix10;
+
+  DHFixData dhfix;
 
   SchemeFixData();
   ~SchemeFixData() {}

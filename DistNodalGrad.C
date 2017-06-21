@@ -343,7 +343,7 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom) : domain(
     }
   }
 
-  if (ioData.schemes.fixes.dihedralAngle > 0.0) {
+  if (ioData.schemes.fixes.dhfix.angle > 0.0) {
     if (!tag) {
       tag = new DistVec<bool>(domain->getNodeDistInfo());
       *tag = false;
@@ -351,7 +351,10 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom) : domain(
     DistSVec<double,3> X0(domain->getNodeDistInfo());
     domain->getReferenceMeshPosition(X0);
     CurvatureDetection crvdet(domain);
-    crvdet.compute(ioData.schemes.fixes.dihedralAngle, X0, *tag);
+    crvdet.compute(ioData.schemes.fixes.dhfix.angle, 
+                   ioData.schemes.fixes.dhfix.numLayers,
+                   ioData.schemes.fixes.dhfix.maxDist,
+                   X0, *tag);
   }
 
   if (tag && failSafeNewton==1) {

@@ -2529,11 +2529,32 @@ void BFixData::setup(const char *name, ClassAssigner *father)
 
 //------------------------------------------------------------------------------
 
+DHFixData::DHFixData()
+{
+  angle = -1.0;
+  numLayers = 0;
+  maxDist = 1.0;
+}
+
+//------------------------------------------------------------------------------
+
+void DHFixData::setup(const char *name, ClassAssigner *father)
+{
+
+  ClassAssigner *ca = new ClassAssigner(name, 3, father);
+
+  new ClassDouble<DHFixData>(ca, "Angle", this, &DHFixData::angle);
+  new ClassInt<DHFixData>(ca, "NumLayers", this, &DHFixData::numLayers);
+  new ClassDouble<DHFixData>(ca, "MaxDistance", this, &DHFixData::maxDist);
+}
+
+//------------------------------------------------------------------------------
+
 SchemeFixData::SchemeFixData()
 {
 
   symmetry = NONE;
-  dihedralAngle = -1.0;
+//  dihedralAngle = -1.0;
 
   spheres[0] = &sfix1;
   spheres[1] = &sfix2;
@@ -2576,13 +2597,13 @@ SchemeFixData::SchemeFixData()
 void SchemeFixData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 32, father);
+  ClassAssigner *ca = new ClassAssigner(name, 33, father);
 
   new ClassToken<SchemeFixData>
     (ca, "Symmetry", this,
      reinterpret_cast<int SchemeFixData::*>(&SchemeFixData::symmetry), 4,
      "None", 0, "X", 1, "Y", 2, "Z", 3);
-  new ClassDouble<SchemeFixData>(ca, "DihedralAngle", this, &SchemeFixData::dihedralAngle);
+//  new ClassDouble<SchemeFixData>(ca, "DihedralAngle", this, &SchemeFixData::dihedralAngle);
 
   sfix1.setup("Sphere1", ca);
   sfix2.setup("Sphere2", ca);
@@ -2616,6 +2637,8 @@ void SchemeFixData::setup(const char *name, ClassAssigner *father)
   cfix8.setup("Cone8", ca);
   cfix9.setup("Cone9", ca);
   cfix10.setup("Cone10", ca);
+
+  dhfix.setup("Dihedral",ca); 
 }
 
 //------------------------------------------------------------------------------
@@ -7385,7 +7408,7 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
   ref.rv.tlength = ref.length / aero.displacementScaling;
 
   bc.wall.delta /= ref.rv.tlength;
-  schemes.fixes.dihedralAngle *= acos(-1.0) / 180.0;
+//  schemes.fixes.dihedralAngle *= acos(-1.0) / 180.0;
   for (int j=0; j<schemes.fixes.num; ++j) {
     schemes.fixes.spheres[j]->x0 /= ref.rv.tlength;
     schemes.fixes.spheres[j]->y0 /= ref.rv.tlength;
@@ -7409,7 +7432,7 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
   }
   
   // Multigrid fixes.
-  mg.fixes.dihedralAngle *= acos(-1.0) / 180.0;
+//  mg.fixes.dihedralAngle *= acos(-1.0) / 180.0;
   for (int j=0; j<mg.fixes.num; ++j) {
     mg.fixes.spheres[j]->x0 /= ref.rv.tlength;
     mg.fixes.spheres[j]->y0 /= ref.rv.tlength;
@@ -7433,7 +7456,7 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
   }
 
   // Target region for Gappy sampled mesh construction (use same syntax as fixes)
-  romOffline.gappy.sampledMeshTargetRegion.dihedralAngle *= acos(-1.0) / 180.0;
+//  romOffline.gappy.sampledMeshTargetRegion.dihedralAngle *= acos(-1.0) / 180.0;
   for (int j=0; j<romOffline.gappy.sampledMeshTargetRegion.num; ++j) {
     romOffline.gappy.sampledMeshTargetRegion.spheres[j]->x0 /= ref.rv.tlength;
     romOffline.gappy.sampledMeshTargetRegion.spheres[j]->y0 /= ref.rv.tlength;

@@ -3926,7 +3926,7 @@ private:
                        double v_m, double p_m,
                        double dp_l,double dp_r,   double gamma,double&rho_mr, double &rho_ml,bool DEBUG=false);
 
-    int solveContactDiscontinuity(double rho_l, double v_l, double p_l,
+    bool solveContactDiscontinuity(double rho_l, double v_l, double p_l,
                                   double rho_r, double v_r, double p_r,
                                   double dp_l, double dp_r, double gamma,
                                   double &v_m, double &p_m);
@@ -3972,6 +3972,7 @@ int LocalRiemannActuatorDisk<dim>::computeRiemannSolution(double *Vi, double *Vj
         v_r = v_ni;
         p_r = std::max(pc, vf->getPressure(Vi, Id));
     }
+  //std::cout << "In computeRiemannSolution " << rho_l <<" "<< v_l << " " << p_l <<" " << rho_r << " " << v_r<< " " << p_r << " "  <<std::endl;
 
 
     int err = 0;
@@ -3988,8 +3989,10 @@ int LocalRiemannActuatorDisk<dim>::computeRiemannSolution(double *Vi, double *Vj
             break;
     }
 
-    if (err)
-        return err;
+   //std::cout<<"###################"  << rho_l <<" "<< v_l<<" " << p_l << rho_r <<" "<< v_r<<" " << p_r <<std::endl;
+   //std::cout<<"###################"  << rho_a <<" "<< v_a<<" " << p_a <<std::endl;
+
+  //std::cout << "Finish computeRiemannSolution " << rho_a<<" "<< v_a << " " << p_a  <<std::endl;
     //The velocity is no-slip condition boundary
     W_Ri[0] = W_Rj[0] = rho_a;
     W_Ri[1] = v_a * n_s[0] + v_ti[0] ;
@@ -4113,12 +4116,13 @@ double gamma = vf->getGamma(Id);
 double pref  = vf->getPressureConstant(Id);
 double v_m, p_m, rho_ml, rho_mr;
 double M_l = v_l/sqrt(gamma*p_l/rho_l);
+bool caseWorks[4] = {false, false, false, false};
 const int LEFT = 0, CENTER_LEFT = 1, CENTER_RIGHT = 2, RIGHT = 3;
                // first wave, actuator disk, contact wave,  third wave
         // rho_l ,      rho_a,          rho_a=rho_ml   rho_mr         rho_r
         // v_l,         v_a             v_a  =v_ml     v_mr           v_r
         // p_l          p_a             p_a+dp =p_ml   p_mr           p_r
-        err += solveContactDiscontinuity(rho_l, v_l, p_l, rho_r, v_r, p_r, -dp, 0, gamma,v_m,p_m);
+        caseWorks[0] = solveContactDiscontinuity(rho_l, v_l, p_l, rho_r, v_r, p_r, -dp, 0, gamma,v_m,p_m);
         if(checkSolution(CENTER_LEFT, rho_l, v_l, p_l, rho_r, v_r, p_r, vstar_n,v_m, p_m,-dp,0,gamma, rho_mr, rho_ml)) {
             rho_a = rho_ml;
             v_a = v_m;
@@ -4130,7 +4134,7 @@ const int LEFT = 0, CENTER_LEFT = 1, CENTER_RIGHT = 2, RIGHT = 3;
         // rho_a=rho_l,   rho_a,      rho_ml   rho_mr         rho_r
         // v_a=v_l        v_a           v_ml     v_mr           v_r
         // p_a=p_l        p_a+dp        p_ml     p_mr           p_r
-        err += solveContactDiscontinuity(rho_l, v_l, p_l+dp, rho_r,v_r,p_r, 0,0,gamma, v_m,p_m);
+        caseWorks[1] = solveContactDiscontinuity(rho_l, v_l, p_l+dp, rho_r,v_r,p_r, 0,0,gamma, v_m,p_m);
         if(checkSolution(LEFT, rho_l, v_l, p_l + dp, rho_r, v_r, p_r, vstar_n,v_m, p_m,0 ,0,gamma, rho_mr, rho_ml)) {
             rho_a = rho_l;
             v_a = v_l;
@@ -4143,7 +4147,7 @@ const int LEFT = 0, CENTER_LEFT = 1, CENTER_RIGHT = 2, RIGHT = 3;
         // rho_l ,      rho_ml,      rho_mr=rho_a    rho_a         rho_r
         // v_l,         v_ml           v_mr=v_a      v_a=v_ml       v_r
         // p_l          p_ml           p_mr=p_a      p_a + dpl      p_r
-        err += solveContactDiscontinuity(rho_l, v_l, p_l, rho_r, v_r, p_r, 0, dp, gamma, v_m, p_m);
+        caseWorks[2] = solveContactDiscontinuity(rho_l, v_l, p_l, rho_r, v_r, p_r, 0, dp, gamma, v_m, p_m);
         if(checkSolution(CENTER_RIGHT, rho_l, v_l, p_l, rho_r, v_r, p_r,vstar_n,v_m, p_m,0 ,dp,gamma, rho_mr, rho_ml)) {
             rho_a = rho_mr;
             v_a = v_m;
@@ -4155,23 +4159,47 @@ const int LEFT = 0, CENTER_LEFT = 1, CENTER_RIGHT = 2, RIGHT = 3;
         // rho_l ,      rho_ml      rho_mr         rho_a=rho_r   rho_r
         // v_l,         v_ml        v_mr           v_a=v_r        v_r
         // p_l          p_ml        p_mr           p_a=p_r-dp     p_r
-        err += solveContactDiscontinuity(rho_l, v_l, p_l, rho_r, v_r, p_r - dp, 0, 0, gamma, v_m, p_m);
-        if(checkSolution(RIGHT, rho_l, v_l, p_l, rho_r, v_r, p_r-dp,vstar_n, v_m, p_m,0 ,dp,gamma, rho_mr, rho_ml)) {
-            rho_a = rho_r;
-            v_a = v_r;
-            p_a = p_r - dp;
-            return;
-        }
+  if(p_r > dp) {
+    caseWorks[3] = solveContactDiscontinuity(rho_l, v_l, p_l, rho_r, v_r, p_r - dp, 0, 0, gamma, v_m, p_m);
+    if (checkSolution(RIGHT, rho_l, v_l, p_l, rho_r, v_r, p_r - dp, vstar_n, v_m, p_m, 0, dp, gamma, rho_mr, rho_ml)) {
+      rho_a = rho_r;
+      v_a = v_r;
+      p_a = p_r - dp;
+      return;
+    }
+  }
+    //IMPORTANT ::::Daniel Huang comments out the warning
 
-    fprintf(stderr, " ***ERROR: Actuator disk Riemann solver has no solution, use approximate solution");
-    if( M_l >= 0.0 ){
-        rho_a = rho_l;
-        v_a = v_l;
-        p_a = p_l;
-    }else{
-        rho_a = rho_r;
-        v_a = v_r;
-        p_a = p_r - dp;
+     //fprintf(stderr, " ***WARNING: Actuator disk Riemann solver has no solution, "
+     //        "use approximate solution rho_l,  v_l,  p_l are %f, %f, %f  rho_r, v_r, p_r  are %f, %f, %f, dp is %f\n", rho_l, v_l, p_l,rho_r, v_r, p_r, dp );
+    // Cannot find solution Hack!!!!
+   if( M_l >= 0.0 ){
+     if(M_l < 1 && caseWorks[0]) {
+       solveContactDiscontinuity(rho_l, v_l, p_l, rho_r, v_r, p_r, -dp, 0, gamma, v_m, p_m);
+       rho_a = rho_ml;
+       v_a = v_m;
+       p_a = p_m - dp;
+       return;
+     }
+     else {
+       rho_a = rho_l;
+       v_a = v_l;
+       p_a = p_l;
+       return;
+     }
+    } else{
+        if( M_l > -1.0 && caseWorks[2]){
+          solveContactDiscontinuity(rho_l, v_l, p_l, rho_r, v_r, p_r, 0, dp, gamma, v_m, p_m);
+          rho_a = rho_mr;
+          v_a = v_m;
+          p_a = p_m;
+          return;
+        }else {
+          rho_a = rho_r;
+          v_a = v_r;
+          p_a = p_r - dp;
+          return;
+        }
     }
 }
 
@@ -4199,7 +4227,7 @@ void LocalRiemannActuatorDisk<dim>::pressureFunction(double p, double rho_k, dou
 
 template<int dim>
 inline
-int LocalRiemannActuatorDisk<dim>::solveContactDiscontinuity(double rho_l, double v_l, double p_l,
+bool LocalRiemannActuatorDisk<dim>::solveContactDiscontinuity(double rho_l, double v_l, double p_l,
                                                              double rho_r, double v_r, double p_r,
                                                              double dp_l, double dp_r, double gamma,
                                                              double &v_m, double &p_m) {
@@ -4208,42 +4236,53 @@ int LocalRiemannActuatorDisk<dim>::solveContactDiscontinuity(double rho_l, doubl
     // The pressure after  the first wave is p_m + dp_l
     // The pressure before the third wave is p_m + dp_r
     // p is the pressure at contact discontinuity
-
+  //std::cout << "In  solveContactDiscontinuity"<< rho_l <<" "<< v_l << " " << p_l <<" " << rho_r << " " << v_r<< " " << p_r << " " << dp_l << " " << dp_r <<std::endl;
     int MAX_ITE = 100;
     double TOLERANCE = 1.0e-12;
     bool found = false;
     double f_l,df_l,f_r,df_r;
 
-
+    double p_m_cand = 0.0;
     double d_v = v_r - v_l;
     double a_l = sqrt(gamma * p_l / rho_l) , a_r = sqrt(gamma * p_r / rho_r);
     double A_l = 2 / ((gamma + 1) * rho_l), A_r = 2 / ((gamma + 1) * rho_r);
     double B_l = (gamma - 1) / (gamma + 1) * p_l, B_r = (gamma - 1) / (gamma + 1) * p_r;
 
-    double p_old = (p_l + p_r)/2.0;
+    double p_old = (p_l + p_r)/2.0 - std::min(0., std::min(dp_l,dp_r));
 
-    for(int i = 0; i < MAX_ITE; i++) {
+  for(int i = 0; i < MAX_ITE; i++) {
 
-        pressureFunction(p_old + dp_l, rho_l, p_l, a_l, A_l, B_l, gamma, f_l, df_l);
-        pressureFunction(p_old + dp_r, rho_r, p_r, a_r, A_r, B_r, gamma, f_r, df_r);
+    pressureFunction(p_old + dp_l, rho_l, p_l, a_l, A_l, B_l, gamma, f_l, df_l);
+    pressureFunction(p_old + dp_r, rho_r, p_r, a_r, A_r, B_r, gamma, f_r, df_r);
 
-        p_m = p_old - (f_l + f_r + d_v) / (df_l + df_r);
+    double alpha = 1.0;
+    while(true) {
+      //std::cout << "alpha is " <<  alpha <<std::endl;
+      p_m_cand = p_old - alpha*(f_l + f_r + d_v) / (df_l + df_r);
+      if (p_m_cand <= 0.0 || p_m_cand + dp_l <= 0.0 || p_m_cand + dp_r <= 0.0)
+        alpha /= 2.0;
+      else{
+        p_m = p_m_cand;
+        break;
+      }
+    }
 
-        if (p_m < 0.0)        p_m = TOLERANCE;
+        //if (p_m < 0.0)        p_m = TOLERANCE;
 
-        if (2 * fabs(p_m - p_old) / (p_m + p_old) < TOLERANCE) {
+        if (fabs(f_l + f_r + d_v)  < TOLERANCE) {
             found = true;
             break;
         }
         p_old = p_m;
     }
     if (!found)    {
-        fprintf(stderr, " ***ERROR: Divergence in Newton-Raphason iteration in Actuator disk Riemann solver");
-        return 1;
+        //std::cout << rho_l <<" "<< v_l << " " << p_l <<" " << rho_r << " " << v_r<< " " << p_r << " " << dp_l << " " << dp_r <<std::endl;
+        //fprintf(stderr, " ***ERROR: Divergence in Newton-Raphason iteration in Actuator disk Riemann solver p_m is %f, dp_l is %f dp_r is %f ", p_m,  dp_l,  dp_r);
+        return false;
     }
 
     v_m = 0.5 * (v_l + v_r + f_r - f_l);
-    return 0;
+    return true;
 
 }
 
@@ -4261,7 +4300,8 @@ bool LocalRiemannActuatorDisk<dim>::checkSolution(int diskCase, double rho_l, do
     //velocity and pressure before the 3- wave are v_m, p_m + dp_r
     //density before and after contact discontinuity are rho_ml, rho_mr
     //return true of false if it is false means the pattern cannot match with the diskCase
-    if(p_r <= 0.0 || p_l <= 0.0 || rho_l <= 0.0 || rho_r <= 0.0 || p_r + dp_r <= 0.0 || p_l+dp_l <= 0.0) {
+  //std::cout << "In checkSolution"<< rho_l <<" "<< v_l << " " << p_l <<" " << rho_r << " " << v_r<< " " << p_r << " " << v_m << " " << p_m <<std::endl;
+    if(p_r <= 0.0 || p_l <= 0.0 || rho_l <= 0.0 || rho_r <= 0.0 || p_m + dp_r <= 0.0 || p_m+dp_l <= 0.0) {
         fprintf(stderr, "****ERROR, In LocalRiemannActuatorDisk, has negative pressure or negative density\n");
         return false;
     }

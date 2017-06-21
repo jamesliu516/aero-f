@@ -1016,11 +1016,12 @@ void SubDomain::computeFaceEdgeNormals(SVec<double,3>& X, SVec<double,6>& normal
 
 //------------------------------------------------------------------------------
 
-void SubDomain::computeEdgeDihedralAngle(double threshold, SVec<double,6>& normals,
-					 Vec<double>& tag)
+void SubDomain::computeEdgeDihedralAngle(double threshold, SVec<double,3>& X,
+     SVec<double,6>& normals, SVec<double,5>& originAndTag)
 {
 
-  tag = 0.0;
+//  for(int i=0; i< originAndTag.size();i++)  originAndTag.size[i][4]= 0.0;
+  originAndTag = 0.0;
 
   Vec<bool> bedges(edges.size());
   bedges = false;
@@ -1028,23 +1029,34 @@ void SubDomain::computeEdgeDihedralAngle(double threshold, SVec<double,6>& norma
     faces[i].tagEdgesOnBoundaries(bedges);
 
   int (*ptr)[2] = edges.getPtr();
+
+  double ct = cos(threshold/180*M_PI);
+
+  int nbedge = 0;
+  int nbedget = 0;
+  int nbedgeti = 0;
   for (int l=0; l<edges.size(); ++l) {
     if (bedges[l]) {
+      nbedge++;
       Vec3D ni(normals[l][0], normals[l][1], normals[l][2]);
       Vec3D nj(normals[l][3], normals[l][4], normals[l][5]);
-      /*
-      if ( (locToGlobNodeMap[ptr[l][0]]+1 == 17 && locToGlobNodeMap[ptr[l][1]]+1 == 157) ||
-	   (locToGlobNodeMap[ptr[l][1]]+1 == 17 && locToGlobNodeMap[ptr[l][0]]+1 == 157) )
-	printf("%d (%d -> %d, %d) (%d -> %d, %d) %e %e %e %e %e %e %e\n",
-	       l+1, ptr[l][0], locToGlobNodeMap[ptr[l][0]]+1, nodeType[ ptr[l][0] ],
-	       ptr[l][1], locToGlobNodeMap[ptr[l][1]]+1, nodeType[ ptr[l][1] ],
-	       ni[0], ni[1], ni[2], nj[0], nj[1], nj[2], acos(ni*nj) *180.0/acos(-1.0));
-      */
-      if (acos(ni*nj) >= threshold) {
-	if (nodeType[ ptr[l][0] ] < BC_INTERNAL)
-	  tag[ ptr[l][0] ] += 1.0;
-	if (nodeType[ ptr[l][1] ] < BC_INTERNAL)
-	  tag[ ptr[l][1] ] += 1.0;
+      double a = ni*nj/ (sqrt(ni*ni)*sqrt(nj*nj));
+//      if (acos(ni*nj) >= threshold) {
+      if (a <= ct) {
+        nbedget++;
+        if (nodeType[ ptr[l][0] ] < BC_INTERNAL || nodeType[ ptr[l][1] ] < BC_INTERNAL) nbedgeti++;
+	if (nodeType[ ptr[l][0] ] < BC_INTERNAL) {
+	  originAndTag[ ptr[l][0] ] [3] += 1.0;
+          originAndTag[ ptr[l][0] ][0] = X[ptr[l][0]][0];
+          originAndTag[ ptr[l][0] ][1] = X[ptr[l][0]][1];
+          originAndTag[ ptr[l][0] ][2] = X[ptr[l][0]][2];
+        }
+	if (nodeType[ ptr[l][1] ] < BC_INTERNAL) {
+	  originAndTag[ ptr[l][1] ] [3] += 1.0;
+          originAndTag[ ptr[l][1] ][0] = X[ptr[l][1]][0];
+          originAndTag[ ptr[l][1] ][1] = X[ptr[l][1]][1];
+          originAndTag[ ptr[l][1] ][2] = X[ptr[l][1]][2];
+        }
       }
     }
   }
@@ -1053,22 +1065,83 @@ void SubDomain::computeEdgeDihedralAngle(double threshold, SVec<double,6>& norma
 
 //------------------------------------------------------------------------------
 
-void SubDomain::propagateInfoAlongEdges(Vec<double>& tag)
+void SubDomain::propagateInfoAlongEdges(double maxDist, SVec<double,3>& X,
+                         SVec<double,5>& originAndTag)
 {
 
   int (*edgePtr)[2] = edges.getPtr();
-  Vec<double> newtag(tag.size());
+  Vec<double> newtag(originAndTag.size());
   newtag = 0.0;
   for (int l=0; l<edges.size(); ++l) {
     int i = edgePtr[l][0];
     int j = edgePtr[l][1];
-    if (tag[i] > 0.0)
-      newtag[j] += 1.0;
-    if (tag[j] > 0.0)
-      newtag[i] += 1.0;
+/*
+    if (originAndTag[i][3] > 0.0) {
+        newtag[j] += 1.0;
+    }
+    else if (originAndTag[j][3] > 0.0) {
+        newtag[i] += 1.0;
+    }
+*/
+
+
+    if (originAndTag[i][3] > 0.0) {
+      Vec3D dji; 
+      dji[0] = X[j][0] - originAndTag[i][0];
+      dji[1] = X[j][1] - originAndTag[i][1];
+      dji[2] = X[j][2] - originAndTag[i][2];
+      if (originAndTag[j][3] > 0.0 || newtag[j]>0.0) {
+        Vec3D djj; 
+        djj[0] = X[j][0] - originAndTag[j][0];
+        djj[1] = X[j][1] - originAndTag[j][1];
+        djj[2] = X[j][2] - originAndTag[j][2];
+        if (dji.norm()<djj.norm()) {
+          // Distance to origin of i is less that origin of j -> update origin
+          originAndTag[j][0] = originAndTag[i][0];
+          originAndTag[j][1] = originAndTag[i][1];
+          originAndTag[j][2] = originAndTag[i][2];
+          originAndTag[j][4] = dji.norm();
+        }
+      } else if (dji.norm()<maxDist && originAndTag[j][3]==0.0) {
+      // j not tagged yet - assign origin of i and tag 
+        originAndTag[j][0] = originAndTag[i][0];
+        originAndTag[j][1] = originAndTag[i][1];
+        originAndTag[j][2] = originAndTag[i][2];
+        newtag[j] += 1.0;
+        originAndTag[j][4] = dji.norm();
+      }
+    } else if (originAndTag[j][3] > 0.0) {
+      Vec3D dij; 
+      dij[0] = X[i][0] - originAndTag[j][0];
+      dij[1] = X[i][1] - originAndTag[j][1];
+      dij[2] = X[i][2] - originAndTag[j][2];
+      if (newtag[i]>0.0) {
+        Vec3D dii; 
+        dii[0] = X[i][0] - originAndTag[i][0];
+        dii[1] = X[i][1] - originAndTag[i][1];
+        dii[2] = X[i][2] - originAndTag[i][2];
+        if (dij.norm()<dii.norm()) {
+          // Distance to origin of j is less that origin of i -> update origin
+          originAndTag[i][0] = originAndTag[j][0];
+          originAndTag[i][1] = originAndTag[j][1];
+          originAndTag[i][2] = originAndTag[j][2];
+          originAndTag[i][4] = dij.norm();
+        }
+      } else if (dij.norm()<maxDist) {
+      // i not tagged yet - assign origin of j and tag 
+        originAndTag[i][0] = originAndTag[j][0];
+        originAndTag[i][1] = originAndTag[j][1];
+        originAndTag[i][2] = originAndTag[j][2];
+        newtag[i] += 1.0;
+        originAndTag[i][4] = dij.norm();
+      }
+    }
+
   }
 
-  tag += newtag;
+  for(int i=0;i<newtag.size();i++)
+    originAndTag[i][3] += newtag[i];
+
 
 }
 
