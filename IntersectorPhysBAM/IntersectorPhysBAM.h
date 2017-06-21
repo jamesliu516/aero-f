@@ -109,6 +109,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
 
     std::map <int, BoundaryData::Type> boundaryConditionsMap;
     int *faceID;
+    //Embedded Constraints information
 	int *structureType;
 	double* wallTemperature;
 	int* isWallFunction;
@@ -133,8 +134,8 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     CrackingSurface *cracking; //only a pointer.
     //embedded Constraint
     //added by arthur Morlot, February 2016
-    bool ContainsAnEmbeddedConstraint;
-    int ConstraintType;//0 is no Constraint, 1 is symmetry, 2 is inlet
+    //bool ContainsAnEmbeddedConstraint;
+    //int ConstraintType;//0 is no Constraint, 1 is symmetry, 2 is inlet
     std::map<int,SymmetryInfo> SymmetryPlaneList;//Map of all the symmetry planes in the file to decide which nodes must be innactives.
 
     double interface_thickness;
@@ -294,7 +295,7 @@ class IntersectorPhysBAM : public LevelSetStructure {
     ARRAY<VECTOR<double,3> > xyz;
     ARRAY<VECTOR<double,3> > xyz_n;
 
-    int findIntersectionsEmbeddedConstraint(SVec<double,3>& X);
+    //int findIntersectionsEmbeddedConstraint(SVec<double,3>& X);
     void setInactiveNodesSymmetry(SVec<double,3>& X,std::map<int,SymmetryInfo> SymmetryPlaneList);
 
     bool testIsActive(double t, int n) const {return (status[n] >= 0 && status[n]!=OUTSIDECOLOR);}
