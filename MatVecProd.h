@@ -610,7 +610,7 @@ public:
 
   MatVecProdMultiPhase(DistTimeState<dim> *ts, MultiPhaseSpaceOperator<dim,dimLS> *spo,
                        DistExactRiemannSolver<dim> *rsolver, FluidSelector *fs) : 
-                       timeState(ts), spaceOp(spo), riemann(rsolver), fluidSelector(fs), isFSI(false) {}//TODO SUSPICIOUS
+                       timeState(ts), spaceOp(spo), riemann(rsolver), fluidSelector(fs), isFSI(false) {}
   virtual ~MatVecProdMultiPhase() { timeState=0; spaceOp = 0; riemann = 0; fluidSelector = 0; }
 
   virtual void exportMemory(MemoryPool *mp)

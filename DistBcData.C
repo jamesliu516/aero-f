@@ -826,29 +826,24 @@ void DistBcDataEuler<dim>::setDerivativeOfBoundaryConditionsGas(IoData &iod,
   double Pstiff = iod.eqs.fluidModel.gasModel.pressureConstant;
 
   double dPstiff = -iod.eqs.fluidModel.gasModel.pressureConstant*(-2.0 / (gam * iod.bc.inlet.mach * iod.bc.inlet.mach * iod.bc.inlet.mach)) * dM;
-//double dPstiff = iod.eqs.fluidModel.gasModel.pressureConstant*(-2.0 / (iod.bc.inlet.mach)) * dM;//TODO WRONG
 
   double rhoin = iod.bc.inlet.density;
   double rhoout = iod.bc.outlet.density;
   double pressurein  = iod.bc.inlet.pressure + rhoin*this->gravity*this->depth;
 
-//double dpressurein = iod.bc.inlet.pressure * (-2.0 / (iod.bc.inlet.mach)) * dM;//TODO WRONG
   double dpressurein = -2.0 / (gam * iod.bc.inlet.mach * iod.bc.inlet.mach * iod.bc.inlet.mach) * dM;
 
   double pressureout = iod.bc.outlet.pressure + rhoout*this->gravity*this->depth;
 
-//double dpressureout = iod.bc.outlet.pressure * (-2.0 / (iod.bc.outlet.mach)) * dM;//TODO WRONG
   double dpressureout = -2.0 / (gam * iod.bc.outlet.mach * iod.bc.outlet.mach * iod.bc.outlet.mach) * dM;
 
   double velin2 = gam * (pressurein + Pstiff) * iod.bc.inlet.mach*iod.bc.inlet.mach / rhoin;
 
   double dvelin2 = (gam * dPstiff * iod.bc.inlet.mach*iod.bc.inlet.mach / rhoin + 2.0 * gam * pressurein * iod.bc.inlet.mach / rhoin - 2.0 / (rhoin*iod.bc.inlet.mach)) * dM;
-//double dvelin2 = (gam * (dpressurein + dPstiff) * iod.bc.inlet.mach*iod.bc.inlet.mach / rhoin + 2.0 * gam * (pressurein+Pstiff) * iod.bc.inlet.mach / rhoin) * dM;//TODO WRONG
 
   double velout2 = gam * (pressureout + Pstiff) * iod.bc.outlet.mach*iod.bc.outlet.mach / rhoout;
 
   double dvelout2 = (gam * dPstiff * iod.bc.outlet.mach*iod.bc.outlet.mach / rhoout + 2.0 * gam * pressureout * iod.bc.outlet.mach / rhoout  - 2.0 / (rhoout*iod.bc.outlet.mach)) * dM;
-//  double dvelout2 = (gam * (dpressureout + dPstiff) * iod.bc.outlet.mach*iod.bc.outlet.mach / rhoout + 2.0 * gam * (pressureout+Pstiff) * iod.bc.outlet.mach / rhoout) * dM;//TODO wrong
 
   double velin = sqrt(velin2);
   double dvelin = dvelin2/(2*velin);
@@ -986,7 +981,6 @@ void DistBcDataEuler<dim>::setDerivativeOfBoundaryConditionsGas(IoData &iod,
 //  this->dUin[3] = rhoin * dvelin * sin(alpha_in);
 //  this->dUin[4] = (dpressurein + gam*dPstiff)/(gam - 1.0) + 0.5 * rhoin * dvelin2;
 //
-//  //TODO why is there an independent derivative?
 //  this->dUout[0] = 0.0;
 //  this->dUout[1] = rhoout * dvelout * cos(alpha_out) * cos(beta_out);
 //  this->dUout[2] = rhoout * dvelout * cos(alpha_out) * sin(beta_out);
@@ -1836,7 +1830,7 @@ void DistBcDataEuler<dim>::initializeSA(IoData &iod, DistSVec<double,3> &X,
 
 //------------------------------------------------------------------------------
 // unode[i][5] contains k and unode[i][6] contains eps
-// TODO this function is empty becaus there is no nutilde term here.
+// this function is empty becaus there is no nutilde term here.
 // Also the name EULER is misleading, since it is actually a laminar simulation
 template<int dim>
 void DistBcDataEuler<dim>::computeDerivativeOfNodeValue(DistSVec<double,3> &X, DistSVec<double,3> &dX)
@@ -1889,7 +1883,6 @@ DistBcDataSA<dim>::DistBcDataSA(IoData &iod, VarFcn *vf, Domain *dom, DistSVec<d
         iod.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_ ||
         iod.problem.alltype == ProblemData::_SENSITIVITY_ANALYSIS_) {
         dtmp = new DistSVec<double,2>(dom->getNodeDistInfo());
-        std::cout<<"!!! ------------ dtmp has been created"<<std::endl;//TODO delete line
     }
     else {
       dtmp = 0;

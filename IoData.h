@@ -1889,7 +1889,7 @@ struct SensitivityAnalysis {
   const char* meshderiv;
   const char* sensoutput;
 
-  //TODO temporary parameters for debugging
+  // temporary parameters for debugging
   const char* tempStateDeriv;
   const char* linsolverhs;
 

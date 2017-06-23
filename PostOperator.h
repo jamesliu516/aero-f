@@ -97,7 +97,7 @@ private:
 
 public:
 
-  //map<int,int> surfOutMap;//TODO temporarily deleted
+  //map<int,int> surfOutMap;//temporarily deleted
 
   PostOperator(IoData &, VarFcn *, DistBcData<dim> *, DistGeoState *, 
 	       Domain *, DistSVec<double,dim> * = 0);

@@ -103,7 +103,6 @@ EmbeddedFluidShapeOptimizationHandler<dim>::EmbeddedFluidShapeOptimizationHandle
   Ap = new DistVec<double>(dom->getNodeDistInfo());
   Am = new DistVec<double>(dom->getNodeDistInfo());
 
-  //TODO VISCOUSDERIV DEBUG
   Fp_inviscid = new DistSVec<double,dim>(dom->getNodeDistInfo());
   Fm_inviscid = new DistSVec<double,dim>(dom->getNodeDistInfo());
   Fp_viscous = new DistSVec<double,dim>(dom->getNodeDistInfo());
@@ -112,12 +111,10 @@ EmbeddedFluidShapeOptimizationHandler<dim>::EmbeddedFluidShapeOptimizationHandle
   Up = new DistSVec<double,dim>(dom->getNodeDistInfo());
   Um = new DistSVec<double,dim>(dom->getNodeDistInfo());   
 
-  //TODO VISCOUSDERIV DEBUG
   dFdS_inviscid = 0.0;
   dFdS_viscous = 0.0;
 
   if (ioData.sa.homotopy == SensitivityAnalysis::ON_HOMOTOPY) {
-    std::cout<<"!!! Homotopy not supported"<<std::endl; exit(-1);//TODO delete line
     if (ioData.ts.implicit.mvp == ImplicitData::H2){
       mvp = new MatVecProdH2<dim,double,dim>(ioData, this->varFcn, this->timeState, this->spaceOp, dom, this->geoState);
     } else {
@@ -250,7 +247,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoInitialize(IoData &ioData, D
   double dt = this->computeTimeStep(it, &dtLeft, U, -2.0);
 
   this->updateFarfieldCoeffs(dt);
-  this->interpolatePositionVector(dt, dtLeft);//TODO what does this do?
+  this->interpolatePositionVector(dt, dtLeft);
   this->computeMeshMetrics();
   this->updateStateVectors(U);  
 
@@ -570,10 +567,6 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoRestartBcFluxsOLD(IoData &io
 
     if (ioData.eqs.type == EquationsData::NAVIER_STOKES)
       this->spaceOp->rstVarFet(ioData);
-    else
-    {
-      this->fprintf(stderr, "\033[91m  DOING AND EULER command--------------------------\033[00m\n");//TODO delete line
-    }
 
     this->spaceOp->rstFluxFcn(ioData);
 
@@ -709,7 +702,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoRestartBcFluxs(IoData &ioDat
     // Step 2.1: Reset values in ioData.ref
     //
 
-    ioData.ref.mach     = ioData.bc.inlet.mach;//TODO is this a problem?
+    ioData.ref.mach     = ioData.bc.inlet.mach;
     ioData.ref.density  = ioData.bc.inlet.density;
     ioData.ref.pressure = ioData.bc.inlet.pressure;
     double velocity     = ioData.ref.mach * sqrt(gamma * (ioData.ref.pressure+Pstiff) / ioData.ref.density);
@@ -881,11 +874,6 @@ int EmbeddedFluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistS
   // DFSPAR(2)  -  angle of attack differential
   // DFSPAR(3)  -  yaw angle differential\
 
-  //Debugging
-//  std::cout<<"YOU HAVE REACHED EMBEDDED FSO HANDLER. PRESS ANY KEY TO CONTINUE!"<<std::endl;
-//  char a;
-//  std::cin>>a;
-
   double MyLocalTimer = -this->timer->getTime();
 
   bool isSparse       = bool(ioData.sa.sparseFlag);
@@ -965,7 +953,6 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fso_on_sensitivityMach(
                                                    bool isSparse,
                                                    IoData &ioData,
                                                    DistSVec<double,dim> &U){
-  //std::cout<<__FILE__<<":"<<__LINE__<<std::endl;//TODO delete line
 
   dXdS = 0.0;
   dAdS=0.0;
@@ -1065,16 +1052,12 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoComputeDerivativesOfFluxAndS
 
     this->com->fprintf(stderr,"\033[96mdFdS is computed analytically\n\033[00m");
     fsoAnalytical(ioData, X, A, U, dFdS);
-    //fsoSemiAnalytical(ioData, X, A, U, dFdS);//TODO HACK
        
   } else {
     this->com->fprintf(stderr,"\033[96mdFdS is computed semi-analytically\n\033[00m");
     fsoSemiAnalytical(ioData, X, A, U, dFdS);
 
   }
-
-  //TODO VISCOUSDERIV
-  //this->output->writeAnyVectorToDisk("results/populated_state",1,1,U,this->distLSS,this->ghostPoints);
 
   fsoLinearSolver(ioData, dFdS, dUdS, isFSI);
 
@@ -1095,7 +1078,6 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoAnalytical
   // Computing the derivatives of the boundary fluxes
   dXdS = 0.0;
   this->bcData->initializeSA(ioData, X, dXdS, DFSPAR[0], DFSPAR[1], DFSPAR[2]);
-  //std::cout<<"dXdS after initializeSA(): "<<dXdS.norm()<<std::endl;//TODO delete line
  
   // Computing the partial derivative of the flux with respect to the variables
   // Question: who stores the mesh derivative information here? DistLSS?
@@ -1109,15 +1091,13 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoAnalytical
                                              Flux, dFdS, this->timeState);
 
   if (ioData.sa.debugOutput == SensitivityAnalysis::ON_DEBUGOUTPUT){
-    //TODO VISCOUSDERIV DEBUG
+
     this->spaceOp->computeInviscidDerivativeOfResidualEmb(X, dXdS, A, dAdS, U,
                                                this->distLSS,
                                                this->linRecAtInterface, this->viscSecOrder,
                                                this->nodeTag, this->riemann, this->riemannNormal,
                                                this->ghostPoints, DFSPAR[0],
                                                Flux, dFdS_inviscid, this->timeState);
-
-    //TODO VISCOUSDERIV DEBUG
     this->spaceOp->computeViscousDerivativeOfResidualEmb(X, dXdS, A, dAdS, U,
                                                this->distLSS,
                                                this->linRecAtInterface, this->viscSecOrder,
@@ -1125,8 +1105,6 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoAnalytical
                                                this->ghostPoints, DFSPAR[0],
                                                Flux, dFdS_viscous, this->timeState);
   }
-
-  //this->output->writeAnyVectorToDisk("results/dFdS_initial_direct_ana",1,1,dFdS);
 
   this->spaceOp->applyBCsToDerivativeOfResidual(U, dFdS);
   this->spaceOp->applyHackedBCsToDerivativeOfResidual(U, dFdS);//for RANS
@@ -1138,37 +1116,21 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoAnalytical
     this->spaceOp->applyHackedBCsToDerivativeOfResidual(U, dFdS_viscous);
   }
 
-  //this->output->writeAnyVectorToDisk("results/dFdS_afterBC_direct_ana",1,1,dFdS_viscous);
-
-
-
-
-
-
   if((ioData.sa.angleRad == ioData.sa.OFF_ANGLERAD)&& (DFSPAR[1] || DFSPAR[2]))
     dFdS *= Deg2Rad;
-  
-//  if (ioData.sa.linsolverhs != NULL)//writes the version of dRdS that goes into the linear solver to the disk
-//    this->output->writeAnyVectorToDisk(ioData.sa.linsolverhs,step,step,dFdS);
-
-//  if (ioData.sa.dFdS_viscous != NULL)
-//    this->output->writeAnyVectorToDisk(ioData.sa.dFdS_viscous,1,1,dFdS_viscous);
 
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSemiAnalytical
-(
-  IoData &ioData, 
-  DistSVec<double,3> &X,
-  DistVec<double> &A,
-  DistSVec<double,dim> &U,
-  DistSVec<double,dim> &dF
-)
+void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSemiAnalytical(
+                                                   IoData &ioData,
+                                                   DistSVec<double,3> &X,
+                                                   DistVec<double> &A,
+                                                   DistSVec<double,dim> &U,
+                                                   DistSVec<double,dim> &dF)
 {
-  //std::cout<<__FILE__<<__LINE__<<std::endl; exit(-1);//TODO delete line
 
   if (Fp == 0) {
     fprintf(stderr, "*** Error: Variable Fp does not exist!\n");
@@ -1204,7 +1166,6 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSemiAnalytical
   *X_ = 0.0;
   *A_ = 0.0;
 
-  //TODO VISCOUSDERIV DEBUG
   *Fp_inviscid = 0.0;
   *Fm_inviscid = 0.0;
   *Fp_viscous = 0.0;
@@ -1223,7 +1184,6 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSemiAnalytical
   // Plus
   //---------------------------------------------------------------------
   if(ioData.sa.sensMesh  == SensitivityAnalysis::ON_SENSITIVITYMESH){
-    //this->com->fprintf(stderr,"Currently mesh-sensitivity not wanted for embedded"); exit(-1); //TODO delete line
     this->distLSS->updateXb(eps);
     this->distLSS->initialize(this->domain, X, this->geoState->getXn(), ioData, &pb_dummy, &this->nodeTag);
   }
@@ -1251,14 +1211,12 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSemiAnalytical
 
   if (ioData.sa.debugOutput == SensitivityAnalysis::ON_DEBUGOUTPUT)
   {
-    //TODO VISCOUSDERIV DEBUG
     this->spaceOp->computeInviscidResidual(*X_, *A_, U,
                      *this->Wstarij, *this->Wstarji, *this->Wextij, this->distLSS,
                      this->linRecAtInterface, this->viscSecOrder,
                      this->nodeTag,
                      *Fp_inviscid,
                      this->riemann, this->riemannNormal, 1, this->ghostPoints);
-    //TODO VISCOUSDERIV DEBUG
     this->spaceOp->computeViscousResidual(*X_, *A_, U,
                      *this->Wstarij, *this->Wstarji, *this->Wextij, this->distLSS,
                      this->linRecAtInterface, this->viscSecOrder,
@@ -1302,7 +1260,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSemiAnalytical
                    this->riemann, this->riemannNormal, 1, this->ghostPoints);
   
   if (ioData.sa.debugOutput == SensitivityAnalysis::ON_DEBUGOUTPUT){
-    //TODO VISCOUSDERIV DEBUG
+
     this->spaceOp->computeInviscidResidual(*X_, *A_, U,
                      *this->Wstarij, *this->Wstarji, *this->Wextij, this->distLSS,
                      this->linRecAtInterface, this->viscSecOrder,
@@ -1310,7 +1268,6 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSemiAnalytical
                      *Fm_inviscid,
                      this->riemann, this->riemannNormal, 1, this->ghostPoints);
 
-    //TODO VISCOUSDERIV DEBUG
     this->spaceOp->computeViscousResidual(*X_, *A_, U,
                      *this->Wstarij, *this->Wstarji, *this->Wextij, this->distLSS,
                      this->linRecAtInterface, this->viscSecOrder,
@@ -1330,7 +1287,6 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSemiAnalytical
   dF = (1.0/(2.0*eps))*((*Fp) - (*Fm));
 
 
-  //TODO VISCOUSDERIV DEBUG
   if (ioData.sa.debugOutput == SensitivityAnalysis::ON_DEBUGOUTPUT)
    {
      dFdS_inviscid = (1.0/(2.0*eps))*((*Fp_inviscid) - (*Fm_inviscid));
@@ -1389,9 +1345,9 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoLinearSolver(
   
   this->embeddeddQ = 0.0;
 
-  //this->embeddedB.real()  = this->dFdS;//TODO temp
-  this->embeddedB.real()  = dFdS;//TODO hack
-  this->embeddedB.ghost() =  0.0;//TODO that might not be right
+  //this->embeddedB.real()  = this->dFdS;
+  this->embeddedB.real()  = dFdS;
+  this->embeddedB.ghost() =  0.0;
   
 
   ksp->setup(0, 1, this->embeddedB);
@@ -1418,11 +1374,6 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoLinearSolver(
 
   dFdS *= (-1.0);
 
-  if(ioData.sa.debugOutput==SensitivityAnalysis::ON_DEBUGOUTPUT){
-    this->output->writeAnyVectorToDisk("./results/dUdS_immediate",1,1,dUdS);//TODO delete line
-  }
-
-  //TODO DEBUG ROUTINES//////////////////////////////////////////////////////////////////////////////////////
   this->embeddedB.ghost() =  1.0;
   this->embeddedB.real() =  0.0;
 
@@ -1804,7 +1755,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsAnalyt
     x0[2] = ioData.output.transient.z0; //z-coordinate of the point around which the moments are computed
 
     //it seems, that the computed grad P is only stored at the sub-domain itself and not returned
-    this->spaceOp->computeGradP(X, *this->A, U,&this->fluidIdDummy, this->distLSS);//TODO NEW
+    this->spaceOp->computeGradP(X, *this->A, U,&this->fluidIdDummy, this->distLSS);//NEW
 
 //    DistSVec<double,3> &X, DistVec<double> &ctrlVol,
 //                              DistSVec<double,dim> &U, DistVec<int> *fluidId,
@@ -1875,9 +1826,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsAnalyt
     std::cout<<__FILE__<<":"<<__LINE__<<std::endl;
     dF *= this->refVal->force;
     dM *= this->refVal->energy;
-    std::cout<<"===Force deriv part 1: "<<dF[0]<<" "<<dF[1]<<" "<<dF[2]<<std::endl;//TODO delete line
     Vec3D t(F*dForce);
-    std::cout<<"===Force deriv part 2: "<<t[0]<<" "<<t[1]<<" "<<t[2]<<std::endl;//TODO delete line
     dForces = dF+F*dForce;//product rule
     dMoments = dM+M*dEnergy;//product rule
     F *= this->refVal->force;

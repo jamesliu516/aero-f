@@ -1695,7 +1695,6 @@ void SubDomain::computeDerivativeOfWeightsLeastSquaresEdgePartEmb(
     int j = edgePtr[l][1];//ID of second node corresponding to edge l
 
 
-    //------------------------------------------------------------------------ new stuff begins here //TODO delete line
 //    bool validEdge = true;
 //
 //    //There are 3 cases where an edge is considered invalid and no gradients are computed:
@@ -1712,7 +1711,6 @@ void SubDomain::computeDerivativeOfWeightsLeastSquaresEdgePartEmb(
 //    }
 //
 //    if(!validEdge) continue;
-    //------------------------------------------------------------------------ new stuff ends here //TODO delete line
     count[i][0]++;
     count[j][0]++;
 
@@ -2383,7 +2381,6 @@ void SubDomain::computeDerivativeOfWeightsLeastSquaresNodePartEmb(
 //  fprintf(stderr," *** computeDerivativeOfWeightsLeastSquaresNodePartEmb needs to be implemented");
 //  exit(-1);
 
-  std::cout<<" the size of dR is: "<<dR.size()<<std::endl;//TODO delete line
 
 //  for (int i=0; i<dR.size(); ++i) {
 //    double r11  = sqrt(R[i][0]);

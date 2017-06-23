@@ -43,7 +43,7 @@ PostOperator<dim>::PostOperator(IoData &iod, VarFcn *vf, DistBcData<dim> *bc,
   if (iod.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
       iod.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
 			iod.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_ ||
-			iod.problem.alltype == ProblemData::_SENSITIVITY_ANALYSIS_) { //TODO CHECK if needed
+			iod.problem.alltype == ProblemData::_SENSITIVITY_ANALYSIS_) {
     dV = new DistSVec<double,dim>(domain->getNodeDistInfo());
   }
   else {

@@ -142,8 +142,6 @@ void computeLocalWeightsLeastSquares(double dx[3], double *R, double *W)
 {
 
   if(R[0]*R[3]*R[5] == 0.0){
-
-    //Dev::Error(MPI_COMM_WORLD,"1 Going to divide by 0",true);//TODO delete lines
     fprintf(stderr, "1 Going to divide by 0 %e %e %e\n",R[0], R[3], R[5]);
     exit(-1);
   }
@@ -277,14 +275,6 @@ void computeDerivativeOfLocalWeightsLeastSquares(double dx[3], double ddx[3], do
     std::cout<<"R[0]: "<<R[0]<<std::endl;
     std::cout<<"R[3]: "<<R[3]<<std::endl;
     std::cout<<"R[5]: "<<R[5]<<std::endl;
-//    W[0] = 0.0; //TODO HACK this is bad
-//    W[1] = 0.0; //TODO HACK this is bad
-//    W[2] = 0.0; //TODO HACK this is bad
-//
-//    dW[0] = 0.0; //TODO HACK this is bad
-//    dW[1] = 0.0; //TODO HACK this is bad
-//    dW[2] = 0.0; //TODO HACK this is bad
-//    return;
     exit(-1);
   }
 
@@ -2164,11 +2154,8 @@ void SubDomain::computeGalerkinTerm(FemEquationTerm *fet, BcData<dim> &bcData,
 
 }
 
-
 //------------------------------------------------------------------------------
 
-
-//TODO VISCOUSDERIV
 /****************************************************************************************
  * Computes the derivative of the viscous term for non-embedded simulations.            *
  * This is the non-sparse implementation                                           (MB) *
@@ -6079,7 +6066,7 @@ void SubDomain::writeVectorToFile(
 
   Scalar (*data)[dim];
   if (scale) {
-    std::cout<<"!!! scale caseot yet tested"<<std::endl; exit(-1); //TODO delete line
+    std::cout<<__FILE__<<":"<<__LINE__<<" scale case not yet tested"<<std::endl; exit(-1);
     data = new Scalar[U.size()][dim];
     Scalar* v = reinterpret_cast<Scalar*>(data);
     Scalar* u = reinterpret_cast<Scalar*>(U.data());
@@ -8213,7 +8200,6 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                         //std::cout << "Wall " << "dudn"  <<dudn <<" d2wi+d2wj " << d2wi + d2wj << "ug_n " << ug_n << "ug_tg1 " << ug_tg1 << "ug_tg_2 " << ug_tg2 << std::endl;
                         for (int k = 1; k < 4; ++k) {
                             Vj[k] = ug_n * normal[k - 1] + ug_tg1 * tgW1[k - 1] + ug_tg2 * tgW2[k - 1];
-                            //todo debug
 
                             weights[k] = (1.0 - alpha) * (1.0 - alpha);
                         }
@@ -8228,10 +8214,10 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                 }
 //update turbulence viscosity
                 if (dim==6) {  // One Equation Turbulent Model
-          Vj[5] = 0.0;//TODO this was the original code
-          weights[5] = 1.0;//TODO this was the original code
-//          Vj[5] = -alpha*Vi[5]/(1.0-alpha);//TODO DEBUG
-//          weights[5] =(1.0-alpha)*(1.0-alpha);//TODO DEBUG
+          Vj[5] = 0.0;//solution to prevent negative values
+          weights[5] = 1.0;//solution to prevent negative values
+//          Vj[5] = -alpha*Vi[5]/(1.0-alpha);//mathematically correct solution
+//          weights[5] =(1.0-alpha)*(1.0-alpha);//mathematically correct solution
                 }
 //update turbulence kinetic energy , epsilon
                 else if (dim==7) { // Two Equations Turbulent Model
@@ -8506,7 +8492,6 @@ void SubDomain::populateGhostPoints_e(Vec<GhostPoint<dim>*> &ghostPoints, SVec<d
                                       VarFcn *varFcn, LevelSetStructure &LSS, Vec<int> &fluidId,
                                       FemEquationTerm *fet)
 {
-  std::cout<<__FILE__<<":"<<__LINE__<<std::endl;//TODO delete line
 
     double *Vg1_i = new double[dim];
     double *Vg2_i = new double[dim];

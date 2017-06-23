@@ -160,12 +160,10 @@ public:
 
   void fsoPrintTextOnScreen(const char *);
 
-  //TODO fix this does completely the same as the function above
   void fsaPrintTextOnScreen(const char *);
 
   void fsoRestartBcFluxs(IoData &);
 
-  //TODO HACK
   void fsaRestartBcFluxs(IoData &);
 
   void fsoGetEfforts(IoData &, DistSVec<double,3> &, DistSVec<double,dim> &, Vec3D &, Vec3D &, Vec3D &);
@@ -217,7 +215,7 @@ public:
 
   Communicator* getComm(){return this->com;};
 
-  //TODO check if ever called
+  // check if ever called
   void fsaOnlySolve(IoData &ioData);
 
 

@@ -11,8 +11,6 @@
 #include <alloca.h>
 #include <cassert>
 
-//#include <TsOutput.h>//TODO delete line
-
 //------------------------------------------------------------------------------
 
 template<int dim, class Scalar>
@@ -934,11 +932,6 @@ void DistNodalGrad<dim, Scalar>::computeDerivativeEmb(
     computeDerivativeOfWeightsEmb(X, dX,fluidId,linFSI,distLSS,includeSweptNodes);
     lastConfigSA = configSA;
   }
-
-
-  //TODO outout R and dR to disk an postprocess it
-  //TsOutput<dim>::writeAnyVectorToDisk("results/ngrad_R",1,1,*R);//TODO delete lines
-
 
   if (typeGradient == SchemeData::LEAST_SQUARES) {
     domain->computeDerivativeOfGradientsLeastSquaresEmb(

@@ -19,8 +19,6 @@
 // included for rom (lei lei, Sep 27 2016)
 #include <VectorSet.h>
 
-
-#include "Dev/devtools.h"//TODO delete line
 //------------------------------------------------------------------------------
 
 template<int dim, int neq>
@@ -103,7 +101,6 @@ void MatVecProdFD<dim, neq>::evaluate(
 
 	if(recFcnCon && !this->isFSI) 
 	{
-	  //std::cout<<"\033[96mmvp-> evaluate does something\033[00m"<<std::endl;//TODO delete line
     spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
 
 		if (timeState) timeState->add_dAW_dt(it, *geoState, *ctrlVol, Qeps, Feps);
@@ -111,7 +108,6 @@ void MatVecProdFD<dim, neq>::evaluate(
     spaceOp->applyBCsToResidual(Qeps, Feps);
   }
 	else{
-	  //std::cout<<"\033[96mmvp-> evaluate does nothing\033[00m"<<std::endl;//TODO delete line
 	  Feps = f;
 	}
 
@@ -658,7 +654,6 @@ void MatVecProdFD<dim, neq>::applyWeightedRestrict(DistSVec<double,neq> &p,
 template<int dim, int neq>
 void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedVec<double,neq> & prod) 
 {
-  //std::cout<<__FILE__<<":"<<__LINE__<<std::endl;//TODO delete line
 	// ***
   double eps = computeEpsilon(Q, p.real());
 
@@ -667,10 +662,8 @@ void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedV
 
   Qepstmp.pad(Qeps);
   
-  ///this->spaceOp->domain->writeVectorToFile("results/Qeps",0,0,Qeps);
-  ///this->spaceOp->domain->writeVectorToFile("results/Qepstmp",0,0,Qepstmp);
 
-	if(p.hasHHBoundaryTerm()) //TODO this is difference compared to the standard apply function
+	if(p.hasHHBoundaryTerm())
 	{
     *hhEps = *hhVal + eps*p.hh();
     *spaceOp->getDistBcData()->getBoundaryStateHH() = *hhEps;
@@ -678,7 +671,6 @@ void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedV
 
   if (!this->isFSI){
     spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
-    std::cout<<__LINE__<<__FILE__<<std::endl; exit(-1);//TODO delete line
   }
   else//FSI case
 	  spaceOp->computeResidual(*X, *ctrlVol, Qeps, 
@@ -686,12 +678,9 @@ void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedV
                 this->fsi.linRecAtInterface, this->fsi.viscSecOrder,
               *(this->fsi.fluidId), Feps, this->fsi.riemann,
                 this->fsi.Nriemann, 0, this->fsi.ghostPoints);
-  ///std::cout<<"Feps 2432-ID flux1:"<<Feps[2432][0]<<" "<<Feps[2432][1]<<" "<<Feps[2432][2]<<" "<<Feps[2432][3]<<" "<<Feps[2432][4]<<" "<<Feps[2432][5]<<std::endl;//TODO delete line
-
 
 	if(p.hasHHBoundaryTerm()) 
 	{
-	  this->com->fprintf(stderr,"!!! p.hasHHBoundaryTerm() == true !!\n");//TODO delete line
     *hhEps = 0.0;
 
 		spaceOp->getDomain()->computeHHBoundaryTermResidual(*spaceOp->getDistBcData(),Qeps,*hhEps, spaceOp->getVarFcn());
@@ -707,56 +696,15 @@ void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedV
 
 	if(this->isFSI) spaceOp->applyBCsToResidual(Qeps, Feps, this->fsi.LSS);
 	else            spaceOp->applyBCsToResidual(Qeps, Feps);
-	///std::cout<<"Feps 2432-ID flux after Residual:"<<Feps[2432][0]<<" "<<Feps[2432][1]<<" "<<Feps[2432][2]<<" "<<Feps[2432][3]<<" "<<Feps[2432][4]<<" "<<Feps[2432][5]<<std::endl;//TODO delete line
 
-
-	///std::cout<<__FILE__<<":"<<__LINE__<<std::endl;//TODO delete line
-	///std::cout<<Feps.norm()<<std::endl;//TODO delete line
-
-
-	//Writing Feps to file
-	//FILE * myfile;
-	//this->spaceOp->domain->writeVectorToFile("results/Feps",0,0,Feps);
-//
-//  std::cout<<__FILE__<<":"<<__LINE__<<std::endl;//TODO delete line
-//  std::cout<<"DIM="<<dim<<std::endl;//TODO delete line
-//  std::cout<<"NEQ="<<neq<<std::endl;//TODO delete line
-
-
-  //writing F to file
-	///this->spaceOp->domain->writeVectorToFile("results/F",0,0,F);//TODO delete line
-
-
-//  std::cout<<__FILE__<<":"<<__LINE__<<std::endl;//TODO delete line
-	///std::cout<<"Fepstmp 2432-ID flux:"<<Fepstmp[2432][0]<<" "<<Fepstmp[2432][1]<<" "<<Fepstmp[2432][2]<<" "<<Fepstmp[2432][3]<<" "<<Fepstmp[2432][4]<<" "<<Fepstmp[2432][5]<<std::endl;//TODO delete line
-
-  Feps.strip(Fepstmp);//TODO DEBUG
-
-  ///std::cout<<dim<<std::endl;
-  ///std::cout<<neq<<std::endl;
-	//exit(-1);
-  //Fepstmp=Feps;//TODO DEBUG
-  ///std::cout<<"Fepstmp 2432-ID flux:"<<Fepstmp[2432][0]<<" "<<Fepstmp[2432][1]<<" "<<Fepstmp[2432][2]<<" "<<Fepstmp[2432][3]<<" "<<Fepstmp[2432][4]<<" "<<Fepstmp[2432][5]<<std::endl;//TODO delete line
-
-
-
-	///this->spaceOp->domain->writeVectorToFile("results/Fepstmp",0,0,Fepstmp);//TODO delete line
-
-
-  //Dev::Error(this->com,"asdasdasdasdasdasd",true);//TODO delete line
-
-
- // std::cout<<__FILE__<<":"<<__LINE__<<std::endl;//TODO delete line
+  Feps.strip(Fepstmp);
 
 	if(fdOrder == 1) 
 	{
-	  //std::cout<<"Doing first order finite Differences"<<std::endl;//TODO delete line
-    //prod.real() = (1.0/eps) * (Fepstmp - F);//TODO DEBUG
     prod.real() = (1.0/eps) * (Fepstmp - F);
 
 		if(p.hasHHBoundaryTerm())
 		{
-		  std::cout<<__FILE__<<":"<<__LINE__<<std::endl; exit(-1);//TODO delete line
       *hhEps = (1.0/eps) * (*hhEps - *hhRes);
       prod.setHH(*hhEps);
     }
@@ -764,7 +712,6 @@ void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedV
   }
 	else if(fdOrder == 2) 
 	{
-	  //std::cout<<"Doing second order finite Differences"<<std::endl; exit(-1);//TODO delete line
     Qepstmp = Q - eps * p.real();
     
     Qepstmp.pad(Qeps);
@@ -784,7 +731,6 @@ void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedV
 
 		if(p.hasHHBoundaryTerm()) 
 		{
-		  std::cout<<__FILE__<<":"<<__LINE__<<std::endl; exit(-1);//TODO delete line
       prod.setHH(*hhEps);
       *hhEps = *hhVal - eps*p.hh();
       *spaceOp->getDistBcData()->getBoundaryStateHH() = *hhEps;
@@ -1011,7 +957,6 @@ MatVecProdH1<dim,Scalar,neq>::MatVecProdH1(DistTimeState<dim> *ts, SpaceOperator
 					   Domain *domain) : 
   DistMat<Scalar,neq>(domain), timeState(ts), spaceOp(spo)
 {
-  this->com->fprintf(stderr,"\033[93mH1 Matvec created\033[00m\n");//TODO delete line
 #ifdef _OPENMP 
   this->numLocSub = DistMat<Scalar,neq>::numLocSub; //BUG omp
 #endif
@@ -1475,7 +1420,6 @@ MatVecProdH2<dim,Scalar,neq>::MatVecProdH2
       RFD = new MatVecProdFD<dim,neq>(ioData.ts.implicit, ts, gs, spo, domain, ioData);
     }
   }
-  this->com->fprintf(stderr,"\033[93mH2 Matvec created\033[00m\n");//TODO delete line
 }
 
 //------------------------------------------------------------------------------

@@ -194,7 +194,6 @@ public:
   void computeDerivativeOfGalerkinTerm(FemEquationTerm *, SVec<double,3> &, SVec<double,3> &, Vec<double> &,
 			   SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &) = 0;
 
-  //TODO VISCOUSDERIV
   virtual
   void computeDerivativeOfGalerkinTermEmb(FemEquationTerm *, SVec<double,3> &, SVec<double,3> &, Vec<double> &,
          SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &,Vec<GhostPoint<dim>*>*, LevelSetStructure *) = 0;
@@ -395,7 +394,6 @@ public:
     t->computeDerivativeOfGalerkinTerm(fet, X, dX, d2wall, V, dV, dMach, dR);
   }
 
-  //TODO VISCOUSDERIV
   void computeDerivativeOfGalerkinTermEmb(FemEquationTerm *fet, SVec<double,3> &X, SVec<double,3> &dX,
             Vec<double> &d2wall, SVec<double,dim> &V, SVec<double,dim> &dV, double dMach,
             SVec<double,dim> &dR,Vec<GhostPoint<dim>*> *ghostPoints,
@@ -889,9 +887,6 @@ public:
   }
 
 
-
-
-  //TODO VISCOUSDERIV
   // Computes the derivative of the viscous term for non-embedded simulations.
   //This is the non-sparse implementation (MB)
   template<int dim>

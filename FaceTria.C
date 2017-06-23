@@ -1749,10 +1749,8 @@ void FaceTria::computeDerivativeOfGalerkinTerm(
   }
 }
 
+//------------------------------------------------------------------------------
 
-
-
-//TODO VISCOUSDERIV
 template<int dim>
 void FaceTria::computeDerivativeOfGalerkinTermEmb(
                  ElemSet &elems, FemEquationTerm *fet,
@@ -1768,7 +1766,6 @@ void FaceTria::computeDerivativeOfGalerkinTermEmb(
                  LevelSetStructure *LSS) //(INPUT) levelset
 {
 
-  //TODO check if that is really everything that is required
   // In the case of an embedded simulation, check if the face is actually active
   bool isFaceInactive=true;
   if(LSS)

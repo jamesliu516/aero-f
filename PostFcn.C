@@ -6,8 +6,6 @@
 #include <cstdlib>
 #include <cstdio>
 
-#include "./Dev/devtools.h"//TODO delete line
-
 const double PostFcnEuler::third = 1.0/3.0;
 //------------------------------------------------------------------------------
 
@@ -193,7 +191,6 @@ double PostFcnEuler::computeDerivativeOfNodeScalarQuantity(ScalarDerivativeType 
 							   double *dX,
 							   double phi)
 {
-  //Dev::Error(MPI_COMM_WORLD,"tempoarary Error to look at backtrace",true);//TODO delete line
 
   double q = 0.0;
 
