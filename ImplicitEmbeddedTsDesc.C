@@ -230,12 +230,12 @@ int ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
       DistSVec<double,dim>& Unm1 = this->timeState->getUnm1();
   
 			if (!this->existsWstarnm1) 
-			{        
-				this->spaceOp->computeResidual(*this->X, *this->A, Unm1, 
-														 *this->Wstarij, *this->Wstarji, *this->Wextij, this->distLSS,
-														 this->linRecAtInterface, this->viscSecOrder, 
-														 this->nodeTag, this->Vtemp, this->riemann, 
-                                 this->riemannNormal, 1, this->ghostPoints);
+			{
+			  this->spaceOp->computeResidual(*this->X, *this->A, Unm1,
+                        *this->Wstarij, *this->Wstarji, *this->Wextij, this->distLSS,
+                         this->linRecAtInterface, this->viscSecOrder,
+                         this->nodeTag, this->Vtemp, this->riemann,
+                         this->riemannNormal, 1, this->ghostPoints);
       }
 
       tw = this->timer->getTime();

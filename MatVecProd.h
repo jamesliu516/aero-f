@@ -16,7 +16,6 @@ class VarFcn;
 class FluxFcn;
 class DistGeoState;
 class MemoryPool;
-//struct Vec3D;
 
 template<int dimLS> class LevelSet;
 template<int dim> class RecFcnConstant;
@@ -49,7 +48,7 @@ public:
   {
 //    Dev::Error(MPI_COMM_WORLD, "exportMemory not implemented",true); sleep(2000);
 //    std::cout<<"*** Error: exportMemory not implemented for MatVecProd:"<<__LINE__<<std::endl; exit(-1);
-  }//TODO SUSPICIOUS
+  }
 
   virtual void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
 			DistSVec<double,dim> &, DistSVec<double,dim> &) = 0;
@@ -1245,9 +1244,6 @@ struct dRdXoperators
     }
 
   }
-
-
-  
 
   void setNumLocSub(int nLocSub) { numLocSub = nLocSub; }
 

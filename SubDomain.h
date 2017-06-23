@@ -931,8 +931,11 @@ public:
   template<class Scalar, int dim>
   void writeVectorToFile(const char *, int, SVec<Scalar,dim> &, Scalar *);
 
-    template<class Scalar>
-    void writeVectorToFile(const char *, int, Vec<Scalar> &, Scalar *); //<! for non-state vector, Lei Lei, 03 Feb 2016
+  template<class Scalar>
+  void writeVectorToFile(const char *, int, Vec<Scalar> &, Scalar *); //<! for non-state vector, Lei Lei, 03 Feb 2016
+
+  template<class Scalar,int dim>
+  void writeVectorToFile(const char *, int, SVec<Scalar,dim> &, LevelSetStructure *LSS, Vec<GhostPoint<dim>*> *, Scalar *);
 
   template<int dim>
   void assignFreeStreamValues2(SVec<double,dim> &, SVec<double,dim> &,
@@ -1274,7 +1277,7 @@ public:
 
   template<int dim>
     void populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<double,3> &X, SVec<double,dim> &U,
-									  NodalGrad<dim, double> &ngrad, VarFcn *varFcn, LevelSetStructure &LSS, bool linRecFSI, Vec<int> &tag);
+           NodalGrad<dim, double> &ngrad, VarFcn *varFcn, LevelSetStructure &LSS, bool linRecFSI, Vec<int> &tag);
 
   template<int dim>
     void populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<double,3> &X, SVec<double,dim> &U,
@@ -1406,11 +1409,17 @@ public:
   void computeDerivativeOperatorsOfNormals(SVec<double,3> &, RectangularSparseMat<double,3,3> &, RectangularSparseMat<double,3,3> &); 
 
   void computeDerivativeOfWeightsLeastSquaresEdgePart(SVec<double,3> &, SVec<double,3> &, SVec<double,6> &, SVec<double,6> &);
+  void computeDerivativeOfWeightsLeastSquaresEdgePartEmb(
+      SVec<double,3> &X, SVec<double,3> &dX,
+      const Vec<int> &fluidId, SVec<int,1> &count,
+      SVec<double,6> &R, SVec<double,6> &dR,
+      LevelSetStructure *LSS, bool includeSweptNodes);
   void computeDerivativeOfWeightsLeastSquaresEdgePart(RectangularSparseMat<double,3,6> &, SVec<double,3> &, SVec<double,6> &);
   void computeTransposeDerivativeOfWeightsLeastSquaresEdgePart(RectangularSparseMat<double,3,6> &, SVec<double,6> &, SVec<double,3> &);
   void computeDerivativeTransposeOfWeightsLeastSquaresEdgePart(SVec<double,3> &, SVec<double,6> &, SVec<double,6> &, SVec<double,3> &);
 
   void computeDerivativeOfWeightsLeastSquaresNodePart(SVec<double,6> &, SVec<double,6> &);
+  void computeDerivativeOfWeightsLeastSquaresNodePartEmb(SVec<double,6> &, SVec<double,6> &,LevelSetStructure*,bool);
   void computeDerivativeOfWeightsLeastSquaresNodePart(RectangularSparseMat<double,6,6> &, SVec<double,6> &);
   void computeTransposeDerivativeOfWeightsLeastSquaresNodePart(RectangularSparseMat<double,6,6> &, SVec<double,6> &);
   void computeDerivativeTransposeOfWeightsLeastSquaresNodePart(SVec<double,6> &, SVec<double,6> &);
@@ -1441,6 +1450,15 @@ public:
             SVec<double,6> &, SVec<double,6> &,
             SVec<Scalar,dim> &, SVec<Scalar,dim> &, SVec<Scalar,dim> &,
             SVec<Scalar,dim> &, SVec<Scalar,dim> &);
+
+  template<int dim, class Scalar>
+  void computeDerivativeOfGradientsLeastSquaresEmb(
+            SVec<double,3> &, SVec<double,3> &,
+            SVec<double,6> &, SVec<double,6> &,
+            SVec<Scalar,dim> &, SVec<Scalar,dim> &, SVec<Scalar,dim> &,
+            SVec<Scalar,dim> &, SVec<Scalar,dim> &,
+            const Vec<int> &fluidId,
+            LevelSetStructure* LSS,bool IncludeSweptNodes);
 
   template<int dim, class Scalar>
   void computeDerivativeOfGradientsLeastSquares( 
@@ -1644,7 +1662,13 @@ public:
 
   template<int dim>
   void computeDerivativeOfGalerkinTerm(FemEquationTerm *, BcData<dim> &, GeoState &,
-			   SVec<double,3> &, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &);
+         SVec<double,3> &, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &);
+
+  template<int dim>
+  void computeDerivativeOfGalerkinTermEmb(FemEquationTerm *, BcData<dim> &, GeoState &,
+         SVec<double,3> &, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &,
+         Vec<GhostPoint<dim>*>* ghostPoints, LevelSetStructure* );
+
 
   template<int dim>
   void computeDerivativeOfGalerkinTerm(RectangularSparseMat<double,3,dim> *, FemEquationTerm *, BcData<dim> &, GeoState &,
@@ -1660,6 +1684,10 @@ public:
 
   template<int dim>
   void applyBCsToDerivativeOfResidual(BcFcn *, BcData<dim> &, SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &);
+
+  //TODO HACK
+  template<int dim>
+  void applyHackedBCsToDerivativeOfResidual(BcFcn *, BcData<dim> &, SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &);
 
   template<int dim>
   void computeDerivativeOfNodeScalarQuantity(PostFcn::ScalarDerivativeType, PostFcn *, double [3], SVec<double,dim> &, SVec<double,dim> &, SVec<double,3> &, SVec<double,3> &, Vec<double> &);

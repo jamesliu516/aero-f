@@ -13,6 +13,7 @@
 #include <fstream> //file io
 
 #include <execinfo.h>
+#include <boost/algorithm/string.hpp>
 
 //declare a NULL pointer, such that no extra header has to be included just for that putpose
 #ifndef NULL
@@ -105,6 +106,7 @@ void Error(Communicator *com,const char* message,bool printBacktrace)
   if (printBacktrace==true)
     printStack(com);
 
+  com->barrier();
   //Exit program execution
   exit(-1);
 
@@ -132,7 +134,7 @@ void Error(MPI_Comm comm, const char* message,bool printBacktrace)
     printStack(comm);
 
   //Exit program execution
-  sleep(2000);
+  MPI_Barrier(comm);
   exit(-1);
 
 }
@@ -160,10 +162,14 @@ void printStack(Communicator *com)
   {
 
 #ifdef NDEBUG
-    com->printf(0,"%s\n", strings[j]);
+    std::string symbol, execname;
+    symbol=strings[j];
+    execname=getenv("_");
+    boost::replace_all(symbol,execname, " ");
+    com->printf(0,"%s\n", symbol.data() );
 #else
     char syscom[256];
-    sprintf(syscom,"addr2line %p -e ",buffer[j]);
+    sprintf(syscom,"addr2line %p -s -e ",buffer[j]);
     sprintf(syscom+ strlen(syscom),getenv("_"));//append current executables name
     com->system(syscom);
 #endif
@@ -200,10 +206,14 @@ void printStack(MPI_Comm comm)
   {
 
 #ifdef NDEBUG
-    if (rank==0) fprintf(stdout,"%s\n", strings[j] );
+    std::string symbol, execname;
+    symbol=strings[j];
+    execname=getenv("_");
+    boost::replace_all(symbol,execname, " ");
+    if (rank==0) fprintf(stdout,"%s\n", symbol.data() );
 #else
     char syscom[256];
-    sprintf(syscom,"addr2line %p -e ",buffer[j]);
+    sprintf(syscom,"addr2line %p -s -e ",buffer[j]);
     sprintf(syscom+ strlen(syscom),getenv("_"));//append current executables name
     if (rank == 0) std::system(syscom);
 #endif
@@ -214,6 +224,25 @@ void printStack(MPI_Comm comm)
 }
 
 //------------------------------------------------------------------------------
+
+
+
+
+
+
+//template<int dim>
+//void writeVecToXpost(Communicator* com, const char* filepath, DistSVec<double,dim> *vec){
+//  com->barrier();
+//  int rank=com->cpuNum();
+//  int size=com->size();
+//
+//  int go=0;
+//  if(rank==0)
+//  {
+//
+//  }
+//
+//}
 
 /*****************************************************************************
  * This functions prints the distributed solution vector 'vec' to the        *

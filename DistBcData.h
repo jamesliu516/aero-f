@@ -3,7 +3,6 @@
 
 #include <DistVector.h>
 #include <VarFcn.h>
-#include <./Dev/devtools.h>//TODO delete line
 
 class IoData;
 class SubDomain;
@@ -136,18 +135,18 @@ public:
     std::cout<<"ERROR: header computeDerivativeOfNodeValue called"<<std::endl; exit(-1);
   }
   virtual void computeNodeWallValues(DistSVec<double,3> &)
-  {std::cout<<"ERROR: header computeNodeWallValues called"<<std::endl; exit(-1);}//TODO BUUGHUNT
+  {std::cout<<"ERROR: header computeNodeWallValues called"<<std::endl; exit(-1);}//TODO check if correct
 
   DistVec<double> &getDerivativeOfTemperatureVector() { return (*dTemp); }
 
   virtual void updateFarFieldSA(DistSVec<double,3> &, DistSVec<double,3> &, double &)
-  {std::cout<<"ERROR: header updateFarFieldSA called"<<std::endl; exit(-1);}//TODO BUUGHUNT
+  {std::cout<<"ERROR: header updateFarFieldSA called"<<std::endl; exit(-1);}//TODO check if correct
 
   virtual void initialize(IoData &, DistSVec<double,3> &)
-  {std::cout<<"ERROR: header initialize called"<<std::endl; exit(-1);}//TODO BUUGHUNT
+  {std::cout<<"ERROR: header initialize called"<<std::endl; exit(-1);}//TODO check if correct
 
   virtual void initializeSA(IoData &, DistSVec<double,3> &, DistSVec<double,3> &, double &, double &, double &)
-  {std::cout<<"ERROR: header initializeSA called"<<std::endl; exit(-1);}//TODO BUUGHUNT
+  {std::cout<<"ERROR: header initializeSA called"<<std::endl; exit(-1);}//TODO check if correct
 
   DistSVec<double,3> &getDerivativeOfVelocityVector() { return *dXdot; }
 
@@ -246,7 +245,7 @@ public:
 // Included (MB)
   void computeDerivativeOfNodeValue(DistSVec<double,3> &, DistSVec<double,3> &);
   void computeNodeWallValues(DistSVec<double,3> &x)
-  {std::cout<<"ERROR: header DistBcDataKE::computeNodeWallValues called"<<std::endl; exit(-1);}//TODO BUUGHUNT
+  {std::cout<<"ERROR: header DistBcDataKE::computeNodeWallValues called"<<std::endl; exit(-1);}//TODO check if correct
 
 };
 

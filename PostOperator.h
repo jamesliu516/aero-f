@@ -97,6 +97,8 @@ private:
 
 public:
 
+  //map<int,int> surfOutMap;//TODO temporarily deleted
+
   PostOperator(IoData &, VarFcn *, DistBcData<dim> *, DistGeoState *, 
 	       Domain *, DistSVec<double,dim> * = 0);
   ~PostOperator();
@@ -205,7 +207,7 @@ public:
                                                                            DistSVec<double,dim> &, DistSVec<double,dim> &, double [3],
                                                                            Vec3D *, Vec3D *, Vec3D *, Vec3D *, int = 0);
 
-  void computeDerivativeOfForceAndMoment(Vec3D &x0, DistSVec<double,3> &X, 
+  void computeDerivativeOfForceAndMomentEmb(Vec3D &x0, DistSVec<double,3> &X,
 					 DistSVec<double,dim> &U, 
 					 DistSVec<double,dim> &dU, 
 					 DistVec<int> *fluidId,
@@ -256,9 +258,9 @@ public:
                                               RectangularSparseMat<double,dim,dim> **dVdU,
                                               RectangularSparseMat<double,1,dim> **dVdPstiff);
 								
-  void rstVar(IoData &iod) {pressInfty = iod.aero.pressure;}								
+  void rstVar(IoData &iod) {pressInfty = iod.aero.pressure;}
 
-  void rstVarPostFcn(IoData &ioData) {postFcn->rstVar(ioData, com);}								
+  void rstVarPostFcn(IoData &ioData) {postFcn->rstVar(ioData, com);}
 
   void computeDerivativeOfNodalHeatPower(DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &, double [3], DistVec<double> &);
 

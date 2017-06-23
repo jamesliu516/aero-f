@@ -9,6 +9,9 @@
 #include <cmath>
 #include <cassert>
 
+
+#include "Dev/devtools.h"
+
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -1883,9 +1886,10 @@ DistBcDataSA<dim>::DistBcDataSA(IoData &iod, VarFcn *vf, Domain *dom, DistSVec<d
 // Included (MB)
     if (iod.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
         iod.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
-		iod.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_ ||
-		iod.problem.alltype == ProblemData::_SENSITIVITY_ANALYSIS_) {
-      dtmp = new DistSVec<double,2>(dom->getNodeDistInfo());
+        iod.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_ ||
+        iod.problem.alltype == ProblemData::_SENSITIVITY_ANALYSIS_) {
+        dtmp = new DistSVec<double,2>(dom->getNodeDistInfo());
+        std::cout<<"!!! ------------ dtmp has been created"<<std::endl;//TODO delete line
     }
     else {
       dtmp = 0;
@@ -2015,10 +2019,10 @@ void DistBcDataSA<dim>::computeNodeValue(DistSVec<double,3> &X)
       double (*t)[2] = tmp->subData(iSub);
       double (*unode)[dim] = this->Unode.subData(iSub);
       for (int i=0; i<this->Unode.subSize(iSub); ++i) {
-	    if (t[i][0] != 0.0) {
-	      double w = 1.0 / t[i][0];
-	      unode[i][5] = w * t[i][1];
-	    }
+        if (t[i][0] != 0.0) {
+          double w = 1.0 / t[i][0];
+          unode[i][5] = w * t[i][1];
+        }
       }
     }
   }
@@ -2034,8 +2038,7 @@ void DistBcDataSA<dim>::computeDerivativeOfNodeValue(DistSVec<double,3> &X, Dist
 
 //Remark: Error mesage for pointers
   if (dtmp == 0) {
-    fprintf(stderr, "*** Warning: Variable dtmp does not exist!\n");
-    //exit(1);
+    fprintf(stderr, "\033[91m*** Warning: Variable dtmp does not exist!\n\033[00m");
   }
 
   if (dtmp) {
@@ -2199,7 +2202,6 @@ void DistBcDataKE<dim>::computeDerivativeOfNodeValue(DistSVec<double,3> &X, Dist
 //Remark: Error mesage for pointers
   if (dtmp == 0) {
     fprintf(stderr, "*** Warning: Variable dtmp does not exist!\n");
-    //fprintf(stderr, "*** Error: Variable dtmp does not exist!\n");
     //exit(1);
   }
 

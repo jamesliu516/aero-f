@@ -11,6 +11,8 @@ using std::max;
 using std::min;
 #endif
 
+#include "Dev/devtools.h"//TODO delete line
+
 //------------------------------------------------------------------------------
 //CHANGES_FOR_WATER
 // as the Stokes' law for gas does not apply anymore, we have to distinguish
@@ -47,9 +49,12 @@ void FemEquationTermNS::computeTransportCoefficients(
   const double T, double &mu, double &lambda, double &kappa)
 {
 
+  //std::cout<<"CALLING VISCOFCNS----------------------------------"<<std::endl;
   mu     = viscoFcn->compute_mu(T);
+  //std::cout<<"mu:"<<mu<<std::endl;
   lambda = viscoFcn->compute_lambda(T,mu);
   kappa  = thermalCondFcn->compute(T);
+  //std::cout<<"CALLED VISCOFCNS----------------------------------\n\n"<<std::endl;
 
 }
 
@@ -95,35 +100,81 @@ double FemEquationTermNS::computeDerivativeOfViscousTimeStep(double X[3], double
 
 //------------------------------------------------------------------------------
 
-bool FemEquationTermNS::computeVolumeTerm(double dp1dxj[4][3], double d2w[4], 
-					  double *V[4], double *r, double *S, 
-                                          double *PR, double tetVol, 
-                                          SVec<double,3> &X, int nodeNum[4],  
-                                          int material_id)
+bool FemEquationTermNS::computeVolumeTerm(
+       double dp1dxj[4][3], // (INPUT) derivative of the nodal shape functions in the 3 spatial dimensions
+       double d2w[4],       // (INPUT) distance to wall for all nodes
+       double *V[4],        // (INPUT) fluid states of the nodes
+       double *r,           // (OUTPUT) viscous residual
+       double *S,           // (OUTPUT) zeros are returned
+       double *PR,          // (OUTPUT) //TODO has to do with porosity
+       double tetVol,       // (INPUT) volume of the tetrahedra
+       SVec<double,3> &X,   // (INPUT) location
+       int nodeNum[4],      // (INPUT) IDs of the tetrahedra nodes
+       int material_id)     // (INPUT) ID of the fluid volume
 {
+
+  //Extensive output
+  //std::cout<<"dp1dxj[4][3]  "<<dp1dxj[0][0]<<" "<<dp1dxj[1][0]<<" "<<dp1dxj[1][1]<<" "<<dp1dxj[2][0]<<" "<<dp1dxj[3][0]<<" "<<dp1dxj[3][1]<<" "<<dp1dxj[3][1]<<std::endl;
+  //std::cout<<"d2w[4],       "<<d2w[0]<<" "<<d2w[1]<<" "<<d2w[2]<<" "<<d2w[3]<<std::endl;
+  //std::cout<<"*V[4],        "<<V[0][0]<<" "<<V[0][1]<<" "<<V[0][2]<<" "<<V[0][3]<<V[0][4]<<std::endl;
+  //std::cout<<"*V[4],        "<<V[1][0]<<" "<<V[1][1]<<" "<<V[1][2]<<" "<<V[1][3]<<V[0][4]<<std::endl;
+  //std::cout<<"*V[4],        "<<V[2][0]<<" "<<V[2][1]<<" "<<V[2][2]<<" "<<V[2][3]<<V[0][4]<<std::endl;
+  //std::cout<<"*V[4],        "<<V[3][0]<<" "<<V[3][1]<<" "<<V[3][2]<<" "<<V[3][3]<<V[0][4]<<std::endl;
+  //std::cout<<"*r,           "<<*r<<std::endl;
+  //std::cout<<"*S,           "<<*S<<std::endl;
+  //std::cout<<"*PR,          "<<*PR<<std::endl;
+  //std::cout<<"tetVol,       "<<tetVol<<std::endl;
+  //std::cout<<"&X,           "<<X.norm()<<std::endl;
+  //std::cout<<"nodeNum[4]    "<<nodeNum[0]<<" "<<nodeNum[1]<<" "<<nodeNum[2]<<" "<<nodeNum[3]<<std::endl;
+  //std::cout<<"material_id)  "<<material_id<<" "<<std::endl;
+
 
   bool porousmedia = false; 
 
   double u[4][3], ucg[3];
   computeVelocity(V, u, ucg);
+  //std::cout<<"ucg           "<<ucg[0]<<" "<<ucg[1]<<" "<<ucg[2]<<" "<<std::endl;
 
   double T[4], Tcg;
   computeTemperature(V, T, Tcg);
+  //std::cout<<"Tcg           "<<Tcg<<std::endl;
 
   double dudxj[3][3];
   computeVelocityGradient(dp1dxj, u, dudxj);
+  //std::cout<<"dudxj[0],     "<<dudxj[0][0]<<" "<<dudxj[0][1]<<" "<<dudxj[0][2]<<std::endl;
+  //std::cout<<"dudxj[1],     "<<dudxj[1][0]<<" "<<dudxj[1][1]<<" "<<dudxj[1][2]<<std::endl;
+  //std::cout<<"dudxj[2],     "<<dudxj[2][0]<<" "<<dudxj[2][1]<<" "<<dudxj[2][2]<<std::endl;
+
 
   double dTdxj[3];
   computeTemperatureGradient(dp1dxj, T, dTdxj);
+  //std::cout<<"dTdxj[3],     "<<dTdxj[0]<<" "<<dTdxj[1]<<" "<<dTdxj[2]<<std::endl;
+  //std::cout<<"d2w[4],       "<<d2w[0]<<" "<<d2w[1]<<" "<<d2w[2]<<" "<<d2w[3]<<std::endl;
 
   double mu, lambda, kappa;
+  mu=0.0;
+  lambda=0.0;
+  kappa=0.0;//TODO clean
+  //std::cout<<"Tcg           "<<Tcg<<std::endl;
+  //std::cout<<"ooreynolds_mu "<<ooreynolds_mu<<std::endl;
   computeTransportCoefficients(Tcg, mu, lambda, kappa);
   mu     *= ooreynolds_mu;
   lambda *= ooreynolds_mu;
   kappa  *= ooreynolds_mu;
 
+
+  //reinterpret cast in order to get rid of the template parameter dim
   double (*R)[5] = reinterpret_cast<double (*)[5]>(r);
+  //std::cout<<"*r[0],        "<<R[0][0]<<" "<<R[0][1]<<" "<<R[0][2]<<" "<<R[0][3]<<R[0][4]<<std::endl;
+  //std::cout<<"*r[1],        "<<R[1][0]<<" "<<R[1][1]<<" "<<R[1][2]<<" "<<R[1][3]<<R[0][4]<<std::endl;
+  //std::cout<<"*r[2],        "<<R[2][0]<<" "<<R[2][1]<<" "<<R[2][2]<<" "<<R[2][3]<<R[0][4]<<std::endl;
+  //std::cout<<"*r[3],        "<<R[3][0]<<" "<<R[3][1]<<" "<<R[3][2]<<" "<<R[3][3]<<R[0][4]<<std::endl;
   computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, R);
+  //std::cout<<"*R[0],        "<<R[0][0]<<" "<<R[0][1]<<" "<<R[0][2]<<" "<<R[0][3]<<R[0][4]<<std::endl;
+  //std::cout<<"*R[1],        "<<R[1][0]<<" "<<R[1][1]<<" "<<R[1][2]<<" "<<R[1][3]<<R[0][4]<<std::endl;
+  //std::cout<<"*R[2],        "<<R[2][0]<<" "<<R[2][1]<<" "<<R[2][2]<<" "<<R[2][3]<<R[0][4]<<std::endl;
+  //std::cout<<"*R[3],        "<<R[3][0]<<" "<<R[3][1]<<" "<<R[3][2]<<" "<<R[3][3]<<R[0][4]<<std::endl;
+  //std::cout<<"\n"<<std::endl;
   
   // Initialize PR (porous media term)
   for (int j=0; j<3*4; ++j) PR[j] = 0.0; 
@@ -132,9 +183,9 @@ bool FemEquationTermNS::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
   {
     map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
 
-	  if(it != volInfo.end()) 
-	  {
-		  // if porous media with material_id has been defined in the input file
+    if(it != volInfo.end())
+    {
+      // if porous media with material_id has been defined in the input file
        porousmedia = computeVolumeTermPorousCore(tetVol, it, length, density, velocity, ucg, V, PR);
     }
   }
@@ -152,11 +203,30 @@ bool FemEquationTermNS::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
 //------------------------------------------------------------------------------
 
 // Included (MB)
-bool FemEquationTermNS::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], double ddp1dxj[4][3], double d2w[4],
-																		double *V[4], double *dV[4], double dMach, double *dr, 
-																		double *dS, double *dPR, double dtetVol, SVec<double,3> &X,
-                                          int nodeNum[4], int material_id)
+bool FemEquationTermNS::computeDerivativeOfVolumeTerm(
+                          double dp1dxj[4][3],  // (INPUT) first derivatives of the shape-functions
+                          double ddp1dxj[4][3], // (INPUT) second derivatives of the shape functions
+                          double d2w[4],        // (INPUT) distances to wall for all tetrahedra nodes
+                          double *V[4],
+                          double *dV[4],        // (INPUT) state vector and state vector derivative with respect to abstract variable
+                          double dMach,         // (INPUT) flag for mach derivative
+                          double *dr,           // (OUTPUT)
+                          double *dS,           // (OUTPUT)
+                          double *dPR,          // (OUTPUT)
+                          double dtetVol,       // (INPUT) cell volume derivative
+                          SVec<double,3> &X,    // (INPUT) position vector
+                          int nodeNum[4],       // (INPUT) node IDs
+                          int material_id)      // (INPUT) material ID
 {
+//  std::cout<<"FemEquationTermNS::computeDerivativeOfVolumeTerm 0: "<<dV[0][0]<<" "<<dV[0][1]<<" "<<dV[0][2]<<std::endl;
+//  std::cout<<"FemEquationTermNS::computeDerivativeOfVolumeTerm 1: "<<dV[1][0]<<" "<<dV[1][1]<<" "<<dV[1][2]<<std::endl;
+//  std::cout<<"FemEquationTermNS::computeDerivativeOfVolumeTerm 2: "<<dV[2][0]<<" "<<dV[2][1]<<" "<<dV[2][2]<<std::endl;
+//  std::cout<<"FemEquationTermNS::computeDerivativeOfVolumeTerm 3: "<<dV[3][0]<<" "<<dV[3][1]<<" "<<dV[3][2]<<std::endl;
+
+  if (dV[0][0]+dV[0][1]+dV[0][2]+
+      dV[1][0]+dV[1][1]+dV[1][2]+
+      dV[2][0]+dV[2][1]+dV[2][2]+
+      dV[3][0]+dV[3][1]+dV[3][2] != 0.0) std::cout<<" !!! Non-zero dV found"<<std::endl;
 
   bool porousmedia = false; 
 
@@ -165,6 +235,10 @@ bool FemEquationTermNS::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
 
   double du[4][3], ducg[3];
   computeDerivativeOfVelocity(dV, du, ducg);
+  if (du[0][0]+du[0][1]+du[0][2]+
+      du[1][0]+du[1][1]+du[1][2]+
+      du[2][0]+du[2][1]+du[2][2]+
+      du[3][0]+du[3][1]+du[3][2] != 0.0) std::cout<<" !!! Non-zero du found"<<std::endl;
 
   double T[4], Tcg;
   computeTemperature(V, T, Tcg);
@@ -184,6 +258,8 @@ bool FemEquationTermNS::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
   double ddTdxj[3];
   computeDerivativeOfTemperatureGradient(dp1dxj, ddp1dxj, T, dT, ddTdxj);
 
+  //derivative of reynolds with respect to sensitivity variable
+  //only non-zero when mach sensitivity is considered
   double dooreynolds_mu = -1.0 / ( reynolds_muNS * reynolds_muNS ) * dRe_mudMachNS * dMach;
 
   double mu, lambda, kappa;
@@ -876,10 +952,26 @@ void FemEquationTermSA::computeSourceTerm(double dudxj[3][3],double dnudx[3],
 //------------------------------------------------------------------------------
 
 // Included (MB)
-bool FemEquationTermSA::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], double ddp1dxj[4][3], double d2w[4],
-					  double *V[4], double *dV[4], double dMach, double *dr, double *dS, double *dPR, double dtetVol, SVec<double,3> &X,
-                                          int nodeNum[4], int material_id)
+bool FemEquationTermSA::computeDerivativeOfVolumeTerm(
+       double dp1dxj[4][3], //first derivatives of shape functions
+       double ddp1dxj[4][3],//second derivatives od shape functions
+       double d2w[4],       //distance to wall
+       double *V[4],        //Fluid states of the 4 edges
+       double *dV[4],       //Derivative of the 4 fluid state vectors
+       double dMach,        //flag for mach-sensitivity
+       double *dr,          //residual derivative contribution
+       double *dS,          //?
+       double *dPR,         //?
+       double dtetVol,      //Derivative of tetrahedra volume
+       SVec<double,3> &X,   //mesh positions
+       int nodeNum[4],      //Tetrahedra node IDs
+       int material_id)     //Material IDs
 {
+
+//  if(V[0][5]==0.0 && V[1][5]==0.0 && V[2][5]==0.0 && V[3][5]==0.0){
+//    //std::cout<<"\033[91mAll pressures are zero!\033[00m"<<std::endl;//TODO delete line
+//    Dev::Warning(MPI_COMM_WORLD,"All RANS components of that element are zero",true);
+//  }
 
   bool porousmedia = false;
 
@@ -925,12 +1017,12 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
   
   // Applying the laminar-turbulent trip
   if(trip){
-    if((X[nodeNum[0]][0]>=x0 && X[nodeNum[0]][0]<=x1 && X[nodeNum[0]][1]>=y0 && X[nodeNum[0]][1]<=y1 &&
-    	X[nodeNum[0]][2]>=z0 && X[nodeNum[0]][2]<=z1) || (X[nodeNum[1]][0]>=x0 && X[nodeNum[1]][0]<=x1 &&
-    	X[nodeNum[1]][1]>=y0 && X[nodeNum[1]][1]<=y1 && X[nodeNum[1]][2]>=z0 && X[nodeNum[1]][2]<=z1) ||
-    	(X[nodeNum[2]][0]>=x0 && X[nodeNum[2]][0]<=x1 && X[nodeNum[2]][1]>=y0 && X[nodeNum[2]][1]<=y1 &&
-    	X[nodeNum[2]][2]>=z0 && X[nodeNum[2]][2]<=z1) || (X[nodeNum[3]][0]>=x0 && X[nodeNum[3]][0]<=x1 &&
-    	X[nodeNum[3]][1]>=y0 && X[nodeNum[3]][1]<=y1 && X[nodeNum[3]][2]>=z0 && X[nodeNum[3]][2]<=z1)) {
+    if((X[nodeNum[0]][0]>=x0 && X[nodeNum[0]][0]<=x1  &&  X[nodeNum[0]][1]>=y0 && X[nodeNum[0]][1]<=y1 &&
+        X[nodeNum[0]][2]>=z0 && X[nodeNum[0]][2]<=z1) || (X[nodeNum[1]][0]>=x0 && X[nodeNum[1]][0]<=x1 &&
+        X[nodeNum[1]][1]>=y0 && X[nodeNum[1]][1]<=y1  &&  X[nodeNum[1]][2]>=z0 && X[nodeNum[1]][2]<=z1) ||
+       (X[nodeNum[2]][0]>=x0 && X[nodeNum[2]][0]<=x1  &&  X[nodeNum[2]][1]>=y0 && X[nodeNum[2]][1]<=y1 &&
+        X[nodeNum[2]][2]>=z0 && X[nodeNum[2]][2]<=z1) || (X[nodeNum[3]][0]>=x0 && X[nodeNum[3]][0]<=x1 &&
+        X[nodeNum[3]][1]>=y0 && X[nodeNum[3]][1]<=y1  &&  X[nodeNum[3]][2]>=z0 && X[nodeNum[3]][2]<=z1)) {
     	mut = computeTurbulentViscosity(V, mul, mutilde);
     	dmut = computeDerivativeOfTurbulentViscosity(V, dV, mul, dmul, dmutilde);
     }
@@ -944,7 +1036,9 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
   else {
     mut = computeTurbulentViscosity(V, mul, mutilde);
     dmut = computeDerivativeOfTurbulentViscosity(V, dV, mul, dmul, dmutilde);
+    //std::cout<<"mul: "<<mul<<"  mutilde: "<<mutilde<<std::endl;//TODO delete line
   }
+  //std::cout<<"mul: "<<mul<<"  mutilde: "<<mutilde<<std::endl;//TODO delete line
 
   lambdat  = computeSecondTurbulentViscosity(lambdal, mul, mut);
   dlambdat = computeDerivativeOfSecondTurbulentViscosity(lambdal, dlambdal, mul, dmul, mut, dmut);
@@ -967,6 +1061,15 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
   else {
     fprintf(stderr, "***** Inside the file FemEquationTermDesc.C the varible mutilde is zero *****\n");
     //exit(1);
+    std::cout<<"NodeNum: "<<nodeNum[0]<<" "<<nodeNum[1]<<" "<<nodeNum[2]<<" "<<nodeNum[3]<<" "<<std::endl;//TODO delete line
+    std::cout<<"V[0][5] "<<V[0][5]<<std::endl;//TODO delete line
+    std::cout<<"V[1][5] "<<V[1][5]<<std::endl;//TODO delete line
+    std::cout<<"V[2][5] "<<V[2][5]<<std::endl;//TODO delete line
+    std::cout<<"V[3][5] "<<V[3][5]<<std::endl;//TODO delete line
+    std::cout<<"V[0][0] "<<V[0][0]<<std::endl;//TODO delete line
+    std::cout<<"V[1][0] "<<V[1][0]<<std::endl;//TODO delete line
+    std::cout<<"V[2][0] "<<V[2][0]<<std::endl;//TODO delete line
+    std::cout<<"V[3][0] "<<V[3][0]<<std::endl;//TODO delete line
     dabsmutilde = 0.0;
   }
 
@@ -1010,6 +1113,11 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
   dR[0][5] = dmu5 * dnutildedx + mu5 * ddnutildedx;
   dR[1][5] = dmu5 * dnutildedy + mu5 * ddnutildedy;
   dR[2][5] = dmu5 * dnutildedz + mu5 * ddnutildedz;
+  if (mutilde == 0.0) {
+    std::cout<<"Added contribution: "<<dmu5 * dnutildedx + mu5 * ddnutildedx<<std::endl;//TODO delete line
+    std::cout<<"Added contribution: "<<dmu5 * dnutildedy + mu5 * ddnutildedy<<std::endl;//TODO delete line
+    std::cout<<"Added contribution: "<<dmu5 * dnutildedz + mu5 * ddnutildedz<<std::endl;//TODO delete line
+  }
 
   dS[0] = 0.0;
   dS[1] = 0.0;
@@ -1019,7 +1127,7 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
   dS[5] = 0.0;
 
   double d2wall = 0.25 * (d2w[0] + d2w[1] + d2w[2] + d2w[3]);
-  if (d2wall >= 1.e-15) {
+  if (d2wall >= 1.e-15) {//RANS contribution only for nodes closest to the surface
     if (mutilde/mul == 0.001) {
       fprintf(stderr, "***** Inside the file FemEquationTermDesc.C the varibles in the function max are equal *****\n");
       //exit(1);
@@ -1047,6 +1155,7 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
       dfv3 = ( ( dchi*fv1 + chi*dfv1 ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi ) / ( chi * chi );
     }
 
+    //WTF this is ugly
     double ood2wall2 = 1.0 / (d2wall * d2wall);
     double rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
     double drho = 0.25 * (dV[0][0] + dV[1][0] + dV[2][0] + dV[3][0]);
@@ -1898,9 +2007,19 @@ bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
 //------------------------------------------------------------------------------
 
 // Included (MB)
-bool FemEquationTermDES::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], double ddp1dxj[4][3], double d2w[4],
-					  double *V[4], double *dV[4], double dMach, double *dr, double *dS, double *dPR, double dtetVol, SVec<double,3> &X,
-                                          int nodeNum[4], int material_id)
+bool FemEquationTermDES::computeDerivativeOfVolumeTerm(
+                           double dp1dxj[4][3],
+                           double ddp1dxj[4][3],
+                           double d2w[4],
+                           double *V[4],
+                           double *dV[4],
+                           double dMach,
+                           double *dr,
+                           double *dS,
+                           double *dPR,
+                           double dtetVol,
+                           SVec<double,3> &X,
+                           int nodeNum[4], int material_id)
 {
 
   bool porousmedia = false;

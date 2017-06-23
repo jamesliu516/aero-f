@@ -1147,7 +1147,17 @@ void DistIntersectorPhysBAM::findActiveNodesUsingFloodFill(const DistVec<bool>& 
   for(int iSub=0;iSub<numLocSub;++iSub){
     SubDomain& sub=intersector[iSub]->subD;
     for(int i=0;i<(*status)(iSub).size();++i){
-      int color=localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(sub),nodeColors(iSub)[i])];
+      //int color=localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(sub),nodeColors(iSub)[i])];
+      int color =0;
+      try{
+        color=localToGlobalColorMap.at(pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(sub),nodeColors(iSub)[i]));
+      }
+      catch(std::exception& e){
+          //the node has no color. This usually happend if you have multiple embedded structures and one of them was messed by the flood fill
+          //in that case, we put the color to a non existing one to enforce the nodes to be ghost
+          color = -1;
+      }
+
       if((*is_occluded)(iSub)[i] || globalColorToGlobalStatus.find(color)==globalColorToGlobalStatus.end()){
 #if 0 // Debug output
         fprintf(stderr,"Flagging node %d as OUTSIDE COLOR %d, based on occluded = %d, global_color found = %d\n",

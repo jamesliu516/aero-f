@@ -206,7 +206,7 @@ public:
   double getTurbulentKineticEnergy(double *V, int tag=0)   const{check(tag); return varFcn[tag]->getTurbulentKineticEnergy(V); }
   double getTurbulentDissipationRate(double *V, int tag=0) const{check(tag); return varFcn[tag]->getTurbulentDissipationRate(V); }
 
-  void rstVar(IoData &iod) { assert(numPhases==1); varFcn[0]->rstVar(iod); }
+  void rstVar(IoData &iod) { /*assert(numPhases==1);*/ varFcn[0]->rstVar(iod); }
   Vec3D getDerivativeOfVelocity(double *dV, int tag=0) { check(tag); return varFcn[tag]->getDerivativeOfVelocity(dV); }
   double computeDerivativeOfTemperature(double *V, double *dV, int tag=0) { check(tag); return varFcn[tag]->computeDerivativeOfTemperature(V,dV); }
   void computeDerivativeOperatorsOfTemperature(double *V, double *dTdV, int tag=0) { check(tag); varFcn[tag]->computeDerivativeOperatorsOfTemperature(V,dTdV); }

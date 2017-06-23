@@ -66,6 +66,7 @@ embeddedsurface(NULL),
 embeddedsurfaceCp(NULL),
 embeddedsurfaceCf(NULL),
 cputiming(NULL),
+populatedState(NULL),
 stateVectors(NULL),
 stateMaskVectors(NULL),
 residualVectors(NULL),
@@ -119,13 +120,6 @@ fpdFluxNorm(NULL),
 heatfluxes(NULL),
 fpHeatFluxes(NULL)
 {
-
-//  //temporary initialziaze string for the writing of TempStateDeriv
-//  if (iod.sa.tempStateDeriv[0]!=0) {
-//    const char* tempStateDerivName = iod.sa.tempStateDeriv;
-//    this->tempStateDeriv = new char[strlen(iod.input.prefix) + strlen(tempStateDerivName) + 1];
-//    sprintf(fullOptPressureName, "%s%s", iod.input.prefix, this->tempStateDeriv);
-//  }
 
   int i;
 
@@ -675,6 +669,12 @@ fpHeatFluxes(NULL)
     sprintf(embeddedsurfaceCf, "%s%s%s", iod.output.transient.prefix, "emb_", iod.output.transient.sfric);
   }  else
     embeddedsurfaceCf = 0;
+
+  //TODO VISCOUSDERIV
+  if (iod.output.transient.populatedState!=NULL) {
+    populatedState = new char[sp + strlen(iod.output.transient.populatedState)];
+    sprintf(populatedState, "%s%s",iod.output.transient.prefix, iod.output.transient.populatedState);
+  }
 
   it0 = iod.restart.iteration;
   //std::cout << "it0 = " << it0 << std::endl;
@@ -3050,7 +3050,7 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt,
 					     int it,
 					     double t,
 					     DistSVec<double,3> &X,
-                                             DistVec<double> &A,
+               DistVec<double> &A,
 					     DistSVec<double,dim> &U,
 					     DistTimeState<dim> *timeState)
 {
@@ -3459,8 +3459,8 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
                                              DistVec<double> &A, DistSVec<double,dim> &U,
                                              DistTimeState<dim> *timeState,
                                              DistVec<int> &fluidId, DistSVec<double,dim> *Wextij,
-															DistLevelSetStructure *distLSS,
-					     DistVec<GhostPoint<dim>*> *ghostPoints)
+                                             DistLevelSetStructure *distLSS,
+                                             DistVec<GhostPoint<dim>*> *ghostPoints)
 {
 
   if (toWrite(it,lastIt,t)) {
@@ -3474,6 +3474,9 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
 
     if (dSolutions)
       domain->writeVectorToFile(dSolutions, step, tag, U);
+
+    if (populatedState!=NULL)//write the state vector, includeing the populated valuse
+      this->writeAnyVectorToDisk(populatedState,1,1,U,distLSS,ghostPoints);
 
     int i;
     for (i=0; i<PostFcn::SSIZE; ++i) {
@@ -3623,7 +3626,7 @@ void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<do
 //TODO BUGHUNT
 
 
-// Included (MB)
+// TODO VISCOUSDERIV
 template<int dim>
 void TsOutput<dim>::writeAnyVectorToDisk(
 		              const char* filename,
@@ -3633,6 +3636,32 @@ void TsOutput<dim>::writeAnyVectorToDisk(
 {
   int    step = it-1;
   domain->writeVectorToFile(filename, step, tag, vec);
+}
+
+// TODO VISCOUSDERIV
+template<int dim>
+void TsOutput<dim>::writeAnyVectorToDisk(
+                  const char* filename,
+                  int it,
+            int tag,
+            DistSVec<double,3> &vec)
+{
+  int    step = it-1;
+  domain->writeVectorToFile(filename, step, tag, vec);
+}
+
+// TODO VISCOUSDERIV
+template<int dim>
+void TsOutput<dim>::writeAnyVectorToDisk(
+                      const char* filename,
+                      int it,
+                      int tag,
+                      DistSVec<double,dim> &vec,
+                      DistLevelSetStructure *distLSS,
+                      DistVec<GhostPoint<dim>*> *ghostPoints)
+{
+  int    step = it-1;
+  domain->writeVectorToFile(filename, step, (double) tag, vec, distLSS, ghostPoints);
 }
 
 
@@ -3650,10 +3679,11 @@ void TsOutput<dim>::writeBinaryDerivativeOfVectorsToDisk(
 							 DistVec<double>* A)
 {
   int    step = it-1;
-  double tag  = (double)actvar;
+  //double tag  = (double)actvar;
+  double tag  = (double)step;
 
   if (dSolutions)
-    domain->writeVectorToFile(dSolutions, step, tag, dU);
+    domain->writeVectorToFile(dSolutions, step, actvar, dU);
 
   int i;
   for (i=0; i<PostFcn::DSSIZE; ++i) {
@@ -3661,7 +3691,7 @@ void TsOutput<dim>::writeBinaryDerivativeOfVectorsToDisk(
       if (!Qs) Qs = new DistVec<double>(domain->getNodeDistInfo());
       postOp->computeDerivativeOfScalarQuantity(static_cast<PostFcn::ScalarDerivativeType>(i), dS, X, dX, U, dU, *Qs, timeState);
       DistSVec<double,1> Qs1(Qs->info(), reinterpret_cast<double (*)[1]>(Qs->data()));
-      domain->writeVectorToFile(dScalars[i], step, tag, Qs1, &(dSscale[i]));
+      domain->writeVectorToFile(dScalars[i], step, tag, Qs1, &(dSscale[i]));//TODO try to change the tag
 
       //Match Properties
       if (static_cast<PostFcn::ScalarDerivativeType>(i) == PostFcn::DERIVATIVE_PRESSURE  &&

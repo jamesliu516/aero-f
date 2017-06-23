@@ -376,11 +376,17 @@ void PostOperator<dim>::computeDerivativeOfNodalHeatPower(DistSVec<double,3>& X,
 // computes the non-dimensional forces and moments
 
 template<int dim>
-void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X,
-					      DistSVec<double,dim> &U,
-                                              DistVec<int> *fluidId, Vec3D *Fi,
-					      Vec3D *Mi, Vec3D *Fv, Vec3D *Mv, int hydro,
-                                              VecSet< DistSVec<double,3> > *mX, Vec<double> *genCF)
+void PostOperator<dim>::computeForceAndMoment(
+                          Vec3D &x0, DistSVec<double,3> &X,
+                          DistSVec<double,dim> &U,
+                          DistVec<int> *fluidId,
+                          Vec3D *Fi,
+                          Vec3D *Mi,
+                          Vec3D *Fv,
+                          Vec3D *Mv,
+                          int hydro,
+                          VecSet< DistSVec<double,3> > *mX,
+                          Vec<double> *genCF)
 {
 // fluidId must be a null pointer for single-phase flow
 // fluidId points to a DistVec<int> for multi-phase flow
@@ -501,9 +507,9 @@ void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X,
 template<int dim>
 void PostOperator<dim>::computeForceAndMoment(DistExactRiemannSolver<dim> &riemann,
                                               Vec3D &x0, DistSVec<double,3> &X,
-					      DistSVec<double,dim> &U,
+					                                    DistSVec<double,dim> &U,
                                               DistVec<int> *fluidId, Vec3D *Fi,
-					      Vec3D *Mi, Vec3D *Fv, Vec3D *Mv, int hydro,
+					                                    Vec3D *Mi, Vec3D *Fv, Vec3D *Mv, int hydro,
                                               VecSet< DistSVec<double,3> > *mX, Vec<double> *genCF)
 {
 
@@ -693,12 +699,16 @@ map<int, int>::iterator it;
 
 
 // Included (MB)
-// computes the derivative of non-dimensional forces and moments
+// computes the derivative of non-dimensional forces and moments for ALE framework
 
 template<int dim>
-void PostOperator<dim>::computeDerivativeOfForceAndMoment(Vec3D &x0, DistSVec<double,3> &X, DistSVec<double,3> &dX,
-                                                          DistSVec<double,dim> &U, DistSVec<double,dim> &dU, double dS[3],
-                                                          Vec3D *dFi, Vec3D *dMi, Vec3D *dFv, Vec3D *dMv, int hydro)
+void PostOperator<dim>::computeDerivativeOfForceAndMoment(
+                          Vec3D &x0, DistSVec<double,3> &X, DistSVec<double,3> &dX,
+                          DistSVec<double,dim> &U, DistSVec<double,dim> &dU,
+                          double dS[3],
+                          Vec3D *dFi, Vec3D *dMi,
+                          Vec3D *dFv, Vec3D *dMv,
+                          int hydro)
 {
 
   int iSurf;
@@ -946,9 +956,9 @@ void PostOperator<dim>::computeDerivativeOperatorsOfForceAndMoment(dRdXoperators
 
 
 
-
+// compute derivatives of forces and Moment for the embedded framework
 template<int dim>
-void PostOperator<dim>::computeDerivativeOfForceAndMoment(Vec3D &x0, DistSVec<double,3> &X,
+void PostOperator<dim>::computeDerivativeOfForceAndMomentEmb(Vec3D &x0, DistSVec<double,3> &X,
 							  DistSVec<double,dim> &U,
 							  DistSVec<double,dim> &dU,
 							  DistVec<int> *fluidId,

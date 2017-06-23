@@ -7,7 +7,6 @@
 #include <ImplicitSegTsDesc.h>
 #include <MultiGridSegTsDesc.h>
 #include <MultiGridSolver.h>
-#include <FluidSegShapeOptimizationHandler.h> //lscheuch //TODO delete line if unused
 
 template<int dim, int neq1, int neq2>
 void startNavierStokesSegSolver(IoData &ioData, GeoSource &geoSource, Domain &domain)
@@ -19,17 +18,17 @@ void startNavierStokesSegSolver(IoData &ioData, GeoSource &geoSource, Domain &do
   if (ioData.problem.solutionMethod == ProblemData::TIMESTEPPING) {
     ImplicitSegTsDesc<dim,neq1,neq2> tsDesc(ioData, geoSource, &domain);
 
-    //TODO HACK
     if (ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_){
-      FluidSegShapeOptimizationHandler<dim,neq1,neq2> fsoh(ioData, geoSource, &domain);
-      TsSolver<FluidSegShapeOptimizationHandler<dim,neq1,neq2> > tsSolver(&fsoh);
-      tsSolver.fsoSolve(ioData);
+      std::cout<<"Sensitivities not implemented for Weak turbulence coupling"<<std::endl; std::exit(-1);
+//      FluidSegShapeOptimizationHandler<dim,neq1,neq2> fsoh(ioData, geoSource, &domain);
+//      TsSolver<FluidSegShapeOptimizationHandler<dim,neq1,neq2> > tsSolver(&fsoh);
+//      tsSolver.fsoSolve(ioData);
     }
-    //TODO HACK
     else if (ioData.problem.alltype == ProblemData::_SENSITIVITY_ANALYSIS_){
-      FluidSegShapeOptimizationHandler<dim,neq1,neq2> fsoh(ioData, geoSource, &domain);
-      TsSolver<FluidSegShapeOptimizationHandler<dim,neq1,neq2> > tsSolver(&fsoh);
-      tsSolver.fsaSolve(ioData);
+      std::cout<<"Sensitivities not implemented for Weak turbulence coupling"<<std::endl; std::exit(-1);
+//      FluidSegShapeOptimizationHandler<dim,neq1,neq2> fsoh(ioData, geoSource, &domain);
+//      TsSolver<FluidSegShapeOptimizationHandler<dim,neq1,neq2> > tsSolver(&fsoh);
+//      tsSolver.fsaSolve(ioData);
     }
     else{
       TsSolver<ImplicitSegTsDesc<dim,neq1,neq2> > tsSolver(&tsDesc);

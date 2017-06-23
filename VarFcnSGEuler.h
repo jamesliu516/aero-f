@@ -187,6 +187,8 @@ public:
 
   double computeDerivativeOfTemperature(double *V, double *dV) const {
     // Correction when Pstiff is non-zero.
+
+    //TODO original
     return ( invgam1 * dV[4] - computeTemperature(V) * dV[0] ) /V[0];
 
 //	//TODO BUGHUNT
@@ -207,8 +209,11 @@ public:
     ///if (Ma ==0.0)
     if (Ma < 100*std::numeric_limits<float>::min())
       return 0.0;
-    //----
+
+////TODO original
     return 1/(2.0*sqrt((V[1]*V[1] + V[2]*V[2] + V[3]*V[3]) * V[0] / (gam * (V[4]+Pstiff)))) * ( ( (2.0*(V[1]*dV[1] + V[2]*dV[2] + V[3]*dV[3]) * V[0] + (V[1]*V[1] + V[2]*V[2] + V[3]*V[3]) * dV[0]) * (V[4]+Pstiff) - (V[1]*V[1] + V[2]*V[2] + V[3]*V[3]) * V[0] * (dV[4] + dPstiff*dMach) ) / ( (V[4]+Pstiff) * (V[4]+Pstiff) ) );
+
+////TODO BUGHUNT
 //    double dens=V[0]; double vx=V[1]; double vy=V[2]; double vz=V[3]; double press=V[4];
 //    double pdMaBYdens = Ma/(2*dens);
 //    double pdMaBYvx   = (dens)/(gam*press)*1/Ma*vx;
@@ -226,13 +231,14 @@ public:
     return 1.0/( 2.0*sqrt(gam * (V[4]+Pstiff) / V[0]) ) * gam * ( (dV[4]+dPstiff*dMach) * V[0] - (V[4]+Pstiff) * dV[0] ) / ( V[0] * V[0] );
   }
   double computeDerivativeOfTotalPressure(double machr, double dmachr, double* V, double* dV, double dMach) const {
+//TODO original
     double mach = computeMachNumber(V);
     double dmach = computeDerivativeOfMachNumber(V, dV, dMach);
     double opmach = 1.0 + 0.5*gam1*mach*mach;
     double dopmach = gam1*mach*dmach;
     return dV[4]*pow(opmach, gam*invgam1) + (V[4]+Pstiff)*gam*invgam1*pow(opmach, (gam*invgam1-1))*dopmach;
 
-//	  //TODO BUGHUNT
+	  //TODO BUGHUNT
 //      double dens=V[0]; double vx=V[1]; double vy=V[2]; double vz=V[3]; double press=V[4];
 //      double mach = computeMachNumber(V);
 //      double dmach = computeDerivativeOfMachNumber(V, dV, dMach);

@@ -72,7 +72,7 @@ protected:
       if(iod.ts.prec == TsData::PREC){
         prec = 2;
         if(iod.problem.alltype != ProblemData::_SHAPE_OPTIMIZATION_ &&
-           iod.problem.alltype != ProblemData::_SENSITIVITY_ANALYSIS_ && //TODO CHECK if neccessary
+           iod.problem.alltype != ProblemData::_SENSITIVITY_ANALYSIS_ &&
            iod.problem.alltype != ProblemData::_ROM_SHAPE_OPTIMIZATION_ &&
 	       iod.problem.alltype != ProblemData::_STEADY_ &&
            iod.problem.alltype != ProblemData::_STEADY_AEROELASTIC_ &&
