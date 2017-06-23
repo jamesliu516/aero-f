@@ -71,7 +71,7 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   linRecAtInterface  = (ioData.embed.reconstruct==EmbeddedFramework::LINEAR) ? true : false;
   viscSecOrder  = (ioData.embed.viscousinterfaceorder==EmbeddedFramework::SECOND) ? true : false;
   riemannNormal = (int)ioData.embed.riemannNormal;
-      
+
 	//first-order everywhere... //d2d
 	if(orderOfAccuracy == 1) 
 	{
@@ -495,7 +495,7 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
 
   // Ghost-Points Population
   if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
-      this->spaceOp->populateGhostPoints(this->ghostPoints,*this->X,*U,this->varFcn,this->distLSS,this->viscSecOrder,this->nodeTag);
+      this->spaceOp->populateGhostPoints(this->ghostPoints,*this->X,*U,this->varFcn, this->distLSS,this->viscSecOrder,this->nodeTag);
 
   // Population of spaceOp->V for the force computation
 	this->spaceOp->conservativeToPrimitive(*U, this->distLSS, &this->nodeTag);
@@ -1053,16 +1053,17 @@ void EmbeddedTsDesc<dim>::getForcesAndMoments(
     if(it != surfOutMap.end() && it->second != -2)
       idx = it->second;
     else {
-      idx = 0;
+      idx = 0;//default
     }
+    if(idx !=-1){//We want to compute the force
+		Fi[idx][0] += Fs[i][0];
+		Fi[idx][1] += Fs[i][1];
+		Fi[idx][2] += Fs[i][2];
 
-    Fi[idx][0] += Fs[i][0]; 
-    Fi[idx][1] += Fs[i][1]; 
-    Fi[idx][2] += Fs[i][2];
-
-    Mi[idx][0] += Xstruc[i][1]*Fs[i][2]-Xstruc[i][2]*Fs[i][1];
-    Mi[idx][1] += Xstruc[i][2]*Fs[i][0]-Xstruc[i][0]*Fs[i][2];
-    Mi[idx][2] += Xstruc[i][0]*Fs[i][1]-Xstruc[i][1]*Fs[i][0];
+		Mi[idx][0] += Xstruc[i][1]*Fs[i][2]-Xstruc[i][2]*Fs[i][1];
+		Mi[idx][1] += Xstruc[i][2]*Fs[i][0]-Xstruc[i][0]*Fs[i][2];
+		Mi[idx][2] += Xstruc[i][0]*Fs[i][1]-Xstruc[i][1]*Fs[i][0];
+    }
   }
 }
 

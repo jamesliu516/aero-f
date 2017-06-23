@@ -656,8 +656,8 @@ fpHeatFluxes(NULL)
   if ( (iod.problem.framework==ProblemData::EMBEDDED ||
 	iod.problem.framework==ProblemData::EMBEDDEDALE) &&
        iod.output.transient.pressurecoefficient[0] != 0) {
-    embeddedsurfaceCp = new char[sp + strlen(iod.output.transient.pressurecoefficient)];
-    sprintf(embeddedsurfaceCp, "%s%s%s", iod.output.transient.prefix, "emb_", iod.output.transient.pressurecoefficient);
+    embeddedsurfaceCp = new char[sp + strlen(iod.output.transient.pressurecoefficient) + 4];
+    sprintf(embeddedsurfaceCp, "%s%s%s", iod.output.transient.prefix, iod.output.transient.pressurecoefficient, "_emb"); 
   }  else
     embeddedsurfaceCp = 0;
 
@@ -665,8 +665,8 @@ fpHeatFluxes(NULL)
   if ( (iod.problem.framework==ProblemData::EMBEDDED ||
 	iod.problem.framework==ProblemData::EMBEDDEDALE) &&
        iod.output.transient.sfric[0] != 0) {
-    embeddedsurfaceCf = new char[sp + strlen(iod.output.transient.sfric)];
-    sprintf(embeddedsurfaceCf, "%s%s%s", iod.output.transient.prefix, "emb_", iod.output.transient.sfric);
+    embeddedsurfaceCf = new char[sp + strlen(iod.output.transient.sfric) + 4];
+    sprintf(embeddedsurfaceCf, "%s%s%s", iod.output.transient.prefix,  iod.output.transient.sfric, "_emb"); 
   }  else
     embeddedsurfaceCf = 0;
 
@@ -1954,7 +1954,7 @@ void TsOutput<dim>::openAsciiFiles()
         fprintf(stderr, "*** Error: could not open \'%s\'\n", embeddedsurfaceCp);
         exit(1);
       }
-      fprintf(fpEmbeddedSurfaceCp, "Scalar %s under load for FluidNodes\n", embeddedsurfaceCp);
+      fprintf(fpEmbeddedSurfaceCp, "Scalar PressureCoefficient under load for FluidNodes\n");
     }
     fflush(fpEmbeddedSurfaceCp);
 
@@ -1970,7 +1970,7 @@ void TsOutput<dim>::openAsciiFiles()
         fprintf(stderr, "*** Error: could not open \'%s\'\n", embeddedsurfaceCf);
         exit(1);
       }
-      fprintf(fpEmbeddedSurfaceCf, "Scalar %s under load for FluidNodes\n", embeddedsurfaceCf);
+      fprintf(fpEmbeddedSurfaceCf, "Scalar SkinFriction under load for FluidNodes\n");
     }
     fflush(fpEmbeddedSurfaceCf);
 

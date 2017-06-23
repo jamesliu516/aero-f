@@ -996,9 +996,9 @@ void BcsWallData::setup(const char *name, ClassAssigner *father)
   new ClassToken<BcsWallData>(ca, "Integration", this,
                               reinterpret_cast<int BcsWallData::*>(&BcsWallData::integration), 2,
                               "WallFunction", 1, "Full", 2);
-  new ClassToken<BcsWallData>(ca, "Reconstruction", this,
+  new ClassToken<BcsWallData>(ca, "Method", this,
                               reinterpret_cast<int BcsWallData::*>(&BcsWallData::reconstruction), 2,
-                              "Constant", 0, "ExactRiemann", 1);
+                              "Standard", 0, "ExactRiemannProblem", 1);
   new ClassDouble<BcsWallData>(ca, "Temperature", this, &BcsWallData::temperature);
   new ClassDouble<BcsWallData>(ca, "Delta", this, &BcsWallData::delta);
 
@@ -1048,6 +1048,7 @@ BoundaryData::BoundaryData()
   pressureJump = 0.0;
   massFlow = 0.0;
 
+
   for (int i=0; i<SIZE; ++i) {
     inVar[i] = false;
     outVar[i] = false;
@@ -1062,8 +1063,8 @@ Assigner *BoundaryData::getAssigner()  {
   ClassAssigner *ca = new ClassAssigner("normal", 20, nullAssigner);
 
   new ClassToken<BoundaryData>(ca, "Type", this,
-                              (int BoundaryData::*)(&BoundaryData::type), 6,
-                               "DirectState", DIRECTSTATE, "MassFlow", MASSFLOW, "PorousWall", POROUSWALL, "SymmetryPlane", SYMMETRYPLANE,"ActuatorDisk", ACTUATORDISK, "MassInflow", MASSINFLOW);
+                              (int BoundaryData::*)(&BoundaryData::type), 7,
+                               "DirectState", DIRECTSTATE, "MassFlow", MASSFLOW, "PorousWall", POROUSWALL, "SymmetryPlane", SYMMETRYPLANE,"ActuatorDisk", ACTUATORDISK, "MassInflow", MASSINFLOW,"Wall",WALL);
   new ClassDouble<BoundaryData>(ca, "Density", this, &BoundaryData::density);
   new ClassDouble<BoundaryData>(ca, "VelocityX", this, &BoundaryData::velocityX);
   new ClassDouble<BoundaryData>(ca, "VelocityY", this, &BoundaryData::velocityY);
@@ -1089,7 +1090,7 @@ Assigner *BoundaryData::getAssigner()  {
                                   (int BoundaryData::*)(&BoundaryData::sourceTermExpression), 2,
                                    "Old", OLD, "Corrected", CORRECTED);
 
-  new ClassDouble<BoundaryData>(ca, "MassFlow", this, &BoundaryData::massFlow);
+  new ClassDouble<BoundaryData>(ca, "MassFlowEmbedded", this, &BoundaryData::massFlow);
 
   new ClassArray<BoundaryData>(ca, "InletVariableSet", this, &BoundaryData::inVar, 12, "Rho", DENSITY, "Vx", VX, "Vy", VY, "Vz", VZ, "P", PRESSURE, "T", TEMPERATURE, "P_T", TOTALPRESSURE, "T_T", TOTALTEMPERATURE, "MDot", MDOT, "NuTilde", NUTILDE, "K", KENERGY, "Eps", EPSILON);
   new ClassArray<BoundaryData>(ca, "OutletVariableSet", this, &BoundaryData::outVar, 12, "Rho", DENSITY, "Vx", VX, "Vy", VY, "Vz", VZ, "P", PRESSURE, "T", TEMPERATURE, "P_T", TOTALPRESSURE, "T_T", TOTALTEMPERATURE, "MDot", MDOT, "NuTilde", NUTILDE, "K", KENERGY, "Eps", EPSILON);
@@ -2566,11 +2567,32 @@ void BFixData::setup(const char *name, ClassAssigner *father)
 
 //------------------------------------------------------------------------------
 
+DHFixData::DHFixData()
+{
+  angle = -1.0;
+  numLayers = 0;
+  maxDist = 1.0;
+}
+
+//------------------------------------------------------------------------------
+
+void DHFixData::setup(const char *name, ClassAssigner *father)
+{
+
+  ClassAssigner *ca = new ClassAssigner(name, 3, father);
+
+  new ClassDouble<DHFixData>(ca, "Angle", this, &DHFixData::angle);
+  new ClassInt<DHFixData>(ca, "NumLayers", this, &DHFixData::numLayers);
+  new ClassDouble<DHFixData>(ca, "MaxDistance", this, &DHFixData::maxDist);
+}
+
+//------------------------------------------------------------------------------
+
 SchemeFixData::SchemeFixData()
 {
 
   symmetry = NONE;
-  dihedralAngle = -1.0;
+//  dihedralAngle = -1.0;
 
   spheres[0] = &sfix1;
   spheres[1] = &sfix2;
@@ -2613,13 +2635,13 @@ SchemeFixData::SchemeFixData()
 void SchemeFixData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 32, father);
+  ClassAssigner *ca = new ClassAssigner(name, 33, father);
 
   new ClassToken<SchemeFixData>
     (ca, "Symmetry", this,
      reinterpret_cast<int SchemeFixData::*>(&SchemeFixData::symmetry), 4,
      "None", 0, "X", 1, "Y", 2, "Z", 3);
-  new ClassDouble<SchemeFixData>(ca, "DihedralAngle", this, &SchemeFixData::dihedralAngle);
+//  new ClassDouble<SchemeFixData>(ca, "DihedralAngle", this, &SchemeFixData::dihedralAngle);
 
   sfix1.setup("Sphere1", ca);
   sfix2.setup("Sphere2", ca);
@@ -2653,6 +2675,8 @@ void SchemeFixData::setup(const char *name, ClassAssigner *father)
   cfix8.setup("Cone8", ca);
   cfix9.setup("Cone9", ca);
   cfix10.setup("Cone10", ca);
+
+  dhfix.setup("Dihedral",ca); 
 }
 
 //------------------------------------------------------------------------------
@@ -5258,7 +5282,7 @@ EmbeddedFramework::EmbeddedFramework() {
 
 void EmbeddedFramework::setup(const char *name) {
 
-  ClassAssigner *ca = new ClassAssigner(name, 13, 0); //father);
+  ClassAssigner *ca = new ClassAssigner(name, 14, 0); //father);
   new ClassToken<EmbeddedFramework> (ca, "Intersector", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::intersectorName), 2,
                                       "PhysBAM", 0, "FRG", 1);
   new ClassToken<EmbeddedFramework> (ca, "StructureNormal", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::structNormal), 2,
@@ -5315,8 +5339,52 @@ void EmbeddedFramework::setup(const char *name) {
      reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::prec), 2,
      "NonPreconditioned", 0, "LowMach", 1);
 
+	//embeded constraint
+	//added by Arthur Morlot (February 2016)
+	//
+	Embedded_Constraint.setup("EmbeddedConstraint",ca);
 
 }
+
+//------------------------------------------------------------------------------
+EmbeddedConstraint::EmbeddedConstraint() {
+
+ConstraintType = NOCONSTRAINT;
+
+}
+//------------------------------------------------------------------------------
+void EmbeddedConstraint::setup(const char *name, ClassAssigner *father) {
+
+ ClassAssigner *ca = new ClassAssigner(name, 3, father);
+ new ClassToken<EmbeddedConstraint> (ca, "ConstraintType", this, reinterpret_cast<int EmbeddedConstraint::*>(&EmbeddedConstraint::ConstraintType), 3,
+                                      "NoConstraint", 0,"Symmetry", 1, "Inlet", 2);
+
+ Symmetry_Constraint.setup("SymmetryConstraint",ca);
+ Inlet_Constraint.setup("InletConstraint",ca);
+}
+
+
+//------------------------------------------------------------------------------
+
+void SymmetryConstraint::setup(const char *name, ClassAssigner *father) {
+
+
+ ClassAssigner *ca = new ClassAssigner(name, 2, father);
+ new ClassToken<SymmetryConstraint> (ca, "Normal", this, reinterpret_cast<int SymmetryConstraint::*>(&SymmetryConstraint::Normal), 3,
+                       "Nx", 0, "Ny", 1,"Nz", 2);
+ new ClassDouble<SymmetryConstraint>(ca, "PlanePosition", this, &SymmetryConstraint::planeposition);
+}
+
+//------------------------------------------------------------------------------
+void InletConstraint::setup(const char *name, ClassAssigner *father) {
+
+ ClassAssigner *ca = new ClassAssigner(name, 3, father);
+ new ClassToken<InletConstraint> (ca, "Normal", this, reinterpret_cast<int InletConstraint::*>(&InletConstraint::Normal), 3,
+                       "Nx", 0, "Ny", 1,"Nz", 2);
+ new ClassDouble<InletConstraint>(ca, "PlanePosition", this, &InletConstraint::planeposition);
+ //to be implemented when we know what kind of inlet we want to work with
+}
+
 
 //------------------------------------------------------------------------------
 OneDimensionalInfo::OneDimensionalInfo(){
@@ -7393,7 +7461,7 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
   ref.rv.tlength = ref.length / aero.displacementScaling;
 
   bc.wall.delta /= ref.rv.tlength;
-  schemes.fixes.dihedralAngle *= acos(-1.0) / 180.0;
+//  schemes.fixes.dihedralAngle *= acos(-1.0) / 180.0;
   for (int j=0; j<schemes.fixes.num; ++j) {
     schemes.fixes.spheres[j]->x0 /= ref.rv.tlength;
     schemes.fixes.spheres[j]->y0 /= ref.rv.tlength;
@@ -7417,7 +7485,7 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
   }
 
   // Multigrid fixes.
-  mg.fixes.dihedralAngle *= acos(-1.0) / 180.0;
+//  mg.fixes.dihedralAngle *= acos(-1.0) / 180.0;
   for (int j=0; j<mg.fixes.num; ++j) {
     mg.fixes.spheres[j]->x0 /= ref.rv.tlength;
     mg.fixes.spheres[j]->y0 /= ref.rv.tlength;
@@ -7441,7 +7509,7 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
   }
 
   // Target region for Gappy sampled mesh construction (use same syntax as fixes)
-  romOffline.gappy.sampledMeshTargetRegion.dihedralAngle *= acos(-1.0) / 180.0;
+//  romOffline.gappy.sampledMeshTargetRegion.dihedralAngle *= acos(-1.0) / 180.0;
   for (int j=0; j<romOffline.gappy.sampledMeshTargetRegion.num; ++j) {
     romOffline.gappy.sampledMeshTargetRegion.spheres[j]->x0 /= ref.rv.tlength;
     romOffline.gappy.sampledMeshTargetRegion.spheres[j]->y0 /= ref.rv.tlength;

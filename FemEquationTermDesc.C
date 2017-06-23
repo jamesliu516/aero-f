@@ -592,8 +592,9 @@ FemEquationTermSA::FemEquationTermSA(IoData &iod, VarFcn *vf) :
   turbThermalCondFcn(iod, viscoFcn, vf)
 {
 
-  if (iod.bc.wall.integration == BcsWallData::WALL_FUNCTION)
+  if (iod.bc.wall.integration == BcsWallData::WALL_FUNCTION) {
     wallFcn = new WallFcnSA(iod, varFcn, viscoFcn);
+  }
 
   x0 =  iod.eqs.tc.tr.bfix.x0;
   x1 =  iod.eqs.tc.tr.bfix.x1;
@@ -1253,9 +1254,11 @@ bool FemEquationTermSA::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2
   bool porousmedia = false;
 
   double u[4][3], ucg[3];
+  //copy the velocity of 4 nodes to u, and the velocity at cell center(by average) at ucg
   computeVelocity(V, u, ucg);
 
   double T[4], Tcg;
+  //copy the temperature of 4 nodes to T, and the temperature at cell center(by average) at Tcg
   computeTemperature(V, T, Tcg);
 
   double dudxj[3][3];
@@ -1403,7 +1406,6 @@ double FemEquationTermSA::computeNormDerivWallFcn(double rho, double T, double D
 																double DT1, double d2w, 
 																double &dudn, double &dTdn)
 {
-
 	double ut = wallFcn->computedudT(rho, T, Du1, DT1, d2w, dudn, dTdn);
 
 	return ut;

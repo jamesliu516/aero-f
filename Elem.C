@@ -52,7 +52,7 @@ void ElemSet::computeTimeStep(
 		  {
 			  int l = elems[i]->edgeNum(j);
 
-			  if(LSS->edgeIntersectsStructure(0, l)) isValid = false;
+			  if(LSS->edgeIntersectsWall(0, l)) isValid = false;
 
 			  int e1 = nodeNumber[elems[i]->edgeEnd(j, 0)];
 			  int e2 = nodeNumber[elems[i]->edgeEnd(j, 1)];

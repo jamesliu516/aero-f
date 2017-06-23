@@ -21,12 +21,16 @@ struct LevelSetResult {
   Vec3D gradPhi;
   Vec3D normVel; //NOTE: this is the velocity, NOT normal velocity.
   int structureType;
+  double wallTemperature;
+  int isWallFunction;
+  int heatFluxType;
   double porosity;
   double actuatorDiskPressureJump;
-	int actuatorDiskMethod;
+  int actuatorDiskMethod;
   double gamma;
   bool isCorrectedMethod;
   int actuatorDiskReconstructionMethod;
+  double massInflow;
 
   Vec3D dnds;
   double dads;
@@ -42,7 +46,11 @@ struct LevelSetResult {
     actuatorDiskReconstructionMethod = -1;
     gamma = 0.0;//error value
     isCorrectedMethod = false;
+    massInflow = 0.0;
     dads = 0.0;
+    wallTemperature = -1.0;
+    isWallFunction = BcsWallData::FULL;
+    heatFluxType = SurfaceData::ISOTHERMAL;
    }
   
    LevelSetResult(double gpx, double gpy, double gpz,
@@ -54,11 +62,15 @@ struct LevelSetResult {
 		    trNodes[0] = trNodes[1] = trNodes[2] = -1;
 		    porosity = 0.0;
 	        structureType = 1;
-	   actuatorDiskMethod = 1;
-                    actuatorDiskPressureJump = 0.0;
-                    actuatorDiskReconstructionMethod = -1;
-                    gamma = 0.0;//error value
-                    isCorrectedMethod = false;
+	        actuatorDiskMethod = 1;
+	        actuatorDiskPressureJump = 0.0;
+	        actuatorDiskReconstructionMethod = -1;
+	        gamma = 0.0;//error value
+	        isCorrectedMethod = false;
+	        massInflow = 0.0;
+	        wallTemperature = -1.0;
+	        isWallFunction = BcsWallData::FULL;
+	        heatFluxType = SurfaceData::ISOTHERMAL;
 		    dnds = 0.0;
 		    dads = 0.0;
 		   }
@@ -100,6 +112,9 @@ class LevelSetStructure {
     Vec<bool> &is_active;
     Vec<bool> &is_occluded;
     Vec<bool> &edge_intersects;
+    Vec<bool> &edge_intersects_constraint;
+    //Vec<bool> &edge_intersects_embedded_constraint;
+    //Vec<double> &Embedded_Constraint_Alpha;
 
 	 // Surrogate based quantities
     Vec<bool>   &edge_SI; // ID of the edge that contains the SI 
@@ -123,6 +138,9 @@ LevelSetStructure(Vec<int>& status,
 						Vec<bool>& is_active,
 						Vec<bool>& is_occluded,
 						Vec<bool>& edge_intersects,
+						Vec<bool>& edge_intersects_constraint,
+						//Vec<bool>& edge_intersects_embedded_constraint,
+						//Vec<double>& Embedded_Constraint_Alpha,
 						Vec<bool>&  edge_SI,
 						Vec<double>& xi_SI,
 						Vec<double>& eta_SI,
@@ -137,6 +155,9 @@ LevelSetStructure(Vec<int>& status,
 		                                   is_active(is_active),
 		                                   is_occluded(is_occluded),
                                     	  edge_intersects(edge_intersects),
+					  edge_intersects_constraint(edge_intersects_constraint),
+					  //edge_intersects_embedded_constraint(edge_intersects_embedded_constraint),
+					  //Embedded_Constraint_Alpha(Embedded_Constraint_Alpha),
                                     	  edge_SI(edge_SI),
 		                                   xi_SI(xi_SI),
 		                                   eta_SI(eta_SI),
@@ -166,7 +187,11 @@ LevelSetStructure(Vec<int>& status,
     bool isSwept(double t, int n) const                   { return is_swept[n]; }
     bool isActive(double t, int n) const                  { return is_active[n]; }
     bool isOccluded(double t, int n) const                { return is_occluded[n]; }
-    bool edgeIntersectsStructure(double t, int eij) const { return edge_intersects[eij]; }
+    //edgeIntersectsStructure : True for all kind of structures
+    bool edgeIntersectsStructure(double t, int eij) const { return (edge_intersects[eij])||edge_intersects_constraint[eij];}
+    //edgeIntersectsWall : True for Structure Type Wall and Symmetry Plane
+    bool edgeIntersectsWall(double t,int eij) const {return (edge_intersects[eij]);}
+    bool edgeIntersectsConstraint(double t, int eij) const { return edge_intersects_constraint[eij]; }
     void computeSwept(Vec<int> &swept){
         for(int i = 0; i < swept.size(); ++i)
             swept[i] = is_swept[i] ? 1 : 0;
@@ -207,6 +232,9 @@ class DistLevelSetStructure {
     DistVec<bool> *is_active;
     DistVec<bool> *is_occluded;
     DistVec<bool> *edge_intersects;
+    DistVec<bool> *edge_intersects_constraint;
+    //DistVec<bool> *edge_intersects_embedded_constraint;//a2m, to be removed
+    //DistVec<double> *Embedded_Constraint_Alpha;//a2m, to be removed
     DistVec<bool> *edge_SI;   // d2d
 	 DistVec<int>  *TriID_SI;
 	 DistVec<double> *xi_SI;
@@ -224,11 +252,11 @@ class DistLevelSetStructure {
 
   public:
     DistLevelSetStructure()
-		 : status(0), distance(0), is_swept(0), is_active(0), is_occluded(0), edge_intersects(0), 
+		 : status(0), distance(0), is_swept(0), is_active(0), is_occluded(0), edge_intersects(0),edge_intersects_constraint(0), /*edge_intersects_embedded_constraint(0),Embedded_Constraint_Alpha(0),*/
 		 edge_SI(0), xi_SI(0), eta_SI(0), nWall_SI(0), TriID_SI(0), xi_node(0), eta_node(0), nWall_node(0), TriID_node(0)
     {}
     virtual ~DistLevelSetStructure()
-    {delete status;delete distance;delete is_swept;delete is_active;delete is_occluded;delete edge_intersects; 
+    {delete status;delete distance;delete is_swept;delete is_active;delete is_occluded;delete edge_intersects;delete edge_intersects_constraint; /*delete edge_intersects_embedded_constraint; delete Embedded_Constraint_Alpha;*/
 	  delete edge_SI; delete nWall_SI; delete xi_SI; delete eta_SI; delete TriID_SI; 
 	  delete nWall_node; delete xi_node; delete eta_node; delete TriID_node;}
 
@@ -248,6 +276,7 @@ class DistLevelSetStructure {
     DistVec<bool> & getIsActive()         const { return *is_active; }
     DistVec<bool> & getIsOccluded()       const { return *is_occluded; }
     DistVec<bool> & getIntersectedEdges() const { return *edge_intersects; }
+    DistVec<bool> & getIntersectedConstraintEdge() const { return *edge_intersects_constraint; }
 
     virtual DistVec<ClosestPoint> &getClosestPoints() = 0;
     virtual DistVec<ClosestPoint> *getClosestPointsPointer() = 0;

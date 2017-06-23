@@ -383,7 +383,7 @@ void Domain::computeDerivativeOperatorsOfGradientsLeastSquares(DistSVec<double,3
 
 //------------------------------------------------------------------------------
 // least square gradient involving only nodes of same fluid (multiphase flow and FSI)
-// d2d$ 
+// d2d$ dzh
 template<int dim, class Scalar>
 void Domain::computeGradientsLeastSquares(DistSVec<double,3> &X,
                                           DistVec<int> &fluidId,
@@ -418,6 +418,7 @@ void Domain::computeGradientsLeastSquares(DistSVec<double,3> &X,
 
 //------------------------------------------------------------------------------
 // least square gradient of single variable involving only nodes of same fluid (multiphase flow and FSI)
+// important never used!!!!!!!!!!!!!!!!!!!!!!
 template<class Scalar>
 void Domain::computeGradientLeastSquares(DistSVec<double,3> &X,
                                          DistVec<int> &fluidId,
@@ -1425,7 +1426,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
 }
 
 //------------------------------------------------------------------------------
-//d2d embedded
+//d2d embedded with LS????
 template<int dim, int dimLS>
 void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol, 
 				     DistExactRiemannSolver<dim> &riemann,
@@ -3343,8 +3344,8 @@ void Domain::computeJacobianGalerkinTerm(
   CommPattern<Scalar> *matPat = A.getOffDiagMatPat();
 
 #pragma omp parallel for
-	for(iSub = 0; iSub < numLocSub; ++iSub) 
-	{
+  for(iSub = 0; iSub < numLocSub; ++iSub)
+  {
     Vec<GhostPoint<dim>*>* gp = (ghostPoints? &(*ghostPoints)(iSub) :0);
     LevelSetStructure *LSS = distLSS ? &(distLSS->operator()(iSub)) : 0;
     subDomain[iSub]->computeJacobianGalerkinTerm(fet, bcData(iSub), geoState(iSub), X(iSub),
@@ -3360,13 +3361,13 @@ void Domain::computeJacobianGalerkinTerm(
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->addRcvOffDiagBlocks(*matPat, A(iSub));
-  
-	if(ghostPoints && !externalSI) 
-	{
+
+  if(ghostPoints && !externalSI)
+  { //if there is ghostpoint and using original ghost node definition
 #pragma omp parallel for
-		for(iSub = 0; iSub < numLocSub; ++iSub) 
+    for(iSub = 0; iSub < numLocSub; ++iSub)
       subDomain[iSub]->sndGhostOffDiagBlocks(*matPat, A(iSub));
-    
+
     matPat->exchange();
 
 #pragma omp parallel for
@@ -4943,7 +4944,7 @@ void Domain::populateGhostPoints(
   for (iSub = 0; iSub < numLocSub; ++iSub) 
     subDomain[iSub]->reduceGhostPoints((*ghostPoints)(iSub), X(iSub));
   }
-  else
+  else //Dante's method
   {
 #pragma omp parallel for
     for (iSub = 0; iSub < numLocSub; ++iSub)
@@ -5338,14 +5339,14 @@ void Domain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, DistGeoS
 
 //-------------------------------------------------------------------------------
 template<int dim>
-void Domain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orderOfAccuracy, 
-														DistSVec<double,3> &X, double (*Fs)[3], int sizeFs, 
-														DistLevelSetStructure *distLSS, double pInfty, 
-                                          DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, 
+void Domain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orderOfAccuracy,
+                                          DistSVec<double,3> &X, double (*Fs)[3], int sizeFs,
+                                          DistLevelSetStructure *distLSS, double pInfty,
+                                          DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
                                           DistSVec<double,dim> *Wextij,
-                                          DistSVec<double,dim> &V, DistVec<GhostPoint<dim>*> *ghostPoints, 
-														PostFcn *postFcn, DistNodalGrad<dim, double> *ngrad, 
-														VarFcn* vf, DistVec<int> *fid, bool externalSI)
+                                          DistSVec<double,dim> &V, DistVec<GhostPoint<dim>*> *ghostPoints,
+                                          PostFcn *postFcn, DistNodalGrad<dim, double> *ngrad,
+                                          VarFcn* vf, DistVec<int> *fid, bool externalSI)
 {
 
   typedef double array3d[3];
@@ -5358,156 +5359,156 @@ void Domain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orderOf
 
   Vec<GhostPoint<dim>*> *gp=0;
 
-	int**  StNodeDir;
+  int**  StNodeDir;
 
-	double** StX1;
-	double** StX2;
+  double** StX1;
+  double** StX2;
 
-	double* tmp1;
-	double* tmp2;
+  double* tmp1;
+  double* tmp2;
 
-	if(externalSI)
-	{
-		StNodeDir = new int*    [numStructElems];
-		StX1      = new double* [numStructElems];
-		StX2      = new double* [numStructElems];
+  if(externalSI) // Dante's version
+  {
+    StNodeDir = new int*    [numStructElems];
+    StX1      = new double* [numStructElems];
+    StX2      = new double* [numStructElems];
 
-		for(int i=0; i<numStructElems; ++i)
-		{
-			StNodeDir[i] = new int    [2];
-			StX1[i]      = new double [3];
-			StX2[i]      = new double [3];
+    for(int i=0; i<numStructElems; ++i)
+    {
+      StNodeDir[i] = new int    [2];
+      StX1[i]      = new double [3];
+      StX2[i]      = new double [3];
 
-			StNodeDir[i][0] = StNodeDir[i][1] = 0;
-			StX1[i][0] = StX1[i][1] = StX1[i][2] = 0.0;
-			StX2[i][0] = StX2[i][1] = StX2[i][2] = 0.0;
-		}
-	}
-
-	bool rebuildTree = false;
-	if(iod.problem.framework == ProblemData::EMBEDDEDALE) rebuildTree = true;
-
-#pragma omp parallel for
-	for(int iSub=0; iSub<numLocSub; iSub++) 
-	{
-		for(int is=0; is<sizeFs; is++) 
-		{
-			subFs[iSub][is][0] = 0.0;
-			subFs[iSub][is][1] = 0.0;
-			subFs[iSub][is][2] = 0.0;
-		}
-		
-		if(!externalSI)
-		{
-    if(ghostPoints) gp = ghostPoints->operator[](iSub);
-    subDomain[iSub]->computeEmbSurfBasedForceLoad(iod, forceApp, orderOfAccuracy, 
-																		 X(iSub), subFs[iSub], sizeFs, 
-																		 numStructElems, stElem, Xstruct,
-						  (*distLSS)(iSub), pInfty, 
-																		 Wstarij(iSub), Wstarji(iSub), V(iSub), 
-																		 gp, postFcn, 
-						  (*ngrad)(iSub), vf, fid?&((*fid)(iSub)):0);
+      StNodeDir[i][0] = StNodeDir[i][1] = 0;
+      StX1[i][0] = StX1[i][1] = StX1[i][2] = 0.0;
+      StX2[i][0] = StX2[i][1] = StX2[i][2] = 0.0;
+    }
   }
-		else
-			 subDomain[iSub]->computeEMBNodeScalarQuantity_step1(X(iSub), V(iSub),
-																				  numStructElems, stElem, Xstruct, 
-																				  (*distLSS)(iSub), 
-																				  StNodeDir, StX1, StX2, rebuildTree);
-	}
 
-	if(externalSI)
-	{
-		tmp1 = new double[numStructElems];
-		tmp2 = new double[numStructElems];
-
-		for(int i=0; i<numStructElems; ++i) 
-		{ 
-			tmp1[i] = (double) StNodeDir[i][0];
-			tmp2[i] = (double) StNodeDir[i][1];
-		}
-
-		com->globalSum(numStructElems, tmp1);
-		com->globalSum(numStructElems, tmp2);
-
-		for(int i=0; i<numStructElems; ++i) 
-		{
-			StNodeDir[i][0] = (int) tmp1[i];
-			StNodeDir[i][1] = (int) tmp2[i];
-		}
-	  
-		for(int k=0; k<3; ++k)
-		{
-			for(int i=0; i<numStructElems; ++i) 
-			{
-				tmp1[i] = StX1[i][k];
-				tmp2[i] = StX2[i][k];
-			}
-		  
-			com->globalSum(numStructElems, tmp1);
-			com->globalSum(numStructElems, tmp2);
-		  
-			for(int i=0; i<numStructElems; ++i) 
-			{
-				StX1[i][k] = tmp1[i];
-				StX2[i][k] = tmp2[i];
-			}
-		}
-	}
+  bool rebuildTree = false;
+  if(iod.problem.framework == ProblemData::EMBEDDEDALE) rebuildTree = true;
 
 #pragma omp parallel for
-	for (int iSub=0; iSub<numLocSub; iSub++) 
-	{
-		if(externalSI)
-		{
-			if(ghostPoints) gp = ghostPoints->operator[](iSub);
-			
-			 subDomain[iSub]->computeEmbSurfBasedForceLoad_e(iod, forceApp, orderOfAccuracy, 
-			 																X(iSub), subFs[iSub], sizeFs, 
-			 																numStructElems, stElem, Xstruct,
-			 																(*distLSS)(iSub), pInfty, V(iSub), 
-			 																gp, postFcn, 
-			 																(*ngrad)(iSub), vf, fid?&((*fid)(iSub)):0,
-			 																StNodeDir, StX1, StX2);
-		}
-	}
-	
+  for(int iSub=0; iSub<numLocSub; iSub++)
+  {
+    for(int is=0; is<sizeFs; is++)
+    {
+      subFs[iSub][is][0] = 0.0;
+      subFs[iSub][is][1] = 0.0;
+      subFs[iSub][is][2] = 0.0;
+    }
+
+    if(!externalSI)
+    {
+      if(ghostPoints) gp = ghostPoints->operator[](iSub);
+      subDomain[iSub]->computeEmbSurfBasedForceLoad(iod, forceApp, orderOfAccuracy,
+                                                    X(iSub), subFs[iSub], sizeFs,
+                                                    numStructElems, stElem, Xstruct,
+                                                    (*distLSS)(iSub), pInfty,
+                                                    Wstarij(iSub), Wstarji(iSub), V(iSub),
+                                                    gp, postFcn,
+                                                    (*ngrad)(iSub), vf, fid?&((*fid)(iSub)):0);
+    }
+    else //Dante's version only works for 1 fluid
+      subDomain[iSub]->computeEMBNodeScalarQuantity_step1(X(iSub), V(iSub),
+                                                          numStructElems, stElem, Xstruct,
+                                                          (*distLSS)(iSub),
+                                                          StNodeDir, StX1, StX2, rebuildTree);
+  }
+
+  if(externalSI) //Dante's version
+  {
+    tmp1 = new double[numStructElems];
+    tmp2 = new double[numStructElems];
+
+    for(int i=0; i<numStructElems; ++i)
+    {
+      tmp1[i] = (double) StNodeDir[i][0];
+      tmp2[i] = (double) StNodeDir[i][1];
+    }
+
+    com->globalSum(numStructElems, tmp1);
+    com->globalSum(numStructElems, tmp2);
+
+    for(int i=0; i<numStructElems; ++i)
+    {
+      StNodeDir[i][0] = (int) tmp1[i];
+      StNodeDir[i][1] = (int) tmp2[i];
+    }
+
+    for(int k=0; k<3; ++k)
+    {
+      for(int i=0; i<numStructElems; ++i)
+      {
+        tmp1[i] = StX1[i][k];
+        tmp2[i] = StX2[i][k];
+      }
+
+      com->globalSum(numStructElems, tmp1);
+      com->globalSum(numStructElems, tmp2);
+
+      for(int i=0; i<numStructElems; ++i)
+      {
+        StX1[i][k] = tmp1[i];
+        StX2[i][k] = tmp2[i];
+      }
+    }
+  }
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++)
+  {
+    if(externalSI)
+    {
+      if(ghostPoints) gp = ghostPoints->operator[](iSub);
+
+      subDomain[iSub]->computeEmbSurfBasedForceLoad_e(iod, forceApp, orderOfAccuracy,
+                                                      X(iSub), subFs[iSub], sizeFs,
+                                                      numStructElems, stElem, Xstruct,
+                                                      (*distLSS)(iSub), pInfty, V(iSub),
+                                                      gp, postFcn,
+                                                      (*ngrad)(iSub), vf, fid?&((*fid)(iSub)):0,
+                                                      StNodeDir, StX1, StX2);
+    }
+  }
+
   double res = 0.0;
 
-	for(int is=0; is<sizeFs; is++) 
-	{
+  for(int is=0; is<sizeFs; is++)
+  {
     Fs[is][0] = subFs[0][is][0];
     Fs[is][1] = subFs[0][is][1];
     Fs[is][2] = subFs[0][is][2];
     res += Fs[is][0]*Fs[is][0] +  Fs[is][1]*Fs[is][1] +  Fs[is][2]*Fs[is][2];
   }
   for (int iSub=1; iSub<numLocSub; iSub++)
-	{
-		for (int is=0; is<sizeFs; is++) 
-		{
+  {
+    for (int is=0; is<sizeFs; is++)
+    {
       Fs[is][0] += subFs[iSub][is][0];
       Fs[is][1] += subFs[iSub][is][1];
       Fs[is][2] += subFs[iSub][is][2];
     }
-	}
+  }
 
   for(int i=0; i<numLocSub; ++i) delete [] subFs[i];
   delete [] subFs;
 
-	if(externalSI)
-	{
-		for(int i=0; i<numStructElems; ++i)
-		{
-			delete [] StNodeDir[i];
-			delete [] StX1[i];
-			delete [] StX2[i];
-		}
+  if(externalSI)
+  {
+    for(int i=0; i<numStructElems; ++i)
+    {
+      delete [] StNodeDir[i];
+      delete [] StX1[i];
+      delete [] StX2[i];
+    }
 
-		delete [] StNodeDir;
-		delete [] StX1;
-		delete [] StX2;
-		delete [] tmp1;
-		delete [] tmp2;
-	}
+    delete [] StNodeDir;
+    delete [] StX1;
+    delete [] StX2;
+    delete [] tmp1;
+    delete [] tmp2;
+  }
 
 }
 

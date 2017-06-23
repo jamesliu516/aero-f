@@ -712,7 +712,7 @@ DistEmbeddedVec<Scalar,dim>::operator-=(const DistEmbeddedVec<Scalar,dim> &y)
     int locLen = dim * distInfo.subLenReg[iSub];
 
     for (int i = 0; i < locLen; ++i) { 
-      vv[locOffset+i] += yy[locOffset+i];
+      vv[locOffset+i] -= yy[locOffset+i];
     }
 
     for (std::set<int>::iterator itr = ghostNodes[iSub].begin(); 
