@@ -120,7 +120,7 @@ protected:
 
 public:
 
-  Communicator* gComm(){return this->com;};//TODO delete line HACK
+  Communicator* gComm(){return this->com;};
 
   TsDesc(IoData &, GeoSource &, Domain *);
   virtual ~TsDesc();

@@ -52,7 +52,7 @@ GhostPoint(VarFcn *vf) : varFcn(vf)
       Vg[i] = 0.0;
       V[i]  = 0.0;
       Ws[i] = 0.0;
-    }
+  }
     ghostTag = -2; // Inactive nodes tag
 	ghostTag2 = -2;
 	
@@ -101,7 +101,7 @@ void addNeighbour(double *Vi, double *Wi, int tag)
 	{
       Vg[i] += Wi[i]*Vi[i];
       Ws[i] += Wi[i];
-    }
+  }
 
     // Tag check
     if(ghostTag < 0) 

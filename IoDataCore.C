@@ -477,7 +477,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 102, father);
+  ClassAssigner *ca = new ClassAssigner(name, 103, father);
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
 
@@ -568,6 +568,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   // Gappy POD offline
   // Gappy POD snapshots
 // Included (MB)
+  new ClassStr<TransientData>(ca, "PopulatedState", this, &TransientData::populatedState);
   new ClassStr<TransientData>(ca, "VelocityNorm", this, &TransientData::velocitynorm);
   new ClassStr<TransientData>(ca, "SpatialResidualSensitivity", this, &TransientData::dSpatialres);
   new ClassStr<TransientData>(ca, "SpatialResidualNormSensitivity", this, &TransientData::dSpatialresnorm);
@@ -3285,13 +3286,12 @@ SensitivityAnalysis::SensitivityAnalysis()
   sensMach = OFF_SENSITIVITYMACH;
   sensAlpha = OFF_SENSITIVITYALPHA;
   sensBeta = OFF_SENSITIVITYBETA;
-  numShapeVariables = 0;
   fsiFlag = false;
   adaptiveEpsFSI = OFF_ADAPTIVEEPSFSI;
   sparseFlag = false;
 
   // For debugging purposes
-  excsol = OFF_EXACTSOLUTION;
+  //excsol = OFF_EXACTSOLUTION;
   homotopy = OFF_HOMOTOPY;
   comp3d = ON_COMPATIBLE3D;
   angleRad = OFF_ANGLERAD;
@@ -3311,13 +3311,13 @@ SensitivityAnalysis::SensitivityAnalysis()
 void SensitivityAnalysis::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 30, father);
+  ClassAssigner *ca = new ClassAssigner(name, 34, father);
   new ClassToken<SensitivityAnalysis>(ca, "Method",
       this, reinterpret_cast<int SensitivityAnalysis::*>
       (&SensitivityAnalysis::method), 2, "Direct", 0, "Adjoint", 1);
 
   new ClassToken<SensitivityAnalysis>(ca, "SparseApproach",      this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sparseFlag), 2, "Off", 0, "On", 1);
-  new ClassToken<SensitivityAnalysis>(ca, "MatrixVectorProduct", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::mvp), 4, "FiniteDifference", 0, "Approximate", 1, "Exact", 2, "ApproximateFiniteDifference", 3);
+  new ClassToken<SensitivityAnalysis>(ca, "MatrixVectorProduct", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::mvp), 4, "Exact", 0, "FiniteDifference", 1);
   new ClassToken<SensitivityAnalysis>(ca, "LeastSquaresSolver",  this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::lsSolver), 2, "QR", 0, "NormalEquations", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityComputation", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::scFlag), 3, "Analytical", 0, "SemiAnalytical", 1, "FiniteDifference", 2);
   new ClassDouble<SensitivityAnalysis>(ca, "EpsFD", this, &SensitivityAnalysis::eps);
@@ -3327,27 +3327,32 @@ void SensitivityAnalysis::setup(const char *name, ClassAssigner *father)
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityAlpha", this,reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensAlpha), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityBeta", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensBeta), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "AdaptiveEpsFSI", this,  reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::adaptiveEpsFSI), 2, "Off", 0, "On", 1);
-  new ClassInt<SensitivityAnalysis>(ca, "NumShapeVariables", this, &SensitivityAnalysis::numShapeVariables);
+  //new ClassInt<SensitivityAnalysis>(ca, "NumShapeVariables", this, &SensitivityAnalysis::numShapeVariables);
 
 // For debugging purposes
-  new ClassToken<SensitivityAnalysis>(ca, "ExactSolution", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::excsol), 2, "Off", 0, "On", 1);
+  //new ClassToken<SensitivityAnalysis>(ca, "ExactSolution", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::excsol), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "HomotopyComputation", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::homotopy), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "Compatible3D",  this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::comp3d), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "AngleRadians",  this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::angleRad), 2, "Off", 0, "On", 1);
 
-  new ClassDouble<SensitivityAnalysis>(ca, "MachReference", this, &SensitivityAnalysis::machref);
-  new ClassDouble<SensitivityAnalysis>(ca, "AlphaReference",this, &SensitivityAnalysis::alpharef);
-  new ClassDouble<SensitivityAnalysis>(ca, "BetaReference", this, &SensitivityAnalysis::betaref);
   new ClassStr<SensitivityAnalysis>(ca, "SensitivityOutput",this, &SensitivityAnalysis::sensoutput);//just every possible sensitivity is written to that file
   new ClassDouble<SensitivityAnalysis>(ca, "ForceResidual", this, &SensitivityAnalysis::fres);
   new ClassToken<SensitivityAnalysis>(ca, "FixSolution",    this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::fixsol), 2, "None", 0, "PreviousValues", 1);
   new ClassInt<SensitivityAnalysis>(ca, "AverageStateIterations", this, &SensitivityAnalysis::avgsIt);
 
-  //new ClassToken<SensitivityAnalysis>(ca, "SparseComputation", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sparseComputation), 2, "Off", 0, "On", 1);
+  //The following routines output
 
-  new ClassStr<SensitivityAnalysis>(ca, "tempStateDeriv", this, &SensitivityAnalysis::tempStateDeriv);
+  //This flag triggers the output of all the quantities following
+  new ClassToken<SensitivityAnalysis>(ca, "DebugOutput",  this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::debugOutput), 2, "Off", 0, "On", 1);
+
+  //Writes the right hand side that goes into the linear solver to disk
   new ClassStr<SensitivityAnalysis>(ca, "LinSolveRHS", this, &SensitivityAnalysis::linsolverhs);
-  new ClassStr<SensitivityAnalysis>(ca, "dFdS_final", this, &SensitivityAnalysis::dFdS_final);
+
+  //This flag triggers the output of the inviscid contribution to dFdS
+  new ClassStr<SensitivityAnalysis>(ca, "dFdS_inviscid", this, &SensitivityAnalysis::dFdS_inviscid);
+
+  //This flag triggers the output of the viscous contribution to dFdS
+  new ClassStr<SensitivityAnalysis>(ca, "dFdS_viscous", this, &SensitivityAnalysis::dFdS_viscous);
 
   ksp.setup("LinearSolver", ca);
 
@@ -7497,11 +7502,8 @@ int IoData::checkInputValuesEssentialBC()
   }
 
 // Included (MB)
-  if (sa.machref < 0.0)
     sa.machref = bc.inlet.mach;
-  if (sa.alpharef > 360.0)
     sa.alpharef = bc.inlet.alpha;
-  if (sa.betaref > 360.0)
     sa.betaref = bc.inlet.beta;
   if (!sa.angleRad) {
     sa.alpharef *= acos(-1.0) / 180.0;

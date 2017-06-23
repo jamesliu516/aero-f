@@ -194,6 +194,11 @@ public:
   void computeDerivativeOfGalerkinTerm(FemEquationTerm *, SVec<double,3> &, SVec<double,3> &, Vec<double> &,
 			   SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &) = 0;
 
+  //TODO VISCOUSDERIV
+  virtual
+  void computeDerivativeOfGalerkinTermEmb(FemEquationTerm *, SVec<double,3> &, SVec<double,3> &, Vec<double> &,
+         SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &,Vec<GhostPoint<dim>*>*, LevelSetStructure *) = 0;
+
   virtual
   void computeDerivativeOperatorsOfGalerkinTerm(FemEquationTerm *, SVec<double,3> &, Vec<double> &,
 			   SVec<double,dim> &, RectangularSparseMat<double,3,dim> &) = 0; // YC
@@ -279,13 +284,26 @@ public:
   }
   
   void computeGalerkinTerm_e(FemEquationTerm *fet, SVec<double,3> &X, 
-									  Vec<double> &d2wall, SVec<double,dim> &V, 
-									  SVec<double,dim> &R, 
-									  Vec<GhostPoint<dim>*> *ghostPoints=0, 
-									  LevelSetStructure *LSS=0) {
-	  t->computeGalerkinTerm_e(fet, X, d2wall, V, R, ghostPoints, LSS);
+         Vec<double> &d2wall, SVec<double,dim> &V,
+         SVec<double,dim> &R,
+         Vec<GhostPoint<dim>*> *ghostPoints=0,
+         LevelSetStructure *LSS=0) {
+
+         t->computeGalerkinTerm_e(fet, X, d2wall, V, R, ghostPoints, LSS);
   }
-  
+
+  void computeDerivativeOfGalerkinTerm_e(
+         FemEquationTerm *fet,
+         SVec<double,3> &dX,
+         Vec<double> &d2wall,
+         SVec<double,dim> &dV,
+         SVec<double,dim> &dR,
+         Vec<GhostPoint<dim>*> *ghostPoints=0,
+         LevelSetStructure *LSS=0) {
+
+         t->computeDerivativeOfGalerkinTerm_e(fet, dX, d2wall, dV, dR, ghostPoints, LSS);
+  }
+
 
   void computeVMSLESTerm(VMSLESTerm *vmst, SVec<double,dim> &VBar,
 			 SVec<double,3> &X, SVec<double,dim> &V,
@@ -372,10 +390,21 @@ public:
 
 // Included (MB)
   void computeDerivativeOfGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X, SVec<double,3> &dX,
-			      Vec<double> &d2wall, SVec<double,dim> &V, SVec<double,dim> &dV, double dMach,
-			      SVec<double,dim> &dR) {
+            Vec<double> &d2wall, SVec<double,dim> &V, SVec<double,dim> &dV, double dMach,
+            SVec<double,dim> &dR) {
     t->computeDerivativeOfGalerkinTerm(fet, X, dX, d2wall, V, dV, dMach, dR);
   }
+
+  //TODO VISCOUSDERIV
+  void computeDerivativeOfGalerkinTermEmb(FemEquationTerm *fet, SVec<double,3> &X, SVec<double,3> &dX,
+            Vec<double> &d2wall, SVec<double,dim> &V, SVec<double,dim> &dV, double dMach,
+            SVec<double,dim> &dR,Vec<GhostPoint<dim>*> *ghostPoints,
+            LevelSetStructure *LSS) {
+    t->computeDerivativeOfGalerkinTermEmb(fet, X, dX, d2wall, V, dV, dMach, dR,
+        ghostPoints, LSS);
+  }
+
+
 
   //YC
   void computeDerivativeOperatorsOfGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
@@ -843,16 +872,41 @@ public:
 					     d2wall, Vwall, V, A);
   }
 
-// Included (MB)
+  // Computes the derivative of the viscous term for non-embedded simulations.
+  //This is the non-sparse implementation (MB)
   template<int dim>
-  void computeDerivativeOfGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X, SVec<double,3> &dX,
-			      Vec<double> &d2wall, SVec<double,dim> &V, SVec<double,dim> &dV, double dMach,
-			      SVec<double,dim> &dR) {
+  void computeDerivativeOfGalerkinTerm(FemEquationTerm *fet,
+         SVec<double,3> &X,   SVec<double,3> &dX,
+         Vec<double> &d2wall,
+         SVec<double,dim> &V, SVec<double,dim> &dV,
+         double dMach,
+         SVec<double,dim> &dR) {
     ElemHelper_dim<dim> h;
     char xx[64];
     GenElemWrapper_dim<dim> *wrapper=
       (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
     wrapper->computeDerivativeOfGalerkinTerm(fet, X, dX, d2wall, V, dV, dMach, dR);
+  }
+
+
+
+
+  //TODO VISCOUSDERIV
+  // Computes the derivative of the viscous term for non-embedded simulations.
+  //This is the non-sparse implementation (MB)
+  template<int dim>
+  void computeDerivativeOfGalerkinTermEmb(FemEquationTerm *fet,
+         SVec<double,3> &X,   SVec<double,3> &dX,
+         Vec<double> &d2wall,
+         SVec<double,dim> &V, SVec<double,dim> &dV,
+         double dMach,
+         SVec<double,dim> &dR,
+         Vec<GhostPoint<dim>*> *ghostPoints,LevelSetStructure *LSS) {
+    ElemHelper_dim<dim> h;
+    char xx[64];
+    GenElemWrapper_dim<dim> *wrapper=
+      (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+    wrapper->computeDerivativeOfGalerkinTermEmb(fet, X, dX, d2wall, V, dV, dMach, dR, ghostPoints,LSS);
   }
 
   template<int dim>
@@ -1090,10 +1144,18 @@ public:
 // Included (MB)
   template<int dim>
   void computeDerivativeOfGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X, SVec<double,3> &dX,
-			      Vec<double> &d2wall, SVec<double,dim> &V, SVec<double,dim> &dV, double dMach,
-			      SVec<double,dim> &dR) {
+            Vec<double> &d2wall, SVec<double,dim> &V, SVec<double,dim> &dV, double dMach,
+            SVec<double,dim> &dR) {
     fprintf(stderr, "Error: undefined function (computeDerivativeOfGalerkinTerm) for this elem type\n"); exit(1);
   }
+
+  // Included (MB)
+    template<int dim>
+    void computeDerivativeOfGalerkinTermEmb(FemEquationTerm *fet, SVec<double,3> &X, SVec<double,3> &dX,
+              Vec<double> &d2wall, SVec<double,dim> &V, SVec<double,dim> &dV, double dMach,
+              SVec<double,dim> &dR,Vec<GhostPoint<dim>*>*,LevelSetStructure*) {
+      fprintf(stderr, "Error: undefined function (computeDerivativeOfGalerkinTermEmb) for this elem type\n"); exit(1);
+    }
 
   template<int dim>
   void computeDerivativeOperatorsOfGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
@@ -1264,6 +1326,14 @@ public:
   template<int dim>
   void computeDerivativeOfGalerkinTerm(FemEquationTerm *, GeoState &, SVec<double,3> &, SVec<double,3> &,
 			   SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &);
+
+  // Included (MB)
+  template<int dim>
+  void computeDerivativeOfGalerkinTermEmb(FemEquationTerm *, GeoState &, SVec<double,3> &, SVec<double,3> &,
+         SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &,
+         Vec<GhostPoint<dim>*>* ,LevelSetStructure*);
+
+
 
 // Level Set Reinitialization
   template<int dimLS>

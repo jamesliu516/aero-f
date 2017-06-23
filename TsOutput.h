@@ -98,6 +98,7 @@ private:
   char *embeddedsurfaceCp;
   char *embeddedsurfaceCf;
   char *cputiming;
+  char *populatedState;
   char *stateVectors;
     char *stateMaskVectors; //<! for embdded ROM, Lei lei, 02/01/2016
   char *residualVectors;
@@ -165,9 +166,6 @@ private:
   char *dLifty;
   char *dLiftz;
   char *dFluxNorm;
-
-  //TODO delete this. just temporary for sensitivity verification
-  char *tempStateDeriv;
 
   FILE *fpdMatchPressure;
   FILE *fpdForces;
@@ -260,25 +258,10 @@ public:
 
   void writePositionSensitivityVectorToDisk(int step, double tag, DistSVec<double,3> &X);
 
-
-  //TODO BUGHUNT delete functuion
-//  template<int dim>
-//  void TsOutput<dim>::writeDistSVecVectorsToDisk(DistSVec<double,dim> &vec,
-//  					       int step,
-//  					       DistTimeState<dim> *timeState)
-//  {
-//    double tag=0;
-//     domain->writeVectorToFile("message", step, tag, *vec, 0);
-//  }
-  void writeDistSVecVectorsToDisk(DistSVec<double,dim> &vec,
-  				  int step)
+  void writeDistSVecVectorsToDisk(
+         DistSVec<double,dim> &vec,
+         int step)
   {
-//    if (tempStateDeriv[0]!=0)
-//      {
-//       double tag=0;
-//       double scalar=0;
-//       domain->writeVectorToFile(tempStateDeriv, step, tag, vec, &scalar);
-//      }
     if (true)
       {
        double tag=0;
@@ -355,9 +338,10 @@ public:
   void writeDerivativeOfForcesToDisk(int, int, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double &, double &);
   void writeBinaryDerivativeOfVectorsToDisk(int, int, double [3], DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &, DistTimeState<dim> *, DistVec<double>* =NULL);
 
-  //TODO BUGHUNT
+  //Debugging functions
   void writeAnyVectorToDisk(const char* filename,int it,int tag,DistSVec<double,dim> &vec);
-
+  void writeAnyVectorToDisk(const char* filename,int it,int tag,DistSVec<double,3> &vec);
+  void writeAnyVectorToDisk(const char* filename,int it,int tag,DistSVec<double,dim> &vec,DistLevelSetStructure *distLSS, DistVec<GhostPoint<dim>*> *ghostPoints);
 };
 
 

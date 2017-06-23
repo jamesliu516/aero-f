@@ -254,6 +254,55 @@ void Domain::computeDerivativeOfGradientsLeastSquares(DistSVec<double,3> &X, Dis
   timer->addNodalGradTime(t0);
 }
 
+
+// Included (MB)
+// This is the embedded Version which can probably be merged with the non-embedded one
+template<int dim, class Scalar>
+void Domain::computeDerivativeOfGradientsLeastSquaresEmb(
+               DistSVec<double,3> &X,      DistSVec<double,3> &dX,
+               DistSVec<double,6> &R,      DistSVec<double,6> &dR,
+               DistSVec<Scalar,dim> &dddx, DistSVec<Scalar,dim> &dddy, DistSVec<Scalar,dim> &dddz,
+               DistSVec<Scalar,dim> &var,  DistSVec<Scalar,dim> &dvar,
+               bool linFSI,
+               const DistVec<int> &fluidId,
+               DistLevelSetStructure *distLSS,
+               bool includeSweptNodes)
+{
+//  DistSVec<double,3> &, DistSVec<double,3> &,
+//  DistSVec<double,6> &, DistSVec<double,6> &,
+//  DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &,
+//  DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &,
+//  bool linFSI,
+//  const DistVec<int> &fluidId,
+//  DistLevelSetStructure *distLSS,
+//  bool includeSweptNodes);
+
+  //this->writeVectorToFile("./results/ngrad_R",0,0,R);//TODO delete line
+  //this->writeVectorToFile("./results/ngrad_dR",0,0,dR);//TODO delete line
+
+  double t0 = timer->getTime();
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    SVec<Scalar,dim> dummy(dddx(iSub));
+    subDomain[iSub]->computeDerivativeOfGradientsLeastSquaresEmb(
+                      X(iSub), dX(iSub),
+                      R(iSub), dR(iSub),
+                      var(iSub), dvar(iSub),
+                      dddx(iSub), dddy(iSub), dddz(iSub),
+                      fluidId(iSub),
+                      &((*distLSS)(iSub)),includeSweptNodes);
+  }
+
+
+  CommPattern<Scalar> *vPat = getCommPat(var);
+  assemble(vPat, dddx);
+  assemble(vPat, dddy);
+  assemble(vPat, dddz);
+
+  timer->addNodalGradTime(t0);
+}
+
 //------------------------------------------------------------------------------
 
 // Included (YC)
@@ -1031,15 +1080,21 @@ void Domain::computeFiniteVolumeTerm(DistExactRiemannSolver<dim>& riemann,
 
 //------------------------------------------------------------------------------
 
-// Included (MB)
+/****************************************************************************************
+ * Derivative of the inviscid term for non embedded simulations                         *
+ * This is the non-sparse Implementation                                           (MB) *
+ ****************************************************************************************/
 template<int dim>
-void Domain::computeDerivativeOfFiniteVolumeTerm(DistVec<double> &ctrlVol, DistVec<double> &dCtrlVol,
-						 DistVec<double>& irey, DistVec<double>& dIrey,
-						 FluxFcn** fluxFcn, RecFcn* recFcn,
-						 DistBcData<dim>& bcData, DistGeoState& geoState,
-						 DistSVec<double,3>& X, DistSVec<double,3>& dX, DistSVec<double,dim>& V, DistSVec<double,dim>& dV,
-						 DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad, double dMach,
-						 DistSVec<double,dim>& dF)
+void Domain::computeDerivativeOfFiniteVolumeTerm(
+               DistVec<double> &ctrlVol,DistVec<double> &dCtrlVol,
+               DistVec<double>& irey,   DistVec<double>& dIrey,
+               FluxFcn** fluxFcn,       RecFcn* recFcn,
+               DistBcData<dim>& bcData, DistGeoState& geoState,
+               DistSVec<double,3>& X,   DistSVec<double,3>& dX,
+               DistSVec<double,dim>& V, DistSVec<double,dim>& dV,
+               DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
+               double dMach,
+               DistSVec<double,dim>& dF)
 {
 
   double t0 = timer->getTime();
@@ -1185,22 +1240,27 @@ void Domain::computeDerivativeOperatorsOfFiniteVolumeTerm(DistVec<double>& irey,
 
 }
 
-//------------------------------------------------------------------------------
 
+
+/****************************************************************************************
+ * Derivative of the inviscid term for emebedded simulations                            *
+ * This is the non-sparse Implementation                                                *
+ ****************************************************************************************/
 template<int dim>
-void Domain::computeDerivativeOfFiniteVolumeTerm(FluxFcn** fluxFcn, RecFcn* recFcn,
-						 DistBcData<dim>& bcData, DistGeoState& geoState,
-						 DistSVec<double,3> &X,
-						 DistLevelSetStructure *distLSS,
-						 bool linRecAtInterface, bool viscSecOrder, 
-						 DistVec<int> &fluidId, 
-						 DistExactRiemannSolver<dim> &riemann, 
-						 int Nriemann,
-						 DistNodalGrad<dim>& ngrad, 
-						 DistEdgeGrad<dim>* egrad,
-						 double dMach,
-						 DistSVec<double,dim>& V,
-						 DistSVec<double,dim>& dF)
+void Domain::computeDerivativeOfFiniteVolumeTermEmb(
+               FluxFcn** fluxFcn, RecFcn* recFcn,
+               DistBcData<dim>& bcData, DistGeoState& geoState,
+               DistSVec<double,3> &X,
+               DistLevelSetStructure *distLSS,
+               bool linRecAtInterface, bool viscSecOrder,
+               DistVec<int> &fluidId,
+               DistExactRiemannSolver<dim> &riemann,
+               int Nriemann,
+               DistNodalGrad<dim>& ngrad,
+               DistEdgeGrad<dim>* egrad,
+               double dMach,
+               DistSVec<double,dim>& V,
+               DistSVec<double,dim>& dF)
 {
 
   double t0 = timer->getTime();
@@ -1213,12 +1273,13 @@ void Domain::computeDerivativeOfFiniteVolumeTerm(FluxFcn** fluxFcn, RecFcn* recF
 
     Vec<int> &FluidId = fluidId(iSub);
 
-    subDomain[iSub]->computeDerivativeOfFiniteVolumeTerm(fluxFcn, recFcn, bcData(iSub), geoState(iSub),
-							 X(iSub), (*distLSS)(iSub), 
-							 linRecAtInterface,  viscSecOrder, 
-							 FluidId, riemann(iSub), Nriemann,
-							 ngrad(iSub), legrad, dMach,
-							 V(iSub), dF(iSub));
+    subDomain[iSub]->computeDerivativeOfFiniteVolumeTerm(
+                       fluxFcn, recFcn, bcData(iSub), geoState(iSub),
+                       X(iSub), (*distLSS)(iSub),
+                       linRecAtInterface,  viscSecOrder,
+                       FluidId, riemann(iSub), Nriemann,
+                       ngrad(iSub), legrad, dMach,
+                       V(iSub), dF(iSub));
 
     subDomain[iSub]->sndData(*vecPat, dF.subData(iSub));
 
@@ -2293,18 +2354,25 @@ void Domain::finishJacobianGalerkinTerm(DistVec<double> &ctrlVol, DistMat<Scalar
 
 //------------------------------------------------------------------------------
 
+/*******************************************************************************
+ * computes the Galerkin term for both embedded and non-embedded simulations   *
+ *******************************************************************************/
 template<int dim>
-void Domain::computeGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &bcData,
-				 DistGeoState &geoState, DistSVec<double,3> &X,
-				 DistSVec<double,dim> &V, DistSVec<double,dim> &R,
-											DistVec<GhostPoint<dim>*> *ghostPoints,
-											DistLevelSetStructure *LSS, 
-											bool externalSI)
+void Domain::computeGalerkinTerm(
+               FemEquationTerm *fet,
+               DistBcData<dim> &bcData,
+               DistGeoState &geoState,
+               DistSVec<double,3> &X,
+               DistSVec<double,dim> &V,
+               DistSVec<double,dim> &R,
+               DistVec<GhostPoint<dim>*> *ghostPoints,
+               DistLevelSetStructure *LSS,
+               bool externalSI)
 {
 
   double t0 = timer->getTime();
 
-  if(ghostPoints)
+  if(ghostPoints)//call the embedded version
   {
     if(!LSS) 
     {
@@ -2316,13 +2384,13 @@ void Domain::computeGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &bcData,
     for (int iSub = 0; iSub < numLocSub; ++iSub)
     {
       subDomain[iSub]->computeGalerkinTerm(fet, bcData(iSub), geoState(iSub),
-															 X(iSub), V(iSub), R(iSub),
-															 ghostPoints->operator[](iSub),
-															 &(LSS->operator()(iSub)), 
-															 externalSI);
+                         X(iSub), V(iSub), R(iSub),
+                         ghostPoints->operator[](iSub),
+                         &(LSS->operator()(iSub)),
+                         externalSI);
     }
   }
-  else
+  else//call the non-embedded version
   {
 #pragma omp parallel for
 		for (int iSub = 0; iSub < numLocSub; ++iSub) 
@@ -2337,11 +2405,17 @@ void Domain::computeGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &bcData,
 
 //------------------------------------------------------------------------------
 
-// Included (MB)
+/****************************************************************************************
+ * Computes the derivative of the viscous term for non-embedded simulations.            *
+ * This is the non-sparse implementation                                           (MB) *
+ ****************************************************************************************/
 template<int dim>
-void Domain::computeDerivativeOfGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &bcData,
-				 DistGeoState &geoState, DistSVec<double,3> &X, DistSVec<double,3> &dX,
-				 DistSVec<double,dim> &V, DistSVec<double,dim> &dV, double dMach, DistSVec<double,dim> &dR)
+void Domain::computeDerivativeOfGalerkinTerm(
+              FemEquationTerm *fet, DistBcData<dim> &bcData,
+              DistGeoState &geoState,
+              DistSVec<double,3> &X,   DistSVec<double,3> &dX,
+              DistSVec<double,dim> &V, DistSVec<double,dim> &dV,
+              double dMach, DistSVec<double,dim> &dR)
 {
 
   double t0 = timer->getTime();
@@ -2349,30 +2423,80 @@ void Domain::computeDerivativeOfGalerkinTerm(FemEquationTerm *fet, DistBcData<di
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->computeDerivativeOfGalerkinTerm(fet, bcData(iSub), geoState(iSub),
-					 X(iSub), dX(iSub), V(iSub), dV(iSub), dMach, dR(iSub));
+                       X(iSub), dX(iSub), V(iSub), dV(iSub), dMach, dR(iSub));
 
   timer->addFiniteElementTermTime(t0);
 
 }
 
-//------------------------------------------------------------------------------
 
+
+
+
+//TODO VISCOUSDERIV
+/****************************************************************************************
+ * Computes the derivative of the viscous term for embedded simulations.                *
+ * This is the non-sparse implementation                                         (lscheuch) *
+ ****************************************************************************************/
 template<int dim>
-void Domain::computeDerivativeOfGalerkinTerm(dRdXoperators<dim> &dRdXop, FemEquationTerm *fet, DistBcData<dim> &bcData,
-				 DistGeoState &geoState, DistSVec<double,3> &X, DistSVec<double,3> &dX,
-				 DistSVec<double,dim> &V, DistSVec<double,dim> &dV, double dMach, DistSVec<double,dim> &dR)
-{ // YC
+void Domain::computeDerivativeOfGalerkinTermEmb(
+              FemEquationTerm *fet, DistBcData<dim> &bcData,
+              DistGeoState &geoState,
+              DistSVec<double,3> &X,   DistSVec<double,3> &dX,
+              DistSVec<double,dim> &V, DistSVec<double,dim> &dV,
+              double dMach, DistSVec<double,dim> &dR,
+              DistVec<GhostPoint<dim>*> *distghostPoints,
+              DistLevelSetStructure *distLSS)
+{
+
+  double t0 = timer->getTime();
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->computeDerivativeOfGalerkinTermEmb(
+                      fet, bcData(iSub), geoState(iSub),
+                       X(iSub), dX(iSub), V(iSub), dV(iSub), dMach, dR(iSub),
+                       distghostPoints->operator[](iSub),
+                       &(distLSS->operator()(iSub))        );
+
+  timer->addFiniteElementTermTime(t0);
+
+}
+
+
+
+
+
+/****************************************************************************************
+ * Computes the derivative of the viscous term for non-embedded simulations.            *
+ * This is the sparse implementation                                               (YC) *
+ ****************************************************************************************/
+template<int dim>
+void Domain::computeDerivativeOfGalerkinTerm(dRdXoperators<dim> &dRdXop,
+               FemEquationTerm *fet,
+               DistBcData<dim> &bcData,
+               DistGeoState &geoState,
+               DistSVec<double,3> &X,   DistSVec<double,3> &dX,
+               DistSVec<double,dim> &V, DistSVec<double,dim> &dV,
+               double dMach,
+               DistSVec<double,dim> &dR)
+{
 
   double t0 = timer->getTime();
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->computeDerivativeOfGalerkinTerm(dRdXop.dViscousFluxdX[iSub], fet, bcData(iSub), geoState(iSub),
-					 X(iSub), dX(iSub), V(iSub), dV(iSub), dMach, dR(iSub));
+         X(iSub), dX(iSub), V(iSub), dV(iSub), dMach, dR(iSub));
 
   timer->addFiniteElementTermTime(t0);
 
 }
+
+
+
+
+
 
 //------------------------------------------------------------------------------
 
@@ -3203,12 +3327,13 @@ void Domain::computeMutOMuDynamicLES(DynamicLESTerm *dles, DistVec<double> &ctrl
 //--------End of routines that compute MutOMu values
 //------------------------------------------------------------------------------
 template<int dim, class Scalar, int neq>
-void Domain::computeJacobianGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &bcData,
-					 DistGeoState &geoState, DistSVec<double,3> &X,
-					 DistVec<double> &ctrlVol, DistSVec<double,dim> &V,
-					 DistMat<Scalar,neq> &A,
-                                         DistVec<GhostPoint<dim>*> *ghostPoints,
-													  DistLevelSetStructure *distLSS, bool externalSI)
+void Domain::computeJacobianGalerkinTerm(
+               FemEquationTerm *fet, DistBcData<dim> &bcData,
+               DistGeoState &geoState, DistSVec<double,3> &X,
+               DistVec<double> &ctrlVol, DistSVec<double,dim> &V,
+               DistMat<Scalar,neq> &A,
+               DistVec<GhostPoint<dim>*> *ghostPoints,
+               DistLevelSetStructure *distLSS, bool externalSI)
 {
 
   int iSub;
@@ -3223,8 +3348,8 @@ void Domain::computeJacobianGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &
     Vec<GhostPoint<dim>*>* gp = (ghostPoints? &(*ghostPoints)(iSub) :0);
     LevelSetStructure *LSS = distLSS ? &(distLSS->operator()(iSub)) : 0;
     subDomain[iSub]->computeJacobianGalerkinTerm(fet, bcData(iSub), geoState(iSub), X(iSub),
-																	ctrlVol(iSub), V(iSub), A(iSub), gp, LSS, externalSI);
-		
+                       ctrlVol(iSub), V(iSub), A(iSub), gp, LSS, externalSI);
+
     subDomain[iSub]->sndOffDiagBlocks(*matPat, A(iSub));
   }
 
@@ -3389,6 +3514,22 @@ void Domain::applyBCsToDerivativeOfResidual(BcFcn *bcFcn, DistBcData<dim> &bcDat
     subDomain[iSub]->applyBCsToDerivativeOfResidual(bcFcn, bcData(iSub), U(iSub), dU(iSub), dF(iSub));
 
 }
+
+
+// TODO HACK
+template<int dim>
+void Domain::applyHackedBCsToDerivativeOfResidual(BcFcn *bcFcn, DistBcData<dim> &bcData,
+        DistSVec<double,dim> &U, DistSVec<double,dim> &dU, DistSVec<double,dim> &dF)
+{
+
+  if(dim==6){
+  #pragma omp parallel for
+    for (int iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->applyHackedBCsToDerivativeOfResidual(bcFcn, bcData(iSub), U(iSub), dU(iSub), dF(iSub));
+  }
+}
+
+
 
 //------------------------------------------------------------------------------
 
@@ -3869,27 +4010,28 @@ void Domain::assembleGhostPoints(DistVec<GhostPoint<dim>*> &ghostPoints, VarFcn 
   // Caution, the order of the calls matters, because a ghost point can lie on a domain boundary, 
   // in which case we may want to create its state after during the exchange. The num ghost 
   // states is going to be used as a parameter.
+
+//Send and exchange ghost states
 #pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub) 
+  for (iSub = 0; iSub < numLocSub; ++iSub) //loop over substructures
     {
       subDomain[iSub]->sndNumGhostStates(*levelPat, ghostPoints(iSub));
-	  subDomain[iSub]->sndGhostStates(*vecPat, ghostPoints(iSub), 0);
+      subDomain[iSub]->sndGhostStates(*vecPat, ghostPoints(iSub), 0);
     }
 
   levelPat->exchange();
   vecPat->exchange();
 
 #pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub)
-    {
+  for (iSub = 0; iSub < numLocSub; ++iSub){
       subDomain[iSub]->rcvNumGhostStates(*levelPat, ghostPoints(iSub), varFcn);
-	  subDomain[iSub]->rcvGhostStates(*vecPat, ghostPoints(iSub), 0);
+      subDomain[iSub]->rcvGhostStates(*vecPat, ghostPoints(iSub), 0);
     }
 
+//Send and exchange ghost weights and tags
 #pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub) 
-    {
-	  subDomain[iSub]->sndGhostWeights(*vecPat, ghostPoints(iSub), 0);
+  for (iSub = 0; iSub < numLocSub; ++iSub){
+      subDomain[iSub]->sndGhostWeights(*vecPat, ghostPoints(iSub), 0);
       subDomain[iSub]->sndGhostTags(*levelPat, ghostPoints(iSub));
     }
 
@@ -3897,9 +4039,8 @@ void Domain::assembleGhostPoints(DistVec<GhostPoint<dim>*> &ghostPoints, VarFcn 
   levelPat->exchange();
 
 #pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub)
-    {
-	  subDomain[iSub]->rcvGhostWeights(*vecPat, ghostPoints(iSub), 0);
+  for (iSub = 0; iSub < numLocSub; ++iSub){
+      subDomain[iSub]->rcvGhostWeights(*vecPat, ghostPoints(iSub), 0);
       subDomain[iSub]->rcvGhostTags(*levelPat, ghostPoints(iSub));
     }
 
@@ -3907,23 +4048,23 @@ void Domain::assembleGhostPoints(DistVec<GhostPoint<dim>*> &ghostPoints, VarFcn 
 
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) 
-	  subDomain[iSub]->sndGhostStates(*vecPat, ghostPoints(iSub), dim);
+    subDomain[iSub]->sndGhostStates(*vecPat, ghostPoints(iSub), dim);
 
   vecPat->exchange();
 
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
-	  subDomain[iSub]->rcvGhostStates(*vecPat, ghostPoints(iSub), dim);
+    subDomain[iSub]->rcvGhostStates(*vecPat, ghostPoints(iSub), dim);
   
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) 
-	  subDomain[iSub]->sndGhostWeights(*vecPat, ghostPoints(iSub), dim);
+    subDomain[iSub]->sndGhostWeights(*vecPat, ghostPoints(iSub), dim);
   
   vecPat->exchange();
 
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
-	  subDomain[iSub]->rcvGhostWeights(*vecPat, ghostPoints(iSub), dim);
+    subDomain[iSub]->rcvGhostWeights(*vecPat, ghostPoints(iSub), dim);
 
 }
 
@@ -4020,7 +4161,7 @@ bool Domain::readVectorFromFile(const char *prefix, int step, double *tag,
 
 template<class Scalar, int dim>
 void Domain::writeVectorToFile(const char *prefix, int step, double tag,
-			       DistSVec<Scalar,dim> &U, Scalar* scale)
+                               DistSVec<Scalar,dim> &U, Scalar* scale)
 {
 
   int iSub;
@@ -4080,6 +4221,51 @@ void Domain::writeVectorToFile(const char *prefix, int step, double tag,
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->template writeTagToFile<Scalar, 1>(prefix, step, tag);
+
+#ifndef SYNCHRO_WRITE
+  sync();
+#endif
+
+  timer->addBinaryWriteTime(t0);
+
+  com->printf(1, "Wrote solution %d to \'%s\'\n", step, prefix);
+
+}
+
+
+
+//------------------------------------------------------------------------------
+//TODO VISCOUSDERIV
+template<class Scalar, int dim>
+void Domain::writeVectorToFile(
+               const char *prefix,
+               int step,
+               double tag,
+               DistSVec<Scalar,dim> &U,
+               DistLevelSetStructure *distLSS,
+               DistVec<GhostPoint<dim>*> *ghostPoints,
+               Scalar* scale)
+{
+
+  int iSub;
+
+  com->barrier(); //For timing (of i/o) purpose.
+  double t0 = timer->getTime();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->template openFileForWriting<Scalar, dim>(prefix, step);
+
+  if (step == 0)
+    com->barrier();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->writeVectorToFile(prefix, step, U(iSub),&(distLSS->operator()(iSub)), ghostPoints->operator[](iSub), scale);
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->template writeTagToFile<Scalar, dim>(prefix, step, tag);
 
 #ifndef SYNCHRO_WRITE
   sync();
@@ -4730,44 +4916,111 @@ void Domain::extrapolatePhiV(DistLevelSetStructure *distLSS, DistSVec<double,dim
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Domain::populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints, DistSVec<double,3> &X, 
-											DistSVec<double,dim> &U, DistNodalGrad<dim, double> *ngrad, 
-											VarFcn *varFcn,DistLevelSetStructure *distLSS,bool linRecAtInterface, 
-											DistVec<int> &tag, bool externalSI, FemEquationTerm *fet)
+void Domain::populateGhostPoints(
+               DistVec<GhostPoint<dim>*> *ghostPoints,
+               DistSVec<double,3> &X,
+               DistSVec<double,dim> &U,
+               DistNodalGrad<dim, double> *ngrad,
+               VarFcn *varFcn,
+               DistLevelSetStructure *distLSS,
+               bool linRecAtInterface,
+               DistVec<int> &tag,
+               bool externalSI,
+               FemEquationTerm *fet)
 {
 
   int iSub;
 
-  if(!externalSI)
+  if(!externalSI)//external SI indicates Dantes method
   {
 #pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub) 
-		  subDomain[iSub]->populateGhostPoints((*ghostPoints)(iSub), X(iSub), U(iSub), (*ngrad)(iSub),
-															varFcn, (*distLSS)(iSub), linRecAtInterface, tag(iSub));
+  for (iSub = 0; iSub < numLocSub; ++iSub) //loop over all substructures
+    subDomain[iSub]->populateGhostPoints((*ghostPoints)(iSub), X(iSub), U(iSub), (*ngrad)(iSub),
+      varFcn, (*distLSS)(iSub), linRecAtInterface, tag(iSub));//populates values to the ghostpoints o each substructure
   
-  assembleGhostPoints(*ghostPoints,varFcn);
+  assembleGhostPoints(*ghostPoints,varFcn);//asseembles values on redundant ghostpoints
 
   for (iSub = 0; iSub < numLocSub; ++iSub) 
-		  subDomain[iSub]->reduceGhostPoints((*ghostPoints)(iSub), X(iSub));
+    subDomain[iSub]->reduceGhostPoints((*ghostPoints)(iSub), X(iSub));
   }
   else
   {
 #pragma omp parallel for
-	  for (iSub = 0; iSub < numLocSub; ++iSub)
-		  subDomain[iSub]->populateGhostPoints((*ghostPoints)(iSub), X(iSub), U(iSub), (*ngrad)(iSub),
-															varFcn, (*distLSS)(iSub), tag(iSub), fet);
-	  
-	  assembleGhostPoints(*ghostPoints, varFcn);
+    for (iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->populateGhostPoints((*ghostPoints)(iSub), X(iSub), U(iSub), (*ngrad)(iSub),
+                         varFcn, (*distLSS)(iSub), tag(iSub), fet);
 
-	  for (iSub = 0; iSub < numLocSub; ++iSub) 
-		  subDomain[iSub]->reduceGhostPoints((*ghostPoints)(iSub), X(iSub));
+    assembleGhostPoints(*ghostPoints, varFcn);
 
-	  for (iSub = 0; iSub < numLocSub; ++iSub) 
-		  subDomain[iSub]->checkGhostPoints((*ghostPoints)(iSub), X(iSub), U(iSub), (*ngrad)(iSub),
-														varFcn, (*distLSS)(iSub), tag(iSub));
+    for (iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->reduceGhostPoints((*ghostPoints)(iSub), X(iSub));
+
+    for (iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->checkGhostPoints((*ghostPoints)(iSub), X(iSub), U(iSub), (*ngrad)(iSub),
+                         varFcn, (*distLSS)(iSub), tag(iSub));
   }
 
 }
+
+
+
+
+//------------------------------------------------------------------------------
+//TODO VISCOUSDERIVS
+template<int dim>
+void Domain::populateDerivsGhostPoints(
+               DistVec<GhostPoint<dim>*> *ghostPoints,
+               DistSVec<double,3> &X, DistSVec<double,3> &dX,
+               DistSVec<double,dim> &U, DistSVec<double,dim> &dU,
+               DistNodalGrad<dim, double> *ngrad,
+               VarFcn *varFcn,
+               DistLevelSetStructure *distLSS,
+               bool linRecAtInterface,
+               DistVec<int> &tag,
+               bool externalSI,
+               FemEquationTerm *fet)
+{
+
+  int iSub;
+
+  if(!externalSI)//external SI indicates Dantes method
+  {
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) //loop over all substructures
+    subDomain[iSub]->populateDerivsGhostPoints((*ghostPoints)(iSub), X(iSub), dX(iSub), U(iSub), dU(iSub), (*ngrad)(iSub),
+      varFcn, (*distLSS)(iSub), linRecAtInterface, tag(iSub));//populates values to the ghostpoints o each substructure
+
+  assembleGhostPoints(*ghostPoints,varFcn);//asseembles values on redundant ghostpoints
+
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->reduceGhostPoints((*ghostPoints)(iSub), X(iSub));
+  }
+  else
+  {
+    this->com->fprintf(stderr,"Not yet implemented Domain::populatDerivsGhostPoints"); exit(-1);
+//#pragma omp parallel for
+//    for (iSub = 0; iSub < numLocSub; ++iSub)
+//      subDomain[iSub]->populateGhostPoints((*ghostPoints)(iSub), X(iSub), U(iSub), (*ngrad)(iSub),
+//                         varFcn, (*distLSS)(iSub), tag(iSub), fet);
+//
+//    assembleGhostPoints(*ghostPoints, varFcn);
+//
+//    for (iSub = 0; iSub < numLocSub; ++iSub)
+//      subDomain[iSub]->reduceGhostPoints((*ghostPoints)(iSub), X(iSub));
+//
+//    for (iSub = 0; iSub < numLocSub; ++iSub)
+//      subDomain[iSub]->checkGhostPoints((*ghostPoints)(iSub), X(iSub), U(iSub), (*ngrad)(iSub),
+//                         varFcn, (*distLSS)(iSub), tag(iSub));
+  }
+
+}
+
+
+
+
+
+
+
 
 //------------------------------------------------------------------------------
 //

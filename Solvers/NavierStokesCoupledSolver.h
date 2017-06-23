@@ -39,13 +39,8 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
   //Sensitivity analysis on a provided steady state solution
   else if (ioData.problem.alltype == ProblemData::_SENSITIVITY_ANALYSIS_) {
       FluidShapeOptimizationHandler<dim> fsoh(ioData, geoSource, &domain);
-
-//Ori
       TsSolver<FluidShapeOptimizationHandler<dim> > tsSolver(&fsoh);
       tsSolver.fsaSolve(ioData);
-
-      //TODO HACK
-      //fsoh.fsaOnlySolve(ioData);
   }
   else if (ioData.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_) { // YC
       FluidShapeOptimizationHandler<dim> fsisoh(ioData, geoSource, &domain);
@@ -121,15 +116,10 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
   }
   else if (ioData.ts.type == TsData::IMPLICIT) {
     if (ioData.problem.solutionMethod == ProblemData::TIMESTEPPING) {
-      //std::cout<<__FILE__<<":"<<__LINE__<<std::endl;//TODO delete line
       ImplicitCoupledTsDesc<dim> tsDesc(ioData, geoSource, &domain);
-      //std::cout<<__FILE__<<":"<<__LINE__<<std::endl;//TODO delete line
       TsSolver<ImplicitCoupledTsDesc<dim> > tsSolver(&tsDesc);
-      //std::cout<<__FILE__<<":"<<__LINE__<<std::endl;//TODO delete line
       tsSolver.solve(ioData);
-      //std::cout<<__FILE__<<":"<<__LINE__<<std::endl;//TODO delete line
     } else {
-      //std::cout<<__FILE__<<":"<<__LINE__<<std::endl;//TODO delete line
       MultiGridCoupledTsDesc<dim> tsDesc(ioData, geoSource, &domain);
       MultiGridSolver<MultiGridCoupledTsDesc<dim> > mgSolver(&tsDesc);
       mgSolver.solve(ioData);

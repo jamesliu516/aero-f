@@ -48,9 +48,8 @@ TsSolver<ProblemDescriptor>::TsSolver(ProblemDescriptor *prbd)
 template<class ProblemDescriptor>
 int TsSolver<ProblemDescriptor>::solve(IoData &ioData)
 {
-  std::cout<<__FILE__<<":"<<__LINE__<<std::endl;
   probDesc->printf(0,"\033[96m******************************************\033[00m\n");
-  probDesc->printf(0,"\033[96m*** Standard Solve Routione            ***\033[00m\n");
+  probDesc->printf(0,"\033[96m*** Standard Solve Routine             ***\033[00m\n");
   probDesc->printf(0,"\033[96m******************************************\033[00m\n");
   typename ProblemDescriptor::SolVecType U(probDesc->getVecInfo());
 
@@ -151,22 +150,22 @@ int TsSolver<ProblemDescriptor>::fsaSolve(IoData &ioData)
   typename ProblemDescriptor::SolVecType *UPrev = new typename ProblemDescriptor::SolVecType(probDesc->getVecInfo());
   (*UPrev) = 0.0;
 
+//////////////////////////////////////////////////
+  double dt, dts;
+  int it = probDesc->getInitialIteration();
+  double t = probDesc->getInitialTime();
+  // setup solution output files
+  probDesc->setupOutputToDisk(ioData, &lastIt, it, t, U);
+  /** for embedded method: send force (if it>0) and receive disp (from Struct). */
+  dts = probDesc->computePositionVector(&lastIt, it, t, U); // [F] receive displacement from structure ...
+  //////////////////////////////////////////////////
+
+
   probDesc->computeDistanceToWall(ioData);
 
   probDesc->computeMeshMetrics();//redundant, since this is already done in fsoInitialize
 
   probDesc->fsoHandler(ioData, U);
-
-//TODO this is what it originally looked like.
-// not sure if all the othe stuff is needed
-//  //////////////
-//
-//  typename ProblemDescriptor::SolVecType U(probDesc->getVecInfo());
-//
-//  probDesc->setupTimeStepping(&U, ioData);
-//  probDesc->fsoInitialize(ioData, U);//TODO HACK
-//  resolve(U, ioData);//TODO HACK initially this was called, I am not sure if sovle() wouldn't be the actually right correct thing to do
-//  probDesc->fsoHandler(ioData, U);
 
 
   return 0;
