@@ -98,8 +98,7 @@ protected:
   int order;
   int failsafe;
   int rshift;
-// Included (MB)
-  IoData *iod;
+
 
   enum DescriptorCase {
     DESCRIPTOR, HYBRID, NONDESCRIPTOR
@@ -111,6 +110,7 @@ private:
   int ccc;
 public:
   Domain *domain;
+  IoData *iod;
 
   SpaceOperator(IoData &, VarFcn *, DistBcData<dim> *, DistGeoState *,
 		Domain *, DistSVec<double,dim> * = 0);
@@ -230,7 +230,8 @@ public:
                         DistLevelSetStructure *distLSS, double *vfar, bool limit,
 			DistVec<int> *fluidId);
 
-  void populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints,DistSVec<double,3> &X,DistSVec<double,dim> &U,VarFcn *varFcn,DistLevelSetStructure *distLSS,bool linFSI,DistVec<int> &tag);
+  void populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints,DistSVec<double,3> &X,DistSVec<double,dim> &U,VarFcn *varFcn,
+						   DistLevelSetStructure *distLSS,bool linFSI,DistVec<int> &tag);
 
   template <int neq>
   void populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints,DistSVec<double,neq> &U,VarFcn *varFcn,DistLevelSetStructure *distLSS,DistVec<int> &tag) {

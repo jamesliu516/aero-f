@@ -88,9 +88,14 @@ class ExactRiemannSolver{
 	void computeActuatorDiskSourceTerm(double *Vi, double *Vj,double dp,double *n_s,
 															   double *n_f, VarFcn *vf,
 															   double *flux,bool method = true, int Id = 0);
+	void computeActuatorDiskJacobianSourceTerm(double *Vi, double *Vj,double dp,double *n_s,
+									   double *n_f, VarFcn *vf,
+									   double *dSdV,bool method = true, int Id = 0);
 	// for symmetryPlane  riemann problem
 	int computeSymmetryPlaneRiemannSolution(double *Vi, double *Vstar, double *nphi,
 											VarFcn *vf, double *Wstar, int nodej, int Id = 0);
+	void computeSymmetryRiemannJacobian(double *Vi, double *Vstar, double *nphi,
+            VarFcn *vf, double *Wstar, int nodej, double* dWdW,int Id = 0);
 
 
 };

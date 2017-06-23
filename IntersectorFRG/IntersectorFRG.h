@@ -196,6 +196,7 @@ class IntersectorFRG : public LevelSetStructure {
   using LevelSetStructure::is_swept;
   using LevelSetStructure::is_active;
   using LevelSetStructure::edge_intersects;
+  //using LevelSetStructure::edge_intersects_embedded_constraint;
 
   using LevelSetStructure::edge_SI;
   using LevelSetStructure::xi_SI;

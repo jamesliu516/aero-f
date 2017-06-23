@@ -16,6 +16,7 @@ class MultiGridLevelSetStructure : public LevelSetStructure {
     Vec<bool> &is_active;
     Vec<bool> &is_occluded;
     Vec<bool> &edge_intersects;
+    Vec<bool> &edge_intersects_constraint;
 
     Vec<Vec3D> &surfaceNormals;
 
@@ -36,6 +37,7 @@ class MultiGridLevelSetStructure : public LevelSetStructure {
 			       Vec<int>& status,Vec<double>& distance,Vec<bool>& is_swept,
 			       Vec<bool>& is_active,Vec<bool>& is_occluded,
 			       Vec<bool>& edge_intersects,
+			       Vec<bool>& edge_intersects_constraint,
 			       Vec<Vec3D>& surfaceNormals,
 			       LevelSetStructure* parent,
 			       int mySub,MultiGridLevel<double>* myLevel);

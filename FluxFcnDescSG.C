@@ -1676,6 +1676,8 @@ void massflowflux3DDerivative(int type, VarFcnBase *vf, double* normal, double* 
 	      double normalVel, double dNormalVel, double* V, double* Ub, double* dUb, double* flux, double* dFlux)
 {
 // not implemented yet
+//a2m : included in march 2017 : added an error message in case this function is called
+	printf("You just called massflowflux3DDerivative but the function in not implemented. Please check this error message \n");
 }
 
 //------------------------------------------------------------------------------

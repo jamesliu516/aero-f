@@ -265,7 +265,7 @@ template<int dim>
 			 int i = nodeNum(edgeEnd(k,0));
 			 int j = nodeNum(edgeEnd(k,1));
 
-			 if(LSS->edgeIntersectsStructure(0, e)) isValid = false;
+			 if(LSS->edgeIntersectsWall(0, e)) isValid = false;
 
 			 if(!LSS->isActive(0,i) || !LSS->isActive(0,j)) isValid = false;
 		 }

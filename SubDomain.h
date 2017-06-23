@@ -279,8 +279,9 @@ public:
   int computeControlVolumes(int, double, SVec<double,3> &, Vec<double> &);
   void computeFaceNormals(SVec<double,3> &, Vec<Vec3D> &);
   void computeFaceEdgeNormals(SVec<double,3>&, SVec<double,6>&);
-  void computeEdgeDihedralAngle(double, SVec<double,6>&, Vec<double>&);
-  void propagateInfoAlongEdges(Vec<double>&);
+  void computeEdgeDihedralAngle(double, SVec<double,3>&, SVec<double,6>&,
+                                SVec<double,5>&);
+  void propagateInfoAlongEdges(double, SVec<double,3>&, SVec<double,5>&);
   void computeNormalsGCL1(SVec<double,3> &, SVec<double,3> &, SVec<double,3> &,
 			  Vec<Vec3D> &, Vec<double> &, Vec<Vec3D> &, Vec<double> &);
   void computeNormalsConfig(SVec<double,3> &Xconfig, SVec<double,3> &Xdot,
@@ -1075,6 +1076,9 @@ public:
   void addRcvData(CommPattern<Scalar> &, Scalar (*)[dim]);
 
   template<class Scalar, int dim>
+  void otRcvData(CommPattern<Scalar> &, Scalar (*)[dim]);
+
+  template<class Scalar, int dim>
   void RcvData(CommPattern<Scalar> &, Scalar (*)[dim]);
 
   template<int dim>
@@ -1277,10 +1281,11 @@ public:
 
   template<int dim>
     void populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<double,3> &X, SVec<double,dim> &U,
-           NodalGrad<dim, double> &ngrad, VarFcn *varFcn, LevelSetStructure &LSS, bool linRecFSI, Vec<int> &tag);
+									  NodalGrad<dim, double> &ngrad, VarFcn *varFcn,
+							 LevelSetStructure &LSS, bool linRecFSI, Vec<int> &tag,FemEquationTerm *fet);
 
   template<int dim>
-    void populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<double,3> &X, SVec<double,dim> &U,
+    void populateGhostPoints_e(Vec<GhostPoint<dim>*> &ghostPoints, SVec<double,3> &X, SVec<double,dim> &U,
 									  NodalGrad<dim, double> &ngrad, VarFcn *varFcn, LevelSetStructure &LSS, Vec<int> &fluidId,
 									  FemEquationTerm *fet);
 
@@ -1797,7 +1802,7 @@ public:
 
   // d2d
   template<int dim,int dimLS>
-  void computeEMBNodeScalarQuantity(SVec<double,3> &X, SVec<double,dim> &V,
+  void computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec<double,dim> &V,
                          	    PostFcn *postFcn, VarFcn *varFcn,
 				    Vec<int> &fluidId, SVec<double,dimLS>* phi,
 				    double (*Qnty)[3], int sizeQnty, int numStructElems, int (*stElem)[3],

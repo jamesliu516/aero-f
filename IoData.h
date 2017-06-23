@@ -623,7 +623,7 @@ struct BcsHydroData {
 struct BoundaryData  {
 
   static const int UNSPECIFIED = -1;
-  enum Type {DIRECTSTATE = 1, MASSFLOW = 2, POROUSWALL = 3, SYMMETRYPLANE = 4,ACTUATORDISK = 5,MASSINFLOW = 6} type;
+  enum Type {DIRECTSTATE = 1, MASSFLOW = 2, POROUSWALL = 3, SYMMETRYPLANE = 4,ACTUATORDISK = 5,MASSINFLOW = 6,WALL = 7} type;
 
    enum vars {DENSITY = 0, VX = 1, VY = 2, VZ = 3, PRESSURE = 4, TEMPERATURE = 5, TOTALPRESSURE = 6, TOTALTEMPERATURE = 7, MDOT = 8, NUTILDE = 9, KENERGY = 10, EPSILON = 11, SIZE = 12};
   bool inVar[SIZE], outVar[SIZE];
@@ -1450,12 +1450,25 @@ struct BFixData {
 
 //------------------------------------------------------------------------------
 
+struct DHFixData {
+
+  double angle;
+  int numLayers;
+  double maxDist;
+  
+  DHFixData();
+  ~DHFixData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+};
+
+//------------------------------------------------------------------------------
+
 struct SchemeFixData {
 
   static const int num = 10;
 
   enum Symmetry {NONE = 0, X = 1, Y = 2, Z = 3} symmetry;
-  double dihedralAngle;
 
   SFixData* spheres[num];
   BFixData* boxes[num];
@@ -1493,6 +1506,8 @@ struct SchemeFixData {
   CFixData cfix8;
   CFixData cfix9;
   CFixData cfix10;
+
+  DHFixData dhfix;
 
   SchemeFixData();
   ~SchemeFixData() {}
@@ -2890,6 +2905,30 @@ struct PadeFreq  {
 };
 
 //------------------------------------------------------------------------------
+struct SymmetryConstraint{
+  enum Normal {Nx = 0, Ny =1 ,Nz = 2} Normal;
+  double planeposition;
+  void setup(const char *, ClassAssigner * = 0);
+};
+
+//------------------------------------------------------------------------------
+
+struct InletConstraint{//not implemented yet (arthur Morlot, 2017)
+  enum Normal {Nx = 0, Ny =1 ,Nz = 2} Normal;
+  double planeposition;
+  void setup(const char *, ClassAssigner * = 0);
+};
+//------------------------------------------------------------------------------
+
+struct EmbeddedConstraint{
+  //const char *embeddedConstraintFile;
+  enum ConstraintType {NOCONSTRAINT = 0, SYMMETRY = 1, INLET =2} ConstraintType;
+  void setup(const char *, ClassAssigner * = 0);
+  EmbeddedConstraint();
+  SymmetryConstraint Symmetry_Constraint;
+  InletConstraint Inlet_Constraint;
+};
+//------------------------------------------------------------------------------
 
 struct EmbeddedFramework {
 
@@ -2929,6 +2968,8 @@ struct EmbeddedFramework {
   enum SurrogateInterface{HYBRID = 0, EXTERNAL = 1} surrogateinterface;
 
   int testCase;
+
+  EmbeddedConstraint Embedded_Constraint;
 
   EmbeddedFramework();
   ~EmbeddedFramework() {}

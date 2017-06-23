@@ -375,6 +375,15 @@ void ExactRiemannSolver<dim>::computeActuatorDiskSourceTerm(double *Vi, double *
 
 }
 
+template<int dim>
+void ExactRiemannSolver<dim>::computeActuatorDiskJacobianSourceTerm(double *Vi, double *Vj,double dp,double *n_s,
+                                                            double *n_f, VarFcn *vf,
+                                                            double *dSdV,bool method, int Id)
+
+{    actuatorDiskRiemann->computeJacobianSourceTerm(Vi, Vj,dp, n_s, n_f, vf, dSdV,method, Id);
+
+}
+
 //------------------------------------------------------------------------------
 template<int dim>
 int ExactRiemannSolver<dim>::computeSymmetryPlaneRiemannSolution(double *Vi, double *Vstar,
@@ -383,4 +392,12 @@ int ExactRiemannSolver<dim>::computeSymmetryPlaneRiemannSolution(double *Vi, dou
 {
     return symmetryplaneRiemann->computeRiemannSolution(Vi,Vstar,nphi,vf,
                                                         Wstar,rupdate[nodej],weight[nodej],iteration, Id);
+}
+
+template<int dim>
+void ExactRiemannSolver<dim>::computeSymmetryRiemannJacobian(double *Vi, double *Vstar, double *nphi,
+        VarFcn *vf, double *Wstar, int nodej, double* dWdW,int Id)
+{
+    symmetryplaneRiemann->computeRiemannJacobian(Vi,Vstar,nphi,vf,
+            Wstar,rupdate[nodej],weight[nodej],iteration, dWdW,Id);
 }

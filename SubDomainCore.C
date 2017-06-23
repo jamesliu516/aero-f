@@ -1102,11 +1102,12 @@ void SubDomain::computeFaceEdgeNormals(SVec<double,3>& X, SVec<double,6>& normal
 
 //------------------------------------------------------------------------------
 
-void SubDomain::computeEdgeDihedralAngle(double threshold, SVec<double,6>& normals,
-					 Vec<double>& tag)
+void SubDomain::computeEdgeDihedralAngle(double threshold, SVec<double,3>& X,
+     SVec<double,6>& normals, SVec<double,5>& originAndTag)
 {
 
-  tag = 0.0;
+//  for(int i=0; i< originAndTag.size();i++)  originAndTag.size[i][4]= 0.0;
+  originAndTag = 0.0;
 
   Vec<bool> bedges(edges.size());
   bedges = false;
@@ -1114,23 +1115,34 @@ void SubDomain::computeEdgeDihedralAngle(double threshold, SVec<double,6>& norma
     faces[i].tagEdgesOnBoundaries(bedges);
 
   int (*ptr)[2] = edges.getPtr();
+
+  double ct = cos(threshold/180*M_PI);
+
+  int nbedge = 0;
+  int nbedget = 0;
+  int nbedgeti = 0;
   for (int l=0; l<edges.size(); ++l) {
     if (bedges[l]) {
+      nbedge++;
       Vec3D ni(normals[l][0], normals[l][1], normals[l][2]);
       Vec3D nj(normals[l][3], normals[l][4], normals[l][5]);
-      /*
-      if ( (locToGlobNodeMap[ptr[l][0]]+1 == 17 && locToGlobNodeMap[ptr[l][1]]+1 == 157) ||
-	   (locToGlobNodeMap[ptr[l][1]]+1 == 17 && locToGlobNodeMap[ptr[l][0]]+1 == 157) )
-	printf("%d (%d -> %d, %d) (%d -> %d, %d) %e %e %e %e %e %e %e\n",
-	       l+1, ptr[l][0], locToGlobNodeMap[ptr[l][0]]+1, nodeType[ ptr[l][0] ],
-	       ptr[l][1], locToGlobNodeMap[ptr[l][1]]+1, nodeType[ ptr[l][1] ],
-	       ni[0], ni[1], ni[2], nj[0], nj[1], nj[2], acos(ni*nj) *180.0/acos(-1.0));
-      */
-      if (acos(ni*nj) >= threshold) {
-	if (nodeType[ ptr[l][0] ] < BC_INTERNAL)
-	  tag[ ptr[l][0] ] += 1.0;
-	if (nodeType[ ptr[l][1] ] < BC_INTERNAL)
-	  tag[ ptr[l][1] ] += 1.0;
+      double a = ni*nj/ (sqrt(ni*ni)*sqrt(nj*nj));
+//      if (acos(ni*nj) >= threshold) {
+      if (a <= ct) {
+        nbedget++;
+        if (nodeType[ ptr[l][0] ] < BC_INTERNAL || nodeType[ ptr[l][1] ] < BC_INTERNAL) nbedgeti++;
+	if (nodeType[ ptr[l][0] ] < BC_INTERNAL) {
+	  originAndTag[ ptr[l][0] ] [3] += 1.0;
+          originAndTag[ ptr[l][0] ][0] = X[ptr[l][0]][0];
+          originAndTag[ ptr[l][0] ][1] = X[ptr[l][0]][1];
+          originAndTag[ ptr[l][0] ][2] = X[ptr[l][0]][2];
+        }
+	if (nodeType[ ptr[l][1] ] < BC_INTERNAL) {
+	  originAndTag[ ptr[l][1] ] [3] += 1.0;
+          originAndTag[ ptr[l][1] ][0] = X[ptr[l][1]][0];
+          originAndTag[ ptr[l][1] ][1] = X[ptr[l][1]][1];
+          originAndTag[ ptr[l][1] ][2] = X[ptr[l][1]][2];
+        }
       }
     }
   }
@@ -1139,22 +1151,83 @@ void SubDomain::computeEdgeDihedralAngle(double threshold, SVec<double,6>& norma
 
 //------------------------------------------------------------------------------
 
-void SubDomain::propagateInfoAlongEdges(Vec<double>& tag)
+void SubDomain::propagateInfoAlongEdges(double maxDist, SVec<double,3>& X,
+                         SVec<double,5>& originAndTag)
 {
 
   int (*edgePtr)[2] = edges.getPtr();
-  Vec<double> newtag(tag.size());
+  Vec<double> newtag(originAndTag.size());
   newtag = 0.0;
   for (int l=0; l<edges.size(); ++l) {
     int i = edgePtr[l][0];
     int j = edgePtr[l][1];
-    if (tag[i] > 0.0)
-      newtag[j] += 1.0;
-    if (tag[j] > 0.0)
-      newtag[i] += 1.0;
+/*
+    if (originAndTag[i][3] > 0.0) {
+        newtag[j] += 1.0;
+    }
+    else if (originAndTag[j][3] > 0.0) {
+        newtag[i] += 1.0;
+    }
+*/
+
+
+    if (originAndTag[i][3] > 0.0) {
+      Vec3D dji; 
+      dji[0] = X[j][0] - originAndTag[i][0];
+      dji[1] = X[j][1] - originAndTag[i][1];
+      dji[2] = X[j][2] - originAndTag[i][2];
+      if (originAndTag[j][3] > 0.0 || newtag[j]>0.0) {
+        Vec3D djj; 
+        djj[0] = X[j][0] - originAndTag[j][0];
+        djj[1] = X[j][1] - originAndTag[j][1];
+        djj[2] = X[j][2] - originAndTag[j][2];
+        if (dji.norm()<djj.norm()) {
+          // Distance to origin of i is less that origin of j -> update origin
+          originAndTag[j][0] = originAndTag[i][0];
+          originAndTag[j][1] = originAndTag[i][1];
+          originAndTag[j][2] = originAndTag[i][2];
+          originAndTag[j][4] = dji.norm();
+        }
+      } else if (dji.norm()<maxDist && originAndTag[j][3]==0.0) {
+      // j not tagged yet - assign origin of i and tag 
+        originAndTag[j][0] = originAndTag[i][0];
+        originAndTag[j][1] = originAndTag[i][1];
+        originAndTag[j][2] = originAndTag[i][2];
+        newtag[j] += 1.0;
+        originAndTag[j][4] = dji.norm();
+      }
+    } else if (originAndTag[j][3] > 0.0) {
+      Vec3D dij; 
+      dij[0] = X[i][0] - originAndTag[j][0];
+      dij[1] = X[i][1] - originAndTag[j][1];
+      dij[2] = X[i][2] - originAndTag[j][2];
+      if (newtag[i]>0.0) {
+        Vec3D dii; 
+        dii[0] = X[i][0] - originAndTag[i][0];
+        dii[1] = X[i][1] - originAndTag[i][1];
+        dii[2] = X[i][2] - originAndTag[i][2];
+        if (dij.norm()<dii.norm()) {
+          // Distance to origin of j is less that origin of i -> update origin
+          originAndTag[i][0] = originAndTag[j][0];
+          originAndTag[i][1] = originAndTag[j][1];
+          originAndTag[i][2] = originAndTag[j][2];
+          originAndTag[i][4] = dij.norm();
+        }
+      } else if (dij.norm()<maxDist) {
+      // i not tagged yet - assign origin of j and tag 
+        originAndTag[i][0] = originAndTag[j][0];
+        originAndTag[i][1] = originAndTag[j][1];
+        originAndTag[i][2] = originAndTag[j][2];
+        newtag[i] += 1.0;
+        originAndTag[i][4] = dij.norm();
+      }
+    }
+
   }
 
-  tag += newtag;
+  for(int i=0;i<newtag.size();i++)
+    originAndTag[i][3] += newtag[i];
+
 
 }
 
@@ -1713,9 +1786,7 @@ void SubDomain::computeDerivativeOfWeightsLeastSquaresEdgePartEmb(
 // least square gradient involving only nodes of same fluid (multiphase flow)
 //d2d$
 void SubDomain::computeWeightsLeastSquaresEdgePart(
-                  SVec<double,3> &X, const Vec<int> &fluidId,
-                  SVec<int,1> &count, SVec<double,6> &R,
-                  LevelSetStructure *LSS, bool includeSweptNodes)
+                  SVec<double,3> &X, const Vec<int> &fluidId,SVec<int,1> &count, SVec<double,6> &R,LevelSetStructure *LSS, bool includeSweptNodes)
 {
 
   R = 0.0;
@@ -1737,7 +1808,7 @@ void SubDomain::computeWeightsLeastSquaresEdgePart(
 
 		if(LSS)
 		{			
-			if(LSS->edgeWithSI(l) || LSS->edgeIntersectsStructure(0.0, l)) validEdge = false;
+			if(LSS->edgeWithSI(l) || LSS->edgeIntersectsWall(0.0,l)) validEdge = false;
 			if(!LSS->isActive(0.0, i) || !LSS->isActive(0.0, j)) validEdge = false;			
 			if(!includeSweptNodes && (LSS->isSwept(0.0, i) || LSS->isSwept(0.0, j))) validEdge = false;
 		}
@@ -1802,7 +1873,7 @@ void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const Vec<
 
 	 if(LSS)
 	 {
-		 if(LSS->edgeIntersectsStructure(0.0, l)) checkN = false;
+		 if(LSS->edgeIntersectsWall(0.0,l)) checkN = false;
 
 		 if(!LSS->isActive(0.0, i) && !LSS->isActive(0.0, j)) checkN = false;
 	 }
@@ -1914,7 +1985,7 @@ void SubDomain::computeWeightsLeastSquaresEdgePartForEmbeddedStruct(LevelSetStru
 
 		if(externalSI && LSS.edgeWithSI(l)) validEdge = false;
 
-		if(LSS.edgeIntersectsStructure(0.0, l)) validEdge = false;
+		if(LSS.edgeIntersectsWall(0.0,l)) validEdge = false;
 
 		if(!LSS.isActive(0.0, i) || !LSS.isActive(0.0, j)) validEdge = false;
 		
@@ -2376,66 +2447,71 @@ void SubDomain::computeDerivativeOfWeightsLeastSquaresNodePartEmb(
 
 //------------------------------------------------------------------------------
 //d2d$
+//Cholesky factorization
+// R = L^T * L
+//         r11   r12  r13
+// L =      0    r22  r23
+//          0     0   r33
+// save L to R
 void SubDomain::computeWeightsLeastSquaresNodePart(SVec<int,1> &count, SVec<double,6> &R)
 {
 
-      double r11, or11, r12, r13, r22, r23, r33;
+    double r11, or11, r12, r13, r22, r23, r33;
 
-	for(int i=0; i<R.size(); ++i) 
-	{		
-		if(count[i][0]>3) 
-		{ 
+    for(int i=0; i<R.size(); ++i)
+    {
+        if(count[i][0]>3)
+        {
 
-			/* -----------------------------------------------------------------*/
-			if(R[i][0] <= 0.0)
-			{
-        r11 = 0.0; r12 = 0.0; r13 = 0.0; r22 = 0.0; r23 = 0.0; r33 = 0.0;
-			}
-			else
-			{
-        r11  = sqrt(R[i][0]);
-        or11 = 1.0 / r11;
-        r12  = R[i][1] * or11;
-        r13  = R[i][2] * or11;
+            /* -----------------------------------------------------------------*/
+            if(R[i][0] <= 0.0)
+            {
+                r11 = 0.0; r12 = 0.0; r13 = 0.0; r22 = 0.0; r23 = 0.0; r33 = 0.0;
+            }else
+            {
+                r11  = sqrt(R[i][0]);
+                or11 = 1.0 / r11;
+                r12  = R[i][1] * or11;
+                r13  = R[i][2] * or11;
 
-				if((R[i][3] - r12*r12) <= 0.0)
-				{
-          r11 = 0.0; r12 = 0.0; r13 = 0.0; r22 = 0.0; r23 = 0.0; r33 = 0.0;
-				}
-				else
-				{
-          r22  = sqrt(R[i][3] - r12*r12);
-          r23  = (R[i][4] - r12*r13) / r22;
+                if((R[i][3] - r12*r12) <= 0.0)
+                {
+                    r11 = 0.0; r12 = 0.0; r13 = 0.0; r22 = 0.0; r23 = 0.0; r33 = 0.0;
+                }
+                else
+                {
+                    r22  = sqrt(R[i][3] - r12*r12);
+                    r23  = (R[i][4] - r12*r13) / r22;
 
-					if((R[i][5] - (r13*r13 + r23*r23)) < 0.0)
-					{
-            r11 = 0.0; r12 = 0.0; r13 = 0.0; r22 = 0.0; r23 = 0.0; r33 = 0.0;
-					}
-					else
-						r33 = sqrt(R[i][5] - (r13*r13 + r23*r23));
-				}
-				
-			}
-			/* -----------------------------------------------------------------*/
+                    if((R[i][5] - (r13*r13 + r23*r23)) < 0.0)
+                    {
+                        r11 = 0.0; r12 = 0.0; r13 = 0.0; r22 = 0.0; r23 = 0.0; r33 = 0.0;
+                    }
+                    else
+                        r33 = sqrt(R[i][5] - (r13*r13 + r23*r23));
+                }
 
-      R[i][0] = r11;
-      R[i][1] = r12;
-      R[i][2] = r13;
-      R[i][3] = r22;
-      R[i][4] = r23;
-      R[i][5] = r33;
-		}
-		else
-		{
-      R[i][0] = 0.0;
-      R[i][1] = 0.0;
-      R[i][2] = 0.0;
-      R[i][3] = 0.0;
-      R[i][4] = 0.0;
-      R[i][5] = 0.0;
+            }
+            /* -----------------------------------------------------------------*/
+
+            R[i][0] = r11;
+            R[i][1] = r12;
+            R[i][2] = r13;
+            R[i][3] = r22;
+            R[i][4] = r23;
+            R[i][5] = r33;
+        }
+        else
+        {
+            R[i][0] = 0.0;
+            R[i][1] = 0.0;
+            R[i][2] = 0.0;
+            R[i][3] = 0.0;
+            R[i][4] = 0.0;
+            R[i][5] = 0.0;
+        }
+
     }
-
-  }
 
 }
 
@@ -2492,7 +2568,7 @@ void SubDomain::computeWeightsGalerkin(SVec<double,3> &X, const Vec<int> &fluidI
 		}
 		else
 		{
-			if( (!LSS->isActive(0.0, Nj) || !LSS->isActive(0.0, Nk)) || LSS->edgeIntersectsStructure(0.0, le) )
+			if( (!LSS->isActive(0.0, Nj) || !LSS->isActive(0.0, Nk)) || LSS->edgeIntersectsWall(0.0,le) )
 			{
 	e_flag = true;
 	break;
@@ -4508,7 +4584,7 @@ void SubDomain::computeOffWallNode(LevelSetStructure *LSS, CommPattern<int> &ntP
 
   for (int i=0; i<nodes.size(); ++i) offWallNode[i] = 0;
   for (int l=0; l<edges.size(); ++l) {
-    if(LSS->edgeIntersectsStructure(0.0,l)) { //at interface
+    if(LSS->edgeIntersectsWall(0.0,l)) { //at interface
       int i = edgePtr[l][0];
       int j = edgePtr[l][1];
       bool iIsActive = LSS->isActive(0.0,i);
@@ -6309,7 +6385,7 @@ void SubDomain::solicitFluidIdFS(LevelSetStructure &LSS, Vec<int> &fluidId, SVec
         fprintf(stderr,"Sub %d, Nei of 349859 (myId = %d): %d, fluidId = %d, occluded = %d, swept = %d, X = %d\n",
                 globSubNum, myId, locToGlobNodeMap[iNei]+1, fluidId[iNei], LSS.isOccluded(0.0,iNei), LSS.isSwept(0.0,iNei), (int)LSS.edgeIntersectsStructure(0.0,edges.findOnly(i,iNei)));
 
-      if(LSS.isOccluded(0.0,iNei) || LSS.isSwept(0.0,iNei) || LSS.edgeIntersectsStructure(0.0,edges.findOnly(i,iNei)))
+      if(LSS.isOccluded(0.0,iNei) || LSS.isSwept(0.0,iNei) || LSS.edgeIntersectsWall(0.0,edges.findOnly(i,iNei)))
         continue;
 
 
@@ -7040,20 +7116,32 @@ bool SubDomain::getFEMstencil2(int Ni, SVec<double,3> &X,
 
 	Vec3D X_i = X[Ni];
 
+
 	Vec3D dir = X_i - xWall;
 		
 	double norm = sqrt(dir * dir);
 
-	if(norm > geomTol) 
-		dir *= 1.0 / norm;
+
+      if (norm > geomTol) {
+
+
+        dir *= 1.0 / norm;
+      }
 	else
 	{
+	    std::cout << "WARNING***, in SubDomain::getFEMstencil2 too close to the surface" << std::endl;
 		// X_i and xWall coincide: use nWall as searching direction
+      //dzh
+      //std::cout << "Ni is occluded" << Ni << std::endl;
+
 	   norm = sqrt(normWall * normWall);
 		dir = normWall * (1.0/norm);
 	}
+  //dzh
+  //std::cout << "Ni " << Ni << "xx "<<" " << X_i[0]<<" " <<X_i[1] <<" xx "  <<  xWall[0] << " " <<xWall[1] << " dir " << dir[0] <<" "<< dir[1]<<" " << dir[2] << std::endl;
 
-	Vec3D ve_p = X_i + 1000.0*dir;
+
+  Vec3D ve_p = X_i + 1000.0*dir;
 	Vec3D ve_m = X_i - 1000.0*dir;
 
 	int Esize;

@@ -1531,7 +1531,8 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, DistSVec<double,6
 }
 
 //------------------------------------------------------------------------------
-//  least square gradient involving only nodes of same fluid (multiphase flow)
+//  least square gradient involving only nodes of same fluid (multiphase flow),
+//  R is the cholesky factoriazation of the matrix, which is a upper triangle matrix
 //d2d
 void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistVec<int> &fluidId,
                                         DistSVec<double,6> &R, DistLevelSetStructure *distLSS,

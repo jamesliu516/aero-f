@@ -196,11 +196,15 @@ DistEdgeGrad<dim>::DistEdgeGrad(IoData& iod, Domain* domain)
     }
   }
 
-  if (iod.schemes.fixes.dihedralAngle > 0.0) {
+   if (iod.schemes.fixes.dhfix.angle > 0.0) {
+
     DistSVec<double,3> X0(domain->getNodeDistInfo());
     domain->getReferenceMeshPosition(X0);
     CurvatureDetection crvdet(domain);
-    crvdet.compute(iod.schemes.fixes.dihedralAngle, X0, *tag);
+    crvdet.compute(iod.schemes.fixes.dhfix.angle,
+                   iod.schemes.fixes.dhfix.numLayers,
+                   iod.schemes.fixes.dhfix.maxDist,
+                   X0, *tag);
   }
 
   subEdgeGrad = new EdgeGrad<dim>*[numLocSub];

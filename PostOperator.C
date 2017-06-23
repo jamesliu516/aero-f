@@ -397,9 +397,7 @@ void PostOperator<dim>::computeForceAndMoment(
     Fv[iSurf] = 0.0;
     Mv[iSurf] = 0.0;
   }
-
   varFcn->conservativeToPrimitive(U, *V, fluidId);
-
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
@@ -413,7 +411,6 @@ void PostOperator<dim>::computeForceAndMoment(
       fv[iSurf] = 0.0;
       mv[iSurf] = 0.0;
     }
-
     if (mX) {
       SubVecSet<DistSVec<double,3>, SVec<double,3> > subMX(mX, iSub);
       subDomain[iSub]->computeForceAndMoment(surfOutMap, postFcn, (*bcData)(iSub), (*geoState)(iSub),
@@ -438,25 +435,20 @@ void PostOperator<dim>::computeForceAndMoment(
     delete [] fv;
     delete [] mv;
   }
-
   Vec3D *fi = new Vec3D[numSurf];
   Vec3D *mi = new Vec3D[numSurf];
   for(iSurf = 0; iSurf < numSurf; ++iSurf) {
     fi[iSurf] = 0.0;
     mi[iSurf] = 0.0;
   }
-
   if(forceGen != 0)
     forceGen->getForcesAndMoments(surfOutMap, U, X, fi, mi);
-
   for(iSurf = 0; iSurf < numSurf; ++iSurf) {
     Fi[iSurf] += fi[iSurf];
     Mi[iSurf] += mi[iSurf];
   }
-
   delete [] fi;
   delete [] mi;
-
   for(iSurf = 0; iSurf < numSurf; ++iSurf) {
 //#pragma omp critical
     double coef[12] = {Fi[iSurf][0], Fi[iSurf][1], Fi[iSurf][2],
@@ -1586,7 +1578,7 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
 	  {
     if(ghostPoints) gp = ghostPoints->operator[](iSub);
 
-      subDomain[iSub]->computeEMBNodeScalarQuantity(X(iSub), (*V)(iSub), postFcn, varFcn,
+      subDomain[iSub]->computeEMBNodeScalarQuantity(*(spaceOp->iod), X(iSub), (*V)(iSub), postFcn, varFcn,
 																		fluidId(iSub), Phi ? &((*Phi)(iSub)):(SVec<double,1>*)0,
      						   subEmbQ[iSub], numStructNodes, numStructElems, stElem, Xstruct,
 						   (*distLSS)(iSub), 1.0, gp, (*ngrad)(iSub) );
