@@ -1061,16 +1061,6 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(
     dabsmutilde = ( fabs(mutilde) / mutilde ) * dmutilde;
   else {
     fprintf(stderr, "***** Inside the file FemEquationTermDesc.C the varible mutilde is zero *****\n");
-    //exit(1);
-    std::cout<<"NodeNum: "<<nodeNum[0]<<" "<<nodeNum[1]<<" "<<nodeNum[2]<<" "<<nodeNum[3]<<" "<<std::endl;//TODO delete line
-    std::cout<<"V[0][5] "<<V[0][5]<<std::endl;//TODO delete line
-    std::cout<<"V[1][5] "<<V[1][5]<<std::endl;//TODO delete line
-    std::cout<<"V[2][5] "<<V[2][5]<<std::endl;//TODO delete line
-    std::cout<<"V[3][5] "<<V[3][5]<<std::endl;//TODO delete line
-    std::cout<<"V[0][0] "<<V[0][0]<<std::endl;//TODO delete line
-    std::cout<<"V[1][0] "<<V[1][0]<<std::endl;//TODO delete line
-    std::cout<<"V[2][0] "<<V[2][0]<<std::endl;//TODO delete line
-    std::cout<<"V[3][0] "<<V[3][0]<<std::endl;//TODO delete line
     dabsmutilde = 0.0;
   }
 
@@ -1114,11 +1104,6 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(
   dR[0][5] = dmu5 * dnutildedx + mu5 * ddnutildedx;
   dR[1][5] = dmu5 * dnutildedy + mu5 * ddnutildedy;
   dR[2][5] = dmu5 * dnutildedz + mu5 * ddnutildedz;
-  if (mutilde == 0.0) {
-    std::cout<<"Added contribution: "<<dmu5 * dnutildedx + mu5 * ddnutildedx<<std::endl;//TODO delete line
-    std::cout<<"Added contribution: "<<dmu5 * dnutildedy + mu5 * ddnutildedy<<std::endl;//TODO delete line
-    std::cout<<"Added contribution: "<<dmu5 * dnutildedz + mu5 * ddnutildedz<<std::endl;//TODO delete line
-  }
 
   dS[0] = 0.0;
   dS[1] = 0.0;
@@ -2025,13 +2010,8 @@ bool FemEquationTermDES::computeDerivativeOfVolumeTerm(
 {
 
   bool porousmedia = false;
-  sleep(1);//TODO delete line
-
-  fprintf(stderr, "***** FemEquationTermDesc::computeDerivativeOfVolumeTerm");//TODO uncomment line
-  fprintf(stderr, " >> Function not defined for TermDES *****\n");//TODO uncomment line
-
-  sleep(10);//TODO delete line
-  fflush(stdout);//TODO delete line
+  fprintf(stderr, "***** FemEquationTermDesc::computeDerivativeOfVolumeTerm");
+  fprintf(stderr, " >> Function not defined for TermDES *****\n");
   exit(-1);
 
   return (porousmedia);

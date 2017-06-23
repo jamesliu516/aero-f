@@ -1208,10 +1208,8 @@ void Domain::computeDerivativeOfNormals(RectangularSparseMat<double,3,3> **dEdge
   for (iSub=0; iSub<numLocSub; ++iSub) {
     subDomain[iSub]->computeDerivativeOfNormals(*dEdgeNormdX[iSub], *dFaceNormdX[iSub], dX(iSub), dEdgeNorm(iSub), dFaceNorm(iSub));
 
-// TODO: part below was uncommented.
     subDomain[iSub]->sndNormals(*edgePat, dEdgeNorm.subData(iSub), dEdgeNormVel.subData(iSub));
   }
-// TODO: part below was uncommented.
   edgePat->exchange();
 #pragma omp parallel for
   for (iSub=0; iSub<numLocSub; ++iSub)

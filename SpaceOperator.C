@@ -60,7 +60,7 @@ SpaceOperator<dim>::SpaceOperator(IoData &ioData, VarFcn *vf, DistBcData<dim> *b
   if (ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
       ioData.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
 			ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_ ||
-      ioData.problem.alltype == ProblemData::_SENSITIVITY_ANALYSIS_) {//TODO CHECK if neccesary
+      ioData.problem.alltype == ProblemData::_SENSITIVITY_ANALYSIS_) {
     dU = new DistSVec<double,dim>(domain->getNodeDistInfo());
     dV = new DistSVec<double,dim>(domain->getNodeDistInfo());
     dRm = new DistSVec<double,dim>(domain->getNodeDistInfo());
@@ -85,7 +85,7 @@ SpaceOperator<dim>::SpaceOperator(IoData &ioData, VarFcn *vf, DistBcData<dim> *b
 
   ngraddV = 0;
 	if( (ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
-      ioData.problem.alltype == ProblemData::_SENSITIVITY_ANALYSIS_ )  && //TODO CHECK if needed
+      ioData.problem.alltype == ProblemData::_SENSITIVITY_ANALYSIS_ )  &&
     ioData.problem.framework==ProblemData::EMBEDDED ){
     ngraddV  = new DistNodalGrad<dim, double>(ioData, domain);
   }
@@ -758,7 +758,6 @@ void SpaceOperator<dim>::computeResidual(DistExactRiemannSolver<dim> *riemann,
                                          DistSVec<double,dim> &U, DistSVec<double,dim> &R,
                                          DistTimeState<dim> *timeState, bool compatF3D)
 {
-  //this->com->fprintf(stderr,"----SpaceOperator<dim>::computeResidual V1\n");//this is what the body fitted staedy state uses //TODO delete line
   R = 0.0;
   varFcn->conservativeToPrimitive(U, *V);
 
@@ -1324,29 +1323,25 @@ void SpaceOperator<dim>::computeDerivativeOfResidualEmb(
   }
   *dV = 0.0;
 
-  //if ( dV->norm()== 0.0) std::cout<<"XXX dV is 0.0"<<std::endl;
-  //****
   if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)  {
     bool linFSI = linRecAtInterface || viscSecOrder;
     ngrad->compute(geoState->getConfig(), X, ctrlVol, fluidId, *V, linFSI, distLSS);
-    ngrad->computeDerivativeEmb(geoState->getConfigSA(), X, dX, ctrlVol, dCtrlVol, *V, *dV, fluidId, linFSI, distLSS,false);//TODO new
+    ngrad->computeDerivativeEmb(geoState->getConfigSA(), X, dX, ctrlVol, dCtrlVol, *V, *dV, fluidId, linFSI, distLSS,false);
     ngrad->limit(recFcn, X, ctrlVol, *V);
   }
-  //if (dV->norm()== 0.0) std::cout<<"XXX dV is still 0.0"<<std::endl;
 
   if (fet){
     this->populateGhostPoints(ghostPoints,X,U,varFcn,distLSS,viscSecOrder,fluidId);
-    //this->populateDerivsGhostPoints(ghostPoints,X,dX,U,dU,varFcn,distLSS,viscSecOrder,fluidId);
   }
 
   if (egrad) {
     this->com->fprintf(stderr, "\033[93m***** egrad derivative not yet implemented for embedded simulations\033[00m");
     exit(-1);
     //egrad->compute(geoState->getConfig(), X);
-    //egrad->computeDerivative(geoState->getConfig(), X, dX);//TODO newly addded
+    //egrad->computeDerivative(geoState->getConfig(), X, dX);
   }
 
-  //TODO the xpol part is newly added
+  //TODO this derivatives have not been implemented/checked yet
   if (xpol){
     this->com->fprintf(stderr, "\033[93m***** xpol derivative not yet implemented for embedded simulations\033[00m");
     exit(-1);
@@ -1354,7 +1349,7 @@ void SpaceOperator<dim>::computeDerivativeOfResidualEmb(
     //xpol->computeDerivative(geoState->getConfig(),geoState->getInletNodeNorm(), X);
   }
 
-  //TODO the xpol part is newly added
+  //TODO this derivatives have not been implemented/checked yet
   if (vms) {
     this->com->fprintf(stderr, "\033[93m***** vms derivative not yet implemented for embedded simulations\033[00m");
     exit(-1);
@@ -1362,7 +1357,7 @@ void SpaceOperator<dim>::computeDerivativeOfResidualEmb(
     //vms->computeDerivative(geoState->getConfig(), ctrlVol, X, *V, R);
   }
 
-  //TODO the xpol part is newly added
+  //TODO this derivatives have not been implemented/checked yet
   if (smag) {
     this->com->fprintf(stderr, "\033[93m***** smag derivative not yet implemented for embedded simulations\033[00m");
     exit(-1);
@@ -1414,16 +1409,14 @@ void SpaceOperator<dim>::computeDerivativeOfResidualEmb(
             *ngrad, egrad, dMach,
             *V, dR);
 
-  //domain->getGradP(*ngrad);//TODO new
-  //domain->getDerivativeOfGradP(*ngrad);//TODO new./
+  //domain->getGradP(*ngrad);
+  //domain->getDerivativeOfGradP(*ngrad);
   //domain->getGradP(*ngrad);
   //domain->getDerivativeOfGradP(*ngrad);
   //****
 
 
-
-
-  //TODO volforce term newly added
+  //TODO this derivatives have not been implemented/checked yet
   if (volForce)
     {
     this->com->fprintf(stderr, "\033[93m***** volForce derivative not yet implemented for embedded simulations\033[00m");
@@ -1432,7 +1425,7 @@ void SpaceOperator<dim>::computeDerivativeOfResidualEmb(
 //      domain->computeDerivativeOfVolumicForceTerm(volForce, ctrlVol, dCtrlVol, *V, *dV, dR);
     }
 
-  //TODO dvms term newly added
+    //TODO this derivatives have not been implemented/checked yet
     if(dvms) {
       this->com->fprintf(stderr, "\033[93m***** dvms derivative not yet implemented for embedded simulations\033[00m");
       exit(-1);
@@ -1486,12 +1479,6 @@ void SpaceOperator<dim>::computeDerivativeOfResidualEmb(
 }
 
 
-
-
-
-
-
-
 // Compute derivative of residual for embedded simulation
 template<int dim>
 void SpaceOperator<dim>::computeInviscidDerivativeOfResidualEmb(
@@ -1523,23 +1510,19 @@ void SpaceOperator<dim>::computeInviscidDerivativeOfResidualEmb(
   if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)  {
     bool linFSI = linRecAtInterface || viscSecOrder;
     ngrad->compute(geoState->getConfig(), X, ctrlVol, fluidId, *V, linFSI, distLSS);
-    ngrad->computeDerivative(geoState->getConfigSA(), X, dX, ctrlVol, dCtrlVol, *V, *dV);//TODO new
+    ngrad->computeDerivative(geoState->getConfigSA(), X, dX, ctrlVol, dCtrlVol, *V, *dV);
     ngrad->limit(recFcn, X, ctrlVol, *V);
   }
 
-//  if (fet){
-//    this->populateGhostPoints(ghostPoints,X,U,varFcn,distLSS,viscSecOrder,fluidId);
-//    //this->populateDerivsGhostPoints(ghostPoints,X,dX,U,dU,varFcn,distLSS,viscSecOrder,fluidId);
-//  }
-
+  //TODO this derivatives have not been implemented/checked yet
   if (egrad) {
     this->com->fprintf(stderr, "\033[93m***** egrad derivative not yet implemented for embedded simulations\033[00m");
     exit(-1);
     //egrad->compute(geoState->getConfig(), X);
-    //egrad->computeDerivative(geoState->getConfig(), X, dX);//TODO newly addded
+    //egrad->computeDerivative(geoState->getConfig(), X, dX);
   }
 
-  //TODO the xpol part is newly added
+  //TODO this derivatives have not been implemented/checked yet
   if (xpol){
     this->com->fprintf(stderr, "\033[93m***** xpol derivative not yet implemented for embedded simulations\033[00m");
     exit(-1);
@@ -1547,7 +1530,7 @@ void SpaceOperator<dim>::computeInviscidDerivativeOfResidualEmb(
     //xpol->computeDerivative(geoState->getConfig(),geoState->getInletNodeNorm(), X);
   }
 
-  //TODO the xpol part is newly added
+  //TODO this derivatives have not been implemented/checked yet
   if (vms) {
     this->com->fprintf(stderr, "\033[93m***** vms derivative not yet implemented for embedded simulations\033[00m");
     exit(-1);
@@ -1555,7 +1538,7 @@ void SpaceOperator<dim>::computeInviscidDerivativeOfResidualEmb(
     //vms->computeDerivative(geoState->getConfig(), ctrlVol, X, *V, R);
   }
 
-  //TODO the xpol part is newly added
+  //TODO this derivatives have not been implemented/checked yet
   if (smag) {
     this->com->fprintf(stderr, "\033[93m***** smag derivative not yet implemented for embedded simulations\033[00m");
     exit(-1);
@@ -1563,7 +1546,7 @@ void SpaceOperator<dim>::computeInviscidDerivativeOfResidualEmb(
     //domain->computeDerivativeOfSmagorinskyLESTerm(smag, X, *V, R);
   }
 
-
+  //TODO this derivatives have not been implemented/checked yet
   if (dles){
     com->fprintf(stderr, "***** The equivalent derivatives of the functions dles->computeTestFilterValues and dles->computeTestFilterValues are not implemented!\n");
     exit(1);
@@ -1589,9 +1572,8 @@ void SpaceOperator<dim>::computeInviscidDerivativeOfResidualEmb(
 
   //domain->getGradP(*ngrad);
   //domain->getDerivativeOfGradP(*ngrad);
-  //****
 
-  //TODO volforce term newly added
+  //TODO this derivatives have not been implemented/checked yet
   if (volForce)
     {
     this->com->fprintf(stderr, "\033[93m***** volForce derivative not yet implemented for embedded simulations\033[00m");
@@ -1600,7 +1582,7 @@ void SpaceOperator<dim>::computeInviscidDerivativeOfResidualEmb(
 //      domain->computeDerivativeOfVolumicForceTerm(volForce, ctrlVol, dCtrlVol, *V, *dV, dR);
     }
 
-  //TODO dvms term newly added
+  //TODO this derivatives have not been implemented/checked yet
     if(dvms) {
       this->com->fprintf(stderr, "\033[93m***** dvms derivative not yet implemented for embedded simulations\033[00m");
       //exit(-1);
@@ -1685,7 +1667,7 @@ void SpaceOperator<dim>::computeViscousDerivativeOfResidualEmb(
   if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)  {
     bool linFSI = linRecAtInterface || viscSecOrder;
     ngrad->compute(geoState->getConfig(), X, ctrlVol, fluidId, *V, linFSI, distLSS);
-    ngrad->computeDerivative(geoState->getConfigSA(), X, dX, ctrlVol, dCtrlVol, *V, *dV);//TODO new
+    ngrad->computeDerivative(geoState->getConfigSA(), X, dX, ctrlVol, dCtrlVol, *V, *dV);
     ngrad->limit(recFcn, X, ctrlVol, *V);
   }
 
@@ -1698,10 +1680,10 @@ void SpaceOperator<dim>::computeViscousDerivativeOfResidualEmb(
     this->com->fprintf(stderr, "\033[93m***** egrad derivative not yet implemented for embedded simulations\033[00m");
     exit(-1);
     //egrad->compute(geoState->getConfig(), X);
-    //egrad->computeDerivative(geoState->getConfig(), X, dX);//TODO newly addded
+    //egrad->computeDerivative(geoState->getConfig(), X, dX);
   }
 
-  //TODO the xpol part is newly added
+  //TODO this derivatives have not been implemented/checked yet
   if (xpol){
     this->com->fprintf(stderr, "\033[93m***** xpol derivative not yet implemented for embedded simulations\033[00m");
     exit(-1);
@@ -1709,7 +1691,7 @@ void SpaceOperator<dim>::computeViscousDerivativeOfResidualEmb(
     //xpol->computeDerivative(geoState->getConfig(),geoState->getInletNodeNorm(), X);
   }
 
-  //TODO the xpol part is newly added
+  //TODO this derivatives have not been implemented/checked yet
   if (vms) {
     this->com->fprintf(stderr, "\033[93m***** vms derivative not yet implemented for embedded simulations\033[00m");
     exit(-1);
@@ -1717,7 +1699,7 @@ void SpaceOperator<dim>::computeViscousDerivativeOfResidualEmb(
     //vms->computeDerivative(geoState->getConfig(), ctrlVol, X, *V, R);
   }
 
-  //TODO the xpol part is newly added
+  //TODO this derivatives have not been implemented/checked yet
   if (smag) {
     this->com->fprintf(stderr, "\033[93m***** smag derivative not yet implemented for embedded simulations\033[00m");
     exit(-1);
@@ -1725,7 +1707,7 @@ void SpaceOperator<dim>::computeViscousDerivativeOfResidualEmb(
     //domain->computeDerivativeOfSmagorinskyLESTerm(smag, X, *V, R);
   }
 
-
+  //TODO this derivatives have not been implemented/checked yet
   if (dles){
     com->fprintf(stderr, "***** The equivalent derivatives of the functions dles->computeTestFilterValues and dles->computeTestFilterValues are not implemented!\n");
     exit(1);
@@ -1997,14 +1979,6 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
                            DistExactRiemannSolver<dim> *riemann, int Nriemann,
                            int it, DistVec<GhostPoint<dim>*> *ghostPoints,  bool compatF3D)
 {
-  //Dev::Error(MPI_COMM_WORLD,"TEMPORARY EXIT",true);
-//  this->com->fprintf(stderr,"--------------------------SpaceOperator<dim>::computeResidual V3\n");
-//  std::cout<<"Norm of U                : "<<U.norm()<<std::endl;//TODO delete line
-//  std::cout<<"Norm of X                : "<<X.norm()<<std::endl;//TODO delete line
-//  std::cout<<"Norm of fluidId          : "<<fluidId.norm()<<std::endl;//TODO delete line
-//  std::cout<<"viscSecOrder             : "<<viscSecOrder<<std::endl;//TODO delete line
-//  std::cout<<"-----------------------------------------------"<<std::endl<<std::endl;//TODO delete line
-//  std::cout<<"Residual norm at beginning: "<<R.norm()<<std::endl;//TODO delete line
   R = 0.0;
 	Wext = 0.0;
 
@@ -2047,7 +2021,6 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
       domain->computeGalerkinTerm(fet, *bcData, *geoState, X, *V, R, ghostPoints, distLSS, externalSI);
       bcData->computeNodeValue(X);
   }
-  //std::cout<<"Residual norm after FET   : "<<R.norm()<<std::endl;//TODO delete line
 
   if (volForce)
     domain->computeVolumicForceTerm(volForce, ctrlVol, *V, R);
@@ -2219,7 +2192,6 @@ void SpaceOperator<dim>::computeInviscidResidual(DistSVec<double,3> &X, DistVec<
                            DistExactRiemannSolver<dim> *riemann, int Nriemann,
                            int it, DistVec<GhostPoint<dim>*> *ghostPoints,  bool compatF3D)
 {
-  //this->com->fprintf(stderr,"----SpaceOperator<dim>::computeResidual V3\n");//TODO delete line; this is the one the FD uses
   R = 0.0;
   Wext = 0.0;
 
@@ -2664,7 +2636,6 @@ void SpaceOperator<dim>::computeJacobian(
                            DistSVec<double,dim> &U, DistMat<Scalar,neq> &A,
                            DistTimeState<dim> *timeState)
 {
-//std::cout<<__FILE__<<":"<<__LINE__<<std::endl;//TODO delete line; this is used for ALE
 #ifdef DOUBLE_CHECK
   varFcn->conservativeToPrimitive(U, *V);
 #endif
@@ -2834,7 +2805,7 @@ void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> 
 	if (fet)
 	{
 	  //this->com->fprintf(stderr,"\033[96m  FET triggered SpaceOperator<dim>::computeJacobian\n\033[00m");
-    this->populateGhostPoints(ghostPoints,X,U,varFcn,distLSS,false,fluidId);//TODO delete line
+    this->populateGhostPoints(ghostPoints,X,U,varFcn,distLSS,false,fluidId);
     varFcn->conservativeToPrimitive(U, *V, distLSS, &fluidId);
 		domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, ctrlVol, *V, A, ghostPoints, distLSS, externalSI);
 
@@ -3547,13 +3518,11 @@ void SpaceOperator<dim>::computeGradP(DistSVec<double,3> &X, DistVec<double> &ct
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SpaceOperator<dim>::computeDerivativeOfGradP
-(
-  DistSVec<double,3> &X,   DistSVec<double,3> &dX,
-  DistVec<double> &ctrlVol,DistVec<double> &dCtrlVol,
-  DistSVec<double,dim> &U, DistSVec<double,dim> &dU,
-  DistVec<int> *fluidId,   DistLevelSetStructure *distLSS //TODO VISCOUSDERIV
-)
+void SpaceOperator<dim>::computeDerivativeOfGradP(
+                           DistSVec<double,3> &X,   DistSVec<double,3> &dX,
+                           DistVec<double> &ctrlVol,DistVec<double> &dCtrlVol,
+                           DistSVec<double,dim> &U, DistSVec<double,dim> &dU,
+                           DistVec<int> *fluidId,   DistLevelSetStructure *distLSS)
 {
 
   varFcn->conservativeToPrimitive(U, *V);

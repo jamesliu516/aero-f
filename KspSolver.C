@@ -775,9 +775,9 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp,ScalarT>::solveT(VecType &b, VecTyp
     beta = r.norm();
 
     if (iter == 0) {
-      //target = this->eps * b.norm(); // TODO BUGHUNT ori
+      //target = this->eps * b.norm(); // TODO original
       target = this->eps * beta;
-      //target = this->eps * (res0 = b.norm());//TODO BUGHUNT modified
+      //target = this->eps * (res0 = b.norm());//TODO modified
       if (this->output) this->ioOp->fprintf(this->output, "GmRES iterations:\n");
       if (this->output) this->ioOp->fprintf(this->output, "  %d %e %e\n", 0, beta, target);
     }
@@ -865,49 +865,6 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp,ScalarT>::solveT(VecType &b, VecTyp
   }
 
   return iter;
-  ///////////////////////////////////////////////////////////////////////////////////////////////
-
-
-  //TODO BUGHUNT copied from solve
-  ////////////////////////////////////////////////////////////////////////////////////////////////
-//  if (this->checkFinalRes) {
-//      this->mvpOp->applyTranspose(x, w);
-//      r = b - w;
-//      if (typePrec == 1) {
-//        this->pcOp->applyTranspose(r, w);
-//        r = w;
-//      }
-//      if (this->output)
-//        this->ioOp->fprintf(this->output, "  %d %e (actual residual norm)\n", iter, r.norm());
-//      if (r.norm() > target)  {
-//        if (this->output)
-//          this->ioOp->fprintf(this->output, "  %d %e (actual residual norm) vs l2res: %e, target:%e\n", iter, r.norm(), l2res,
-//  target);
-//        iter = -999;
-//      }
-//
-//    }
-//
-//    this->ioOp->printf(5, "Gmres(%d) solver: its=%d, res=%.2e, target=%.2e\n", numVec, iter, l2res, target);
-//    if (iter == this->maxits && l2res > target && outputConvergenceInfo) {
-//      this->ioOp->printf(1, "*** Warning: Gmres(%d) solver reached %d its", numVec, this->maxits);
-//      this->ioOp->printf(1, " (initial=%.2e, res=%.2e, target=%.2e, ratio = %.2e)\n", res0, l2res, target, l2res/target);
-//    }
-//
-//    if (this->kspBinaryOutput) {
-//      if (typePrec == 2) {  //apply preconditioner before outputting
-//        for (int iVec=0; iVec<numOutputVecs; ++iVec) {
-//          this->pcOp->applyTranspose(V[iVec], r);
-//          V[iVec] = r;
-//        }
-//      }
-//      this->kspBinaryOutput->writeKrylovVectors(V, y, numOutputVecs);
-//    }
-//
-//    return iter;
-    ////////////////////////////////////////////////////////////////////////////////////////////////
-
-
 }
 //------------------------------------------------------------------------------
 inline double myConj(double x)  { return x; }
@@ -988,7 +945,6 @@ int
 GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::solve(VecSet<VecType> &b, 
             VecSet<VecType> &x)
 {
-  std::cout<<"\033[96mSecond version of solve routine enetered\033[00m"<<std::endl;//TODO delete line
   int typePrec = 2;
 
   double beta, l2res, target;

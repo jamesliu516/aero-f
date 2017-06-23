@@ -98,8 +98,6 @@ DistSVec<double,dim> difference;
   DistSVec<double,dim> *Fp;
   DistSVec<double,dim> *Fm;
 
-
-  //TODO VISCOUSDERIV DEBUG
   DistSVec<double,dim> *Fp_inviscid;
   DistSVec<double,dim> *Fm_inviscid;
   DistSVec<double,dim> *Fp_viscous;
@@ -211,7 +209,7 @@ public:
 
   bool getdXdSb(int);
 
-  Communicator* getComm(){return this->com;};//TODO HACK
+  Communicator* getComm(){return this->com;};
 
   void Forces2Lifts(IoData &ioData, Vec3D &F, Vec3D &L)
   {

@@ -190,7 +190,7 @@ public:
   virtual double getDerivativeOfPressureConstant() const { return 0.0; }
   virtual double getDerivativeOfVelocityNorm(double *V, double *dV) const { 
     double vnorm=sqrt(V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
-    if (vnorm < 100*std::numeric_limits<float>::min())//TODO HACK, this will be incorrect on stationary points and for shape sensitivity
+    if (vnorm < 100*std::numeric_limits<float>::min())//TODO this will be incorrect on stationary points and for shape sensitivity
       return 0.0;
     else
       return (V[1]*dV[1]+V[2]*dV[2]+V[3]*dV[3])/vnorm;

@@ -1749,9 +1749,6 @@ void EdgeSet::computeDerivativeOfFiniteVolumeTerm(
     SVec<double,dim>& V,
     SVec<double,dim>& dFluxes)
 {
-//  std::cout<<__FILE__<<":"<<__LINE__<<std::endl;//TODO delete line
-//  exit(-1);//TODO delete line
-
   Vec<Vec3D>     &edgeNorm = geoState.getEdgeNormal();
   Vec<double> &edgeNormVel = geoState.getEdgeNormalVel();
 
@@ -3465,33 +3462,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                   }
 
                 } else {
-
-                  //*************************************
-
-//TODO CONFLICT ORIGINAL
-//      if (masterFlag[l]) {
-//
-//      	    V6NodeData (*v6data)[2] = higherOrderFSI->getV6Data();
-//                  if (v6data == NULL) {
-//                    for (int k=0; k<dim; k++) {
-//                      Wstar[k] = V[i][k]+(0.5/max(1.0-resij.alpha,alpha))*(Wstar[k]-V[i][k]);
-//                    }
-//                  } else {
-//                    higherOrderFSI->extrapolateV6(l, 0, i, V, Vi, Wstar, X, resij.alpha, length, fluidId, betai);
-//                    memcpy(Wstar, Vi, sizeof(double)*dim);
-//                  }
-//                  varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Wstar);
-//                  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxi, fluidId[i], false);
-//
-//                  if (iPorous) {
-//                    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[i]);
-//                    for (int k=0; k<dim; k++) fluxi[k] = (1.0 - resij.porosity)*fluxi[k] + resij.porosity*flux[k];
-//                  }
-//
-//      	    for (int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
-//
-//      }
-      //TODO CONFLICT MERGE
                   V6NodeData (*v6data)[2] = higherOrderFSI->getV6Data();
                   if (v6data == NULL) {
                     for (int k = 0; k < dim; k++) {
@@ -3611,31 +3581,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                       fluxj[k] = (1.0 - resji.porosity) * fluxj[k] + resji.porosity * flux[k];
                   }
                 } else {// Alex main's high order FSI
-//      //TODO CONFLICT ORIGINAL
-//      if (masterFlag[l]) {
-//
-//      	    V6NodeData (*v6data)[2] = higherOrderFSI->getV6Data();
-//                  if (v6data==NULL) {
-//                    for (int k=0; k<dim; k++) {
-//                      Wstar[k] = V[j][k]+(0.5/max(1.0-resji.alpha,alpha))*(Wstar[k]-V[j][k]);
-//                    }
-//                  } else {
-//                    higherOrderFSI->extrapolateV6(l, 1, j, V, Vj, Wstar, X, 1.0-resji.alpha, length, fluidId,betaj);
-//                    memcpy(Wstar, Vj, sizeof(double)*dim);
-//                  }
-//                  varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Wstar);
-//                  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxj, fluidId[j], false);
-//
-//                  if (jPorous) {
-//                    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[j]);
-//                    for (int k=0; k<dim; k++) {
-//      		fluxj[k] = (1.0 - resji.porosity)*fluxj[k] + resji.porosity*flux[k];
-//      	      }
-//                  }
-//
-//      	    for (int k=0; k<dim; k++) fluxes[j][k] -= fluxj[k];
-//      }
-      //TODO CONFLICT MERGE
                   V6NodeData (*v6data)[2] = higherOrderFSI->getV6Data();
                   if (v6data == NULL) {
                     for (int k = 0; k < dim; k++) {
@@ -3702,14 +3647,12 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                 //*************************************
         }//switch
         for (int k = 0; k < dim; k++) fluxes[j][k] -= fluxj[k];
-//                if (j==2432) std::cout<<"j-ID: "<<j<<"    flux:"<<fluxes[j][0]<<" "<<fluxes[j][1]<<" "<<fluxes[j][2]<<" "<<fluxes[j][3]<<" "<<fluxes[j][4]<<" "<<fluxes[j][5]<<std::endl;//TODO delete line
       } //jActive
 
     } // interface
 
   } //edges
     int j=2432;
-//    std::cout<<"j-ID: "<<j<<"    flux:"<<fluxes[j][0]<<" "<<fluxes[j][1]<<" "<<fluxes[j][2]<<" "<<fluxes[j][3]<<" "<<fluxes[j][4]<<" "<<fluxes[j][5]<<std::endl;//TODO delete line
 
   return ierr;
 
@@ -5443,7 +5386,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
             }
             if (resij.alpha >= 0.5) { // add source term to node i
               double dSdV[neq * neq];
-              if (neq > 2) { //todo what is neq?
+              if (neq > 2) {
                 double dSdV_temp[dim * dim];
                 // df_source/dV_i =  df_source/dV_j
                 riemann.computeActuatorDiskJacobianSourceTerm(Vi, Vj, resij.actuatorDiskPressureJump, resij.gradPhi,

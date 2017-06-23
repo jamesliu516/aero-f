@@ -106,7 +106,6 @@ dGradP(dom->getNodeDistInfo())
 
   mms = 0;
 
-//TODO this if-else conditions should be commented back in once all verification is removed
 //  if ( ioData.sa.scFlag == SensitivityAnalysis::FINITEDIFFERENCE ) {
     Xp = new DistSVec<double,3>(domain->getNodeDistInfo());
     Xm = new DistSVec<double,3>(domain->getNodeDistInfo());
@@ -353,7 +352,7 @@ void FluidShapeOptimizationHandler<dim>::fsoRestartBcFluxs(IoData &ioData)
     // Step 2.1: Reset values in ioData.ref
     //
 
-    ioData.ref.mach     = ioData.bc.inlet.mach;//TODO is this a problem?
+    ioData.ref.mach     = ioData.bc.inlet.mach;
     ioData.ref.density  = ioData.bc.inlet.density;
     ioData.ref.pressure = ioData.bc.inlet.pressure;
     double velocity     = ioData.ref.mach * sqrt(gamma * (ioData.ref.pressure+Pstiff) / ioData.ref.density);
@@ -467,10 +466,6 @@ void FluidShapeOptimizationHandler<dim>::fsoRestartBcFluxs(IoData &ioData)
 
     if (ioData.eqs.type == EquationsData::NAVIER_STOKES)
       this->spaceOp->rstVarFet(ioData);
-    else
-    {
-      this->fprintf(stderr, "\033[91m  DOING AND EULER command--------------------------\033[00m\n");//TODO delete line
-    }
 
     this->spaceOp->rstFluxFcn(ioData);
 
@@ -778,9 +773,7 @@ void FluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsFiniteDifferen
   else {
     dF *= this->refVal->force;
     dM *= this->refVal->energy;
-    std::cout<<"===Force deriv part 1: "<<dF[0]<<" "<<dF[1]<<" "<<dF[2]<<std::endl;//TODO delete line
     Vec3D t(F*dForce);
-    std::cout<<"===Force deriv part 2: "<<t[0]<<" "<<t[1]<<" "<<t[2]<<std::endl;//TODO delete line
     dForces = dF + F*dForce;
     dMoments = dM + M*dEnergy;
     F *= this->refVal->force;
@@ -1224,7 +1217,7 @@ void FluidShapeOptimizationHandler<dim>::fsoGetTransposeDerivativeOfLoadAnalytic
   else {
     this->com->fprintf(stderr, " Sensitivity Analysis doed not support non-dimensional calculation");  exit(-1);
     //TODO: needs to add the term below if Mach number is used as a sensitivity variable.
-//  dLoad += (dForce / this->refVal->force) * load;
+    //  dLoad += (dForce / this->refVal->force) * load;
   }
 
 }
@@ -1241,8 +1234,6 @@ void FluidShapeOptimizationHandler<dim>::fsoSemiAnalytical
   DistSVec<double,dim> &dF
 )
 {
-  this->com->fprintf(stderr,"\033[93m FluidShapeOptimizationHandler<dim>::fsoSemiAnalytical\033[00m ");//TODO delete line
-
   //
   // Error mesage for pointers
   //
@@ -1441,7 +1432,7 @@ void FluidShapeOptimizationHandler<dim>::fsoAnalytical
 
 
   dRdXoperators<dim> *dRdXop = dRdX->getdRdXop();
-  isSparse=false;//TODO HACK
+  isSparse=false;
   if(isSparse) {
 
     this->geoState->computeDerivatives(dRdXop->dEdgeNormdX,
@@ -1644,7 +1635,6 @@ void FluidShapeOptimizationHandler<dim>::fsoLinearSolver(
 
   dFdS *= (-1.0);
 
-  //TODO DEBUG ROUTINES
   DistSVec<double,dim> *multresult  = new DistSVec<double,dim>(this->domain->getNodeDistInfo());
 
 
@@ -2356,7 +2346,7 @@ void FluidShapeOptimizationHandler<dim>::fso_on_AdjointSensitivityMesh(IoData &i
       this->output->writeDerivativeOfLiftDragToDisk(step,1,L,dL);
 
 
-      //TODO HACK, fix this so that it actually outputs adjoint forces
+      //TODO has been done this way so that it actually outputs adjoint forces
       double sboom =0;
       Vec3D F, M;
       this->output->writeDerivativeOfForcesToDisk(step,1,F,dForces,M,dMoments,sboom,sboom);

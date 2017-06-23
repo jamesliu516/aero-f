@@ -507,13 +507,6 @@ public:
          DistLevelSetStructure *distLSS,bool linRecAtInterface, DistVec<int> &tag,
          bool externalSI=false, FemEquationTerm *fet = 0);
 
-
-  template<int dim>
-  void populateDerivsGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints, DistSVec<double,3> &X, DistSVec<double,3> &dX,
-         DistSVec<double,dim> &U, DistSVec<double,dim> &dU, DistNodalGrad<dim, double> *ngrad, VarFcn *varFcn,
-         DistLevelSetStructure *distLSS,bool linRecAtInterface, DistVec<int> &tag,
-         bool externalSI=false, FemEquationTerm *fet = 0);
-
   template<int dim, class Scalar, int neq>
   void populateGhostJacobian(DistVec<GhostPoint<dim>*> *ghostPoints,DistSVec<double,dim> &U,FluxFcn** fluxFcn, VarFcn *varFcn,DistLevelSetStructure *distLSS,DistVec<int> &tag, DistMat<Scalar,neq>& A);
 
@@ -1242,7 +1235,6 @@ public:
   void applyBCsToDerivativeOfResidual(BcFcn *, DistBcData<dim> &,
 			  DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
 
-  //TODO HACK
   template<int dim>
   void applyHackedBCsToDerivativeOfResidual(BcFcn *, DistBcData<dim> &,
         DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &);

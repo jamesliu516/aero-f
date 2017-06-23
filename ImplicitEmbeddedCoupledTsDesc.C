@@ -86,7 +86,6 @@ template<int dim>
 void ImplicitEmbeddedCoupledTsDesc<dim>::computeJacobian(int it, DistSVec<double,dim> &Q,
 							DistSVec<double,dim> &F)
 {
-  //std::cout<<__FILE__<<":"<<__LINE__<<std::endl;//TODO delete line
 
   MatVecProdH1<dim,double,dim> *mvph1 = dynamic_cast<MatVecProdH1<dim,double,dim> *>(mvp);
 	if (mvph1) mvph1->clearGhost(); 
@@ -210,24 +209,6 @@ int ImplicitEmbeddedCoupledTsDesc<dim>::solveLinearSystem(int it,
 
     if (this->modifiedGhidaglia) this->embeddedB.hh() = -1.0*(*this->hhResidual);
 
-  //TODO delete line -------------------------------------------------------------------------------------------------------
-//  DistEmbeddedVec<double,dim> *onevecE  = new DistEmbeddedVec<double,dim>(this->domain->getNodeDistInfo());
-//  DistEmbeddedVec<double,dim> *colsumE   = new DistEmbeddedVec<double,dim>(this->domain->getNodeDistInfo());
-//  *onevecE=1.0;
-//  *colsumE=0.0;
-//  std::cout<<"\033[91mGOING TO CALL MATVEC APPLY\033[00m"<<std::endl;//TODO endl
-//  this->mvp->apply(*onevecE,*colsumE);
-//  std::cout<<"\033[91mCALLED MATVEC APPLY\033[00m"<<std::endl;//TODO endl
-//  DistSVec<double,dim> *colsum   = new DistSVec<double,dim>(this->domain->getNodeDistInfo());
-//  *colsum = (*colsumE).real();
-//  //*colsum = *colsumE;
-//  this->domain->writeVectorToFile("results/colsum",0,0,*colsum);
-//  //Dev::Error(MPI_COMM_WORLD,"temporary exit 2",true);//TODO delete
-//  std::cout<<"temporary exit"<<std::exit;
-//  //exit(-1);
-  //-----------------------------------------------------------------------------------------------------------------
-
-  
     ksp->setup(it, this->maxItsNewton, this->embeddedB);
 
     int lits = ksp->solve(this->embeddedB, this->embeddeddQ);
