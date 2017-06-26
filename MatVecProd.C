@@ -38,7 +38,6 @@ MatVecProdFD<dim, neq>::MatVecProdFD
 {
 
   com = domain->getCommunicator();
-  this->com->fprintf(stderr,"\033[93mFD Matvec created\033[00m\n");
   if (ts)
     timeState = new DistTimeState<dim>(*ts, false, ioData);
   else
@@ -988,7 +987,6 @@ MatVecProdH1<dim,Scalar,neq>::MatVecProdH1(DistTimeState<dim> *ts, SpaceOperator
                                            Domain *domain, IoData &ioData) :
   DistMat<Scalar,neq>(domain), timeState(ts), spaceOp(spo)
 {
-  this->com->fprintf(stderr,"\033[93mH1 Matvec created\033[00m\n");
 #ifdef _OPENMP
   this->numLocSub = DistMat<Scalar,neq>::numLocSub; //BUG omp
 #endif

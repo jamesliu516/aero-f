@@ -225,10 +225,10 @@ void ElemTet::computeGalerkinTerm(
 
         for (int k=0; k<dim; ++k)//loop over all state variables
         {
-//            R[idx][k] += vol * ( (r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] +
-//                                  r[2][k] * dp1dxj[j][2]));// - fourth * s[k] );//old version
-                    R[idx][k] += vol * ( (r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] +
-                                  r[2][k] * dp1dxj[j][2]) - fourth * s[k] );//new version
+            R[idx][k] += vol * ( (r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] +
+                                  r[2][k] * dp1dxj[j][2]));// - fourth * s[k] );//old version
+//                    R[idx][k] += vol * ( (r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] +
+//                                  r[2][k] * dp1dxj[j][2]) - fourth * s[k] );//new version
                 }
             }
         }

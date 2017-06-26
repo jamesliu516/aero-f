@@ -1627,7 +1627,8 @@ void FluidShapeOptimizationHandler<dim>::fsoLinearSolver(
   while ((istop == false) && (iter < 100))
   {
     numberIteration = ksp->solve(dFdS, dUdS);
-    if ((!ioData.sa.excsol) || (numberIteration < ioData.sa.ksp.maxIts))
+    //if ((!ioData.sa.excsol) || (numberIteration < ioData.sa.ksp.maxIts))
+    if ((true) || (numberIteration < ioData.sa.ksp.maxIts))
       istop = true;
     iter += 1;
 
@@ -1673,7 +1674,8 @@ void FluidShapeOptimizationHandler<dim>::fsoAdjointLinearSolver
   {
     numberIteration = ksp->solveT(rhs, lambdaU);
     //ioData.sa.excsol is an important parameter. If it is set to 0, only one iteration will be carried out
-    if ((!ioData.sa.excsol) || (numberIteration < ioData.sa.ksp.maxIts))
+    //if ((!ioData.sa.excsol) || (numberIteration < ioData.sa.ksp.maxIts))
+    if ((true) || (numberIteration < ioData.sa.ksp.maxIts))
       istop = true;
     iter += 1;
   }

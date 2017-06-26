@@ -34,7 +34,6 @@
 #include <SparseMatrix.h>
 #include <MatVecProd.h>
 
-//#include "Dev/devtools.C"
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -2717,7 +2716,6 @@ void SpaceOperator<dim>::computeJacobian(DistExactRiemannSolver<dim> *riemann, D
 
   switch (descriptorCase) {
     case DESCRIPTOR: {
-      this->com->fprintf(stderr,"\033[93mSpaceOperator<dim>::computeJacobian == DESCRIPTOR\n\033[00m"); exit(-1);
       DistVec<double> unitCtrlVol(domain->getNodeDistInfo());
       unitCtrlVol = 1.0;
       if (fet)
@@ -2729,7 +2727,6 @@ void SpaceOperator<dim>::computeJacobian(DistExactRiemannSolver<dim> *riemann, D
       domain->computeJacobianVolumicForceTerm(volForce, unitCtrlVol, *V, A);
       break; }
     case HYBRID: {
-      this->com->fprintf(stderr,"\033[93mSpaceOperator<dim>::computeJacobian == HYBRID\n\033[00m");
       DistVec<double> sqrtCtrlVol(domain->getNodeDistInfo());
       sqrtCtrlVol.pow(ctrlVol,0.5);
       if (fet)
@@ -2741,7 +2738,6 @@ void SpaceOperator<dim>::computeJacobian(DistExactRiemannSolver<dim> *riemann, D
       domain->computeJacobianVolumicForceTerm(volForce, sqrtCtrlVol, *V, A);
       break; }
     case NONDESCRIPTOR: {
-      this->com->fprintf(stderr,"\033[93mSpaceOperator<dim>::computeJacobian == NONDESCRIPTOR\n\033[00m");
 
     if (fet)
       domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, ctrlVol, *V, A);

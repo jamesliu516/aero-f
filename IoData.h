@@ -325,6 +325,9 @@ struct TransientData {
   double surface;
   double frequency_dt; //set to -1.0 by default. Used iff it is activated (>0.0) by user.
 
+  //output forces with high precision
+  enum ExactForceOutput {OFF_EXACTFORCEOUTPUT = 0, ON_EXACTFORCEOUTPUT = 1} exactforceoutput;
+
   Probes probes;
 
   ObjectMap<LinePlot> linePlots;
@@ -1876,7 +1879,7 @@ struct SensitivityAnalysis {
   // This flag repeats the linear solves until the number of iterations
   // is smaller than the maximum allowed.
   // Default Value = OFF_EXACTSOLUTION
-  enum ExactSolution {OFF_EXACTSOLUTION = 0, ON_EXACTSOLUTION = 1} excsol;
+  //enum ExactSolution {OFF_EXACTSOLUTION = 0, ON_EXACTSOLUTION = 1} excsol;
 
   enum HomotopyComputation {OFF_HOMOTOPY = 0, ON_HOMOTOPY = 1} homotopy;
   enum FixSolution {NONEFIX = 0, PREVIOUSVALEUSFIX = 1} fixsol;

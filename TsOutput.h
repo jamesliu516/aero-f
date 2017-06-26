@@ -178,6 +178,8 @@ private:
   char *heatfluxes;
   FILE **fpHeatFluxes;
 
+  bool exactforces;
+
   struct {
 
     double* results;
@@ -222,7 +224,7 @@ public:
   void closeAsciiFiles();
   void writeForcesToDisk(bool, int, int, int, double, double, double*, 
                          DistSVec<double,3> &, DistSVec<double,dim> &,
-                         DistVec<int> * = 0); 
+                         DistVec<int> * = 0);
   void writeForcesToDisk(DistExactRiemannSolver<dim>&, bool, int, int, int, double, double, double*,
                          DistSVec<double,3> &, DistSVec<double,dim> &,
                          DistVec<int> * = 0);

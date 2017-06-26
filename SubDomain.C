@@ -2974,21 +2974,17 @@ void SubDomain::applyBCsToResidual(BcFcn *bcFcn, BcData<dim> &bcData,
 		int i;
 		for(int iNode=0; iNode<numSampledNodes; ++iNode) 
 		{
-//		  if(i==2432){std::cout<<"=====1  "<<F[i][5]<<std::endl;}
 			i = locSampleNodes[iNode];
 			if (nodeType[i] != BC_INTERNAL && isActive)
 				bcFcn->applyToResidualTerm(nodeType[i], Vwall[i], U[i], F[i]);
-			//if(i==2432){std::cout<<"=====1  "<<F[i][5]<<std::endl;}
 		}
 	}
 	else 
 	{
 		for(int i=0; i<nodes.size(); ++i) 
 		{
-//		  if(i==2432){std::cout<<"=====2  "<<F[i][5]<<std::endl;}
 			if (nodeType[i] != BC_INTERNAL)
 				bcFcn->applyToResidualTerm(nodeType[i], Vwall[i], U[i], F[i]);
-//			 if(i==2432){std::cout<<"=====2  "<<F[i][5]<<std::endl;}
 		}
 
 		if(offWallNode && dim>5) 
@@ -3171,7 +3167,7 @@ void SubDomain::applyBCsToH2Jacobian(BcFcn *bcFcn, BcData<dim> &bcs,
     if (nodeType[i] != BC_INTERNAL) {
       Scalar *Aii = A.getElem_ii(i);
       if (Aii)
-        bcFcn->applyToOffDiagonalTerm(nodeType[i], Aii);//TODO
+        bcFcn->applyToOffDiagonalTerm(nodeType[i], Aii);
     }
   }
 
@@ -3275,7 +3271,6 @@ template<int dim, class Scalar, int neq>
 void SubDomain::applyBCsToJacobianWallValues(BcFcn *bcFcn, BcData<dim> &bcs,
                                    SVec<double,dim> &U, GenMat<Scalar,neq> &A)
 {
-  std::cout<<__FILE__<<":"<<__LINE__<<std::endl;//TODO delete line
 
   SVec<double,dim> &Vwall = bcs.getNodeStateVector();
   SVec<double,dim> &dVwall = bcs.getdNodeStateVectorSA();
@@ -4596,8 +4591,8 @@ void SubDomain::addDiagonalInMatVecProdH2transpose(Vec<double> &ctrlVol, GenMat<
    VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
 
    if (bcMap.size() > 0)  {
-     //std::cout << "****Not sure about what to do *****\n";//TODO commented this out, check what it is about
-     //exit(-1);
+     std::cout << "****Not sure about what to do *****\n";//TODO commented this out, check what it is about
+     exit(-1);
    }
 
    for (l=0; l<numEdges; ++l) {
@@ -6066,7 +6061,6 @@ void SubDomain::writeVectorToFile(
 
   Scalar (*data)[dim];
   if (scale) {
-    std::cout<<__FILE__<<":"<<__LINE__<<" scale case not yet tested"<<std::endl; exit(-1);
     data = new Scalar[U.size()][dim];
     Scalar* v = reinterpret_cast<Scalar*>(data);
     Scalar* u = reinterpret_cast<Scalar*>(U.data());
@@ -8091,10 +8085,10 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
     bool* edgeFlag = edges.getMasterFlag();
     int (*edgePtr)[2] = edges.getPtr();
 
-    double *Vi,*Vj,*weights;
-    Vi = new double[dim];
-    Vj = new double[dim];
-    weights = new double[dim];
+  double *Vi,*Vj,*weights;
+  Vi = new double[dim];
+  Vj = new double[dim];
+  weights = new double[dim];
 
   for (int l=0; l<edges.size(); l++) {//loop over all edges
         if(!edgeFlag[l]) continue; //not a master edge
