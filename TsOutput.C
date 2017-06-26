@@ -118,7 +118,8 @@ fpdForces(NULL),
 fpdLiftDrag(NULL),
 fpdFluxNorm(NULL),
 heatfluxes(NULL),
-fpHeatFluxes(NULL)
+fpHeatFluxes(NULL),
+exactforces(false)
 {
 
   int i;
@@ -832,6 +833,9 @@ fpHeatFluxes(NULL)
 
   fpdMatchPressure = 0;
 
+  if (iod.output.transient.exactforceoutput == TransientData::ON_EXACTFORCEOUTPUT) {
+      this->exactforces=true;
+  }
 
   if (iod.output.transient.dLiftDrag[0] != 0) {
     dLiftDrag = new char[dsp + strlen(iod.output.transient.dLiftDrag)];
@@ -2089,18 +2093,28 @@ void TsOutput<dim>::writeForcesToDisk(DistExactRiemannSolver<dim> &riemann,
 
       if (rmmh) {
         double tag = rmmh->getTagValue(t);
-        fprintf(fpForces[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e \n",
-                it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy, tag);
+        if(this->exactforces){
+          fprintf(fpForces[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e \n",
+                  it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy, tag);
+        }
+        else{
+          fprintf(fpForces[iSurf], "%d %e %d %d %e %e %e %e %e %6e %e %e \n",
+                  it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy, tag);
+        }
       }
       else
-        fprintf(fpForces[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e \n",
-                it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy);
+        if(this->exactforces){fprintf(fpForces[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e \n",
+                it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy);}
+        else{fprintf(fpForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e \n",
+              it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy);}
 
       fflush(fpForces[iSurf]);
 
       if(fpTavForces[iSurf] && counter == 0){
-        fprintf(fpTavForces[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e \n",
-          it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy);
+        if(this->exactforces){fprintf(fpTavForces[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e \n",
+          it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy);}
+        else{fprintf(fpTavForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e \n",
+          it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy);}
       }
 
       del_t = time - tprevf;
@@ -2112,8 +2126,10 @@ void TsOutput<dim>::writeForcesToDisk(DistExactRiemannSolver<dim> &riemann,
         F = TavF[iSurf]; M = TavM[iSurf]; energy = tener;
         F /= (time - tinit); M /= (time - tinit);
         energy /= (time - tinit);
-        fprintf(fpTavForces[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e \n",
-           it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy);
+        if(this->exactforces){fprintf(fpTavForces[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e \n",
+           it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy);}
+        else{fprintf(fpTavForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e \n",
+            it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy);}
       }
 
       fflush(fpTavForces[iSurf]);
@@ -2223,18 +2239,24 @@ void TsOutput<dim>::writeForcesToDisk(bool lastIt, int it, int itSc, int itNl, d
 
       if (rmmh) {
         double tag = rmmh->getTagValue(t);
-        fprintf(fpForces[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e \n",
-                it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy, tag);
+        if(this->exactforces){fprintf(fpForces[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e \n",
+                it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy, tag);}
+        else{fprintf(fpForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e %e \n",
+            it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy, tag);}
       }
       else
-        fprintf(fpForces[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e \n",
-                it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy);
+        if(this->exactforces){fprintf(fpForces[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e \n",
+                it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy);}
+        else{fprintf(fpForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e \n",
+              it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy);}
 
       fflush(fpForces[iSurf]);
 
       if(fpTavForces[iSurf] && counter == 0){
-        fprintf(fpTavForces[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e \n",
-          it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy);
+        if(this->exactforces){fprintf(fpTavForces[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e \n",
+          it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy);}
+        else{fprintf(fpTavForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e \n",
+          it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy);}
       }
 
       del_t = time - tprevf;
@@ -2246,8 +2268,10 @@ void TsOutput<dim>::writeForcesToDisk(bool lastIt, int it, int itSc, int itNl, d
         F = TavF[iSurf]; M = TavM[iSurf]; energy = tener;
         F /= (time - tinit); M /= (time - tinit);
         energy /= (time - tinit);
-        fprintf(fpTavForces[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e \n",
-           it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy);
+        if(this->exactforces){fprintf(fpTavForces[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e %13.16e \n",
+           it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy);}
+        else{fprintf(fpTavForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e \n",
+           it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy);}
       }
 
       fflush(fpTavForces[iSurf]);
@@ -2309,7 +2333,8 @@ void TsOutput<dim>::writeDerivativeOfLiftDragToDisk(int it, int actvar, Vec3D & 
 {
 
   if (fpdLiftDrag) {
-    fprintf(fpdLiftDrag, "%d %d %16.13e %16.13e %16.13e %16.13e %16.13e %16.13e \n", it, actvar, L[0], L[1], L[2], dL[0], dL[1], dL[2]);
+    if(this->exactforces){fprintf(fpdLiftDrag, "%d %d %16.13e %16.13e %16.13e %16.13e %16.13e %16.13e \n", it, actvar, L[0], L[1], L[2], dL[0], dL[1], dL[2]);}
+    else{fprintf(fpdLiftDrag, "%d %d %e %e %e %e %e %e \n", it, actvar, L[0], L[1], L[2], dL[0], dL[1], dL[2]);}
     fflush(fpdLiftDrag);
   }
 
@@ -2568,17 +2593,23 @@ void TsOutput<dim>::writeLiftsToDisk(IoData &iod, bool lastIt, int it, int itSc,
 
       if (rmmh) {
         double tag = rmmh->getTagValue(t);
-        fprintf(fpLift[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e %13.16e \n",
-                it, time, itSc, itNl, L[0], L[1], L[2], tag);
+        if(this->exactforces){fprintf(fpLift[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e %13.16e \n",
+                it, time, itSc, itNl, L[0], L[1], L[2], tag);}
+        else{fprintf(fpLift[iSurf], "%d %e %d %d %e %e %e %e \n",
+                        it, time, itSc, itNl, L[0], L[1], L[2], tag);}
       }
       else
-        fprintf(fpLift[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e \n",
-                it, time, itSc, itNl, L[0], L[1], L[2]);
+        if(this->exactforces){fprintf(fpLift[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e \n",
+                it, time, itSc, itNl, L[0], L[1], L[2]);}
+        else{fprintf(fpLift[iSurf], "%d %e %d %d %e %e %e \n",
+                it, time, itSc, itNl, L[0], L[1], L[2]);}
       fflush(fpLift[iSurf]);
 
       if(fpTavLift[iSurf] && counter == 0){
-        fprintf(fpTavLift[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e \n",
-             it, time, itSc, itNl, L[0], L[1], L[2]);
+        if(this->exactforces){fprintf(fpTavLift[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e \n",
+             it, time, itSc, itNl, L[0], L[1], L[2]);}
+        else{fprintf(fpTavLift[iSurf], "%d %e %d %d %e %e %e \n",
+                     it, time, itSc, itNl, L[0], L[1], L[2]);}
       }
 
       del_t = time - tprevl;
@@ -2587,8 +2618,10 @@ void TsOutput<dim>::writeLiftsToDisk(IoData &iod, bool lastIt, int it, int itSc,
       if(fpTavLift[iSurf] && counter > 0){
         L = TavL[iSurf];
         L /= (time - tinit);
-        fprintf(fpTavLift[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e \n",
-                it, time, itSc, itNl, L[0], L[1], L[2]);
+        if(this->exactforces){fprintf(fpTavLift[iSurf], "%d %13.16e %d %d %13.16e %13.16e %13.16e \n",
+                it, time, itSc, itNl, L[0], L[1], L[2]);}
+        else{fprintf(fpTavLift[iSurf], "%d %e %d %d %e %e %e \n",
+                it, time, itSc, itNl, L[0], L[1], L[2]);}
       }
       fflush(fpTavLift[iSurf]);
     }
@@ -3704,51 +3737,6 @@ void TsOutput<dim>::writeBinaryDerivativeOfVectorsToDisk(
 
 }
 
-//------------------------------------------------------------------------------
-/*
-template<int dim>
-void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t,
-                                             DistSVec<double,3> &X,
-                                             DistVec<double> &A, DistSVec<double,dim> &U,
-                                             DistSVec<double,1> &Phi, DistVec<int> &fluidId)
-{
-
-  if (toWrite(it,lastIt,t)) {
-    int step = getStep(it,lastIt,t);
-    double tag;
-    if (rmmh)
-      tag = rmmh->getTagValue(t);
-    else
-      tag = t * refVal->time;
-
-    if (solutions)
-      domain->writeVectorToFile(solutions, step, tag, U);
-
-    int i;
-    for (i=0; i<PostFcn::SSIZE; ++i) {
-      if (scalars[i]) {
-        if (!Qs) Qs = new DistVec<double>(domain->getNodeDistInfo());
-        postOp->computeScalarQuantity(static_cast<PostFcn::ScalarType>(i), X, U, *Qs, Phi, fluidId);
-        DistSVec<double,1> Qs1(Qs->info(), reinterpret_cast<double (*)[1]>(Qs->data()));
-        domain->writeVectorToFile(scalars[i], step, tag, Qs1, &(sscale[i]));
-      }
-    }
-    for (i=0; i<PostFcn::VSIZE; ++i) {
-      if (vectors[i]) {
-        if (!Qv) Qv = new DistSVec<double,3>(domain->getNodeDistInfo());
-        if (rmmh) {
-          DistSVec<double,3> &Xr = rmmh->getRelativePositionVector(t, X);
-          postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(i), Xr, U, *Qv);
-        }
-        else
-          postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(i), X, U, *Qv, fluidId);
-        domain->writeVectorToFile(vectors[i], step, tag, *Qv, &(vscale[i]));
-      }
-    }
-  }
-
-}
-*/
 //------------------------------------------------------------------------------
 
 template<int dim>

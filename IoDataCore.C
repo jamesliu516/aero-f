@@ -469,6 +469,8 @@ TransientData::TransientData()
   y0 = 0.0;
   z0 = 0.0;
 
+  exactforceoutput=OFF_EXACTFORCEOUTPUT;
+
 }
 
 //------------------------------------------------------------------------------
@@ -477,7 +479,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 103, father);
+  ClassAssigner *ca = new ClassAssigner(name, 104, father);
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
 
@@ -568,7 +570,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   // Gappy POD offline
   // Gappy POD snapshots
 // Included (MB)
-  new ClassStr<TransientData>(ca, "PopulatedState", this, &TransientData::populatedState);
+  new ClassStr<TransientData>(ca, "PopulatedStateVector", this, &TransientData::populatedState);
   new ClassStr<TransientData>(ca, "VelocityNorm", this, &TransientData::velocitynorm);
   new ClassStr<TransientData>(ca, "SpatialResidualSensitivity", this, &TransientData::dSpatialres);
   new ClassStr<TransientData>(ca, "SpatialResidualNormSensitivity", this, &TransientData::dSpatialresnorm);
@@ -602,6 +604,9 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "LiftySensitivity", this, &TransientData::dLifty);
   new ClassStr<TransientData>(ca, "LiftzSensitivity", this, &TransientData::dLiftz);
   //do defaults
+
+  new ClassToken<TransientData>(ca, "ExactForceOutput", this,
+            reinterpret_cast<int TransientData::*>(&TransientData::exactforceoutput), 2, "Off", 0, "On", 1);
 
 }
 

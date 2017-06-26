@@ -1362,7 +1362,8 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoLinearSolver(
 
     numberIteration = ksp->solve(this->embeddedB, this->embeddeddQ);
 
-    if ((!ioData.sa.excsol) || (numberIteration < ioData.sa.ksp.maxIts))
+    //if ((!ioData.sa.excsol) || (numberIteration < ioData.sa.ksp.maxIts))
+    if ((true) || (numberIteration < ioData.sa.ksp.maxIts))
       istop = true; 
 
     iter += 1;
