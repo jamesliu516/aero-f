@@ -17,6 +17,7 @@
 #include <queue>
 #include <exception>
 
+
 #include "TsRestart.h"
 
 #include <PhysBAM_Tools/Arrays_Computations/ARRAY_COPY.h>
@@ -117,6 +118,7 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iodata,
 
   rotOwn = 0;
 
+  numberOfWallNodes =0;
   faceID = NULL;
   surfaceID = NULL;
 
@@ -637,6 +639,30 @@ void DistIntersectorPhysBAM::setStructureType() {
       }
     }
   }
+  setNodeType();
+}
+//----------------------------------------------------------------------------
+void DistIntersectorPhysBAM::setNodeType() {
+	//added by arthur morlot. This list stores the type of each node of the embedded surface
+	//this is used in embeddedALE to decide which nodes must be considered for the translation/rotation
+
+
+  nodeType = new int[numStNodes];
+
+  for(int i=0; i<numStNodes; i++) {
+	  nodeType[i] = BoundaryData::SYMMETRYPLANE;//default
+	  //the default is symmetry Plane so that if a node has no element, it does not count in the embeddedALE computation
+  }
+  //iterate over all the elements
+  for(int i=0;i<numStElems;i++){
+	  int currentType = structureType[i];
+	  int firstNode = stElem[i][0];
+	  int secondNode =stElem[i][1];
+	  int ThirdNode = stElem[i][2];
+	  nodeType[firstNode]=currentType;
+	  nodeType[secondNode]=currentType;
+	  nodeType[ThirdNode]=currentType;
+  }
 }
 //----------------------------------------------------------------------------
 //Specify wall temperature
@@ -716,7 +742,7 @@ void DistIntersectorPhysBAM::setActuatorDisk() {
   actuatorDiskReconstructionMethod = new int[numStElems];
   isCorrectedMethod = new bool[numStElems];
   for(int i=0; i<numStElems; i++) {
-    actuatorDiskMethod[i] = 1;
+	  actuatorDiskMethod[i] = ActuatorDisk::SOURCETERM;
 	  actuatorDiskPressureJump[i] = 0.0;
 	  actuatorDiskReconstructionMethod[i] = -1;
 	  isCorrectedMethod[i] = false;
@@ -735,28 +761,32 @@ void DistIntersectorPhysBAM::setActuatorDisk() {
         		}
         	}
           if((structureType[i]== BoundaryData::ACTUATORDISK)||(setToActuator)) {
-        	  actuatorDiskPressureJump[i] = it2->second->pressureJump;
+        	  actuatorDiskPressureJump[i] = it2->second->actuatorDisk.pressureJump;
         	  if (iod.problem.mode == ProblemData::DIMENSIONAL)
         		  actuatorDiskPressureJump[i]/= iod.ref.rv.pressure;
             //--------------------------------
-            if(it2->second->actuatorDiskMethod == BoundaryData::SOURCETERM){
-              actuatorDiskMethod[i] = 1;
+            if(it2->second->actuatorDisk.actuatorDiskMethod == ActuatorDisk::SOURCETERM){
+              actuatorDiskMethod[i] = ActuatorDisk::SOURCETERM;
+              isCorrectedMethod[i] = true;
             }
-            else if(it2->second->actuatorDiskMethod == BoundaryData::RIEMANNSOLVER){
-              actuatorDiskMethod[i] = 2;
+            else if(it2->second->actuatorDisk.actuatorDiskMethod == ActuatorDisk::RIEMANNSOLVER){
+              actuatorDiskMethod[i] = ActuatorDisk::RIEMANNSOLVER;
+            }else if(it2->second->actuatorDisk.actuatorDiskMethod == ActuatorDisk::SOURCETERMINCOMPLETE){
+            	actuatorDiskMethod[i] = ActuatorDisk::SOURCETERM;
+            	isCorrectedMethod[i] = false;
             }else{
               com->fprintf(stderr, "!!! WARNING: no actuator disk method specified, defaulting to SOURCETERM\n\n");
               actuatorDiskMethod[i] = 1;
             }
 
             //--------------------------------
-        	  if(it2->second->velocityReconstructionMethod == BoundaryData::AVERAGE){
+        	  if(it2->second->actuatorDisk.velocityReconstructionMethod == ActuatorDisk::AVERAGE){
         		  actuatorDiskReconstructionMethod[i] = 1;
         	  }
-        	  else if(it2->second->velocityReconstructionMethod == BoundaryData::FIRSTORDER){
+        	  else if(it2->second->actuatorDisk.velocityReconstructionMethod == ActuatorDisk::FIRSTORDER){
         		  actuatorDiskReconstructionMethod[i] = 2;
         	  }
-        	  else if(it2->second->velocityReconstructionMethod == BoundaryData::SECONDORDER){
+        	  else if(it2->second->actuatorDisk.velocityReconstructionMethod == ActuatorDisk::SECONDORDER){
         		  actuatorDiskReconstructionMethod[i] = 3;
         	  }
                 //--------------------------------
@@ -764,6 +794,7 @@ void DistIntersectorPhysBAM::setActuatorDisk() {
         		  com->fprintf(stderr, "!!! WARNING: no actuator disk method specified, defaulting to Average\n\n");
         		  actuatorDiskReconstructionMethod[i] = 1;
         	  }
+        	  /*
         	  if(it2->second->sourceTermExpression==BoundaryData::OLD){
         		  isCorrectedMethod[i] = false;
         	  }
@@ -774,6 +805,7 @@ void DistIntersectorPhysBAM::setActuatorDisk() {
         		  com->fprintf(stderr, "!!! WARNING: no Source term method specified for the actuator Disk, defaulting to Corrected\n\n");
         		  isCorrectedMethod[i] = true;
         	  }
+        	  */
           }
         }
       }
@@ -1255,19 +1287,6 @@ if(SymmetryPlaneList.size()!=0){
   			intersector[iSub]->setInactiveNodesSymmetry((X(iSub)),SymmetryPlaneList);
    	 }
 }
-
-
-//TODO : depercated, to remove in next versions
-//a2m : embedded constraint
-/*
-  if(ContainsAnEmbeddedConstraint == true){
-	printf("you are using a deprecated version of the infinte constraint. Infinite constraint are to be added in the top file.");
-  	//EmbeddedConstraintNormal = ConstraintNormal;
-  	#pragma omp parallel for
-   	 	for(int iSub = 0; iSub < numLocSub; ++iSub){
-  			intersector[iSub]->findIntersectionsEmbeddedConstraint((X(iSub)));
-  		}
-  	*/
 }
 
 //----------------------------------------------------------------------------

@@ -586,6 +586,16 @@ struct BcsHydroData {
 
 //------------------------------------------------------------------------------
 
+struct ActuatorDisk {
+
+	  enum VelocityReconstructionMethod {AVERAGE = 1, FIRSTORDER = 2, SECONDORDER = 3} velocityReconstructionMethod;
+	  enum ActuatorDiskMethod { SOURCETERM = 1, RIEMANNSOLVER= 2, SOURCETERMINCOMPLETE=3} actuatorDiskMethod;
+	  double pressureJump;
+	  enum SourceTermExpression {OLD = 1,CORRECTED = 2} sourceTermExpression;
+	  ActuatorDisk();
+	  void setup(const char*,ClassAssigner * = 0);
+};
+//-----------------------------------------------------------------------------
 struct BoundaryData  {
 
   static const int UNSPECIFIED = -1;
@@ -604,17 +614,13 @@ struct BoundaryData  {
   double kenergy;
   double epsilon;
   double porosity;
-  enum VelocityReconstructionMethod {AVERAGE = 1, FIRSTORDER = 2, SECONDORDER = 3} velocityReconstructionMethod;
-  enum ActuatorDiskMethod { SOURCETERM = 1, RIEMANNSOLVER= 2} actuatorDiskMethod;
-  double pressureJump;
   double massFlow;
-  enum SourceTermExpression {OLD = 1,CORRECTED = 2} sourceTermExpression;
+  ActuatorDisk actuatorDisk;
 
   BoundaryData();
   Assigner *getAssigner();
 
 };
-
 //-----------------------------------------------------------------------------
 
 struct BcsData {
