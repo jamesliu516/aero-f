@@ -2266,7 +2266,7 @@ void SubDomain::computeGalerkinTerm(FemEquationTerm *fet, BcData<dim> &bcData,
 												bool externalSI)
 {
 
-	elems.computeGalerkinTerm(fet, geoState, X, V, R,ghostPoints, LSS, externalSI);
+	elems.computeGalerkinTerm(fet, geoState, X, V, R, ghostPoints, LSS, externalSI);
 
   faces.computeGalerkinTerm(elems, fet, bcData, geoState, X, V, R,LSS);
 
