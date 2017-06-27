@@ -39,10 +39,10 @@ struct LevelSetResult {
     alpha = xi[0] = xi[1] = -1.0;
     trNodes[0] = trNodes[1] = trNodes[2] = -1;
     gradPhi = normVel = dnds = 0.0;
-      structureType = 1;
+    structureType = 1;
     porosity = 0.0;
     actuatorDiskPressureJump = 0.0;
-	  actuatorDiskMethod = 1;
+	actuatorDiskMethod = 1;
     actuatorDiskReconstructionMethod = -1;
     gamma = 0.0;//error value
     isCorrectedMethod = false;
@@ -294,6 +294,7 @@ class DistLevelSetStructure {
     virtual int getNumStructElems() = 0;
     virtual int (*getStructElems())[3] = 0;
     virtual int getSurfaceID(int) = 0;
+    virtual int (*getNodesType()) =0;
 
     virtual void updateXb(double) = 0;
     virtual void setdXdSb(int, double*, double*, double*) = 0;

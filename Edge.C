@@ -3464,7 +3464,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                 break;
           case BoundaryData::ACTUATORDISK:
             assert(iActuatorDisk);
-                if (resij.actuatorDiskMethod == BoundaryData::SOURCETERM) {
+                if (resij.actuatorDiskMethod == ActuatorDisk::SOURCETERM) {
                     //This is an actuator Disk : We compute the usual roe flux and we will addd a source term
                   fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, fluxi, fluidId[i],
                                                 false);
@@ -3475,7 +3475,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 							resij.alpha,ddVij,ddVji,GradPhi,
 							normal[l],dx);
                   }
-                }else if (resij.actuatorDiskMethod == BoundaryData::RIEMANNSOLVER) {
+                }else if (resij.actuatorDiskMethod == ActuatorDisk::RIEMANNSOLVER) {
 					riemann.computeActuatorDiskRiemannSolution(Vi, Vj, resij.normVel, resij.actuatorDiskPressureJump,GradPhi.v,
 							dx, varFcn, Wstarij[l], Wstarji[l],fluidId[i]);
 					fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstarij[l], fluxi, fluidId[i]);
@@ -3585,7 +3585,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                 break;
           case BoundaryData::ACTUATORDISK:
             assert(jActuatorDisk);
-                if (resji.actuatorDiskMethod == BoundaryData::SOURCETERM) {//Implemented for comparaison with state of the art. Please use RIEMANNSOLVER
+                if (resji.actuatorDiskMethod == ActuatorDisk::SOURCETERM) {//Implemented for comparaison with state of the art. Please use RIEMANNSOLVER
 
                   fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, fluxj, fluidId[j]);
                   if (resji.alpha > 0.5) {
@@ -3596,7 +3596,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 							resji.alpha,ddVij,ddVji,GradPhi,
 							normal[l],dx);
                   }
-               } else if(resji.actuatorDiskMethod == BoundaryData::RIEMANNSOLVER){//accurate method
+               } else if(resji.actuatorDiskMethod == ActuatorDisk::RIEMANNSOLVER){//accurate method
             	   riemann.computeActuatorDiskRiemannSolution(Vi, Vj, resji.normVel, resij.actuatorDiskPressureJump,GradPhi.v,
             			   dx, varFcn, Wstarij[l], Wstarji[l],fluidId[j]);
             	   fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstarji[l], Vj,  fluxj, fluidId[j]);

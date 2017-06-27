@@ -128,6 +128,7 @@ class DistMultiGridLevelSetStructure : public DistLevelSetStructure {
     int getNumStructNodes() { return parent->getNumStructNodes(); }
     int getNumStructElems() { return parent->getNumStructElems(); }
     int (*getStructElems())[3]  { return parent->getStructElems(); }
+    int (*getNodesType()) { return NULL; }
 
     int getSurfaceID(int k) { return parent->getSurfaceID(k); }
 

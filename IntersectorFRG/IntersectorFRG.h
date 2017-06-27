@@ -163,6 +163,7 @@ class DistIntersectorFRG : public DistLevelSetStructure {
     Vec<Vec3D> &getStructPosition_n() { return *solidXn; }
     Vec<Vec3D> &getStructPosition_np1() { return *solidXnp1; }
     Vec<Vec3D> &getStructDerivative() { return *solidXdS; }
+    int (*getNodesType()) { return NULL; }
 
     DistVec<ClosestPoint> * getClosestPointsPointer() {return NULL;}
     DistVec<ClosestPoint> & getClosestPoints() {

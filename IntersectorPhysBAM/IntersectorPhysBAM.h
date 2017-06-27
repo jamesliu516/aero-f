@@ -134,9 +134,11 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     CrackingSurface *cracking; //only a pointer.
     //embedded Constraint
     //added by arthur Morlot, February 2016
-    //bool ContainsAnEmbeddedConstraint;
-    //int ConstraintType;//0 is no Constraint, 1 is symmetry, 2 is inlet
     std::map<int,SymmetryInfo> SymmetryPlaneList;//Map of all the symmetry planes in the file to decide which nodes must be innactives.
+
+    //added but arthur morlot on june 20 2017 for EmbeddedALE
+    int numberOfWallNodes;
+    int* nodeType;
 
     double interface_thickness;
 
@@ -186,6 +188,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     void getSymmetryPlanesInformation();
     void setMassInflow();
     void setActuatorDisk();
+    void setNodeType();
     void checkInputFileCorecnessEmbeddedContraint();
     void makerotationownership();
     void updatebc();
@@ -221,6 +224,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     int getNumStructNodes () { return numStNodes; }
     int getNumStructElems () { return numStElems; }
     int (*getStructElems())[3] { return stElem; }
+    int (*getNodesType()) { return nodeType; }
 
     Vec<Vec3D> &getStructDerivative() { return *solidXdS; }
 
@@ -268,9 +272,6 @@ class IntersectorPhysBAM : public LevelSetStructure {
 
     int locIndex,globIndex;
     int *locToGlobNodeMap;
-
-    //added by arthur Morlot : THings used for the embedded symmetry plane (not the embedded constraint)
-    //int EmbeddedConstraintNormal;
  
     std::map<int,IntersectionResult<double> > CrossingEdgeRes;
     std::map<int,IntersectionResult<double> > ReverseCrossingEdgeRes;
