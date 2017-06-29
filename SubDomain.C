@@ -4918,7 +4918,7 @@ void SubDomain::sndData(CommPattern<Scalar> &sp, Scalar (*w)[dim])
 
     for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode) {
       for (int j = 0; j < dim; ++j)
-	buffer[iNode][j] = w[ (*sharedNodes)[iSub][iNode] ][j];
+	      buffer[iNode][j] = w[ (*sharedNodes)[iSub][iNode] ][j];
     }
 
   }
@@ -5383,6 +5383,44 @@ void SubDomain::minRcvDataAndCountUpdates(CommPattern<Scalar> &sp, Scalar (*w)[d
         }
         else
           Tag[sharedNodeID] = -1;
+      }
+    }
+  }
+}
+
+// TESTING TESTING ------------------------------------------------------------------------
+template<class Scalar, int dim>
+void SubDomain::minRcvDataAndAddElems(CommPattern<Scalar> &sp, Scalar (*w)[dim],
+  Vec<int> &activeElemList, Vec<int> &knownNodes, int &nSortedElems, int &nSortedNodes)
+{
+  assert(dim == 1); // if you intend to use it in Vectorial mode, modify it your way
+
+  int sharedNodeID, ntets, tet;
+  for (int iSub = 0; iSub < numNeighb; ++iSub) {
+    SubRecInfo<Scalar> sInfo = sp.recData(rcvChannel[iSub]);
+    Scalar (*buffer)[dim] = reinterpret_cast<Scalar (*)[dim]>(sInfo.data);
+    for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode) {
+      sharedNodeID = (*sharedNodes)[iSub][iNode];
+      for (int j = 0; j < dim; ++j) {
+        if (buffer[iNode][j] < w[sharedNodeID][j]) {
+          w[sharedNodeID][j] = buffer[iNode][j];
+
+
+          // PROBLEM: need to make sure element was not already on the active list
+          // and node was not already tagged and counted for in nSortedNodes
+          nSortedNodes++;
+
+          // look @ connectivities and add relevant elems to active list (increment counts)-----------------------
+          nTets = NodeToElem->num(sharedNodeID);
+          for (int j=0; j<nTets; j++) {
+            tet = (*NodeToElem)[sharedNodeID][j];
+            knownNodes[tet]++;
+            if (knownNodes[tet]>=3) {
+              activeElemList[nSortedElems] == tet;
+              nSortedElems++;
+            }
+          }
+        }
       }
     }
   }
@@ -9126,6 +9164,85 @@ void SubDomain::TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &
 
 //------------------------------------------------------------------------------
 
+
+template<int dimLS>
+void SubDomain::pseudoFastMarchingMethodFEM(Vec<int> &Tag, SVec<double,3> &X,
+				SVec<double,dimLS> &d2wall, int level, Vec<int> &activeElemList,
+        int &nSortedElems, int &firstCheckedElem, int &nSortedNodes, LevelSetStructure *LSS)
+{
+  if (!NodeToNode)
+     NodeToNode = createEdgeBasedConnectivity();
+  if (!NodeToElem)
+     NodeToElem = createNodeToElementConnectivity();
+
+  if (level == 0) {
+    // just get inactive nodes
+    nSortedNodes     = 0;
+    nSortedElems     = 0;
+    firstCheckedElem = 0;
+    for (int i=0;i<Tag.size();++i) {
+      if (!LSS->isActive(0.0,i)) {
+        d2wall[i][0] = 0.0; // not a problem as inactive nodes should be marked as ghost on all subdomains
+        Tag[i] = 0;
+        nSortedNodes++;
+      }
+    }
+  }
+  else if (level == 1) {
+    // faster to loop over nodes and retrieve distance info from intersector
+    // than to loop over all edges
+    bool doInit;
+    int nei, nNeighs, l;
+    int nTets, tet;
+    LevelSetResult resij;
+    for (int i=0;i<Tag.size();++i) {
+      if (LSS->isNearInterface(0.0,i) && Tag[i] != 0) {
+        // must make sure wall intersected is actually a wall
+        doInit = false;
+        nNeighs = NodeToNode->num(i);
+        for (int k=0;k<nNeighs;k++) {
+          nei = (*NodeToNode)[i][k];
+          if(i==nei) continue;
+          l = edges.findOnly(i,nei);
+          if (LSS->edgeIntersectsWall(0,l)) {
+            resij = LSS->getLevelSetDataAtEdgeCenter(0.0, l, true);
+            if (resij.structureType==BoundaryData::WALL || resij.structureType==BoundaryData::POROUSWALL) {
+              doInit = true;
+              break;
+            }
+          }
+        }
+        if (doInit) {
+          d2wall[i][0] = LSS->distToInterface(0.0,i);
+          Tag[i]  = 1;
+          nSortedNodes++;
+
+          nTets = NodeToElem->num(i);
+          for (int j=0; j<nTets; j++) {
+            tet = (*NodeToElem)[i][j];
+            knownNodes[tet]++;
+            if (knownNodes[tet]==3) {
+              activeElemList[nSortedElems] == tet;
+              nSortedElems++;
+            }
+          }
+        }
+      }
+    }
+  }
+  else {
+
+
+
+
+
+  }
+}
+
+
+
+
+
 template<int dimLS>
 void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
 					 SVec<double,dimLS> &d2wall, int level, int iterativeLevel,
@@ -9276,6 +9393,7 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
     firstCheckedNode = inter;
   }
 }
+
 //------------------------------------------------------------------------------
 
 template<int dimLS>
