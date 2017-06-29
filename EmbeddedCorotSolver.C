@@ -18,7 +18,7 @@ EmbeddedCorotSolver::EmbeddedCorotSolver(IoData &iodata, MatchNodeSet **mns, Dom
 
   numStNodes = nNodes;
   containsNonWallSurfaces =false;
-  numberOfWallNodes = -1;//make the first CG a more reasonnable guess;
+  numberOfWallNodes = nNodes;//make the first CG a more reasonnable guess;
   //isXoFixed = false;
 
   numLocSub = domain->getNumLocSub();
