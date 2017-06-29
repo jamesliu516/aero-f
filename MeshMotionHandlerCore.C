@@ -2258,7 +2258,6 @@ EmbeddedALEMeshMotionHandler::~EmbeddedALEMeshMotionHandler()
 
 void EmbeddedALEMeshMotionHandler::setup(DistSVec<double,3> &X, DistSVec<double,3> &Xdot)
 {
-	printf("hello \n");
   Vec<Vec3D>& Xstruct = distLSS->getStructPosition_n();
 
   double *Xs = new double [3*distLSS->getNumStructNodes()];
@@ -2279,7 +2278,6 @@ void EmbeddedALEMeshMotionHandler::setup(DistSVec<double,3> &X, DistSVec<double,
     double* newXs = new double[3*newStructNodeNumber];
 
     int current =0;
-    printf("%d,\n0",Xstruct.size());
       for (int i=0; i<Xstruct.size(); i++){
     	if(Nodetype[i]!=BoundaryData::SYMMETRYPLANE){
     		for (int j=0; j<3; j++)
@@ -2336,7 +2334,7 @@ double EmbeddedALEMeshMotionHandler::update(bool *lastIt, int it, double t,
 			newXs[3*current + j] = Xstruct[i][j];
 		current+=1;
 	}else{
-		printf("node %d has been found symmetry",i);
+		//printf("node %d has been found symmetry",i);
 	}
   }
   bool isSomethingRemoved=false;
