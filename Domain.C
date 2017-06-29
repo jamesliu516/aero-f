@@ -5416,7 +5416,35 @@ void Domain::TagInterfaceNodes(int lsdim, DistVec<int> &Tag, DistSVec<double,dim
     subDomain[iSub]->maxRcvData(*levelPat, reinterpret_cast<int (*)[1]>(Tag.subData(iSub)));
 }
 
-//---------------------------------------Vec<int> &Tag---------------------------------------
+//------------------------------Vec<int> &Tag-----------------------------------
+
+
+// WORK IN PROGRESS -------------------------------------------------------------------------------
+template<int dimLS>
+double Domain::pseudoFastMarchingMethodFEM(DistVec<int> &Tag, DistSVec<double,3> &X,
+				DistSVec<double,dimLS> &d2wall, int level, DistVec<int> &activeElemList,
+        DistVec<int> &knownNodes, int *nSortedElems, int *firstCheckedElem,
+        int *nSortedNodes, DistLevelSetStructure *distLSS)
+{
+  int iSub;
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) {
+    subDomain[iSub]->pseudoFastMarchingMethodFEM<dimLS>
+      (Tag(iSub),X(iSub),d2wall(iSub),level,activeElemList(iSub),knownNodes(iSub),
+      *(nSortedElems+iSub),*(firstCheckedElem+iSub),distLSS?&((*distLSS)(iSub)):NULL);
+    subDomain[iSub]->sndData(*volPat,reinterpret_cast<double (*)[dimLS]>(d2wall.subData(iSub)));
+  }
+
+  volPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) {
+    subDomain[iSub]->minRcvDataAndAddElems(*volPat,reinterpret_cast<double (*)[dimLS]>(d2wall.subData(iSub)),
+      activeElemList(iSub),knownNodes(iSub),nSortedElems[iSub],nSortedNodes[iSub]);
+  }
+}
+
+
 
 template<int dimLS>
 double Domain::pseudoFastMarchingMethod(DistVec<int> &Tag, DistSVec<double,3> &X,

@@ -69,7 +69,7 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   DistSVec<double,dim> *Wextij;
 
-  ReinitializeDistanceToWall<1> *wall_computer;
+  ReinitializeDistanceToWall<1,dim> *wall_computer;
   // ------------------------------------------------------------------------------------
 
   // Copies for fail safe ----- ---------------------------------------------------------
