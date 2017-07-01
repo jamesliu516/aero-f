@@ -4170,34 +4170,38 @@ const int LEFT = 0, CENTER_LEFT = 1, CENTER_RIGHT = 2, RIGHT = 3;
   }
     //IMPORTANT ::::Daniel Huang comments out the warning
 
-     //fprintf(stderr, " ***WARNING: Actuator disk Riemann solver has no solution, "
-     //        "use approximate solution rho_l,  v_l,  p_l are %f, %f, %f  rho_r, v_r, p_r  are %f, %f, %f, dp is %f\n", rho_l, v_l, p_l,rho_r, v_r, p_r, dp );
+     fprintf(stderr, " ***WARNING: Actuator disk Riemann solver has no solution, "
+             "use approximate solution rho_l,  v_l,  p_l are %f, %f, %f  rho_r, v_r, p_r  are %f, %f, %f, dp is %f\n", rho_l, v_l, p_l,rho_r, v_r, p_r, dp );
     // Cannot find solution Hack!!!!
    if( M_l >= 0.0 ){
-     if(M_l < 1 && caseWorks[0]) {
+     if(M_l <= 1.0 and caseWorks[0]) {
        solveContactDiscontinuity(rho_l, v_l, p_l, rho_r, v_r, p_r, -dp, 0, gamma, v_m, p_m);
        rho_a = rho_ml;
        v_a = v_m;
        p_a = p_m - dp;
+       fprintf(stderr, " ***WARNING: Case[0]");
        return;
      }
      else {
        rho_a = rho_l;
        v_a = v_l;
        p_a = p_l;
+       fprintf(stderr, " ***WARNING: Case[1]");
        return;
      }
     } else{
-        if( M_l > -1.0 && caseWorks[2]){
+        if( M_l >= -1.0 && caseWorks[2]){
           solveContactDiscontinuity(rho_l, v_l, p_l, rho_r, v_r, p_r, 0, dp, gamma, v_m, p_m);
           rho_a = rho_mr;
           v_a = v_m;
           p_a = p_m;
+          fprintf(stderr, " ***WARNING: Case[2]");
           return;
         }else {
           rho_a = rho_r;
           v_a = v_r;
           p_a = p_r - dp;
+          fprintf(stderr, " ***WARNING: Case[3]");
           return;
         }
     }
