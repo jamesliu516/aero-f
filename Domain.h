@@ -441,10 +441,12 @@ public:
   void TagInterfaceNodes(int lsdim, DistSVec<bool,2> &Tag, DistSVec<double,dimLS> &Phi, DistLevelSetStructure *distLSS);
 
   template<int dimLS>
-  double pseudoFastMarchingMethodFEM(DistVec<int> &Tag, DistSVec<double,3> &X,
-				DistSVec<double,dimLS> &d2wall, int level, DistVec<int> &activeElemList,
-        DistVec<int> &knownNodes, int *nSortedElems, int *firstCheckedElem,
-        int *nSortedNodes, DistLevelSetStructure *distLSS=0);
+  void pseudoFastMarchingMethodFEM(DistSVec<double,3> &X, DistSVec<double,dimLS> &d2wall, int level,
+        int **tag, int **activeElemList, int **knownNodes, int *nSortedNodes, int *nSortedElems,
+        int *firstCheckedElem, int **isSharedNode, DistLevelSetStructure *distLSS);
+  template<int dimLS>
+  void pseudoFastMarchingMethodFinalize(DistSVec<double,3> &X, DistSVec<double,dimLS> &d2wall,
+        int *nSortedNodes, int **isSharedNode, DistLevelSetStructure *distLSS);
 
   template<int dimLS>
   double pseudoFastMarchingMethod(DistVec<int> &Tag, DistSVec<double,3> &X,
