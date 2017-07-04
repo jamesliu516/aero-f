@@ -7128,3 +7128,118 @@ void SubDomain::printPoint(int Ni, SVec<double,3> &X, Vec3D &xWall, V6NodeData &
 			  Xf[0],Xf[1],Xf[2]);
 
 }
+
+//-----------------------------------------------------------------------------------------------
+void SubDomain::computeInterfaceFluidMeshSize(IoData &iod,SVec<double,3> &X,
+                                              int numStructElems, int (*stElem)[3],
+                                              Vec<Vec3D>& Xstruct, double *interfaceFluidMeshSize) {
+  if (iod.problem.framework == ProblemData::EMBEDDEDALE)
+    myTree->reconstruct<&Elem::computeBoundingBox>(X, elems.getPointer(), elems.size());
+
+  int qOrder = iod.embed.qOrder;
+  Quadrature quadrature_formula(qOrder);
+  int nqPoint = quadrature_formula.n_point;
+  double (*qloc)[3](quadrature_formula.qloc);
+  double *qweight(quadrature_formula.weight);
+
+  int iElem = -1;
+  int T[4];       //nodes in a tet.
+  int stNode[3];
+  Vec3D Xst[3];
+  Vec3D Xp;
+  double max_dist = 0.0, dh =0.0;
+
+  for (int nSt = 0; nSt < numStructElems; ++nSt) {//loop all structure surface elements(triangle)
+
+    for (int j = 0; j < 3; ++j) {
+      stNode[j] = stElem[nSt][j]; // get element node numbers
+      Xst[j] = Xstruct[stNode[j]]; //get node coordinates
+    }
+    Vec3D normal = (Xst[1]-Xst[0])^(Xst[2]-Xst[0]);
+    normal = normal/normal.norm();
+
+    for (int nq = 0; nq < nqPoint; ++nq) {
+      for (int j = 0; j < 3; ++j) { // get quadrature points
+        Xp[j] = qloc[nq][0] * Xst[0][j] + qloc[nq][1] * Xst[1][j] + qloc[nq][2] * Xst[2][j];
+      }
+
+      ElemForceCalcValid myObj;
+      Elem *E = myTree->search<&Elem::isPointInside, ElemForceCalcValid,
+              &ElemForceCalcValid::Valid>(&myObj, X, Xp);
+
+      if (!E)
+        continue;
+
+
+      for (int i = 0; i < 4; i++) T[i] = (*E)[i];//loop fluid element E 4 nodes
+
+      Vec3D Xf[4];
+      for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 3; ++j) Xf[i][j] = X[T[i]][j]; // fluid element 4 nodes coordinates
+
+      max_dist = 0.0;
+      for (int i = 0; i < 4; i++){
+
+          dh = abs((Xf[i] - Xp)*normal);
+          if (dh > max_dist) max_dist = dh;
+        }
+
+      interfaceFluidMeshSize[nqPoint*nSt + nq] = max_dist;
+
+    }
+  }
+}
+
+
+void SubDomain::computeStrucOrientation(SVec<double,3> &X,
+                                        int numStructElems, int (*stElem)[3],
+                                        Vec<Vec3D>& Xstruct, Vec<bool>&is_active,
+                                        int *strucOrientation) {
+
+  int stNode[3];
+  Vec3D Xst[3],Xl,Xr;
+  Vec3D Xp, normal;
+  int T[6];       //nodes in a tet.
+  double max_edge_len = 0.0, dh =0.0;
+  int (*ptr)[2] = edges.getPtr();
+
+  for (int nSt = 0; nSt < numStructElems; ++nSt) {//loop all structure surface elements(triangle)
+
+    for (int j = 0; j < 3; ++j) {
+      stNode[j] = stElem[nSt][j]; // get element node numbers
+      Xst[j] = Xstruct[stNode[j]]; //get node coordinates
+    }
+    Xp = (Xst[0] + Xst[1] + Xst[2])/3.0;
+    ElemForceCalcValid myObj;
+    Elem *E = myTree->search<&Elem::isPointInside, ElemForceCalcValid,
+            &ElemForceCalcValid::Valid>(&myObj, X, Xp);
+
+    if (!E)
+      continue;
+
+    normal = (Xst[1]-Xst[0])^(Xst[2]-Xst[0]);
+    normal  = normal /normal.norm();
+
+    for (int i = 0; i < 6; i++) T[i] = E->edgeNum(i);//loop fluid element E 4 nodes
+
+
+    for (int i = 0; i < 6; i++) {
+
+      int node_l= ptr[T[i]][0], node_r = ptr[T[i]][1];
+      for (int j = 0; j < 3; ++j) {
+        Xl[j] = X[node_l][j];
+        Xr[j] = X[node_r][j];
+      } // fluid element 4 nodes coordinates
+      if((is_active[node_l] &&(Xl - Xp)*normal > 0.0 && !is_active[node_r]) || (is_active[node_r] &&(Xr - Xp)*normal > 0.0 && !is_active[node_l])) {
+        strucOrientation[nSt] = 1;
+      }
+
+
+    }
+
+
+  }
+
+
+
+}

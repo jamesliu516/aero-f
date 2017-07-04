@@ -2495,3 +2495,20 @@ void Domain::printDistVecBool(DistVec<bool> &X, bool status)
     subDomain[iSub]->printDistVecBool(X(iSub), numLocSub, status);
   com->barrier();
 }
+
+
+//-----------------------------------------------------------------------------------------------
+void Domain::computeStrucOrientation(DistSVec<double,3> &X,
+                                              int numStructElems, int (*stElem)[3],
+                                              Vec<Vec3D>& Xstruct, DistVec<bool>& is_active,
+                                     int*strucOrientation) {
+
+  for (int iSub=0; iSub<numLocSub; iSub++)
+  {subDomain[iSub]->computeStrucOrientation(X(iSub),  numStructElems, stElem, Xstruct,
+                                                  is_active(iSub), strucOrientation);
+
+  }
+  com->globalMax(numStructElems, strucOrientation);
+}
+
+
