@@ -1414,6 +1414,14 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
 
   }
   com->globalMax(numStructElems*nqPoint, interfaceFluidMeshSize);
+    double max_mesh_size = 0;
+    for(int i= 0; i < numStructElems*nqPoint; i++){
+        if (max_mesh_size < interfaceFluidMeshSize[i])
+            max_mesh_size = interfaceFluidMeshSize[i];
+    }
+    for(int i= 0; i < numStructElems*nqPoint; i++){
+        interfaceFluidMeshSize[i] = max_mesh_size;
+    }
 
   int * strucOrientation = distLSS->getStructOrientation();
   //--------------------------------------------------------------
