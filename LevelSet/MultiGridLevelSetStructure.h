@@ -31,7 +31,9 @@ class MultiGridLevelSetStructure : public LevelSetStructure {
 
     MultiGridLevel<double>* myLevel;
 
-  public:
+
+
+public:
     MultiGridLevelSetStructure(class DistMultiGridLevelSetStructure& lss,
 			       SubDomain& sub,
 			       Vec<int>& status,Vec<double>& distance,Vec<bool>& is_swept,
@@ -75,6 +77,7 @@ class MultiGridLevelSetStructure : public LevelSetStructure {
 
     void setdXdSb(int, double*, double*, double*) {}
 
+
 };
 
 class DistMultiGridLevelSetStructure : public DistLevelSetStructure {
@@ -97,6 +100,8 @@ class DistMultiGridLevelSetStructure : public DistLevelSetStructure {
   DistVec<ClosestPoint>* dummycp;
 
   DistVec<Vec3D>* surfaceNormals;
+
+  int * strucOrientation;//structure orientation, 1: (x1 -x0)^(x2 -x0) points the fluid, otherwise -1
 
   public:
     DistMultiGridLevelSetStructure(IoData &iod, Communicator *comm,
@@ -125,12 +130,19 @@ class DistMultiGridLevelSetStructure : public DistLevelSetStructure {
     Vec<Vec3D> &getStructPosition_np1() { return parent->getStructPosition_np1(); }
     Vec<Vec3D> &getStructDerivative() { return parent->getStructDerivative(); }
 
+
     int getNumStructNodes() { return parent->getNumStructNodes(); }
     int getNumStructElems() { return parent->getNumStructElems(); }
     int (*getStructElems())[3]  { return parent->getStructElems(); }
     int (*getNodesType()) { return NULL; }
 
     int getSurfaceID(int k) { return parent->getSurfaceID(k); }
+
+	int *getStructOrientation() {
+		fprintf(stderr, " *** ERROR: multigrid levelset structure cannot compute skinfriction, no strucOrientation\n");
+		exit(-1);
+		return strucOrientation;
+	}
 
     virtual DistVec<ClosestPoint> &getClosestPoints() { return *dummycp; }
     virtual DistVec<ClosestPoint> *getClosestPointsPointer() { return dummycp; }
