@@ -1280,29 +1280,6 @@ if(SymmetryPlaneList.size()!=0){
   			intersector[iSub]->setInactiveNodesSymmetry((X(iSub)),SymmetryPlaneList);
    	 }
 }
-<<<<<<< local
-
-
-//TODO : depercated, to remove in next versions
-//a2m : embedded constraint
-  if(ContainsAnEmbeddedConstraint == true){
-	printf("you are using a deprecated version of the infinte constraint. Infinite constraint are to be added in the top file.");
-  	//EmbeddedConstraintNormal = ConstraintNormal;
-  	#pragma omp parallel for
-   	 	for(int iSub = 0; iSub < numLocSub; ++iSub){
-  			intersector[iSub]->findIntersectionsEmbeddedConstraint((X(iSub)));
-  		}
-  	}
-
-
-//Daniel Huang, initialize structure information
-    for(int i = 0 ; i < numStElems; i++) strucOrientation[i] = -1;
-domain->computeStrucOrientation(X,numStElems,stElem,*solidX,*is_active, strucOrientation);
-
-com->globalMax(numStElems, strucOrientation);
-
-=======
->>>>>>> other
 }
 
 

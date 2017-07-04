@@ -7835,24 +7835,13 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                     double T = varFcn->computeTemperature(Vi,tagI);
                     Vj[4] = T;
                 }else{
-<<<<<<< local
                     double Twall = resij.wallTemperature;
                     double Tpoint = varFcn->computeTemperature(Vi,tagI);
                     Vj[4] = Tpoint + (Twall- Tpoint)/(1-alpha);
-                    //printf("Je suis venu, et ma wall temperature est %f point %f ghost %f edge %d \n",Twall,Tpoint,Vj[4],l);
                     if(Twall == -1){//sanity Check
                         printf("You are imposing a temperature that has not beens specified. aborting simulation");
                         exit(1);
                     }
-=======
-                	double Twall = resij.wallTemperature;
-                	double Tpoint = varFcn->computeTemperature(Vi,tagI);
-                	Vj[4] = Tpoint + (Twall- Tpoint)/(1-alpha);
-                	if(Twall == -1){//sanity Check
-                		printf("You are imposing a temperature that has not beens specified. aborting simulation");
-                		exit(1);
-                	}
->>>>>>> other
                 }
                 double T = Vj[4];
 
@@ -7976,24 +7965,14 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                     double T = varFcn->computeTemperature(Vj,tagJ);
                     Vi[4] = T;
                 }else{
-<<<<<<< local
+
                     double Twall = resji.wallTemperature;
                     double Tpoint = varFcn->computeTemperature(Vj,tagJ);
                     Vi[4] = Tpoint + (Twall- Tpoint)/(1-alpha);
-                    //printf("Je suis venu, et ma wall temperature est %f point %f ghost %f edge %d \n",Twall,Tpoint,Vi[4],l);
                     if(Twall == -1){//sanity Check
                         printf("You are imposing a temperature that has not beens specified. aborting simulation");
                         exit(1);
                     }
-=======
-                	double Twall = resji.wallTemperature;
-                	double Tpoint = varFcn->computeTemperature(Vj,tagJ);
-                	Vi[4] = Tpoint + (Twall- Tpoint)/(1-alpha);
-                	if(Twall == -1){//sanity Check
-                	   printf("You are imposing a temperature that has not beens specified. aborting simulation");
-                	   exit(1);
-                	}
->>>>>>> other
                 }
                 double T = Vi[4];
 
