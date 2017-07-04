@@ -112,7 +112,6 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     //Embedded Constraints information
 	int *structureType;
 	double* wallTemperature;
-	int* isWallFunction;
 	int* heatFluxType;
     double *porosity;
     bool *isSymmetryPlane;//Embedded plane
@@ -120,7 +119,6 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     double *actuatorDiskPressureJump;
     int *actuatorDiskReconstructionMethod;//method used to compute the velocity at the interface. 1 : vi+Vj/2 2:vi 3 Vi*grad (extrapolation)
     double *massJump;
-    bool* isCorrectedMethod;//For the actuatorDisk
     double gamma;//Value of Gamma, used for the actuatorDiskComputaion
 
     // surface rotation
