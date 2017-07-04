@@ -223,11 +223,8 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     int getNumStructNodes () { return numStNodes; }
     int getNumStructElems () { return numStElems; }
     int (*getStructElems())[3] { return stElem; }
-<<<<<<< local
 	int *getStructOrientation() { return strucOrientation; }
-=======
     int (*getNodesType()) { return nodeType; }
->>>>>>> other
 
     Vec<Vec3D> &getStructDerivative() { return *solidXdS; }
 
