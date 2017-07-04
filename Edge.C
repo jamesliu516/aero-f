@@ -3464,14 +3464,15 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                 break;
           case BoundaryData::ACTUATORDISK:
             assert(iActuatorDisk);
-                if (resij.actuatorDiskMethod == ActuatorDisk::SOURCETERM) {
+                if (resij.actuatorDiskMethod == ActuatorDisk::SOURCETERM || resij.actuatorDiskMethod == ActuatorDisk::SOURCETERMINCOMPLETE) {
                     //This is an actuator Disk : We compute the usual roe flux and we will addd a source term
                   fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, fluxi, fluidId[i],
                                                 false);
+                  bool isCorrectedMethod = (resij.actuatorDiskMethod == ActuatorDisk::SOURCETERM) ?  true : false;
                   if (resij.alpha >= 0.5) {
                     ComputeAndAddActuatorDiskSourceTerm(normalDir, area,
                     		resij.actuatorDiskPressureJump, fluxi,
-							i, resij.isCorrectedMethod, resij.gamma,false,reconstructionMethod,Vi,Vj,
+							i, isCorrectedMethod, resij.gamma,false,reconstructionMethod,Vi,Vj,
 							resij.alpha,ddVij,ddVji,GradPhi,
 							normal[l],dx);
                   }
@@ -3483,7 +3484,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                 	fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, fluxi, fluidId[i]);
                 	if (resij.alpha >= 0.5) { //i is closed nodes
                 		riemann.computeActuatorDiskSourceTerm(Vi, Vj, resij.actuatorDiskPressureJump, GradPhi.v,
-                				normal[l], varFcn, flux, resij.isCorrectedMethod,
+                				normal[l], varFcn, flux, true,
 								fluidId[i]);
                 		for (int k = 0; k < dim; k++)
                 			fluxi[k] -= flux[k];//fluxi compute flux leaving cell i, so there is '-' sign
@@ -3585,13 +3586,14 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                 break;
           case BoundaryData::ACTUATORDISK:
             assert(jActuatorDisk);
-                if (resji.actuatorDiskMethod == ActuatorDisk::SOURCETERM) {//Implemented for comparaison with state of the art. Please use RIEMANNSOLVER
+                if (resji.actuatorDiskMethod == ActuatorDisk::SOURCETERM || resji.actuatorDiskMethod == ActuatorDisk::SOURCETERMINCOMPLETE) {//Implemented for comparaison with state of the art. Please use RIEMANNSOLVER
 
                   fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, fluxj, fluidId[j]);
+                    bool isCorrectedMethod = (resji.actuatorDiskMethod == ActuatorDisk::SOURCETERM) ?  true : false;
                   if (resji.alpha > 0.5) {
                     ComputeAndAddActuatorDiskSourceTerm(-normalDir, area,
                     		resji.actuatorDiskPressureJump,
-							fluxj, j, resji.isCorrectedMethod,
+							fluxj, j, isCorrectedMethod,
 							resji.gamma,true,reconstructionMethod,Vi,Vj,
 							resji.alpha,ddVij,ddVji,GradPhi,
 							normal[l],dx);
@@ -3604,7 +3606,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
             	   fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, fluxj, fluidId[j]);
             	   if (resji.alpha > 0.5) {//j is the close node
             		   riemann.computeActuatorDiskSourceTerm(Vi, Vj, resij.actuatorDiskPressureJump,GradPhi.v,
-            				   normal[l], varFcn, flux,resji.isCorrectedMethod, fluidId[i]);
+            				   normal[l], varFcn, flux,true, fluidId[i]);
             		   for (int k = 0; k < dim; k++) fluxj[k] += flux[k];
             	   }
                }
@@ -4094,7 +4096,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         			 if(resij.alpha>=0.5){//The actuatorDisk fall in this dual cell
         				 ComputeAndAddActuatorDiskSourceTerm(normalDir, area,
                          		resij.actuatorDiskPressureJump, fluxi,
-     							i, resij.isCorrectedMethod, resij.gamma,false,reconstructionMethod,Vi,Vj,
+     							i, true, resij.gamma,false,reconstructionMethod,Vi,Vj,
      							resij.alpha,ddVij,ddVji,GradPhi,
      							normal[l],dx);
         			 }
@@ -4202,7 +4204,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                 	if(resji.alpha>0.5){
             			ComputeAndAddActuatorDiskSourceTerm(-normalDir, area,
                         		resji.actuatorDiskPressureJump,
-    							fluxj, j, resji.isCorrectedMethod,
+    							fluxj, j, true,
     							resji.gamma,true,reconstructionMethod,Vi,Vj,
     							resji.alpha,ddVij,ddVji,GradPhi,
     							normal[l],dx);

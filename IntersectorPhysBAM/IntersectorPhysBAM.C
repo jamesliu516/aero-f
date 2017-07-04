@@ -671,11 +671,9 @@ void DistIntersectorPhysBAM::setWallInformation() {
 	map<int,BoundaryData *> &bcMap = iod.bc.bcMap.dataMap;
 
 	wallTemperature = new double[numStElems];
-	isWallFunction = new int[numStElems];
 	heatFluxType = new int[numStElems];
 	for(int i=0; i<numStElems; i++) {
 		wallTemperature[i] = -1.0;//default
-		isWallFunction[i] = BcsWallData::FULL;
 		heatFluxType[i] = SurfaceData::ADIABATIC;
 	}
 	if(faceID) {
@@ -693,12 +691,10 @@ void DistIntersectorPhysBAM::setWallInformation() {
 						 }else{//the value was specified
 							 heatFluxType[i] = it->second->type;
 						 }
-						 isWallFunction[i] = iod.bc.wall.integration;
 					 }
 					 else{//Using the information available for wall when not specified
 						 wallTemperature[i] = iod.bc.wall.temperature;
 						 heatFluxType[i] =iod.bc.wall.type;
-						 isWallFunction[i] = iod.bc.wall.integration;
 				 }
 			}
 		}
@@ -740,12 +736,10 @@ void DistIntersectorPhysBAM::setActuatorDisk() {
   actuatorDiskMethod = new int[numStElems];
   actuatorDiskPressureJump = new double[numStElems];
   actuatorDiskReconstructionMethod = new int[numStElems];
-  isCorrectedMethod = new bool[numStElems];
   for(int i=0; i<numStElems; i++) {
 	  actuatorDiskMethod[i] = ActuatorDisk::SOURCETERM;
 	  actuatorDiskPressureJump[i] = 0.0;
 	  actuatorDiskReconstructionMethod[i] = -1;
-	  isCorrectedMethod[i] = false;
   }
   gamma = iod.eqs.fluidModel.gasModel.specificHeatRatio;
   if(faceID) {
@@ -767,13 +761,11 @@ void DistIntersectorPhysBAM::setActuatorDisk() {
             //--------------------------------
             if(it2->second->actuatorDisk.actuatorDiskMethod == ActuatorDisk::SOURCETERM){
               actuatorDiskMethod[i] = ActuatorDisk::SOURCETERM;
-              isCorrectedMethod[i] = true;
             }
             else if(it2->second->actuatorDisk.actuatorDiskMethod == ActuatorDisk::RIEMANNSOLVER){
               actuatorDiskMethod[i] = ActuatorDisk::RIEMANNSOLVER;
             }else if(it2->second->actuatorDisk.actuatorDiskMethod == ActuatorDisk::SOURCETERMINCOMPLETE){
-            	actuatorDiskMethod[i] = ActuatorDisk::SOURCETERM;
-            	isCorrectedMethod[i] = false;
+            	actuatorDiskMethod[i] = ActuatorDisk::SOURCETERMINCOMPLETE;
             }else{
               com->fprintf(stderr, "!!! WARNING: no actuator disk method specified, defaulting to SOURCETERM\n\n");
               actuatorDiskMethod[i] = 1;
@@ -2442,12 +2434,10 @@ IntersectorPhysBAM::getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j, 
   lsRes.porosity   = distIntersector.porosity[trueTriangleID];
   lsRes.structureType   = distIntersector.structureType[trueTriangleID];
   lsRes.wallTemperature   = distIntersector.wallTemperature[trueTriangleID];
-  lsRes.isWallFunction   = distIntersector.isWallFunction[trueTriangleID];
   lsRes.heatFluxType   = distIntersector.heatFluxType[trueTriangleID];
   lsRes.actuatorDiskMethod = distIntersector.actuatorDiskMethod[trueTriangleID];
 
   lsRes.actuatorDiskPressureJump = distIntersector.actuatorDiskPressureJump[trueTriangleID];
-  lsRes.isCorrectedMethod = distIntersector.isCorrectedMethod[trueTriangleID];
   lsRes.gamma = distIntersector.gamma;
   lsRes.actuatorDiskReconstructionMethod = distIntersector.actuatorDiskReconstructionMethod[trueTriangleID];
   lsRes.massInflow = distIntersector.massJump[trueTriangleID];
