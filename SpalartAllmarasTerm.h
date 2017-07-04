@@ -19,18 +19,18 @@ using std::min;
   month = jan,
   year = 1992,
   note = "{AIAA} paper 92-0439",
-} 
+}
 
 Multigrid for the 2-D compressible Navier-Stokes equations
-AIAA Paper 99-3336 
-Steven R. Allmaras (Boeing Co., Seattle, WA)   
+AIAA Paper 99-3336
+Steven R. Allmaras (Boeing Co., Seattle, WA)
 AIAA, Aerospace Sciences Meeting and Exhibit, 37th, Reno, NV, Jan. 11-14, 1999
 */
 
 class SATerm {
 
   double oorey;
-  
+
 protected:
 
   double alpha;
@@ -58,7 +58,7 @@ public:
   double computeDerivativeOfSecondTurbulentViscosity(double lambdal, double dlambdal, double mul, double dmul, double mut, double dmut);
 
   template<int neq, int shift>
-  void computeJacobianVolumeTermSA(double [4][3], double [4], double [3][3], double, 
+  void computeJacobianVolumeTermSA(double [4][3], double [4], double [3][3], double,
 				   double, double *[4], double (*)[3][neq][neq],
 				   double (*)[neq][neq]);
 
@@ -245,9 +245,9 @@ double SATerm::computeDerivativeOfTurbulentViscosity(double *V, double *dV, doub
 //------------------------------------------------------------------------------
 
 template<int neq, int shift>
-void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4], 
-					 double dudxj[3][3], double mul, double mutilde, 
-					 double *V[4], double (*dRdU)[3][neq][neq], 
+void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
+					 double dudxj[3][3], double mul, double mutilde,
+					 double *V[4], double (*dRdU)[3][neq][neq],
 					 double (*dSdU)[neq][neq])
 {
 
@@ -256,30 +256,31 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
   double absmutilde = fabs(mutilde);
   double maxmutilde = max(mutilde, 0.0);
   double dabsmutilde,dmaxmutilde;
-  if (mutilde != 0.0) 
+  if (mutilde != 0.0)
     dabsmutilde = fabs(mutilde)/mutilde;
   else
     dabsmutilde = 0.0;
 
-  if (maxmutilde == 0.0) 
+  if (maxmutilde == 0.0)
     dmaxmutilde = 0.0;
   else
     dmaxmutilde = 1.0;
-      
+
   double mu5 = oosigma * (mul + absmutilde);
-  double dnutildedx = dp1dxj[0][0]*V[0][5] + dp1dxj[1][0]*V[1][5] + 
+  double dnutildedx = dp1dxj[0][0]*V[0][5] + dp1dxj[1][0]*V[1][5] +
     dp1dxj[2][0]*V[2][5] + dp1dxj[3][0]*V[3][5];
-  double dnutildedy = dp1dxj[0][1]*V[0][5] + dp1dxj[1][1]*V[1][5] + 
+  double dnutildedy = dp1dxj[0][1]*V[0][5] + dp1dxj[1][1]*V[1][5] +
     dp1dxj[2][1]*V[2][5] + dp1dxj[3][1]*V[3][5];
-  double dnutildedz = dp1dxj[0][2]*V[0][5] + dp1dxj[1][2]*V[1][5] + 
+  double dnutildedz = dp1dxj[0][2]*V[0][5] + dp1dxj[1][2]*V[1][5] +
     dp1dxj[2][2]*V[2][5] + dp1dxj[3][2]*V[3][5];
   double drdx = oosigma * 0.25 * dnutildedx;
   double drdy = oosigma * 0.25 * dnutildedy;
   double drdz = oosigma * 0.25 * dnutildedz;
 
   int k;
+  double nu;
   for (k=0; k<4; ++k) {
-    double nu = mu5 / V[k][0];
+    nu = mu5 / V[k][0];
     dRdU[k][0][shift][shift] = drdx + nu * dp1dxj[k][0];
     dRdU[k][1][shift][shift] = drdy + nu * dp1dxj[k][1];
     dRdU[k][2][shift][shift] = drdz + nu * dp1dxj[k][2];
@@ -327,7 +328,7 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
   double dfv3 = 0;
   if (usefv3) {
     dfv2 = -3.0*dchi*oocv2 * coef3*coef3;
-    dfv3 = ((dchi*fv1 + chi*dfv1)*(1.0 - fv2) - 
+    dfv3 = ((dchi*fv1 + chi*dfv1)*(1.0 - fv2) -
            (1.0 + chi*fv1)*dfv2 - fv3*dchi) / chi;
   }
   double dStilde = s*dfv3 + oorey*oovkcst2*oorho*ood2wall2 * (fv2*dmaxmutilde + maxmutilde*dfv2);
@@ -342,23 +343,36 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
   double D = cw1 * fw * oorho * maxmutilde * dmaxmutilde * ood2wall2;
   double dP = cb1 * dStilde * absmutilde;
   double dD = cw1 * oorho * ood2wall2 * (fw * maxmutilde * dmaxmutilde + maxmutilde * maxmutilde * dfw);
-  double s00 = 0.25 * (max(D - P, 0.0) + max(dD - dP, 0.0));
-  //s00 = 0.25 * (D - P + (dD - dP) * maxmutilde);
+  double s00 = 0.25 * (max(D - P, 0.0) + max(dD - dP, 0.0)); //s00 = 0.25 * (D - P + (dD - dP) * maxmutilde);
   double coef4 = oosigma * cb2 * rho * 2.0;
 
+  // sjg, 06/2017 missing source term from conservation form conversion
+  double drhodx = dp1dxj[0][0]*V[0][0] + dp1dxj[1][0]*V[1][0] +
+    dp1dxj[2][0]*V[2][0] + dp1dxj[3][0]*V[3][0];
+  double drhody = dp1dxj[0][1]*V[0][0] + dp1dxj[1][1]*V[1][0] +
+    dp1dxj[2][1]*V[2][0] + dp1dxj[3][1]*V[3][0];
+  double drhodz = dp1dxj[0][2]*V[0][0] + dp1dxj[1][2]*V[1][0] +
+    dp1dxj[2][2]*V[2][0] + dp1dxj[3][2]*V[3][0];
+  double coef5 = 0.25 * oorho * oosigma *
+    (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz);
+
   for (k=0; k<4; ++k)
-    dSdU[k][shift][shift] = coef4 / V[k][0] * 
-      (dnutildedx*dp1dxj[k][0] + dnutildedy*dp1dxj[k][1] + dnutildedz*dp1dxj[k][2]) - s00;
-  
+    // dSdU[k][shift][shift] = coef4 / V[k][0] *
+    //   (dnutildedx*dp1dxj[k][0] + dnutildedy*dp1dxj[k][1] + dnutildedz*dp1dxj[k][2]) - s00;
+    dSdU[k][shift][shift] = coef4 / V[k][0] *
+      (dnutildedx*dp1dxj[k][0] + dnutildedy*dp1dxj[k][1] + dnutildedz*dp1dxj[k][2])
+      - oorho * mu5 / V[k][0] * (dp1dxj[k][0] * drhodx + dp1dxj[k][1] * drhody + dp1dxj[k][2] * drhodz)
+      - coef5 - s00;
+
 }
 
 //------------------------------------------------------------------------------
 
 // Included (MB)
 template<int neq, int shift>
-void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4], 
-					 double dudxj[3][3], double mul, double dmul[4][6], double mutilde, 
-					 double dmutilde[4][6], double *V[4], double (*dRdU)[3][neq][neq], 
+void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
+					 double dudxj[3][3], double mul, double dmul[4][6], double mutilde,
+					 double dmutilde[4][6], double *V[4], double (*dRdU)[3][neq][neq],
 					 double (*dSdU)[neq][neq])
 {
   int k;
@@ -424,32 +438,35 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
     dmu5[k][4] = oosigma * (dmul[k][4] + dabsmutilde[k][4]);
     dmu5[k][5] = oosigma * (dmul[k][5] + dabsmutilde[k][5]);
   }
-  
+
   double dnutildedx = dp1dxj[0][0]*V[0][5] + dp1dxj[1][0]*V[1][5] + dp1dxj[2][0]*V[2][5] + dp1dxj[3][0]*V[3][5];
   double dnutildedy = dp1dxj[0][1]*V[0][5] + dp1dxj[1][1]*V[1][5] + dp1dxj[2][1]*V[2][5] + dp1dxj[3][1]*V[3][5];
   double dnutildedz = dp1dxj[0][2]*V[0][5] + dp1dxj[1][2]*V[1][5] + dp1dxj[2][2]*V[2][5] + dp1dxj[3][2]*V[3][5];
 
+  double oorhok, nutorhok;
   for (k=0; k<4; ++k) {
-    dRdU[k][0][5][0] = dmu5[k][0] * dnutildedx - mu5 * dp1dxj[k][0] * V[k][5] / V[k][0];
+    oorhok = 1.0 / V[k][0];
+    nutorhok = V[k][5] * oorhok;
+    dRdU[k][0][5][0] = dmu5[k][0] * dnutildedx - mu5 * dp1dxj[k][0] * nutorhok;
     dRdU[k][0][5][1] = dmu5[k][1] * dnutildedx;
     dRdU[k][0][5][2] = dmu5[k][2] * dnutildedx;
     dRdU[k][0][5][3] = dmu5[k][3] * dnutildedx;
     dRdU[k][0][5][4] = dmu5[k][4] * dnutildedx;
-    dRdU[k][0][5][5] = dmu5[k][5] * dnutildedx + mu5 * dp1dxj[k][0] / V[k][0];
+    dRdU[k][0][5][5] = dmu5[k][5] * dnutildedx + mu5 * dp1dxj[k][0] * oorhok;
 
-    dRdU[k][1][5][0] = dmu5[k][0] * dnutildedy - mu5 * dp1dxj[k][1] * V[k][5] / V[k][0];
+    dRdU[k][1][5][0] = dmu5[k][0] * dnutildedy - mu5 * dp1dxj[k][1] * nutorhok;
     dRdU[k][1][5][1] = dmu5[k][1] * dnutildedy;
     dRdU[k][1][5][2] = dmu5[k][2] * dnutildedy;
     dRdU[k][1][5][3] = dmu5[k][3] * dnutildedy;
     dRdU[k][1][5][4] = dmu5[k][4] * dnutildedy;
-    dRdU[k][1][5][5] = dmu5[k][5] * dnutildedy + mu5 * dp1dxj[k][1] / V[k][0];
+    dRdU[k][1][5][5] = dmu5[k][5] * dnutildedy + mu5 * dp1dxj[k][1] * oorhok;
 
-    dRdU[k][2][5][0] = dmu5[k][0] * dnutildedz - mu5 * dp1dxj[k][2] * V[k][5] / V[k][0];
+    dRdU[k][2][5][0] = dmu5[k][0] * dnutildedz - mu5 * dp1dxj[k][2] * nutorhok;
     dRdU[k][2][5][1] = dmu5[k][1] * dnutildedz;
     dRdU[k][2][5][2] = dmu5[k][2] * dnutildedz;
     dRdU[k][2][5][3] = dmu5[k][3] * dnutildedz;
     dRdU[k][2][5][4] = dmu5[k][4] * dnutildedz;
-    dRdU[k][2][5][5] = dmu5[k][5] * dnutildedz + mu5 * dp1dxj[k][2] / V[k][0];
+    dRdU[k][2][5][5] = dmu5[k][5] * dnutildedz + mu5 * dp1dxj[k][2] * oorhok;
   }
 
   double d2wall = 0.25 * (d2w[0] + d2w[1] + d2w[2] + d2w[3]);
@@ -458,6 +475,7 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
       dSdU[k][5][5] = 0.0;
     return;
   }
+
   double chi;
   double dchi[4][6];
   double chi3;
@@ -493,12 +511,20 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
   double fw;
   double dfw[4][6];
 
+  double drhodx = dp1dxj[0][0]*V[0][0] + dp1dxj[1][0]*V[1][0] + dp1dxj[2][0]*V[2][0] + dp1dxj[3][0]*V[3][0];
+  double drhody = dp1dxj[0][1]*V[0][0] + dp1dxj[1][1]*V[1][0] + dp1dxj[2][1]*V[2][0] + dp1dxj[3][1]*V[3][0];
+  double drhodz = dp1dxj[0][2]*V[0][0] + dp1dxj[1][2]*V[1][0] + dp1dxj[2][2]*V[2][0] + dp1dxj[3][2]*V[3][0];
+  double gradnutgradrho = dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz;
+  double gradrhogradP1k;
+
 //  double AA;
   double dAA[4][6];
 //  double BB;
   double dBB[4][6];
 //  double CC;
   double dCC[4][6];
+//  double DD;        // sjg, 06/2017: missing term from conservation form
+  double dDD[4][6];
 
   rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
 
@@ -539,12 +565,12 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
     dfv2[k][4] = (fv2-1.)*dchi[k][4]/chi+(1.-fv2)*(1-fv2)*(dfv1[k][4]+fv1*dchi[k][4]/chi);
     dfv2[k][5] = (fv2-1.)*dchi[k][5]/chi+(1.-fv2)*(1-fv2)*(dfv1[k][5]+fv1*dchi[k][5]/chi);
     fv3  = 1.0;
-    dfv3[k][0] = 0.; 
-    dfv3[k][1] = 0.; 
-    dfv3[k][2] = 0.; 
-    dfv3[k][3] = 0.; 
-    dfv3[k][4] = 0.; 
-    dfv3[k][5] = 0.; 
+    dfv3[k][0] = 0.;
+    dfv3[k][1] = 0.;
+    dfv3[k][2] = 0.;
+    dfv3[k][3] = 0.;
+    dfv3[k][4] = 0.;
+    dfv3[k][5] = 0.;
 
     if (usefv3) {
       fv2 = 1.0 + oocv2*chi;
@@ -580,12 +606,12 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
     drho[k][4] = 0.0;
     drho[k][5] = 0.0;
     oorho = 1.0 / rho;
-    doorho[k][0] = -1.0 / ( rho * rho ) * drho[k][0];	  
-    doorho[k][1] = -1.0 / ( rho * rho ) * drho[k][1];	  
-    doorho[k][2] = -1.0 / ( rho * rho ) * drho[k][2];	  
-    doorho[k][3] = -1.0 / ( rho * rho ) * drho[k][3];	  
-    doorho[k][4] = -1.0 / ( rho * rho ) * drho[k][4];	  
-    doorho[k][5] = -1.0 / ( rho * rho ) * drho[k][5];	  
+    doorho[k][0] = -1.0 / ( rho * rho ) * drho[k][0];
+    doorho[k][1] = -1.0 / ( rho * rho ) * drho[k][1];
+    doorho[k][2] = -1.0 / ( rho * rho ) * drho[k][2];
+    doorho[k][3] = -1.0 / ( rho * rho ) * drho[k][3];
+    doorho[k][4] = -1.0 / ( rho * rho ) * drho[k][4];
+    doorho[k][5] = -1.0 / ( rho * rho ) * drho[k][5];
 
     zz = oorey * oovkcst2 * maxmutilde * oorho * ood2wall2;
     dzz[k][0] = oorey*oovkcst2*dmaxmutilde[k][0]*oorho*ood2wall2 + oorey*oovkcst2*mutilde*doorho[k][0]*ood2wall2;
@@ -605,7 +631,7 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
     ds12[k][3] = 0.0;
     ds12[k][4] = 0.0;
     ds12[k][5] = 0.0;
-    
+
     ds23[k][0] = - (dp1dxj[k][2]*V[k][2] - dp1dxj[k][1]*V[k][3]) / V[k][0];
     ds23[k][1] = 0.0;
     ds23[k][2] = dp1dxj[k][2] / V[k][0];
@@ -628,7 +654,7 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
     ds[k][4] = 1.0 / s * (s12*ds12[k][4] + s23*ds23[k][4] + s31*ds31[k][4]);
     ds[k][5] = 1.0 / s * (s12*ds12[k][5] + s23*ds23[k][5] + s31*ds31[k][5]);
 
-    Stilde = max(s*fv3 + zz*fv2,1.0e-12);// To avoid possible numerical problems, the term \tilde S must never be allowed to reach zero or go negative. 
+    Stilde = max(s*fv3 + zz*fv2,1.0e-12);// To avoid possible numerical problems, the term \tilde S must never be allowed to reach zero or go negative.
     if (Stilde == 1.0e-12) {
       dStilde[k][0] = 0.0;
       dStilde[k][1] = 0.0;
@@ -706,15 +732,44 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
     dCC[k][4] = - cw1 * dfw[k][4] * oorho * maxmutilde*maxmutilde * ood2wall2 - cw1 * fw * doorho[k][4] * maxmutilde*maxmutilde * ood2wall2 - cw1 * fw * oorho * 2.0*maxmutilde*dmaxmutilde[k][4] * ood2wall2;
     dCC[k][5] = - cw1 * dfw[k][5] * oorho * maxmutilde*maxmutilde * ood2wall2 - cw1 * fw * doorho[k][5] * maxmutilde*maxmutilde * ood2wall2 - cw1 * fw * oorho * 2.0*maxmutilde*dmaxmutilde[k][5] * ood2wall2;
 
+//    DD = - oorho * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz);
+    oorhok = 1.0 / V[k][0];
+    nutorhok = V[k][5] * oorhok;
+    gradrhogradP1k = dp1dxj[k][0] * drhodx + dp1dxj[k][1] * drhody + dp1dxj[k][2] * drhodz;
+
+    dDD[k][0] = - (doorho[k][0] * mu5 * gradnutgradrho
+      + oorho * dmu5[k][0] * gradnutgradrho
+      + oorho * mu5 * (dp1dxj[k][0] * dnutildedx + dp1dxj[k][1] * dnutildedy + dp1dxj[k][2] * dnutildedz
+      - nutorhok * gradrhogradP1k));
+    dDD[k][1] = - (doorho[k][1] * mu5 * gradnutgradrho
+      + oorho * dmu5[k][1] * gradnutgradrho);
+    dDD[k][2] = - (doorho[k][2] * mu5 * gradnutgradrho
+      + oorho * dmu5[k][2] * gradnutgradrho);
+    dDD[k][3] = - (doorho[k][3] * mu5 * gradnutgradrho
+      + oorho * dmu5[k][3] * gradnutgradrho);
+    dDD[k][4] = - (doorho[k][4] * mu5 * gradnutgradrho
+      + oorho * dmu5[k][4] * gradnutgradrho);
+    dDD[k][5] = - (doorho[k][5] * mu5 * gradnutgradrho
+      + oorho * dmu5[k][5] * gradnutgradrho
+      + oorho * mu5 * oorhok * gradrhogradP1k);
+
+/*
     dSdU[k][5][0] = dAA[k][0] + dBB[k][0] + dCC[k][0];
     dSdU[k][5][1] = dAA[k][1] + dBB[k][1] + dCC[k][1];
     dSdU[k][5][2] = dAA[k][2] + dBB[k][2] + dCC[k][2];
     dSdU[k][5][3] = dAA[k][3] + dBB[k][3] + dCC[k][3];
     dSdU[k][5][4] = dAA[k][4] + dBB[k][4] + dCC[k][4];
-    dSdU[k][5][5] = dAA[k][5] + dBB[k][5] + dCC[k][5];
+    dSdU[k][5][5] = dAA[k][5] + dBB[k][5] + dCC[k][5]; */
+
+    dSdU[k][5][0] = dAA[k][0] + dBB[k][0] + dCC[k][0] + dDD[k][0];
+    dSdU[k][5][1] = dAA[k][1] + dBB[k][1] + dCC[k][1] + dDD[k][1];
+    dSdU[k][5][2] = dAA[k][2] + dBB[k][2] + dCC[k][2] + dDD[k][2];
+    dSdU[k][5][3] = dAA[k][3] + dBB[k][3] + dCC[k][3] + dDD[k][3];
+    dSdU[k][5][4] = dAA[k][4] + dBB[k][4] + dCC[k][4] + dDD[k][4];
+    dSdU[k][5][5] = dAA[k][5] + dBB[k][5] + dCC[k][5] + dDD[k][5];
 
   }
-  
+
 }
 
 //------------------------------------------------------------------------------
