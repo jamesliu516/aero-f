@@ -9838,8 +9838,7 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
                     assert((-unit_nf *S - normal * strucOrientation[nSt]).norm() < 1e-8);
 
                     Vec3D Xpp = Xp - dh * unit_nf;
-                    std::cout << unit_nf[0] <<" " << unit_nf[1] <<" " << unit_nf[2] <<" " <<std::endl;
-                    std::cout << Xp[0] <<" " << Xp[1] <<" " << Xp[2] <<" " <<std::endl;
+
                     Elem *E = myTree->search<&Elem::isPointInside, ElemForceCalcValid,
                             &ElemForceCalcValid::Valid>(&myObj, X, Xpp);
                     if (!E) {
@@ -9970,7 +9969,8 @@ void SubDomain::computeEMBSkinFriction(IoData &iod,SVec<double,3> &X, SVec<doubl
                     }
                 }
                 Cflocal = postFcn->computeSkinFriction(unit_nf, dh, Vwall, vtet_pp, bary);
-
+            std::cout << " nSt is " << nSt << "strOrientation is "<<strucOrientation[nSt] <<  " unit_nf is " << unit_nf[0] <<" "<<unit_nf[1] <<" "<<unit_nf[2]
+                      << " bary "<< bary[0]  << " "<<bary[1] << " "<<bary[2]  << " nq is " <<nq << " dh is " << dh << " Cflocal is " << Cflocal << "s is " << S << std::endl;
             Qnty[stNode[0]][0] += qweight[nq] * S; //aera of the structure element
             Qnty[stNode[1]][0] += qweight[nq] * S;
             Qnty[stNode[2]][0] += qweight[nq] * S;

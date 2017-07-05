@@ -1280,6 +1280,13 @@ if(SymmetryPlaneList.size()!=0){
   			intersector[iSub]->setInactiveNodesSymmetry((X(iSub)),SymmetryPlaneList);
    	 }
 }
+
+
+    //Daniel Huang, initialize structure information
+    for(int i = 0 ; i < numStElems; i++) strucOrientation[i] = -1;
+    domain->computeStrucOrientation(X,numStElems,stElem,*solidX,*is_active, strucOrientation);
+
+    com->globalMax(numStElems, strucOrientation);
 }
 
 

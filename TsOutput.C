@@ -3274,6 +3274,7 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
 
     /////////////////////////////////////////////
     if(embeddedsurfaceCp || embeddedsurfaceCf) {
+      std::cout << "compute embedded surface cp and cf" << std::cout;
 
       int ns = distLSS->getNumStructNodes();
 

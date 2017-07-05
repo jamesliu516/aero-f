@@ -1422,7 +1422,7 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
     for(int i= 0; i < numStructElems*nqPoint; i++){
         interfaceFluidMeshSize[i] = max_mesh_size;
     }
-
+    std::cout << "max_mesh_size is " << max_mesh_size << std::endl;
   int * strucOrientation = distLSS->getStructOrientation();
   //--------------------------------------------------------------
 
