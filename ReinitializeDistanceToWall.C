@@ -204,7 +204,6 @@ void ReinitializeDistanceToWall<dimLS,dim>::PseudoFastMarchingMethod(
     DistLevelSetStructure &LSS, DistSVec<double, 3> &X)
 {
   d2wall = 1.0e10;
-
   int nSub = dom.getNumLocSub();
   for (int iSub=0; iSub<nSub; iSub++) {
     std::memset(tag[iSub], -1, sizeof(int)*dom.getSubDomain()[iSub]->numElems());
@@ -231,6 +230,8 @@ void ReinitializeDistanceToWall<dimLS,dim>::PseudoFastMarchingMethod(
     }
     dom.getCommunicator()->globalMin(1, &isDone);
 
+    // if (level == 1) exit(-1);
+
     // // debug
     // if (level==2) {
     //   fprintf(stderr,"activeElemList: \n");
@@ -244,6 +245,9 @@ void ReinitializeDistanceToWall<dimLS,dim>::PseudoFastMarchingMethod(
 
     ++level;
   }
+
+  fprintf(stderr,"Before finalization: Total sorted nodes = %d out of %d\n",
+    nSortedNodes[0],d2wall(0).len);
 
   dom.pseudoFastMarchingMethodFinalize<1>(X, d2wall, nSortedNodes, isSharedNode, &LSS);
 

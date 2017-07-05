@@ -5433,9 +5433,19 @@ void Domain::pseudoFastMarchingMethodFEM(DistSVec<double,3> &X,	DistSVec<double,
       *(isSharedNode+iSub),commFlag,distLSS?&((*distLSS)(iSub)):NULL);
   }
 
+  // // debug (print tris in list)
+  // for (iSub = 0; iSub < numLocSub; ++iSub) {
+  //   for (int i = 0; i<nSortedElems[iSub]; i++) {
+  //     if (knownNodes[iSub][activeElemList[iSub][i]] < 4)
+  //       fprintf(stderr,"Problem: knownNodes[cpu %d, elem %d] = %d (list i = %d)\n",
+  //         com->cpuNum(),activeElemList[iSub][i],
+  //         knownNodes[iSub][activeElemList[iSub][i]],i);
+  //   }
+  // }
+
   com->globalMax(1, &commFlag);
   if (commFlag) {
-    com->fprintf(stderr,"Performing a communication @ level %d!\n",level);
+    // com->fprintf(stderr,"Performing a communication @ level %d!\n",level);
 
 #pragma omp parallel for
     for (iSub = 0; iSub < numLocSub; ++iSub)
@@ -5451,6 +5461,18 @@ void Domain::pseudoFastMarchingMethodFEM(DistSVec<double,3> &X,	DistSVec<double,
         *(nSortedNodes+iSub),*(nSortedElems+iSub));
     }
   }
+
+
+  // // debug (print tris in list)
+  // for (iSub = 0; iSub < numLocSub; ++iSub) {
+  //   for (int i = 0; i<nSortedElems[iSub]; i++) {
+  //     if (knownNodes[iSub][activeElemList[iSub][i]] < 4)
+  //       fprintf(stderr,"Problem: knownNodes[cpu %d, elem %d] = %d (list i = %d)\n",
+  //         com->cpuNum(),activeElemList[iSub][i],
+  //         knownNodes[iSub][activeElemList[iSub][i]],i);
+  //   }
+  // }
+
 }
 
 //------------------------------Vec<int> &Tag-----------------------------------

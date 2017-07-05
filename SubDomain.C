@@ -5397,32 +5397,36 @@ void SubDomain::minRcvDataAndAddElems(CommPattern<Scalar> &sp, Scalar (*w)[dim],
   assert(dim == 1); // if you intend to use it in Vectorial mode, modify it your way
 
   int sharedNodeID, tet, nTets;
+  bool newUpdate;
   for (int iSub = 0; iSub < numNeighb; ++iSub) {
     SubRecInfo<Scalar> sInfo = sp.recData(rcvChannel[iSub]);
     Scalar (*buffer)[dim] = reinterpret_cast<Scalar (*)[dim]>(sInfo.data);
     for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode) {
-      sharedNodeID = (*sharedNodes)[iSub][iNode];
-      if (buffer[iNode][dim] < w[sharedNodeID][dim]) {
-        bool newUpdate = (w[sharedNodeID][dim] >= 1.0e10-1.0e-10);
+      for (int j = 0; j < dim; ++j) {
+        sharedNodeID = (*sharedNodes)[iSub][iNode];
+        if (buffer[iNode][j] < w[sharedNodeID][j]) {
 
-        if (w[sharedNodeID][dim]==0.0 || buffer[iNode][dim] == 0.0) {
-          int myrank;
-          MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
-          fprintf(stderr,"Problem: updating a ghost node (prev = %e -> buffer = %e, cpu = %d, i = %d)!\n",
-            w[sharedNodeID][dim],buffer[iNode][dim],myrank,sharedNodeID);
-        }
-        else
-          fprintf(stderr,"Prev d2w = %e -> Buffer = %e\n",
-            w[sharedNodeID][dim],buffer[iNode][dim]);
+          newUpdate = (w[sharedNodeID][j] >= 1.0e10-1.0e-10);
 
-        if (newUpdate) {
-          nSortedNodes++;
+          if (w[sharedNodeID][j] == 0.0 || buffer[iNode][j] == 0.0) {
+            int myrank;
+            MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+            fprintf(stderr,"Problem: updating a ghost node (prev = %e -> buffer = %e, cpu = %d, i = %d, global ID = %d)!\n",
+              w[sharedNodeID][j],buffer[iNode][j],myrank,sharedNodeID,locToGlobNodeMap[sharedNodeID]);
+          }
+          // else
+          //   fprintf(stderr,"Prev d2w = %e -> Buffer = %e\n",
+          //     w[sharedNodeID][j],buffer[iNode][j]);
+
+          if (newUpdate)
+            nSortedNodes++;
 
           // look @ connectivities and add relevant elems to active list
           nTets = NodeToElem->num(sharedNodeID);
-          for (int j=0; j<nTets; j++) {
-            tet = (*NodeToElem)[sharedNodeID][j];
-            knownNodes[tet]++;
+          for (int k=0; k<nTets; k++) {
+            tet = (*NodeToElem)[sharedNodeID][k];
+            if (newUpdate) knownNodes[tet]++;
+            // remove addition to list for debug (check all tets with ghosts)
             if (knownNodes[tet] >= 3 && tag[tet] < 0) {
               tag[tet] = 1;
               activeElemList[nSortedElems] == tet;
@@ -5430,7 +5434,7 @@ void SubDomain::minRcvDataAndAddElems(CommPattern<Scalar> &sp, Scalar (*w)[dim],
             }
           }
         }
-        w[sharedNodeID][dim] = buffer[iNode][dim];
+        w[sharedNodeID][j] = buffer[iNode][j];
       }
     }
   }
@@ -9197,11 +9201,12 @@ void SubDomain::pseudoFastMarchingMethodFEM(SVec<double,3> &X, SVec<double,dimLS
     for (int i=0;i<d2wall.size();++i) {
       if (!LSS->isActive(0.0,i)) {
 
-        if (isSharedNode[i]) {
-          int myrank;
-          MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
-          fprintf(stderr,"Found a SHARED ghost node (cpu = %d, i = %d)!\n",myrank,i);
-        }
+        // if (isSharedNode[i]) {
+        //   int myrank;
+        //   MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+        //   fprintf(stderr,"Found a SHARED ghost node (cpu = %d, i = %d, global ID = %d)!\n",
+        //     myrank,i, locToGlobNodeMap[i]);
+        // }
 
         d2wall[i][0] = 0.0; // not a problem as inactive nodes should be marked as ghost on all subdomains
         nSortedNodes++;
@@ -9210,7 +9215,8 @@ void SubDomain::pseudoFastMarchingMethodFEM(SVec<double,3> &X, SVec<double,dimLS
           tet = (*NodeToElem)[i][j];
           knownNodes[tet]++;
           // if (tag[tet] < 0) tag[tet] = 0;  // all intersecting ghost and intersecting elements not added to active list
-          if (knownNodes[tet] >= 3 && tag[tet] < 0) {
+          // if (knownNodes[tet] >= 3 && tag[tet] < 0) {
+          if (tag[tet] < 0) {
             tag[tet] = 0;
             activeElemList[nSortedElems] = tet;
             nSortedElems++;
@@ -9236,14 +9242,15 @@ void SubDomain::pseudoFastMarchingMethodFEM(SVec<double,3> &X, SVec<double,dimLS
         if (doInit) {
           d2wall[i][0] = LSS->distToInterface(0.0,i);
 
-          // if (d2wall[i][0] < 1.0e-10)
-          //   fprintf(stderr,"Problem: LSS->distToInterface returned d2w = %e!\n",d2wall[i][0]);
+          if (d2wall[i][0] < 1.0e-10)
+            fprintf(stderr,"Problem: LSS->distToInterface returned d2w = %e!\n",d2wall[i][0]);
 
           nSortedNodes++;
           nTets = NodeToElem->num(i);
           for (int j=0; j<nTets; j++) {
             tet = (*NodeToElem)[i][j];
             knownNodes[tet]++;
+            // remove addition to list for debug (check all tets with ghosts)
             if (knownNodes[tet] >= 3 && tag[tet] < 0) {
               tag[tet] = 1;
               activeElemList[nSortedElems] = tet;
@@ -9269,7 +9276,7 @@ void SubDomain::pseudoFastMarchingMethodFEM(SVec<double,3> &X, SVec<double,dimLS
 
         // its++;
 
-        if (d2wall[node][0] < 1.0e10) {
+        if (d2wall[node][0] < 1.0e10-1.0e-10) {
           nSortedNodes++;
           nNeighs = NodeToElem->num(node);
           for (int j=0; j<nNeighs; j++) {
@@ -9326,7 +9333,8 @@ void SubDomain::pseudoFastMarchingMethodFinalize(SVec<double,3> &X, SVec<double,
           (X[node][0]-X[nei][0])*(X[node][0]-X[nei][0])
           + (X[node][1]-X[nei][1])*(X[node][1]-X[nei][1])
           + (X[node][2]-X[nei][2])*(X[node][2]-X[nei][2]));
-        d2wall[node][0] = min(d2wall[node][0],dist);
+        // d2wall[node][0] = min(d2wall[node][0],dist);
+        d2wall[node][0] = dist;
       }
       nSortedNodes++;
       if (isSharedNode[node])

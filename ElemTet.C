@@ -3114,10 +3114,10 @@ void ElemTet::FEMMarchingDistanceUpdate(SVec<double,3> &X, SVec<double,dim> &d2w
   // double dp1dxj[4][3];
   if (dp1dxj[0][0] == 0.0 && dp1dxj[0][1] == 0.0 && dp1dxj[0][2] == 0.0)
     computeGradientP1Function(X, dp1dxj);
-  else {
-    fprintf(stderr,"Success: skipped shape function gradient\n");
-    exit(-1);
-  }
+  // else {
+  //   fprintf(stderr,"Success: skipped shape function gradient\n");
+  //   // exit(-1);
+  // }
 
   // find node to solve
   int node;
