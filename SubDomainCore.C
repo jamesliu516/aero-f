@@ -7180,7 +7180,7 @@ void SubDomain::computeInterfaceFluidMeshSize(IoData &iod,SVec<double,3> &X,
       max_dist = 0.0;
       for (int i = 0; i < 4; i++){
 
-          dh = abs((Xf[i] - Xp)*normal);
+          dh = 2*abs((Xf[i] - Xp)*normal);
           if (dh > max_dist) max_dist = dh;
         }
 
