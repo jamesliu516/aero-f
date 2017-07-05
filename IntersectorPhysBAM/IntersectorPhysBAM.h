@@ -315,8 +315,10 @@ class IntersectorPhysBAM : public LevelSetStructure {
 
     void reset(const bool findStatus,const bool retry); //<! set status0=status and reset status and nFirstLayer.
     /** find intersections for each edge that has nodes with different statuses */
-    double isPointOnSurface(Vec3D pt, int N1, int N2, int N3);
-    /** check the distance of apoint to a surface defined by a triangle. (used for debug only) */ 
+        // double isPointOnSurface(Vec3D pt, int N1, int N2, int N3);
+    // /** check the distance of a point to a surface triangle */
+    // double isPointOnSurface(int nodeId);
+    // /** sjg, 05/2017: new implementation to use nearby candidate triangles of fluid mesh vertex */
     void printFirstLayer(SubDomain& sub, SVec<double,3>& X, int TYPE = 1);
 
     LevelSetResult getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j, double *Xr=0, double *Xg=0);
