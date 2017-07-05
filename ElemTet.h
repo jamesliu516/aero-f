@@ -19,17 +19,19 @@ class ElemTet : public ElemDummy {
   int nodeNumTet[4];
   int edgeNumTet[6];
 
+  double dp1dxj[4][3];
+
 protected:
-  void *getWrapper_dim(GenElemHelper_dim *h, 
+  void *getWrapper_dim(GenElemHelper_dim *h,
 		       int size, char *memorySpace) {
     return h->forClassTet(this,size,memorySpace);
   }
-  void *getWrapper_Scalar_dim_neq(GenElemHelper_Scalar_dim_neq *h, 
+  void *getWrapper_Scalar_dim_neq(GenElemHelper_Scalar_dim_neq *h,
 				  int size, char *memorySpace) {
     return h->forClassTet(this,size,memorySpace);
   }
 
-  void *getWrapper_dim_obj(GenElemHelper_dim_obj *h, 
+  void *getWrapper_dim_obj(GenElemHelper_dim_obj *h,
 				  int size, char *memorySpace) {
 
     return h->forClassTet(this,size,memorySpace);
@@ -37,7 +39,7 @@ protected:
 
 public:
 
-  ElemTet() { volume_id = 0; }
+  ElemTet() { volume_id = 0; for (int i=0; i<4; i++) {dp1dxj[i][0] = 0.0; dp1dxj[i][1] = 0.0; dp1dxj[i][2] = 0.0;} }
   ~ElemTet() {}
 
   int* nodeNum() { return nodeNumTet; }
@@ -70,18 +72,18 @@ public:
                                 Vec<Vec3D> &edgeNorm, Vec<double> &edgeNormVel);
   void computeEdgeNormalsGCL1(SVec<double,3> &, SVec<double,3> &, SVec<double,3> &,
 			      Vec<Vec3D> &, Vec<double> &);
-  void computeEdgeNormalsEZGCL1(double, SVec<double,3> &, SVec<double,3> &, 
+  void computeEdgeNormalsEZGCL1(double, SVec<double,3> &, SVec<double,3> &,
 				Vec<Vec3D> &, Vec<double> &);
-  void computeWeightsGalerkin(SVec<double,3> &, SVec<double,3> &, 
+  void computeWeightsGalerkin(SVec<double,3> &, SVec<double,3> &,
 			      SVec<double,3> &, SVec<double,3> &);
   void computeEdgeWeightsGalerkin(SVec<double,3> &, SVec<double,9> &);
   double computeGradientP1Function(SVec<double,3> &nodes, double ngrad[4][3], double * = NULL);
-  double computeGradientP1Function(Vec3D &A, Vec3D &B, Vec3D &C, Vec3D &D, 
+  double computeGradientP1Function(Vec3D &A, Vec3D &B, Vec3D &C, Vec3D &D,
                                    double nGrad[4][3]);
-  void computeStiffAndForce(double *, double *, 
+  void computeStiffAndForce(double *, double *,
 			    SVec<double, 3> &, SVec<double,3> &, double volStiff = 0.0);
-  void computeStiffAndForceBallVertex(double *f, double *K, 
-				    SVec<double, 3> &X, SVec<double,3> &X0, 
+  void computeStiffAndForceBallVertex(double *f, double *K,
+				    SVec<double, 3> &X, SVec<double,3> &X0,
 				    double volStiff = 0.0);
   void computeStiffAndForceLIN(double *, SVec<double,3> &, SVec<double,3> &);
   void computeStiffBallVertex(double *, SVec<double, 3> &X, SVec<double,3> &X0, double volStiff);
@@ -91,7 +93,6 @@ public:
 
   void computeTempGradient(double [4][3], double [4], double [3]);
 
-  
   //-----functions in Tet.C
 
   template<class NodeMap>
@@ -108,28 +109,28 @@ public:
 									  Vec<GhostPoint<dim>*> *ghostPoints=0,LevelSetStructure *LSS=0);
 
   template<int dim>
-  double* setGhostOccludedValue(int i, SVec<double,3> &X, SVec<double,dim> &V, 
+  double* setGhostOccludedValue(int i, SVec<double,3> &X, SVec<double,dim> &V,
 										  LevelSetStructure *LSS);
 
   template<int dim>
   void computeVMSLESTerm(VMSLESTerm *, SVec<double,dim> &, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &);
-                                                                                                                          
+
   template<int dim>
   void computeMBarAndM(DynamicVMSTerm *, SVec<double,dim> **, SVec<double,1> **, SVec<double,3> &, SVec<double,dim> &,
                        SVec<double,dim> &, SVec<double,dim> &);
-                                                                                                                          
+
   template<int dim>
   void computeDynamicVMSTerm(DynamicVMSTerm *, SVec<double,dim> **, SVec<double,3> &,
                              SVec<double,dim> &, SVec<double,dim> &, Vec<double> &, Vec<double> &,
                              Vec<double> *, Vec<double> &);
-                                                                                                                          
+
   template<int dim>
   void computeSmagorinskyLESTerm(SmagorinskyLESTerm *, SVec<double,3> &, SVec<double,dim> &V,
 				 SVec<double,dim> &R,
 			         Vec<GhostPoint<dim>*> *ghostPoints=0,LevelSetStructure *LSS=0);
 
   template<int dim>
-  void computeSmagorinskyLESTerm_e(SmagorinskyLESTerm *, SVec<double,3> &, 
+  void computeSmagorinskyLESTerm_e(SmagorinskyLESTerm *, SVec<double,3> &,
 											  SVec<double,dim> &V,	SVec<double,dim> &R,
 											  Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0);
 
@@ -154,25 +155,25 @@ public:
 									 Vec<GhostPoint<dim>*> *ghostPoints=0,LevelSetStructure *LSS=0);
 
   template<int dim, class Scalar, int neq>
-  void computeJacobianGalerkinTerm(FemEquationTerm *, SVec<double,3> &, 
-				   Vec<double> &, Vec<double> &, 
+  void computeJacobianGalerkinTerm(FemEquationTerm *, SVec<double,3> &,
+				   Vec<double> &, Vec<double> &,
 				   SVec<double,dim> &, GenMat<Scalar,neq> &,
      				   Vec<GhostPoint<dim>*> *gp=0,LevelSetStructure *LSS=0);
 
   template<int dim, class Scalar, int neq>
-  void computeJacobianGalerkinTerm_e(FemEquationTerm *, SVec<double,3> &, 
-												 Vec<double> &, Vec<double> &, 
+  void computeJacobianGalerkinTerm_e(FemEquationTerm *, SVec<double,3> &,
+												 Vec<double> &, Vec<double> &,
 												 SVec<double,dim> &, GenMat<Scalar,neq> &,
 												 Vec<GhostPoint<dim>*> *gp=0, LevelSetStructure *LSS=0);
 
   template<int dim>
-  void computeFaceGalerkinTerm(FemEquationTerm *, int [3], int, Vec3D &, 
-			       SVec<double,3> &, Vec<double> &, double *, 
+  void computeFaceGalerkinTerm(FemEquationTerm *, int [3], int, Vec3D &,
+			       SVec<double,3> &, Vec<double> &, double *,
 			       SVec<double,dim> &, SVec<double,dim> &);
 
   template<int dim, class Scalar, int neq>
-  void computeFaceJacobianGalerkinTerm(FemEquationTerm *, int [3], int, Vec3D &, 
-				       SVec<double,3> &, Vec<double> &, Vec<double> &, 
+  void computeFaceJacobianGalerkinTerm(FemEquationTerm *, int [3], int, Vec3D &,
+				       SVec<double,3> &, Vec<double> &, Vec<double> &,
 				       double *, SVec<double,dim> &, GenMat<Scalar,neq> &);
 
   template<int dim>
@@ -212,7 +213,7 @@ public:
 			       SVec<double,3> &, SVec<double,3> &, Vec<double> &, double *, double *,
 			       SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &);
 
-// Level Set Reinitialization
+  // Level Set Reinitialization
 
   template<int dim>
   void computeDistanceCloseNodes(int lsdim, Vec<int> &Tag, SVec<double,3> &X,
@@ -229,16 +230,19 @@ public:
   template<int dim>
   void computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
                                  SVec<double,3> &X, SVec<double,1> &Psi, SVec<double,dim> &Phi);
+
   template<int dim>
   void FastMarchingDistanceUpdate(int node,Vec<int> &Tag,int level,
                                  SVec<double,3> &X,SVec<double,dim> &d2wall);
 
+  template<int dim>
+  void FEMMarchingDistanceUpdate(SVec<double,3> &X,SVec<double,dim> &d2wall, int &node);
 
   template<int dim, class Obj>
     void integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),int npt);
 
   // X is the deformed nodal location vector
-  template<int dim> 
+  template<int dim>
   int interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const Vec3D& loc, double sol[dim], LevelSetStructure* LSS,
                           Vec<GhostPoint<dim>*>* ghostPoints, VarFcn* varFcn);
 
@@ -248,7 +252,8 @@ public:
 
 private:
 
-//Level Set Reinitialization
+  // Level Set Reinitialization
+
   double findRootPolynomialNewtonRaphson(double f1, double f2, double fp1, double fp2);
   int findRootPolynomialLaguerre(double f1, double f2, double fp1, double fp2, double &root);
   bool computeDistancePlusPhiToOppFace(double phi[3], Vec3D Y0,
@@ -268,13 +273,14 @@ private:
   void getTemperatureAndGradient(double *v[4], double dp1dxj[4][3], double R,
 											double T[4],  double dtdxj[3]);
 
-  void ComputeStrainAndStressTensor(double dudxj[3][3], 
+  void ComputeStrainAndStressTensor(double dudxj[3][3],
 												double S[3][3], double Pij[6]);
-  
+
 
   //--------------functions in ElemTet.C
 
-//Level Set Reinitialization
+  // Level Set Reinitialization
+
   template<int dim>
   int findLSIntersectionPoint(int lsdim, SVec<double,dim> &Phi, SVec<double,dim> &ddx,
                               SVec<double,dim> &ddy, SVec<double,dim> &ddz,

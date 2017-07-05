@@ -1,6 +1,6 @@
 #ifndef _MULTIGRID_LEVEL_SET_STRUCTURE_H_
 #define _MULTIGRID_LEVEL_SET_STRUCTURE_H_
- 
+
 #include "LevelSetStructure.h"
 
 template <typename Scalar> class MultiGridLevel;
@@ -60,16 +60,17 @@ class MultiGridLevelSetStructure : public LevelSetStructure {
 
     bool withCracking() const { return false; }
 
-	 void xWallWithSI(int n, Vec3D &xWall) {exit(-1);}
-	 void vWallWithSI(int n, Vec3D &vWall) {exit(-1);}
+  	void xWallWithSI(int n, Vec3D &xWall) {exit(-1);}
+  	void vWallWithSI(int n, Vec3D &vWall) {exit(-1);}
 
-	 bool xWallNode(int i, Vec3D &xWall) {exit(-1);}
-	 bool vWallNode(int i, Vec3D &vWall) {exit(-1);}
-	 bool getTwall(double &Tw) {exit(-1);}
+  	bool xWallNode(int i, Vec3D &xWall) {exit(-1);}
+  	bool vWallNode(int i, Vec3D &vWall) {exit(-1);}
+  	bool getTwall(double &Tw) {exit(-1);}
 
     bool isNearInterface(double, int) const { return false; }
 
-    double isPointOnSurface(Vec3D, int, int, int) { return 0.0; }
+    // double isPointOnSurface(Vec3D, int, int, int) { return 0.0; }
+    // double isPointOnSurface(int) {return 0.0; }
 
     void findNodesNearInterface(SVec<double, 3>&, SVec<double, 3>&, SVec<double, 3>&) { }
 
@@ -136,7 +137,7 @@ class DistMultiGridLevelSetStructure : public DistLevelSetStructure {
     virtual DistVec<ClosestPoint> *getClosestPointsPointer() { return dummycp; }
 
     void setdXdSb(int, double*, double*, double*){}
-    void updateXb(double) {} //  
+    void updateXb(double) {} //
     void testAlpha(Vec3D, Vec3D, int, int, int, double*, double){}
 };
 

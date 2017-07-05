@@ -1230,7 +1230,7 @@ void DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X,
       }
   }
 
-  *distance=0.0;
+  // *distance=0.0; // sjg, 06/2017: unsure why this was done?
   *status0=*status;
   *occluded_node0=*is_occluded;
 #pragma omp parallel for
@@ -2169,7 +2169,6 @@ void IntersectorPhysBAM::setInactiveNodesSymmetry(SVec<double,3>& X,std::map<int
 	}
 }
 
-
 //TODO : flag for review(arthur Morlot)
 /*
 int IntersectorPhysBAM::findIntersectionsEmbeddedConstraint(SVec<double,3>&X){
@@ -2177,6 +2176,7 @@ int IntersectorPhysBAM::findIntersectionsEmbeddedConstraint(SVec<double,3>&X){
 	printf("You are calling a deprecated method. infinite planes must be defined in the top file.");
 }
 */
+
 //----------------------------------------------------------------------------
 
 /*
@@ -2217,9 +2217,10 @@ int IntersectorPhysBAM::hasCloseTriangle(SVec<double,3> &X, SVec<double,3> &Xn,
       for(int j=1;j<=candidates.Size();++j) addToPackage(i,candidates(j));
       Vec3D x0(X[i][0], X[i][1], X[i][2]);
 
-      if(distIntersector.cracking || 1 /*need a flag for 'multi-phase'*/) {
+      // sjg, 06/2017: need distance for wall distance anyways so should always do this
+      // if(distIntersector.cracking || 1 /*need a flag for 'multi-phase'*/) {
         findNodeClosestPoint(i,x0,candidates); //fill closest[i]
-    } 
+    // } 
 
     } else {
 
@@ -2483,18 +2484,149 @@ IntersectorPhysBAM::getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j, 
 
 //----------------------------------------------------------------------------
 
-double IntersectorPhysBAM::isPointOnSurface(Vec3D pt, int N1, int N2, int N3) 
-{
-  Vec<Vec3D> &solidX = distIntersector.getStructPosition();
-  Vec3D X1 = solidX[N1];
-  Vec3D X2 = solidX[N2];
-  Vec3D X3 = solidX[N3];
+// double IntersectorPhysBAM::isPointOnSurface(Vec3D pt, int N1, int N2, int N3)
+// {
+//   Vec<Vec3D> &solidX = distIntersector.getStructPosition();
+//   Vec3D xA = solidX[N1];
+//   Vec3D xB = solidX[N2];
+//   Vec3D xC = solidX[N3];
 
-  Vec3D normal = (X2-X1)^(X3-X1);
-  normal /=  normal.norm();
+//   // // previous implementation considers only normal projection (all barycentric coords. assumed > 0)
+//   // Vec3D normal = (xB-xA)^(xC-xA);
+//   // normal /=  normal.norm();
+//   // double dist = fabs((pt-xA)*normal);
 
-  return fabs((pt-X1)*normal);
-}
+//   // sjg, 05/2017: must consider that closest point on triangle may be an edge or vertex!
+//   Vec3D ABC = (xB-xA)^(xC-xA);
+//   double areaABC = ABC.norm();
+//   ABC /= areaABC;
+
+//   //calculate the projection.
+//   double dist, xi[3];
+//   dist = fabs((pt-xA)*ABC);
+//   double distance = dist;
+
+//   //calculate barycentric coords.
+//   Vec3D xp = pt - ABC*ABC;
+//   double areaPBC = (((xB-xp)^(xC-xp))*ABC);
+//   double areaPCA = (((xC-xp)^(xA-xp))*ABC);
+//   xi[0] = areaPBC/areaABC;
+//   xi[1] = areaPCA/areaABC;
+//   xi[2] = 1.0-xi[0]-xi[1];
+
+//   // for some bizzare reason, calling project seems to mess things up, so I have inlined it
+//   // dist = project(pt, N1, N2, N3, xi[0], xi[1]); // project on plane
+//   // xi[2] = 1.0-xi[0]-xi[1];
+
+//   const double eps = 0;
+//   int triNodes[3] = {N1, N2, N3};
+
+//   if (!(xi[0] >= -eps && xi[1] >= -eps && xi[2] >= -eps)) {
+//     dist = 1.0e16;
+//     for (int i=0; i<3; i++) {
+//       if(xi[i]<-eps) {
+//        // int p1 = triNodes[trId][(i+1)%3], p2 = triNodes[trId][(i+2)%3];
+//         int p1 = triNodes[(i+1)%3], p2 = triNodes[(i+2)%3];
+//         double alpha;
+//         double d2l = fabs(edgeProject(pt, p1, p2, alpha)); // project on line
+//         if(alpha>=-eps && alpha<=1.0+eps) {
+//           if(dist>d2l) dist = d2l;
+//         }
+//         else {
+//           if(alpha<-eps) {
+//             double d2p = (pt-solidX[p1]).norm();
+//             if(dist>d2p) dist = d2p;
+//           }
+//           if(alpha>1.0+eps) {
+//             double d2p = (pt-solidX[p2]).norm();
+//             if(dist>d2p) dist = d2p;
+//           }
+//         }
+//       }
+//     }
+//   }
+
+//   // if (fabs(dist-distance) > 1e-12)
+//   //   fprintf(stderr,"d-d1 = %e\n",dist-distance);
+//   return dist;
+// }
+
+//----------------------------------------------------------------------------
+
+// RECOGNIZE: the closest data structure of and IntersectorPhysBAM object has a field called
+// dist, which is the distance to the closest point on the surface, as computed in
+// findnodeclosestpoint (called from hasclosetriangles)
+
+// // sjg, 05/2017: new implementation to search candidate triangles for min.
+// // distance using intersected bounding boxes
+// double IntersectorPhysBAM::isPointOnSurface(int nodeId) {
+
+
+//   ARRAY<int> cand;
+//   SVec<double,3> boxMin = (*(distIntersector.boxMin))(locIndex);
+//   SVec<double,3> boxMax = (*(distIntersector.boxMax))(locIndex);
+//   SVec<double,3> X = (*(distIntersector.X))(locIndex);
+
+//   VECTOR<double,3> min_corner(boxMin[nodeId][0],boxMin[nodeId][1],boxMin[nodeId][2]),
+//     max_corner(boxMax[nodeId][0],boxMax[nodeId][1],boxMax[nodeId][2]);
+
+//   int shrunk_index;
+//   bool occluded;
+//   PhysBAMInterface<double>& physbam_interface=*distIntersector.physInterface;
+//   physbam_interface.HasCloseTriangle(locIndex+1, VECTOR<double,3>(X[nodeId][0],X[nodeId][1],X[nodeId][2]),
+//     min_corner, max_corner, &shrunk_index, &occluded, &cand);
+
+//   // should never have empty list of candidates (implies no bounding box intersection
+//   // for an element which traverses embedded surface)
+//   assert(cand.Size()>0);
+
+//   Vec3D x0(X[nodeId][0], X[nodeId][1], X[nodeId][2]);
+//   double xi[3], disttmp, dist = 1.0e16;
+//   const double eps = 0;
+//   int trId;
+
+//   int (*triNodes)[3] = distIntersector.stElem;
+//   Vec3D *structX = (distIntersector.getStructPosition()).data();
+
+//   for(int iArray=1; iArray<=cand.Size(); iArray++) {
+
+//     // Speed improvement.  When we are doing cracking,
+//     // we do not add phantom triangles to the triangle hierarchy.
+//     // Added by Alex Main (October 2013)
+//     if (!distIntersector.cracking)
+//       trId = cand(iArray)-1;
+//     else
+//       trId = distIntersector.cracking->mapTriangleID(cand(iArray)-1);
+
+//     disttmp = std::abs(project(x0, trId, xi[0], xi[1])); // project on plane
+//     xi[2] = 1.0-xi[0]-xi[1];
+//     if (!(xi[0] >= -eps && xi[1] >= -eps && xi[2] >= -eps)) {
+//       disttmp = 1.0e16;
+//       for (int i=0; i<3; i++) {
+//         if(xi[i]<-eps) {
+//           int p1 = triNodes[trId][(i+1)%3], p2 = triNodes[trId][(i+2)%3];
+//           double alpha;
+//           double d2l = std::abs(edgeProject(x0, p1, p2, alpha)); // project on line
+//           if(alpha>=-eps && alpha<=1.0+eps) {
+//             if(disttmp>d2l) disttmp = d2l;
+//           } else {
+//             if(alpha<-eps) {
+//               double d2p = (x0-structX[p1]).norm();
+//               if(disttmp>d2p) disttmp = d2p;
+//             }
+//             if(alpha>1.0+eps) {
+//               double d2p = (x0-structX[p2]).norm();
+//               if(disttmp>d2p) disttmp = d2p;
+//             }
+//           }
+//         }
+//       }
+//     }
+//     dist = min(dist,disttmp);
+//   }
+
+//   return dist;
+// }
 
 //----------------------------------------------------------------------------
 
