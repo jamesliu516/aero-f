@@ -259,7 +259,8 @@ class IntersectorFRG : public LevelSetStructure {
 
     // for debug 
     int nFirstLayer;
-    double isPointOnSurface(Vec3D pt, int N1, int N2, int N3);
+    // double isPointOnSurface(Vec3D pt, int N1, int N2, int N3);
+    // double isPointOnSurface(int nodeId);
     void printFirstLayer(SubDomain& sub, SVec<double,3>& X, int TYPE = 1);
 
   public:

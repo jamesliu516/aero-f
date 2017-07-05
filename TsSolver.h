@@ -51,16 +51,16 @@ int TsSolver<ProblemDescriptor>::solve(IoData &ioData)
   typename ProblemDescriptor::SolVecType U(probDesc->getVecInfo());
 
   int status;
-  if (ioData.problem.solveWithMultipleICs) { 
+  if (ioData.problem.solveWithMultipleICs) {
     // solve the system starting from multiple initial conditions
     status = solveWithMultipleICs(U,ioData);
-  } else { 
+  } else {
     // standard solve
     probDesc->setupTimeStepping(&U, ioData);  // initialize solutions and geometry
     status = resolve(U, ioData);
   }
   return status;
-  
+
 }
 
 //------------------------------------------------------------------------------
@@ -94,7 +94,7 @@ int TsSolver<ProblemDescriptor>::solveWithMultipleICs(typename ProblemDescriptor
   }
   fclose(inFP);
 
-  return status;  
+  return status;
 }
 
 //------------------------------------------------------------------------------
@@ -210,6 +210,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
   double dt, dts;
   int it = probDesc->getInitialIteration();
   double t = probDesc->getInitialTime();
+  double t0 = t;
 
   // setup solution output files
   probDesc->setupOutputToDisk(ioData, &lastIt, it, t, U);
@@ -218,9 +219,9 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
   dts = probDesc->computePositionVector(&lastIt, it, t, U); // [F] receive displacement from structure ...
 
   // For an embedded viscous simulation with turbulence model, compute the distance to the wall
-  probDesc->computeDistanceToWall(ioData);
+  probDesc->computeDistanceToWall(ioData,t-t0);
 
-  if (lastIt) 
+  if (lastIt)
     probDesc->outputPositionVectorToDisk(U);
 
   while (!lastIt) {
@@ -234,11 +235,11 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
     // initialize remaining time in fluid subcycling
     double dtLeft = dts;
     it++;
-    
+
     *(probDesc->getTimeIt()) = it;
- 
+
     bool solveOrNot = true;
-    
+
     bool repeat;
     do { // Subcycling
 
@@ -249,7 +250,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
       stat = 0;
       itSc++;
       probDesc->setCurrentTime(t,U);
- 
+
       if(probDesc->structureSubcycling() || //in this case computeTimeStep is called in computePositionVector
          (it>1 && probDesc->willNotSolve(dtLeft,t)) ) {//in this case AERO-F should never subcycle
         probDesc->setFluidSubcycling(false);
@@ -261,7 +262,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
         else angle = -2.0;
         dt = probDesc->computeTimeStep(it, &dtLeft, U, angle);
       }
-      
+
       t += dt;
 
       probDesc->setCurrentTimeStep(dt);
@@ -292,7 +293,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
         if(probDesc->getTsParams()) probDesc->getTsParams()->resolveErrors();
 
         if (probDesc->getErrorHandler()->globalErrors[ErrorHandler::REDO_TIMESTEP]) { // must redo iteration with a different CFL number,
-                                                                                      // undo everything we have done so far 
+                                                                                      // undo everything we have done so far
           probDesc->getErrorHandler()->globalErrors[ErrorHandler::REDO_TIMESTEP] = 0;
           probDesc->printf(1,"Repeating time-step.\n");
           //probDesc->setFailSafe(true);
@@ -318,7 +319,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
           probDesc->updateStateVectors(U, it);
         }
         else{
-          if(itSc > 200){ 
+          if(itSc > 200){
             probDesc->printf(1, "Fail safe failed! \n",itSc);
             exit(-1);
           }
@@ -341,12 +342,12 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
     dts = probDesc->computePositionVector(&lastIt, it, t, U); // [F] send force to structure
 
   // For an embedded viscous simulation with turbulence model and moving object, compute the distance to the wall
-    if ( (ioData.problem.framework == ProblemData::EMBEDDED) || 
+    if ( (ioData.problem.framework == ProblemData::EMBEDDED) ||
          (ioData.problem.framework == ProblemData::EMBEDDEDALE) )
       if (ioData.problem.alltype == ProblemData::_UNSTEADY_AEROELASTIC_ ||
           ioData.problem.alltype == ProblemData::_ACC_UNSTEADY_AEROELASTIC_ ||
           ioData.problem.alltype == ProblemData::_FORCED_) {
-        if (!lastIt) probDesc->computeDistanceToWall(ioData);
+        if (!lastIt) probDesc->computeDistanceToWall(ioData,t-t0);
       }
 
     probDesc->outputToDisk(ioData, &lastIt, it, itSc, itNl, t, dt, U);
