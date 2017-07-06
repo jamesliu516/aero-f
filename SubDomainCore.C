@@ -7130,6 +7130,17 @@ void SubDomain::printPoint(int Ni, SVec<double,3> &X, Vec3D &xWall, V6NodeData &
 }
 
 //-----------------------------------------------------------------------------------------------
+/*********************************\
+ * @param iod
+ * @param X : fluid mode coordinate
+ * @param numStructElems : number of embedded surface element
+ * @param stElem : structure embedded surface element node map array
+ * @param Xstruct : structure embedded surface element node coordinates
+ * @param interfaceFluidMeshSize : interfaceFluidMeshSize[i], for structure embedded surface element i,
+ * its closest nodes has distance h1, h2...hn (closest nodes are the tetrahedron containing it)
+ * interfaceFluidMeshSize[i] = max{h1,h2...hn}
+ * Daniel Huang
+ */
 void SubDomain::computeInterfaceFluidMeshSize(IoData &iod,SVec<double,3> &X,
                                               int numStructElems, int (*stElem)[3],
                                               Vec<Vec3D>& Xstruct, double *interfaceFluidMeshSize) {
@@ -7179,7 +7190,7 @@ void SubDomain::computeInterfaceFluidMeshSize(IoData &iod,SVec<double,3> &X,
 
       max_dist = 0.0;
       for (int i = 0; i < 4; i++){
-
+          //todo you can change 2 to any number
           dh = 2*abs((Xf[i] - Xp)*normal);
           if (dh > max_dist) max_dist = dh;
         }
@@ -7190,7 +7201,13 @@ void SubDomain::computeInterfaceFluidMeshSize(IoData &iod,SVec<double,3> &X,
   }
 }
 
-
+/**************************
+ *
+ * output: strucOrientation, 1 the outward normal is  (Xst[1]-Xst[0])^(Xst[2]-Xst[0])
+ * -1 means its outward normal is -(Xst[1]-Xst[0])^(Xst[2]-Xst[0])
+ * warning : there is problem for unresolve case, namely fluid mesh size is too large
+ * Daniel Huang
+ */
 void SubDomain::computeStrucOrientation(SVec<double,3> &X,
                                         int numStructElems, int (*stElem)[3],
                                         Vec<Vec3D>& Xstruct, Vec<bool>&is_active,
