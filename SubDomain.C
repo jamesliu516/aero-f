@@ -9618,7 +9618,17 @@ void SubDomain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orde
 }
 
 //-----------------------------------------------------------------------------------------------
-//d2d SkinFriction PressureCoefficient original FIVER
+/**********************************************************
+ * compute SkinFriction and PressureCoefficient and save in Qnty
+ * here Qnty[0] is the pressure coefficient weight, Qnty[1] is the pressure coefficient
+ * Qnty[2] is the skin friction weight, Qnty[3] is the skin friciton
+ *
+ * compute pressure coefficient and skin friction on the gaussian points of each surface
+ * element
+ * add the value and its weight(area of the surface element) to all nodes
+ */
+
+
 template<int dim,int dimLS>
 void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec<double,dim> &V,
                                              PostFcn *postFcn, VarFcn *varFcn,
@@ -9628,7 +9638,7 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
                                              double pInfty,
                                              Vec<GhostPoint<dim>*> *ghostPoints,
                                              NodalGrad<dim, double> &ngrad, double* interfaceFluidMeshSize,
-                                             int* strucOrientation, double (*Qnty)[3])
+                                             int* strucOrientation, double (*Qnty)[4])
 {
     if (iod.problem.framework == ProblemData::EMBEDDEDALE)
         myTree->reconstruct<&Elem::computeBoundingBox>(X, elems.getPointer(), elems.size());
@@ -9642,8 +9652,9 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
     int iElem = -1;
     int T[4];       //nodes in a tet.
 
-
-    Vec3D vectorIJ, gradP, flocal;
+    ElemForceCalcValid myObj;
+    double Vext[dim],S, dh, Cflocal,Cplocal;
+    Vec3D vectorIJ;
     SVec<double,dim> gradX = ngrad.getX();
     SVec<double,dim> gradY = ngrad.getY();
     SVec<double,dim> gradZ = ngrad.getZ();
@@ -9655,13 +9666,13 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
     //   return;
     // }
 
-    double Vext[dim];
+
     int stNode[3];
-    Vec3D Xst[3];
-    Vec3D Xp;
+    Vec3D Xst[3], Xp, bary;
+    double *Vwall = 0;
 
 
-
+    //compute pressure coeffient
     for(int nSt = 0; nSt < numStructElems; ++nSt) {//loop all structure surface elements(triangle)
 
         for (int j=0; j<3; ++j) {
@@ -9669,12 +9680,14 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
             Xst[j] = Xstruct[stNode[j]]; //get node coordinates
         }
         Vec3D normal = 0.5*(Xst[1]-Xst[0])^(Xst[2]-Xst[0]); // area weighted normal
+        S = normal.norm();
+
         for(int nq=0; nq<nqPoint; ++nq) {
             for (int j = 0; j < 3; ++j) { // get quadrature points
                 Xp[j] = qloc[nq][0] * Xst[0][j] + qloc[nq][1] * Xst[1][j] + qloc[nq][2] * Xst[2][j];
             }
 
-            ElemForceCalcValid myObj;
+
             Elem *E = myTree->search<&Elem::isPointInside, ElemForceCalcValid,
                     &ElemForceCalcValid::Valid>(&myObj, X, Xp);
             if (!E)
@@ -9689,14 +9702,6 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
             for (int i = 0; i < 4; i++)
                 for (int j = 0; j < 3; ++j) Xf[i][j] = X[T[i]][j]; // fluid element 4 nodes coordinates
 
-
-
-
-            double dh = 0.0;
-            for (int i = 0; i < 4; i++){
-                double temp = abs((Xf[i] - Xp)*normal/normal.norm());
-                if (temp > dh) dh = temp;
-            }
 
 // Compute barycentric coordinates
             Vec3D bary;
@@ -9752,43 +9757,9 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
             }
 
 
-            // ---- For viscous simulation ----
 
-            // Gradient of the P1 basis functions
-            double dp1dxj[4][3];
-            for (int i = 0; i < 4; ++i) {
-                for (int j = 0; j < 3; ++j) {
-                    dp1dxj[i][j] = 0.0;
-                }
-            }
 
-            // not used, but required by postFcn->computeViscousForce(...) todo can only handle v_wall = 0
-            double d2w[3];
-            d2w[0] = d2w[1] = d2w[2] = 0.0;
-            double *Vwall = 0;
-            double *Vface[3] = {0, 0, 0};
-
-            //populate node state vectors
-            double *vtet[2][4];
-            if (ghostPoints) {
-                E->computeGradientP1Function(X, dp1dxj);
-                for (int i = 0; i < 4; ++i) {
-                    vtet[0][i] = V[T[i]];
-                    vtet[1][i] = V[T[i]];
-                }
-
-                GhostPoint<dim> *gp;
-                for (int i = 0; i < 4; ++i) {
-                    gp = (*ghostPoints)[T[i]];
-                    if (gp) {
-                        if (norm[i] <= 0.)
-                            vtet[1][i] = gp->getPrimitiveState(); // norm direction populate ghost nodes to vtet[1](for -norm triangle)
-                        else vtet[0][i] = gp->getPrimitiveState(); //-norm direction populate ghost nodes to vtet[0](for norm triangle)
-                    }
-                }
-            }
-
-            double Cplocal = 0.0, Cflocal = 0.0;
+            Cplocal = 0.0;
             for (int n = 0; n < 2; ++n) {
                 //todo assume, only one side works!, it cannot handle thin shell
                 //0: in  normal direction
@@ -9817,66 +9788,6 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
                 double pp = postFcn->computeNodeScalarQuantity(PostFcn::PRESSURECOEFFICIENT, Vext, Xp, fid, NULL);
                 Cplocal += pp;
 
-
-                Vec3D unit_nf = nf[n] / nf[n].norm();
-                // Viscous Simulation
-                if (ghostPoints) {
-
-                    Vec3D F = postFcn->computeViscousForce(dp1dxj, nf[n], d2w, Vwall, Vface, vtet[n]);
-                    //nf[n] is the norm and vtet is the primitive variables , compute F = -tau * (-unit_normal*S)
-
-                    Vec3D t = F - (F * unit_nf) * unit_nf;
-                    if (t.norm() > 1e-12) t = t / t.norm();//get the unit tangential direction
-                    Cflocal +=  t * F / S;
-                }
-
-                Cflocal = 0.0;
-                //new method to compute skin friction
-                if(ghostPoints) {
-                    //step 1. find the fluid velocity at Xp + dh *normal
-
-                    assert((-unit_nf *S - normal * strucOrientation[nSt]).norm() < 1e-8);
-
-                    Vec3D Xpp = Xp - dh * unit_nf;
-
-                    Elem *E = myTree->search<&Elem::isPointInside, ElemForceCalcValid,
-                            &ElemForceCalcValid::Valid>(&myObj, X, Xpp);
-                    if (!E) {
-                        //continue;
-                        Vec3D F = postFcn->computeViscousForce(dp1dxj, nf[n], d2w, Vwall, Vface, vtet[n]);
-                        //nf[n] is the norm and vtet is the primitive variables , compute F = -tau * (-unit_normal*S)
-
-                        Vec3D t = F - (F * unit_nf) * unit_nf;
-                        if (t.norm() > 1e-12) t = t / t.norm();//get the unit tangential direction
-                        Cflocal +=  t * F / S;
-                    }
-                    else {
-                        E->computeBarycentricCoordinates(X, Xpp, bary);
-
-                        for (int i = 0; i < 4; i++) T[i] = (*E)[i];
-                        double *vtet_pp[4];
-                        for (int i = 0; i < 4; ++i) {
-                            vtet_pp[i] = V[T[i]];
-                            GhostPoint<dim> *gp = (*ghostPoints)[T[i]];
-                            if (gp) {
-                                vtet_pp[i] = gp->getPrimitiveState();
-                            }
-                        }
-                        double sk = postFcn->computeSkinFriction(unit_nf, dh, Vwall, vtet_pp, bary);
-
-                        Cflocal += sk;
-                    }
-
-
-
-                }
-
-
-
-
-
-
-
                 Qnty[stNode[0]][0] += qweight[nq] * S; //aera of the structure element
                 Qnty[stNode[1]][0] += qweight[nq] * S;
                 Qnty[stNode[2]][0] += qweight[nq] * S;
@@ -9885,52 +9796,11 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
                 Qnty[stNode[1]][1] += qweight[nq] * Cplocal * S;
                 Qnty[stNode[2]][1] += qweight[nq] * Cplocal * S;
 
-                Qnty[stNode[0]][2] += qweight[nq] * Cflocal * S;
-                Qnty[stNode[1]][2] += qweight[nq] * Cflocal * S;
-                Qnty[stNode[2]][2] += qweight[nq] * Cflocal * S;
-
-
-
             }
         }
 
     }
-
-}
-
-//--------------------------------------------------------------------------------------------------
-
-//Daniel Huang compute SkinFriction
-template<int dim,int dimLS>
-void SubDomain::computeEMBSkinFriction(IoData &iod,SVec<double,3> &X, SVec<double,dim> &V,
-                                       PostFcn *postFcn, VarFcn *varFcn,
-                                       Vec<int> &fluidId, SVec<double,dimLS>* phi,
-                                       int sizeQnty, int numStructElems, int (*stElem)[3],
-                                       Vec<Vec3D>& Xstruct, LevelSetStructure &LSS,
-                                       double pInfty,
-                                       Vec<GhostPoint<dim>*> *ghostPoints,
-                                       NodalGrad<dim, double> &ngrad, double* interfaceFluidMeshSize,
-                                       int* strucOrientation, double (*Qnty)[3])
-{
-    std::cout << "In compute SkinFriction" <<std::endl;
-    if (iod.problem.framework == ProblemData::EMBEDDEDALE)
-        myTree->reconstruct<&Elem::computeBoundingBox>(X, elems.getPointer(), elems.size());
-
-    int qOrder = iod.embed.qOrder;
-    Quadrature quadrature_formula(qOrder);
-    int nqPoint = quadrature_formula.n_point;
-    double (*qloc)[3](quadrature_formula.qloc);
-    double *qweight(quadrature_formula.weight);
-
-    int T[4];       //nodes in a tet.
-
-    ElemForceCalcValid myObj;
-    double Vext[dim],S, dh, Cflocal;
-    int stNode[3];
-    Vec3D Xst[3];
-    Vec3D Xp, bary;
-    double *Vwall = 0;
-
+    //compute skin friction, use the velocity at Xp + dh*normal
     for(int nSt = 0; nSt < numStructElems; ++nSt) {//loop all structure surface elements(triangle)
 
         for (int j=0; j<3; ++j) {
@@ -9949,41 +9819,41 @@ void SubDomain::computeEMBSkinFriction(IoData &iod,SVec<double,3> &X, SVec<doubl
 
             //todo assume, only one side works!, it cannot handle thin shell
 
-                //step 1. find the fluid velocity at Xp + dh *normal
+            //step 1. find the fluid velocity at Xp + dh *normal
 
-                Vec3D unit_nf = normal/S * strucOrientation[nSt];
-                Vec3D Xpp = Xp + dh * unit_nf;
-                Elem *E = myTree->search<&Elem::isPointInside, ElemForceCalcValid,
-                        &ElemForceCalcValid::Valid>(&myObj, X, Xpp);
-                if (!E) {
-                    continue;
+            Vec3D unit_nf = normal/S * strucOrientation[nSt];
+            Vec3D Xpp = Xp + dh * unit_nf;
+            Elem *E = myTree->search<&Elem::isPointInside, ElemForceCalcValid,
+                    &ElemForceCalcValid::Valid>(&myObj, X, Xpp);
+            if (!E) {
+                continue;
+            }
+            E->computeBarycentricCoordinates(X, Xpp, bary);
+            for (int i = 0; i < 4; i++) T[i] = (*E)[i];
+            double *vtet_pp[4];
+            for (int i = 0; i < 4; ++i) {
+                vtet_pp[i] = V[T[i]];
+                GhostPoint<dim> *gp = (*ghostPoints)[T[i]];
+                if (gp) {
+                    vtet_pp[i] = gp->getPrimitiveState();
                 }
-                E->computeBarycentricCoordinates(X, Xpp, bary);
-                for (int i = 0; i < 4; i++) T[i] = (*E)[i];
-                double *vtet_pp[4];
-                for (int i = 0; i < 4; ++i) {
-                    vtet_pp[i] = V[T[i]];
-                    GhostPoint<dim> *gp = (*ghostPoints)[T[i]];
-                    if (gp) {
-                        vtet_pp[i] = gp->getPrimitiveState();
-                    }
-                }
-                Cflocal = postFcn->computeSkinFriction(unit_nf, dh, Vwall, vtet_pp, bary);
-            std::cout << " nSt is " << nSt << "strOrientation is "<<strucOrientation[nSt] <<  " unit_nf is " << unit_nf[0] <<" "<<unit_nf[1] <<" "<<unit_nf[2]
-                      << " bary "<< bary[0]  << " "<<bary[1] << " "<<bary[2]  << " nq is " <<nq << " dh is " << dh << " Cflocal is " << Cflocal << "s is " << S << std::endl;
-            Qnty[stNode[0]][0] += qweight[nq] * S; //aera of the structure element
-            Qnty[stNode[1]][0] += qweight[nq] * S;
-            Qnty[stNode[2]][0] += qweight[nq] * S;
+            }
+            Cflocal = postFcn->computeSkinFriction(unit_nf, dh, Vwall, vtet_pp, bary);
 
-            Qnty[stNode[0]][2] += qweight[nq] * Cflocal * S;
-            Qnty[stNode[1]][2] += qweight[nq] * Cflocal * S;
-            Qnty[stNode[2]][2] += qweight[nq] * Cflocal * S;
+            Qnty[stNode[0]][2] += qweight[nq] * S; //aera of the structure element
+            Qnty[stNode[1]][2] += qweight[nq] * S;
+            Qnty[stNode[2]][2] += qweight[nq] * S;
+
+            Qnty[stNode[0]][3] += qweight[nq] * Cflocal * S;
+            Qnty[stNode[1]][3] += qweight[nq] * Cflocal * S;
+            Qnty[stNode[2]][3] += qweight[nq] * Cflocal * S;
 
 
         }
     }
 
 }
+
 
 
 // ---------------------------------------------------------------------------------------------------------
@@ -10520,7 +10390,7 @@ template<int dim>
 void SubDomain::computeEMBNodeScalarQuantity_step2(SVec<double,3> &X, SVec<double,dim> &V, 
 																	PostFcn *postFcn, VarFcn *varFcn, 
 																	Vec<int> &fluidId,
-																	double (*Qnty)[3], int sizeQnty, int numStructElems, int (*stElem)[3],
+																	double (*Qnty)[4], int sizeQnty, int numStructElems, int (*stElem)[3],
 																	Vec<Vec3D>& Xstruct, LevelSetStructure &LSS,
 																	double pInfty, 
 																	Vec<GhostPoint<dim>*> *ghostPoints,
@@ -10743,10 +10613,15 @@ void SubDomain::computeEMBNodeScalarQuantity_step2(SVec<double,3> &X, SVec<doubl
 			Qnty[stNode[0]][1] += Cplocal*Surf;
 			Qnty[stNode[1]][1] += Cplocal*Surf;
 			Qnty[stNode[2]][1] += Cplocal*Surf;
+
+
+            Qnty[stNode[0]][2] += Surf;
+            Qnty[stNode[1]][2] += Surf;
+            Qnty[stNode[2]][2] += Surf;
  
-			Qnty[stNode[0]][2] += Cflocal*Surf;
-			Qnty[stNode[1]][2] += Cflocal*Surf;
-			Qnty[stNode[2]][2] += Cflocal*Surf;
+			Qnty[stNode[0]][3] += Cflocal*Surf;
+			Qnty[stNode[1]][3] += Cflocal*Surf;
+			Qnty[stNode[2]][3] += Cflocal*Surf;
 		} 
 	}
 

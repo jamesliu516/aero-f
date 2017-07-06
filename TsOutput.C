@@ -3274,83 +3274,88 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
 
     /////////////////////////////////////////////
     if(embeddedsurfaceCp || embeddedsurfaceCf) {
-      std::cout << "compute embedded surface cp and cf" << std::cout;
 
       int ns = distLSS->getNumStructNodes();
 
       double** EmbQs;
       EmbQs = new double* [ns];
       for(int i=0; i<ns; ++i) {
-	EmbQs[i] = new double[3];
-	EmbQs[i][0] = EmbQs[i][1] = EmbQs[i][2] = 0.0;
+        EmbQs[i] = new double[4];
+        EmbQs[i][0] = EmbQs[i][1] = EmbQs[i][2] = EmbQs[i][3] = 0.0;
       }
 
       postOp->computeEMBScalarQuantity(X, U, A, EmbQs, timeState, fluidId, Wextij,
-													(DistSVec<double,1>*)0, distLSS, ghostPoints, externalSI);
-
-
-      double * cnt = new double[ns];
-      for(int i=0; i<ns; ++i) cnt[i] = EmbQs[i][0] ? 1.0 : 0.0;
-      com->globalSum(ns, cnt);
-      
-      double * Cp_ = new double[ns];
-      double * Cf_ = new double[ns];
-
+                                       (DistSVec<double, 1> *) 0, distLSS, ghostPoints, externalSI);
       if(embeddedsurfaceCp) {
-	for(int i=0; i<ns; ++i) Cp_[i] = EmbQs[i][1];
-	com->globalSum(ns, Cp_);
+
+        double *cnt = new double[ns];
+        for (int i = 0; i < ns; ++i) cnt[i] = EmbQs[i][0];
+        com->globalSum(ns, cnt);
+
+        double *Cp_ = new double[ns];
+
+
+        for (int i = 0; i < ns; ++i) Cp_[i] = EmbQs[i][1];
+        com->globalSum(ns, Cp_);
+
+
+        if (toWrite(it, lastIt, t)) {
+          if (com->cpuNum() == 0) {
+
+            if (it == 0) fprintf(fpEmbeddedSurfaceCp, "%i \n", ns);
+            fprintf(fpEmbeddedSurfaceCp, " %f \n", t * tscale);
+
+            for (int i = 0; i < ns; i++) {
+              double val = cnt[i] ? Cp_[i] /= cnt[i] : 0.0;
+              fprintf(fpEmbeddedSurfaceCp, "%e \n", val);
+            }
+
+            fflush(fpEmbeddedSurfaceCp);
+            fprintf(stdout, "Wrote solution %d to \'%s\'\n", getStep(it, lastIt, t), embeddedsurfaceCp);
+
+          }
+        }
+
+        delete [] cnt;
+        delete [] Cp_;
       }
+
 
       if(embeddedsurfaceCf) {
-	for(int i=0; i<ns; ++i) Cf_[i] = EmbQs[i][2];
-	com->globalSum(ns, Cf_);
-      }
+        double *cnt = new double[ns];
+        for (int i = 0; i < ns; ++i) cnt[i] = EmbQs[i][2];
+        com->globalSum(ns, cnt);
 
-      if(embeddedsurfaceCp) {
-	if(toWrite(it,lastIt,t)) {
-	  if(com->cpuNum() == 0) {	    	    
+        double *Cf_ = new double[ns];
 
-	    if(it == 0) fprintf(fpEmbeddedSurfaceCp, "%i \n", ns);
-	    fprintf(fpEmbeddedSurfaceCp, " %f \n", t*tscale);
 
-	    for(int i=0; i<ns; i++) {
-	      double val = cnt[i] ? Cp_[i] /= cnt[i] : 0.0;
-	      fprintf(fpEmbeddedSurfaceCp, "%e \n", val);
-	    }
+        for (int i = 0; i < ns; ++i) Cf_[i] = EmbQs[i][3];
+        com->globalSum(ns, Cf_);
 
-	    fflush(fpEmbeddedSurfaceCp); 
-	    fprintf(stdout, "Wrote solution %d to \'%s\'\n", getStep(it, lastIt, t), embeddedsurfaceCp);
-	    
-	  }
-	}
-      }
-      
-      // ~~~~ 
 
-      if(embeddedsurfaceCf) {
-	if(toWrite(it,lastIt,t)) {
-	  if(com->cpuNum() == 0) {	    	    
+        if (toWrite(it, lastIt, t)) {
+          if (com->cpuNum() == 0) {
 
-	    if(it == 0) fprintf(fpEmbeddedSurfaceCf, "%i \n", ns);
-	    fprintf(fpEmbeddedSurfaceCf, " %f \n", t*tscale);
+            if (it == 0) fprintf(fpEmbeddedSurfaceCf, "%i \n", ns);
+            fprintf(fpEmbeddedSurfaceCf, " %f \n", t * tscale);
 
-	    for(int i=0; i<ns; i++) {
-	      double val = cnt[i] ? Cf_[i] /= cnt[i] : 0.0;
-	      fprintf(fpEmbeddedSurfaceCf, "%e \n", val);
-	    }
+            for (int i = 0; i < ns; i++) {
+              double val = cnt[i] ? Cf_[i] /= cnt[i] : 0.0;
+              fprintf(fpEmbeddedSurfaceCf, "%e \n", val);
+            }
 
-	    fflush(fpEmbeddedSurfaceCf); 
-	    fprintf(stdout, "Wrote solution %d to \'%s\'\n", getStep(it, lastIt, t), embeddedsurfaceCf);
-	    
-	  }
-	}
+            fflush(fpEmbeddedSurfaceCf);
+            fprintf(stdout, "Wrote solution %d to \'%s\'\n", getStep(it, lastIt, t), embeddedsurfaceCf);
+
+          }
+        }
+
+        delete [] cnt;
+        delete [] Cf_;
       }
 
       for(int i=0; i<ns; ++i) delete [] EmbQs[i];
       delete [] EmbQs;
-      delete [] cnt;
-      delete [] Cp_;
-      delete [] Cf_;
     }
     ///////////////////////////////////////////////
 

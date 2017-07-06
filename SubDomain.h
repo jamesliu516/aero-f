@@ -1713,7 +1713,7 @@ public:
 				    double pInfty,
 				    Vec<GhostPoint<dim>*> *ghostPoints,
 				    NodalGrad<dim, double> &ngrad,double* interfaceFluidMeshSize,
-									int* strucOrientation, double (*Qnty)[3]);
+									int* strucOrientation, double (*Qnty)[4]);
 
 	template<int dim,int dimLS>
 	void computeEMBSkinFriction(IoData &iod,SVec<double,3> &X, SVec<double,dim> &V,
@@ -1736,7 +1736,7 @@ public:
 	  void computeEMBNodeScalarQuantity_e(SVec<double,3> &X, SVec<double,dim> &V, 
 													  PostFcn *postFcn, VarFcn *varFcn, 
 													  Vec<int> &fluidId, SVec<double,dim> &Wextij, SVec<double,dimLS>* phi,
-													  double (*Qnty)[3], int sizeQnty, int numStructElems, int (*stElem)[3],
+													  double (*Qnty)[4], int sizeQnty, int numStructElems, int (*stElem)[3],
 													  Vec<Vec3D>& Xstruct, LevelSetStructure &LSS,
 													  double pInfty, 
 													  Vec<GhostPoint<dim>*> *ghostPoints,
@@ -1754,7 +1754,7 @@ public:
   void computeEMBNodeScalarQuantity_step2(SVec<double,3> &X, SVec<double,dim> &V, 
 														PostFcn *postFcn, VarFcn *varFcn, 
 														Vec<int> &fluidId, 
-														double (*Qnty)[3], int sizeQnty, int numStructElems, int (*stElem)[3],
+														double (*Qnty)[4], int sizeQnty, int numStructElems, int (*stElem)[3],
 														Vec<Vec3D>& Xstruct, LevelSetStructure &LSS,
 														double pInfty, 
 														Vec<GhostPoint<dim>*> *ghostPoints,

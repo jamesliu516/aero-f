@@ -1386,7 +1386,7 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
   int   (*stElem)[3]  = distLSS->getStructElems();
   Vec<Vec3D>& Xstruct = distLSS->getStructPosition();
 
-  typedef double subArray[3];
+  typedef double subArray[4];
   subArray **subEmbQ = new subArray * [numLocSub];
   for(int i=0; i<numLocSub; ++i) subEmbQ[i] = new subArray[numStructNodes];
 
@@ -1422,7 +1422,6 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
     for(int i= 0; i < numStructElems*nqPoint; i++){
         interfaceFluidMeshSize[i] = max_mesh_size;
     }
-    std::cout << "max_mesh_size is " << max_mesh_size << std::endl;
   int * strucOrientation = distLSS->getStructOrientation();
   //--------------------------------------------------------------
 
@@ -1433,7 +1432,7 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
    *         ___*___interface
    */
   if(externalSI)
-  {
+  { //Dante's method because the first layer has only ghost nodes
     StNodeDir = new int*    [numStructElems]; // for both side, stencil triagle id
     StX1      = new double* [numStructElems]; // barycenter coordinates
     StX2      = new double* [numStructElems];
@@ -1458,6 +1457,7 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
         subEmbQ[iSub][is][0] = 0.0;
         subEmbQ[iSub][is][1] = 0.0;
         subEmbQ[iSub][is][2] = 0.0;
+        subEmbQ[iSub][is][3] = 0.0;
       }
       subDomain[iSub]->computeEMBNodeScalarQuantity_step1(X(iSub), (*V)(iSub),
                                                           numStructElems, stElem, Xstruct,
@@ -1520,20 +1520,15 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
       {
 
 
-          EmbQs[is][0] += subEmbQ[iSub][is][0];
+          EmbQs[is][0] += subEmbQ[iSub][is][0]; //Cp weight
           EmbQs[is][1] += subEmbQ[iSub][is][1]; //Cp
-          EmbQs[is][2] += subEmbQ[iSub][is][2]; //Cf
+          EmbQs[is][2] += subEmbQ[iSub][is][2]; //Cf weight
+          EmbQs[is][3] += subEmbQ[iSub][is][3]; //Cf
 
       }
 
     }
-    for(int is=0; is<numStructNodes; is++)
-    {
-      if(EmbQs[is][0])
-      EmbQs[is][1] /= EmbQs[is][0]; //Cp
-      EmbQs[is][2] /= EmbQs[is][0]; //Cf
 
-    }
 
 
 
@@ -1553,21 +1548,22 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
   }
 
   else {
-//compute pressure coefficient
+//original method,
 #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; iSub++) {
       for (int is = 0; is < numStructNodes; is++) {
         subEmbQ[iSub][is][0] = 0.0;
         subEmbQ[iSub][is][1] = 0.0;
         subEmbQ[iSub][is][2] = 0.0;
+        subEmbQ[iSub][is][3] = 0.0;
       }
 
-        if(ghostPoints) gp = ghostPoints->operator[](iSub);
-        subDomain[iSub]->computeEMBNodeScalarQuantity(*(spaceOp->iod), X(iSub), (*V)(iSub), postFcn, varFcn,
-                                                       fluidId(iSub), Phi ? &((*Phi)(iSub)):(SVec<double,1>*)0,
-                                                       numStructNodes, numStructElems, stElem, Xstruct, (*distLSS)(iSub),
-                                                       1.0, gp, (*ngrad)(iSub), interfaceFluidMeshSize, strucOrientation,
-                                                       subEmbQ[iSub] );
+      if (ghostPoints) gp = ghostPoints->operator[](iSub);
+      subDomain[iSub]->computeEMBNodeScalarQuantity(*(spaceOp->iod), X(iSub), (*V)(iSub), postFcn, varFcn,
+                                                    fluidId(iSub), Phi ? &((*Phi)(iSub)) : (SVec<double, 1> *) 0,
+                                                    numStructNodes, numStructElems, stElem, Xstruct, (*distLSS)(iSub),
+                                                    1.0, gp, (*ngrad)(iSub), interfaceFluidMeshSize, strucOrientation,
+                                                    subEmbQ[iSub]);
 
     }
 #pragma omp parallel for
@@ -1576,75 +1572,15 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
       // Assembly of local contributions
       for (int is = 0; is < numStructNodes; is++) {
 
-          EmbQs[is][0] += subEmbQ[iSub][is][0];
-          EmbQs[is][1] += subEmbQ[iSub][is][1]; //Cp
-          EmbQs[is][2] += subEmbQ[iSub][is][2]; //Cf
+        EmbQs[is][0] += subEmbQ[iSub][is][0]; //Cp weight
+        EmbQs[is][1] += subEmbQ[iSub][is][1]; //Cp
+        EmbQs[is][2] += subEmbQ[iSub][is][2]; //Cf weight
+        EmbQs[is][3] += subEmbQ[iSub][is][3]; //Cf
 
       }
 
     }
-    std::cout << "finished accumulate EmbQs" <<std::endl;
-
-    for(int is=0; is<numStructNodes; is++)
-    {
-      if(EmbQs[is][0]) {
-        EmbQs[is][1] /= EmbQs[is][0]; //Cp
-        EmbQs[is][2] /= EmbQs[is][0]; //Cf
-      }
-    }
-    std::cout << "start compute skin coefficient " <<std::endl;
-
-
-
-    for(int i=0; i < numStructNodes; ++i) {
-      EmbQs[i][0] = EmbQs[i][2] = 0.0;
-    }
-
-//compute skin coefficient
-#pragma omp parallel for
-    for (int iSub = 0; iSub < numLocSub; iSub++) {
-      for (int is = 0; is < numStructNodes; is++) {
-        subEmbQ[iSub][is][0] = 0.0;
-        subEmbQ[iSub][is][1] = 0.0;
-        subEmbQ[iSub][is][2] = 0.0;
-      }
-
-      if(ghostPoints) gp = ghostPoints->operator[](iSub);
-      subDomain[iSub]->computeEMBSkinFriction(*(spaceOp->iod), X(iSub), (*V)(iSub), postFcn, varFcn,
-                                               fluidId(iSub), Phi ? &((*Phi)(iSub)):(SVec<double,1>*)0,
-                                               numStructNodes, numStructElems, stElem, Xstruct, (*distLSS)(iSub),
-                                               1.0, gp, (*ngrad)(iSub), interfaceFluidMeshSize, strucOrientation,
-                                               subEmbQ[iSub] );
-
-    }
-    std::cout << "finished computeEMBSkinFriction EmbQs" <<std::endl;
-    com->barrier();
-#pragma omp parallel for
-    for (int iSub = 0; iSub < numLocSub; iSub++) {
-
-      // Assembly of local contributions
-      for (int is = 0; is < numStructNodes; is++) {
-          EmbQs[is][0] += subEmbQ[iSub][is][0];
-          EmbQs[is][2] += subEmbQ[iSub][is][2]; //Cf
-      }
-
-    }
-    std::cout << "finished my accumulate EmbQs" <<std::endl;
-
-    for(int is=0; is<numStructNodes; is++)
-    {
-      if(EmbQs[is][0])
-      EmbQs[is][2] /= EmbQs[is][0]; //Cf
-
-    }
-
-
-
-
   }
-
-  std::cout << "start cleanning " <<std::endl;
-
   // Cleaning  
   for(int i=0; i<numLocSub; ++i) delete [] subEmbQ[i];
   delete [] subEmbQ;
