@@ -7827,7 +7827,7 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
 // Initialize all variables and weights
                 for (int k=0; k<dim; ++k) {
                     Vj[k] = Vi[k];
-                    weights[k] = (1.0 - resij.alpha)*(1.0 - resij.alpha);
+                    weights[k] = (1.0 -  alpha)*(1.0 -  alpha);
                 }
 
 // Update temperature, Replace fourth variable with temperature, constant extrapolation or wall temperature
@@ -7957,7 +7957,7 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
 // Initialize all variables and weights
                 for (int k=0; k<dim; ++k) {
                     Vi[k] = Vj[k];
-                    weights[k] = (1.0 - resji.alpha) * (1.0 - resji.alpha);
+                    weights[k] = (1.0 - alpha) * (1.0 -  alpha);
                 }
 
 // Replace fourth variable with temperature, constant extrapolation or wall temperature
