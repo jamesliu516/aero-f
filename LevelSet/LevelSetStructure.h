@@ -40,7 +40,7 @@ struct LevelSetResult {
     structureType = 1;
     porosity = 0.0;
     actuatorDiskPressureJump = 0.0;
-	actuatorDiskMethod = 1;
+	  actuatorDiskMethod = 1;
     actuatorDiskReconstructionMethod = -1;
     gamma = 0.0;//error value
     massInflow = 0.0;

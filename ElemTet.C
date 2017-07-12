@@ -3106,26 +3106,95 @@ void ElemTet::computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void ElemTet::FEMMarchingDistanceUpdate(SVec<double,3> &X, SVec<double,dim> &d2wall, int &nodenum)
+void ElemTet::FEMMarchingDistanceUpdate(SVec<double,3> &X, SVec<double,dim> &d2wall,
+                                        Vec<int> &tag, double &dist, int &nodenum)
 {
-
-  double dist;
-
-  // double dp1dxj[4][3];
-  if (dp1dxj[0][0] == 0.0 && dp1dxj[0][1] == 0.0 && dp1dxj[0][2] == 0.0)
+  double dp1dxj[4][3];
     computeGradientP1Function(X, dp1dxj);
-  // else {
-  //   fprintf(stderr,"Success: skipped shape function gradient\n");
-  //   // exit(-1);
-  // }
 
   // find node to solve
   int node;
   for (node=0; node<4; node++) {
-    if (d2wall[nodeNumTet[node]][0]>=1.0e10-1.0e-10)
+    if (tag[nodeNumTet[node]] < 0)
       break;
   }
   assert(node<4);
+  // if (node >= 4)
+  //   fprintf(stderr,"PROBLEM: can't find the node (node = %d)!\n",node);
+
+  nodenum = nodeNum(node);
+
+  // circular connectivity to place unknown @ node 4
+  int idx[4] = {0, 1, 2, 3};
+  if (node != 3) {
+    idx[node] = 3;
+    idx[3] = node;
+  }
+
+  // // check if solution is even possible
+  // if (d2wall[nodenum][0] < d2wall[nodeNum(idx[0])][0] ||
+  //     d2wall[nodenum][0] < d2wall[nodeNum(idx[1])][0] ||
+  //     d2wall[nodenum][0] < d2wall[nodeNum(idx[2])][0]) {
+  //   // fprintf(stderr,"Skipped distance calc for a tet!\n");
+  //   dist = -1.0;
+  //   return;
+  // }
+
+  // solve quadratic form
+  double dx = 0.0, dy = 0.0, dz = 0.0;
+  for (int i=0; i<3; i++) {
+    dx += dp1dxj[idx[i]][0]*d2wall[nodeNum(idx[i])][0];
+    dy += dp1dxj[idx[i]][1]*d2wall[nodeNum(idx[i])][0];
+    dz += dp1dxj[idx[i]][2]*d2wall[nodeNum(idx[i])][0];
+  }
+  double a = dp1dxj[idx[3]][0]*dp1dxj[idx[3]][0] + dp1dxj[idx[3]][1]*dp1dxj[idx[3]][1] + dp1dxj[idx[3]][2]*dp1dxj[idx[3]][2];
+  double b = 2.0 * (dp1dxj[idx[3]][0]*dx + dp1dxj[idx[3]][1]*dy + dp1dxj[idx[3]][2]*dz);
+  double c = dx*dx + dy*dy + dz*dz - 1.0;
+
+  const double eps = 1.0e-10;
+  double disc = b*b-4.0*a*c;
+  if (disc > eps) {
+    double sign = (b>=0)?1.0:-1.0;
+    double q = -0.5*(b + sign*sqrt(disc));
+    dist = max(q/a, c/q);
+  }
+  else if (disc < eps && disc > -eps)
+    dist = -0.5*b/a;
+  else {
+    dist = -1.0;
+    return;
+  }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void ElemTet::FEMMarchingDistanceUpdateUpw(SVec<double,3> &X, SVec<double,dim> &d2wall,
+                                        Vec<int> &tag, double &dist, int &nodenum)
+{
+  double dp1dxj[4][3];
+  // if (dp1dxj[0][0] == 0.0 && dp1dxj[0][1] == 0.0 && dp1dxj[0][2] == 0.0)
+    computeGradientP1Function(X, dp1dxj);
+
+  // find node to solve
+  int node;
+  // int node = -1;
+  // double dmax = -1.0;
+  for (node=0; node<4; node++) {
+    // if (d2wall[nodeNumTet[node]][0]==1.0e10)
+    if (tag[nodeNumTet[node]] < 0)
+      break;
+  // for (int i=0; i<4; i++) {
+  //   if (d2wall[nodeNumTet[i]][0]>dmax) {
+  //     dmax = d2wall[nodeNumTet[i]][0];
+  //     node = i;
+  //   }
+  }
+
+  assert(node<4);
+  // if (node >= 4)
+  //   fprintf(stderr,"PROBLEM: can't find the node (node = %d)!\n",node);
+
   nodenum = nodeNum(node);
 
   // // debug
@@ -3140,174 +3209,169 @@ void ElemTet::FEMMarchingDistanceUpdate(SVec<double,3> &X, SVec<double,dim> &d2w
   // }
 
   // circular connectivity to place unknown @ node 4
-  double d2w[4] = {d2wall[nodeNum(0)][0], d2wall[nodeNum(1)][0],
-                   d2wall[nodeNum(2)][0], d2wall[nodeNum(3)][0]};
-  double Xv[4][3] = {X[nodeNum(0)][0], X[nodeNum(0)][1], X[nodeNum(0)][2],
-                     X[nodeNum(1)][0], X[nodeNum(1)][1], X[nodeNum(1)][2],
-                     X[nodeNum(2)][0], X[nodeNum(2)][1], X[nodeNum(2)][2],
-                     X[nodeNum(3)][0], X[nodeNum(3)][1], X[nodeNum(3)][2]};
+  int idx[4] = {0, 1, 2, 3};
   if (node != 3) {
-    double dp1tmp[3] = {dp1dxj[node][0], dp1dxj[node][1], dp1dxj[node][2]};
-    double Xvtmp[3] = {X[nodenum][0], X[nodenum][1], X[nodenum][2]};
-    for (int i = 0; i < 3; i++) {
-      dp1dxj[node][i] = dp1dxj[3][i];
-      dp1dxj[3][i] = dp1tmp[i];
-      Xv[node][i] = X[nodeNum(3)][i];
-      Xv[3][i] = Xvtmp[i];
-    }
-    d2w[node] = d2w[3];
+    idx[node] = 3;
+    idx[3] = node;
   }
+
+  // // check if solution is even possible (useless if not allowing multiple updates)
+  // if (d2wall[nodenum][0] < d2wall[nodeNum(idx[0])][0] ||
+  //     d2wall[nodenum][0] < d2wall[nodeNum(idx[1])][0] ||
+  //     d2wall[nodenum][0] < d2wall[nodeNum(idx[2])][0]) {
+  //   // fprintf(stderr,"Skipped distance calc for a tet!\n");
+  //   dist = -1.0;
+  //   return;
+  // }
 
   // solve quadratic form
   double dx = 0.0, dy = 0.0, dz = 0.0;
   for (int i=0; i<3; i++) {
-    dx += dp1dxj[i][0]*d2w[i];
-    dy += dp1dxj[i][1]*d2w[i];
-    dz += dp1dxj[i][2]*d2w[i];
+    dx += dp1dxj[idx[i]][0]*d2wall[nodeNum(idx[i])][0];
+    dy += dp1dxj[idx[i]][1]*d2wall[nodeNum(idx[i])][0];
+    dz += dp1dxj[idx[i]][2]*d2wall[nodeNum(idx[i])][0];
   }
-  double a = dp1dxj[3][0]*dp1dxj[3][0] + dp1dxj[3][1]*dp1dxj[3][1] + dp1dxj[3][2]*dp1dxj[3][2];
-  double b = 2.0 * (dp1dxj[3][0]*dx + dp1dxj[3][1]*dy + dp1dxj[3][2]*dz);
+  double a = dp1dxj[idx[3]][0]*dp1dxj[idx[3]][0] + dp1dxj[idx[3]][1]*dp1dxj[idx[3]][1] + dp1dxj[idx[3]][2]*dp1dxj[idx[3]][2];
+  double b = 2.0 * (dp1dxj[idx[3]][0]*dx + dp1dxj[idx[3]][1]*dy + dp1dxj[idx[3]][2]*dz);
+
+  // double d2w[4] = {d2wall[nodeNum(0)][0], d2wall[nodeNum(1)][0],
+  //                  d2wall[nodeNum(2)][0], d2wall[nodeNum(3)][0]};
+  // double Xv[4][3] = {X[nodeNum(0)][0], X[nodeNum(0)][1], X[nodeNum(0)][2],
+  //                    X[nodeNum(1)][0], X[nodeNum(1)][1], X[nodeNum(1)][2],
+  //                    X[nodeNum(2)][0], X[nodeNum(2)][1], X[nodeNum(2)][2],
+  //                    X[nodeNum(3)][0], X[nodeNum(3)][1], X[nodeNum(3)][2]};
+  // if (node != 3) {
+  //   double dp1tmp[3] = {dp1dxj[node][0], dp1dxj[node][1], dp1dxj[node][2]};
+  //   double Xvtmp[3] = {X[nodenum][0], X[nodenum][1], X[nodenum][2]};
+  //   for (int i = 0; i < 3; i++) {
+  //     dp1dxj[node][i] = dp1dxj[3][i];
+  //     dp1dxj[3][i] = dp1tmp[i];
+  //     Xv[node][i] = X[nodeNum(3)][i];
+  //     Xv[3][i] = Xvtmp[i];
+  //   }
+  //   d2w[node] = d2w[3];
+  // }
+
+  // // solve quadratic form
+  // double dx = 0.0, dy = 0.0, dz = 0.0;
+  // for (int i=0; i<3; i++) {
+  //   dx += dp1dxj[i][0]*d2w[i];
+  //   dy += dp1dxj[i][1]*d2w[i];
+  //   dz += dp1dxj[i][2]*d2w[i];
+  // }
+  // double a = dp1dxj[3][0]*dp1dxj[3][0] + dp1dxj[3][1]*dp1dxj[3][1] + dp1dxj[3][2]*dp1dxj[3][2];
+  // double b = 2.0 * (dp1dxj[3][0]*dx + dp1dxj[3][1]*dy + dp1dxj[3][2]*dz);
   double c = dx*dx + dy*dy + dz*dz - 1.0;
 
-  double disc = b*b-4.0*a*c;
+  // const double eps = 1.0e-10;
+  // double disc = b*b-4.0*a*c;
+  double q2 = c*a/(b*b);
+  double disc = 1.0-4.0*q2;
+  // if (disc > eps) {
   if (disc >= 0.0) {
+    double sign = (b>=0)?1.0:-1.0;
+    double q = -0.5*(b + sign*sqrt(disc));
+    dist = max(q/a, c/q);
 
-    if (a==0) {
-      fprintf(stderr,"Warning: about to floating point exception (a=0)!\n");
+    // double f = 0.5+0.5*sqrt(disc);
+    // dist = max(-b*f/a,-c/(f*b));
 
-      fprintf(stderr,"Unknown node = %d\n",node+1);
-      fprintf(stderr,"d2w(:) = (%e, %e, %e, %e)\n",d2w[0],d2w[1],d2w[2],d2w[3]);
-      fprintf(stderr,"grad(1,:) = (%e, %e, %e)\n",dp1dxj[0][0],dp1dxj[0][1],dp1dxj[0][2]);
-      fprintf(stderr,"grad(2,:) = (%e, %e, %e)\n",dp1dxj[1][0],dp1dxj[1][1],dp1dxj[1][2]);
-      fprintf(stderr,"grad(3,:) = (%e, %e, %e)\n",dp1dxj[2][0],dp1dxj[2][1],dp1dxj[2][2]);
-      fprintf(stderr,"grad(4,:) = (%e, %e, %e)\n",dp1dxj[3][0],dp1dxj[3][1],dp1dxj[3][2]);
-
-      exit(-1);
-    }
-
-    if (disc == 0.0)
-      dist = -0.5*b/a;
-    else {
-      double sign = (b>=0)?1.0:-1.0;
-      double q = -0.5*(b + sign*sqrt(disc));
-      if (q==0) {
-        fprintf(stderr,"Warning: about to floating point exception (q=0)!\n");
-        exit(-1);
-      }
-      dist = max(q/a, c/q);
-    }
-
-    // // DEBUG
-    // fprintf(stderr,"Unknown node = %d\n",node+1);
-    // fprintf(stderr,"A(1,:) = (%e, %e, %e)\n",A[0],A[1],A[2]);
-    // fprintf(stderr,"A(2,:) = (%e, %e, %e)\n",A[3],A[4],A[5]);
-    // fprintf(stderr,"A(3,:) = (%e, %e, %e)\n\n",A[6],A[7],A[8]);
-    // fprintf(stderr,"Xv(1) = (%e, %e, %e)\n",Xv[0][0],Xv[0][1],Xv[0][2]);
-    // fprintf(stderr,"Xv(2) = (%e, %e, %e)\n",Xv[1][0],Xv[1][1],Xv[1][2]);
-    // fprintf(stderr,"Xv(3) = (%e, %e, %e)\n",Xv[2][0],Xv[2][1],Xv[2][2]);
-    // fprintf(stderr,"Xv(4) = (%e, %e, %e)\n",Xv[3][0],Xv[3][1],Xv[3][2]);
-    // fprintf(stderr,"X(1) = (%e, %e, %e)\n",X[nodeNum(0)][0],X[nodeNum(0)][1],X[nodeNum(0)][2]);
-    // fprintf(stderr,"X(2) = (%e, %e, %e)\n",X[nodeNum(1)][0],X[nodeNum(1)][1],X[nodeNum(1)][2]);
-    // fprintf(stderr,"X(3) = (%e, %e, %e)\n",X[nodeNum(2)][0],X[nodeNum(2)][1],X[nodeNum(2)][2]);
-    // fprintf(stderr,"X(4) = (%e, %e, %e)\n\n",X[nodeNum(3)][0],X[nodeNum(3)][1],X[nodeNum(3)][2]);
-
-    // // upwinding check
-    // double A[9] = {Xv[0][0]-Xv[3][0],Xv[1][0]-Xv[3][0],Xv[2][0]-Xv[3][0],
-    //                Xv[0][1]-Xv[3][1],Xv[1][1]-Xv[3][1],Xv[2][1]-Xv[3][1],
-    //                Xv[0][2]-Xv[3][2],Xv[1][2]-Xv[3][2],Xv[2][2]-Xv[3][2]};
-    // Vec3D grad(-(dx+dp1dxj[3][0]*dist), -(dy+dp1dxj[3][1]*dist), -(dz+dp1dxj[3][2]*dist));
-    // double bary[3] = {grad[0], grad[1], grad[2]};
-    // DenseMatrixOp<double,3,3>::lu(A,bary,3);
-    // const double eps = 1e-10;
-    // bool isUpwind = !(bary[0] < -eps || bary[1] < -eps || bary[2] < -eps);
-
-    // // alternative (simpler) upwind check
-    // bool isUpwind = (dist >= d2w[0] && dist >= d2w[1] && dist >= d2w[2]);
-
-    // // tri intersection for upwind check (Moeller-Trumbore)
-    // bool isUpwind;
-    // Vec3D grad(-(dx+dp1dxj[3][0]*dist),-(dy+dp1dxj[3][1]*dist),-(dz+dp1dxj[3][2]*dist));
-    // Vec3D e1(Xv[1][0]-Xv[0][0],Xv[1][1]-Xv[0][1],Xv[1][2]-Xv[0][2]);
-    // Vec3D e2(Xv[2][0]-Xv[0][0],Xv[2][1]-Xv[0][1],Xv[2][2]-Xv[0][2]);
-    // Vec3D triN = e1^e2/(e1.norm()*e2.norm());
-    // Vec3D pvec = grad^e2;
-    // double det = e1*pvec;
-    // if (det > -1.0e-10 && det < 1.0e-10) isUpwind = false;
-    // else {
-    //   double oodet = 1.0/det;
-    //   Vec3D tvec(Xv[4][0]-Xv[0][0],Xv[4][1]-Xv[0][1],Xv[4][2]-Xv[0][2]);
-    //   double bary1 = (tvec*pvec)*oodet;
-    //   if (bary1 < 0.0 || bary1 > 1.0) isUpwind = false;
-    //   else {
-    //     Vec3D qvec = tvec^e1;
-    //     double bary2 = (grad*qvec)*oodet;
-    //     if (bary2 < 0.0 || (bary1+bary2) > 1.0) isUpwind = false;
-    //     else isUpwind = true;
-    //   }
-    // }
-
-    // // check angles
-    // double vec12[3] = {Xv[1][0]-Xv[0][0],Xv[1][1]-Xv[0][1],Xv[1][2]-Xv[0][2]};
-    // double vec13[3] = {Xv[2][0]-Xv[0][0],Xv[2][1]-Xv[0][1],Xv[2][2]-Xv[0][2]};
-    // double vec14[3] = {Xv[3][0]-Xv[0][0],Xv[3][1]-Xv[0][1],Xv[3][2]-Xv[0][2]};
-    // double vec23[3] = {Xv[2][0]-Xv[1][0],Xv[2][1]-Xv[1][1],Xv[2][2]-Xv[1][2]};
-    // double vec24[3] = {Xv[3][0]-Xv[1][0],Xv[3][1]-Xv[1][1],Xv[3][2]-Xv[1][2]};
-    // double vec34[3] = {Xv[3][0]-Xv[2][0],Xv[3][1]-Xv[2][1],Xv[3][2]-Xv[2][2]};
-    // double dot1213 = vec12[0]*vec13[0]+vec12[1]*vec13[1]+vec12[2]*vec13[2];
-    // double dot1214 = vec12[0]*vec14[0]+vec12[1]*vec14[1]+vec12[2]*vec14[2];
-    // double dot1314 = vec13[0]*vec14[0]+vec13[1]*vec14[1]+vec13[2]*vec14[2];
-    // double dot2324 = vec23[0]*vec24[0]+vec23[1]*vec24[1]+vec23[2]*vec24[2];
-    // double dot2321 = -vec23[0]*vec12[0]-vec23[1]*vec12[1]-vec23[2]*vec12[2];
-    // double dot2421 = -vec12[0]*vec24[0]-vec12[1]*vec24[1]-vec12[2]*vec24[2];
-    // double dot3431 = -vec34[0]*vec13[0]-vec34[1]*vec13[1]-vec34[2]*vec13[2];
-    // double dot3432 = -vec34[0]*vec23[0]-vec34[1]*vec23[1]-vec34[2]*vec23[2];
-    // double dot3132 = vec13[0]*vec23[0]+vec13[1]*vec23[1]+vec13[2]*vec23[2];
-    // if (dot1213<0.0 || dot1213<0.0 || dot1314<0.0 || dot2321<0.0 || dot2324<0.0
-    //   || dot2421<0.0 || dot3431<0.0 || dot3432<0.0 || dot3132<0.0)
-    //   fprintf(stderr,"Tet is obtuse!");
-
-    // // check quadratic formula norm
-    // double normg = sqrt(grad[0]*grad[0]+grad[1]*grad[1]+grad[2]*grad[2]);
-    // fprintf(stderr,"Norm(grad d) - 1 = %e\n",normg-1.0);
-
-    // if (isUpwind)
-    if (1)
-      // d2wall[nodenum][0] = min(d2wall[nodenum][0], dist);
-      d2wall[nodenum][0] = dist;
+    // if (b>=0.0)
+    //   double q = -0.5*(b+sqrt(disc));
     // else
-    //   fprintf(stderr,"Warning: upwinding condition failed (dist = %e)\n",dist);
-      // fprintf(stderr,"Warning: upwinding condition failed (dist = %e, bary = %e, %e, %e)!\n",
-      //   dist,bary[0],bary[1],bary[2]);
-
-    // fprintf(stderr,"Distances: d1 = %e, d2 = %e, d3 = %e, d4 = %e (new node = %d)\n",
-    //   d2wall[nodeNum(0)][0],d2wall[nodeNum(1)][0],d2wall[nodeNum(2)][0],d2wall[nodeNum(3)][0],
-    //   node+1);
+    //   double q = 0.5*(-b+sqrt(disc));
+    // dist = max(q/a,c/q);
   }
-  // else
-  //   fprintf(stderr,"Warning: discriminant = %e < 0 -> update failed\n",disc);
+  // else if (disc < eps && disc > -eps)
+  //   dist = -0.5*b/a;
+  else {
+    dist = -1.0;
+    return;
+  }
 
+  // // DEBUG
+  // fprintf(stderr,"Unknown node = %d\n",node+1);
+  // fprintf(stderr,"A(1,:) = (%e, %e, %e)\n",A[0],A[1],A[2]);
+  // fprintf(stderr,"A(2,:) = (%e, %e, %e)\n",A[3],A[4],A[5]);
+  // fprintf(stderr,"A(3,:) = (%e, %e, %e)\n\n",A[6],A[7],A[8]);
+  // fprintf(stderr,"Xv(1) = (%e, %e, %e)\n",Xv[0][0],Xv[0][1],Xv[0][2]);
+  // fprintf(stderr,"Xv(2) = (%e, %e, %e)\n",Xv[1][0],Xv[1][1],Xv[1][2]);
+  // fprintf(stderr,"Xv(3) = (%e, %e, %e)\n",Xv[2][0],Xv[2][1],Xv[2][2]);
+  // fprintf(stderr,"Xv(4) = (%e, %e, %e)\n",Xv[3][0],Xv[3][1],Xv[3][2]);
+  // fprintf(stderr,"X(1) = (%e, %e, %e)\n",X[nodeNum(0)][0],X[nodeNum(0)][1],X[nodeNum(0)][2]);
+  // fprintf(stderr,"X(2) = (%e, %e, %e)\n",X[nodeNum(1)][0],X[nodeNum(1)][1],X[nodeNum(1)][2]);
+  // fprintf(stderr,"X(3) = (%e, %e, %e)\n",X[nodeNum(2)][0],X[nodeNum(2)][1],X[nodeNum(2)][2]);
+  // fprintf(stderr,"X(4) = (%e, %e, %e)\n\n",X[nodeNum(3)][0],X[nodeNum(3)][1],X[nodeNum(3)][2]);
 
-//   fprintf(stderr,"Update at node invalid, perform Dijkstra-type update (prev d2w = %e) . . .", d2wall[nodenum][0]);
-// //   fprintf(stderr,"Gradient condition violated (prev d2w = %e, dist = %e)!\n",
-// //     d2wall[nodenum][0],dist);
+  // // barycentric coordinate-based upwinding check
+  // // bool print = false;
+  // double A[9] = {X[nodeNum(idx[0])][0]-X[nodenum][0],
+  //   X[nodeNum(idx[1])][0]-X[nodenum][0],X[nodeNum(idx[2])][0]-X[nodenum][0],
+  //   X[nodeNum(idx[0])][1]-X[nodenum][1],X[nodeNum(idx[1])][1]-X[nodenum][1],
+  //   X[nodeNum(idx[2])][1]-X[nodenum][1],X[nodeNum(idx[0])][2]-X[nodenum][2],
+  //   X[nodeNum(idx[1])][2]-X[nodenum][2],X[nodeNum(idx[2])][2]-X[nodenum][2]};
+  // Vec3D grad(-(dx+dp1dxj[idx[3]][0]*dist), -(dy+dp1dxj[idx[3]][1]*dist),
+  //   -(dz+dp1dxj[idx[3]][2]*dist));
+  // double bary[3] = {grad[0], grad[1], grad[2]};
+  // DenseMatrixOp<double,3,3>::lu(A,bary,3);
+  // const double eps = 1e-10;
+  // bool isUpwind = !(bary[0] < -eps || bary[1] < -eps || bary[2] < -eps);
+  // // if (!isUpwind) {print = true; fprintf(stderr,"bary1 = %e, bary2 = %e, bary3 = %e\n",
+  // //   bary[0],bary[1],bary[2]); }
+  // // if (isUpwind) {print = true; fprintf(stderr,"bary1 = %e, bary2 = %e, bary3 = %e\n",
+  // //   bary[0],bary[1],bary[2]); }
 
-//   dist = d2wall[nodenum][0];
-//   for (int i=0; i<4; i++) {
-//     if (i==node)
-//       continue;
-//     dist = min(dist,d2wall[nodeNum(i)][0]
-//       + sqrt((X[nodenum][0]-X[nodeNum(i)][0])*(X[nodenum][0]-X[nodeNum(i)][0])
-//       + (X[nodenum][1]-X[nodeNum(i)][1])*(X[nodenum][1]-X[nodeNum(i)][1])
-//       + (X[nodenum][2]-X[nodeNum(i)][2])*(X[nodenum][2]-X[nodeNum(i)][2])));
-//   }
+  // // tri intersection for upwind check (Moeller-Trumbore)
+  // // bool print = false;
+  // bool isUpwind;
+  // // const double eps = 1e-10;
+  // Vec3D grad(-(dx+dp1dxj[idx[3]][0]*dist),-(dy+dp1dxj[idx[3]][1]*dist),-(dz+dp1dxj[idx[3]][2]*dist));
+  // Vec3D e1(X[nodeNum(idx[1])][0]-X[nodeNum(idx[0])][0],
+  //   X[nodeNum(idx[1])][1]-X[nodeNum(idx[0])][1],
+  //   X[nodeNum(idx[1])][2]-X[nodeNum(idx[0])][2]);
+  // Vec3D e2(X[nodeNum(idx[2])][0]-X[nodeNum(idx[0])][0],
+  //   X[nodeNum(idx[2])][1]-X[nodeNum(idx[0])][1],
+  //   X[nodeNum(idx[2])][2]-X[nodeNum(idx[0])][2]);
+  // Vec3D triN = e1^e2/(e1.norm()*e2.norm());
+  // Vec3D pvec = grad^e2;
+  // double det = e1*pvec;
+  // if (det > -eps && det < eps) isUpwind = false; // {isUpwind = false; print = true; fprintf(stderr,"det = %e\n",det); }
+  // else {
+  //   double oodet = 1.0/det;
+  //   Vec3D tvec(X[nodenum][0]-X[nodeNum(idx[0])][0],
+  //     X[nodenum][1]-X[nodeNum(idx[0])][1], X[nodenum][2]-X[nodeNum(idx[0])][2]);
+  //   double bary1 = (tvec*pvec)*oodet;
+  //   if (bary1 < -eps || bary1 > 1.0+eps) isUpwind = false; // {isUpwind = false; print = true; fprintf(stderr,"bary1 = %e\n",bary1); }
+  //   else {
+  //     Vec3D qvec = tvec^e1;
+  //     double bary2 = (grad*qvec)*oodet;
+  //     if (bary2 < -eps || (bary1+bary2) > 1.0+eps) isUpwind = false; // {isUpwind = false; print = true; fprintf(stderr,"bary1 = %e, bary2 = %e\n",bary1,bary2); }
+  //     else isUpwind = true;
+  //     // if (isUpwind) {print = true; fprintf(stderr,"bary1 = %e, bary2 = %e\n",
+  //     //   bary1,bary2); }
+  //   }
+  // }
 
-//   d2wall[nodenum][0] = min(d2wall[nodenum][0], dist);
-//   fprintf(stderr,"New d2wall = %e\n",d2wall[nodenum][0]);
+  // upwind check based on distances
+  bool isUpwind = (dist >= d2wall[nodeNum(idx[0])][0] &&
+    dist >= d2wall[nodeNum(idx[1])][0] && dist >= d2wall[nodeNum(idx[2])][0]);
 
+  // bool print = false;
+  // if (!isUpwind) print = true;
+  // Vec3D grad(-(dx+dp1dxj[idx[3]][0]*dist),-(dy+dp1dxj[idx[3]][1]*dist),-(dz+dp1dxj[idx[3]][2]*dist));
 
-  // if (!(Tag[nodeNumTet[0]]==level || Tag[nodeNumTet[1]]==level ||
-  //      Tag[nodeNumTet[2]]==level || Tag[nodeNumTet[3]]==level   ))
-  //   return;
+  // if (print) {
+  //   fprintf(stderr,"X1 = %e, %e, %e\n",X[nodeNum(idx[0])][0],X[nodeNum(idx[0])][1],X[nodeNum(idx[0])][2]);
+  //   fprintf(stderr,"X2 = %e, %e, %e\n",X[nodeNum(idx[1])][0],X[nodeNum(idx[1])][1],X[nodeNum(idx[1])][2]);
+  //   fprintf(stderr,"X3 = %e, %e, %e\n",X[nodeNum(idx[2])][0],X[nodeNum(idx[2])][1],X[nodeNum(idx[2])][2]);
+  //   fprintf(stderr,"X4 = %e, %e, %e\n",X[nodeNum(idx[3])][0],X[nodeNum(idx[3])][1],X[nodeNum(idx[3])][2]);
+  //   fprintf(stderr,"-grad = %e, %e, %e\n",grad[0], grad[1], grad[2]);
+  //   fprintf(stderr,"dist = %e (d2w = %e, %e, %e)\n\n",dist,d2wall[nodeNum(idx[0])][0],d2wall[nodeNum(idx[1])][0],d2wall[nodeNum(idx[2])][0]);
+  // }
+
+  // bool isUpwind = true;
+
+  if (!isUpwind) dist = -1.0;
 }
 
 //------------------------------------------------------------------------------

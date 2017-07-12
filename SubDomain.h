@@ -1108,7 +1108,7 @@ public:
 
   // TESTING TESTING -------------------------------------------------------------------------
   template<class Scalar, int dim>
-  void minRcvDataAndAddElems(CommPattern<Scalar> &, Scalar (*)[dim], int *, int *, int *, int &, int &);
+  void minRcvDataAndAddElems(CommPattern<Scalar> &, Scalar (*)[dim], Vec<int> &, int *, int *, int *, int &, int &);
 
   template<class Scalar, int dim>
   void minRcvDataAndCountUpdates(CommPattern<Scalar> &sp, Scalar (*w)[dim], Vec<int> &, int &, Vec<int> &);
@@ -1228,13 +1228,18 @@ public:
   void TagInterfaceNodes(int lsdim, SVec<bool,2> &Tag, SVec<double,dimLS> &Phi, LevelSetStructure *LSS);
 
   template<int dimLS>
-  void pseudoFastMarchingMethodFEM(SVec<double,3> &X, SVec<double,dimLS> &d2wall, int level,
-        int *tag, int *activeElemList, int *knownNodes, int &nSortedNodes, int &nSortedElems,
-        int &firstCheckedElem, int *isSharedNode, int &commFlag, LevelSetStructure *LSS=0);
+  void pseudoFastMarchingMethodFEM(SVec<double,3> &X, SVec<double,dimLS> &d2wall,
+        Vec<int> &nodeTag, int level, int *tag, int *activeElemList, int *knownNodes,
+        int &nSortedNodes, int &nSortedElems, int &firstCheckedElem,
+        Vec<int> &unsortedTag, Vec<int> &unsortedNodes, int &nUnsortedNodes,
+        Vec<int> &isSharedNode, int &commFlag, LevelSetStructure *LSS=0);
 
   template<int dimLS>
   void pseudoFastMarchingMethodFinalize(SVec<double,3> &X, SVec<double,dimLS> &d2wall,
-        int &nSortedNodes, int *isSharedNode, int &commFlag, LevelSetStructure *LSS=0);
+        int *knownNodes, int &nSortedNodes,
+        Vec<int> &unsortedNodes, int &nUnsortedNodes,
+        Vec<int> &nodeTag, Vec<int> &unsortedTag,
+        Vec<int> &isSharedNode, int &commFlag, LevelSetStructure *LSS=0);
 
   template<int dimLS>
   void pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,

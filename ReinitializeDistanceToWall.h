@@ -21,19 +21,19 @@ class ReinitializeDistanceToWall
   int **activeElemList, **tag, **knownNodes;
   int *nSortedElems, *nSortedNodes, *firstCheckedElem;
 
-  // // COULD REMOVE and just loop over ALL nodes to find which need updating?
-  // int **unsortedNodes;
-  // int *nUnsortedNodes;
+  DistVec<int> isSharedNode, nodeTag;
 
-  int **isSharedNode;
+  // TESTING
+  DistVec<int> unsortedNodes, unsortedTag;
+  int *nUnsortedNodes;
 
   // predictors
-  double *predictorTime;
+  double predictorTime[3];
   DistSVec<double, 1> d2wnm1, d2wnm2;
   int countreinits, nPredTot;
 
-  double cw1;
   double tolmin, tolmax;
+  // double cw1;
 
 public:
   ReinitializeDistanceToWall(IoData &ioData, Domain &domain);

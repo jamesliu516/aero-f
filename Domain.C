@@ -5420,28 +5420,21 @@ void Domain::TagInterfaceNodes(int lsdim, DistVec<int> &Tag, DistSVec<double,dim
 
 template<int dimLS>
 void Domain::pseudoFastMarchingMethodFEM(DistSVec<double,3> &X,	DistSVec<double,dimLS> &d2wall,
-        int level, int **tag, int **activeElemList, int **knownNodes, int *nSortedNodes,
-        int *nSortedElems, int *firstCheckedElem, int **isSharedNode, DistLevelSetStructure *distLSS)
+        DistVec<int> &nodeTag, int level, int **tag, int **activeElemList, int **knownNodes,
+        int *nSortedNodes, int *nSortedElems, int *firstCheckedElem,
+        DistVec<int> &unsortedTag, DistVec<int> &unsortedNodes, int *nUnsortedNodes,
+        DistVec<int> &isSharedNode, DistLevelSetStructure *distLSS)
 {
   int iSub, commFlag = 0;
 
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
     subDomain[iSub]->pseudoFastMarchingMethodFEM<dimLS>(X(iSub),d2wall(iSub),
-      level, *(tag+iSub),*(activeElemList+iSub),*(knownNodes+iSub),
+      nodeTag(iSub),level,*(tag+iSub),*(activeElemList+iSub),*(knownNodes+iSub),
       *(nSortedNodes+iSub),*(nSortedElems+iSub),*(firstCheckedElem+iSub),
-      *(isSharedNode+iSub),commFlag,distLSS?&((*distLSS)(iSub)):NULL);
+      unsortedTag(iSub), unsortedNodes(iSub), *(nUnsortedNodes+iSub),
+      isSharedNode(iSub),commFlag,distLSS?&((*distLSS)(iSub)):NULL);
   }
-
-  // // debug (print tris in list)
-  // for (iSub = 0; iSub < numLocSub; ++iSub) {
-  //   for (int i = 0; i<nSortedElems[iSub]; i++) {
-  //     if (knownNodes[iSub][activeElemList[iSub][i]] < 4)
-  //       fprintf(stderr,"Problem: knownNodes[cpu %d, elem %d] = %d (list i = %d)\n",
-  //         com->cpuNum(),activeElemList[iSub][i],
-  //         knownNodes[iSub][activeElemList[iSub][i]],i);
-  //   }
-  // }
 
   com->globalMax(1, &commFlag);
   if (commFlag) {
@@ -5457,36 +5450,30 @@ void Domain::pseudoFastMarchingMethodFEM(DistSVec<double,3> &X,	DistSVec<double,
     for (iSub = 0; iSub < numLocSub; ++iSub) {
       subDomain[iSub]->minRcvDataAndAddElems(
         *volPat,reinterpret_cast<double (*)[dimLS]>(d2wall.subData(iSub)),
-        *(tag+iSub),*(activeElemList+iSub),*(knownNodes+iSub),
+        nodeTag(iSub),*(tag+iSub),*(activeElemList+iSub),*(knownNodes+iSub),
         *(nSortedNodes+iSub),*(nSortedElems+iSub));
     }
   }
-
-
-  // // debug (print tris in list)
-  // for (iSub = 0; iSub < numLocSub; ++iSub) {
-  //   for (int i = 0; i<nSortedElems[iSub]; i++) {
-  //     if (knownNodes[iSub][activeElemList[iSub][i]] < 4)
-  //       fprintf(stderr,"Problem: knownNodes[cpu %d, elem %d] = %d (list i = %d)\n",
-  //         com->cpuNum(),activeElemList[iSub][i],
-  //         knownNodes[iSub][activeElemList[iSub][i]],i);
-  //   }
-  // }
-
 }
 
-//------------------------------Vec<int> &Tag-----------------------------------
+//------------------------------------------------------------------------------
 
 template<int dimLS>
 void Domain::pseudoFastMarchingMethodFinalize(DistSVec<double,3> &X, DistSVec<double,dimLS> &d2wall,
-        int *nSortedNodes, int **isSharedNode, DistLevelSetStructure *distLSS)
+        int **knownNodes, int *nSortedNodes,
+        DistVec<int> &unsortedNodes, int *nUnsortedNodes,
+        DistVec<int> &nodeTag, DistVec<int> &unsortedTag,
+        DistVec<int> &isSharedNode, DistLevelSetStructure *distLSS)
 {
   int iSub, commFlag = 0;
 
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
     subDomain[iSub]->pseudoFastMarchingMethodFinalize<dimLS>(X(iSub),d2wall(iSub),
-      *(nSortedNodes+iSub),*(isSharedNode+iSub),commFlag,distLSS?&((*distLSS)(iSub)):NULL);
+      *(knownNodes+iSub),*(nSortedNodes+iSub),
+      unsortedNodes(iSub),*(nUnsortedNodes+iSub),
+      nodeTag(iSub), unsortedTag(iSub),
+      isSharedNode(iSub),commFlag,distLSS?&((*distLSS)(iSub)):NULL);
   }
 
   com->globalMax(1, &commFlag);
@@ -5505,7 +5492,7 @@ void Domain::pseudoFastMarchingMethodFinalize(DistSVec<double,3> &X, DistSVec<do
   }
 }
 
-// -----------------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 
 template<int dimLS>
 double Domain::pseudoFastMarchingMethod(DistVec<int> &Tag, DistSVec<double,3> &X,
