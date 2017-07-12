@@ -6291,40 +6291,41 @@ int IoData::checkFileNames()
     if (eqs.tc.tm.type == TurbulenceModelData::TWO_EQUATION_KE)
       bc.wall.integration = BcsWallData::WALL_FUNCTION;
 
-	 if (eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES &&
-		  strcmp(input.d2wall, "") == 0 && problem.framework == ProblemData::BODYFITTED) {
-      com->fprintf(stderr, "*** Error: no distance to wall file given\n");
-      ++error;
-    }
+  if ((eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES ||
+      eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS) &&
+  	  strcmp(input.d2wall, "") == 0 && problem.framework == ProblemData::BODYFITTED) {
+    com->fprintf(stderr, "*** Error: no distance to wall file given\n");
+    ++error;
+  }
 
-    if (bc.wall.integration == BcsWallData::WALL_FUNCTION)
+  if (bc.wall.integration == BcsWallData::WALL_FUNCTION)
+  {
+	 if(problem.framework == ProblemData::BODYFITTED)
 	 {
-		 if(problem.framework == ProblemData::BODYFITTED)
+		 if (bc.wall.delta < 0.0)
 		 {
-			 if (bc.wall.delta < 0.0)
-			 {
-				 bc.wall.delta_given = false;
+			 bc.wall.delta_given = false;
 
-        com->fprintf(stderr, "*** Error: no delta value given\n");
-        ++error;
-      }
-			 else bc.wall.delta_given = true;
+       com->fprintf(stderr, "*** Error: no delta value given\n");
+       ++error;
+     }
+		 else bc.wall.delta_given = true;
     }
     else
-		 {
-			 bc.wall.delta_given = true;
-			 if(bc.wall.delta < 0.0)
-			 {
-				 bc.wall.delta_given = false;
-      bc.wall.delta = 0.0;
-  }
-		 }
-	 }
-	 else
 	 {
-		 bc.wall.delta_given = false;
-		 bc.wall.delta = 0.0;
-	 }
+  	  bc.wall.delta_given = true;
+  	  if(bc.wall.delta < 0.0)
+  	  {
+  		  bc.wall.delta_given = false;
+        bc.wall.delta = 0.0;
+      }
+    }
+  }
+  else
+  {
+	  bc.wall.delta_given = false;
+	  bc.wall.delta = 0.0;
+  }
 
   } else {
     output.transient.nutturb = "";

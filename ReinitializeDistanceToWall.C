@@ -12,42 +12,38 @@
 template <int dimLS, int dim>
 ReinitializeDistanceToWall<dimLS,dim>::ReinitializeDistanceToWall(IoData &ioData, Domain &domain)
     : iod(ioData), dom(domain), d2wall(domain.getNodeDistInfo()), d2wnm1(domain.getNodeDistInfo()),
-    d2wnm2(domain.getNodeDistInfo()), countreinits(0), nPredTot(0)
+    d2wnm2(domain.getNodeDistInfo()), countreinits(0), nPredTot(0),
+    nodeTag(domain.getNodeDistInfo()),isSharedNode(domain.getNodeDistInfo()),
+    unsortedTag(domain.getNodeDistInfo()),unsortedNodes(domain.getNodeDistInfo())
 {
   int nSub = dom.getNumLocSub();
+
   nSortedNodes = new int[nSub];
   nSortedElems = new int[nSub];
   firstCheckedElem = new int[nSub];
 
+  nUnsortedNodes = new int[nSub];
+
   activeElemList = new int *[nSub];
   tag = new int *[nSub];
   knownNodes = new int *[nSub];
-
-  // nUnsortedNodes = new int[nSub];
-  // unsortedNodes = new int *[nSub];
-
   for (int iSub=0; iSub<nSub; iSub++) {
     activeElemList[iSub] = new int[dom.getSubDomain()[iSub]->numElems()];
     tag[iSub] = new int[dom.getSubDomain()[iSub]->numElems()];
     knownNodes[iSub] = new int[dom.getSubDomain()[iSub]->numElems()];
-
-    // unsortedNodes[iSub] = new int[d2wall(iSub).len];
   }
 
-  // tag for shared nodes
-  isSharedNode = new int *[nSub];
+  // tag shared nodes
+  isSharedNode = 0;
   Connectivity *sharedNodes;
   for (int iSub=0; iSub<nSub; iSub++) {
-    isSharedNode[iSub] = new int[d2wall(iSub).len];
-    std::memset(isSharedNode[iSub], 0, sizeof(int)*d2wall(iSub).len);
     for (int i = 0; i < dom.getSubDomain()[iSub]->getNumNeighb(); i++) {
       sharedNodes = dom.getSubDomain()[iSub]->getSharedNodes();
       for (int j = 0; j < sharedNodes->num(i); j++)
-        isSharedNode[iSub][(*sharedNodes)[i][j]] = 1;
+        isSharedNode(iSub)[(*sharedNodes)[i][j]] = 1;
     }
   }
 
-  predictorTime = new double[3];
   predictorTime[0] = -1.0;
   predictorTime[1] = -1.0;
   predictorTime[2] = -1.0;
@@ -78,24 +74,16 @@ ReinitializeDistanceToWall<dimLS,dim>::~ReinitializeDistanceToWall()
   delete[] nSortedElems;
   delete[] firstCheckedElem;
 
-  // delete[] nUnsortedNodes;
+  delete[] nUnsortedNodes;
 
   for (int iSub=0; iSub<dom.getNumLocSub(); iSub++) {
     delete[] activeElemList[iSub];
     delete[] tag[iSub];
     delete[] knownNodes[iSub];
-
-    // delete[] unsortedNodes[iSub];
-    delete[] isSharedNode[iSub];
   }
   delete[] activeElemList;
   delete[] tag;
   delete[] knownNodes;
-
-  // delete[] unsortedNodes;
-  delete[] isSharedNode;
-
-  delete[] predictorTime;
 }
 
 //------------------------------------------------------------------------------
@@ -181,7 +169,6 @@ void ReinitializeDistanceToWall<dimLS,dim>::ComputeWallFunction(DistLevelSetStru
         distGeoState(iSub).getDistanceToWall()[i] = d2wall(iSub)[i][0];
       }
     }
-
   }
 #ifdef PREDICTOR_DEBUG
   else {
@@ -204,22 +191,21 @@ void ReinitializeDistanceToWall<dimLS,dim>::PseudoFastMarchingMethod(
     DistLevelSetStructure &LSS, DistSVec<double, 3> &X)
 {
   d2wall = 1.0e10;
+  nodeTag = -1;
+  unsortedTag = -1;
+
   int nSub = dom.getNumLocSub();
-  for (int iSub=0; iSub<nSub; iSub++) {
+  for (int iSub=0; iSub < nSub; iSub++) {
     std::memset(tag[iSub], -1, sizeof(int)*dom.getSubDomain()[iSub]->numElems());
     std::memset(knownNodes[iSub], 0, sizeof(int)*dom.getSubDomain()[iSub]->numElems());
   }
 
-  int isDone = 0, level = 1; // Level 0 (inActive nodes) and 1 (Embedded surface neighbors)
-  while (isDone == 0)
-  { // Tag and update d at every level
-    dom.pseudoFastMarchingMethodFEM<1>(X, d2wall, level, tag, activeElemList, knownNodes,
-      nSortedNodes, nSortedElems, firstCheckedElem, isSharedNode, &LSS);
-
-    // fprintf(stderr, "At level %d, nSortedNodes = %d out of %d, nSortedElems = %d "
-    //   "out of %d (firstCheckedElem = %d) . . .\n",
-    //   level, nSortedNodes[0], d2wall(0).len, nSortedElems[0], dom.getSubDomain()[0]->numElems(),
-    //   firstCheckedElem[0]);
+  int isDone = 0, level = 1; // Level 0 (inactive nodes) and 1 (embedded surface neighbors)
+  while (isDone == 0) { // Tag and update d at every level
+    dom.pseudoFastMarchingMethodFEM<1>(X, d2wall, nodeTag, level, tag, activeElemList,
+      knownNodes, nSortedNodes, nSortedElems, firstCheckedElem,
+      unsortedTag, unsortedNodes, nUnsortedNodes,
+      isSharedNode, &LSS);
 
     isDone = 1;
     for (int iSub = 0; iSub < nSub; ++iSub) {
@@ -229,69 +215,42 @@ void ReinitializeDistanceToWall<dimLS,dim>::PseudoFastMarchingMethod(
       }
     }
     dom.getCommunicator()->globalMin(1, &isDone);
-
-    // if (level == 1) exit(-1);
-
-    // // debug
-    // if (level==2) {
-    //   fprintf(stderr,"activeElemList: \n");
-    //   for (int i=firstCheckedElem[0]; i<nSortedElems[0]; i++)
-    //     fprintf(stderr,"activeElemList[%d] = %d (knownNodes = %d, tag = %d)\n",i,
-    //       activeElemList[0][i],knownNodes[0][activeElemList[0][i]],
-    //       tag[0][activeElemList[0][i]]);
-    //   fprintf(stderr,"\n");
-    //   exit(-1);
-    // }
-
     ++level;
   }
 
-  fprintf(stderr,"Before finalization: Total sorted nodes = %d out of %d\n",
-    nSortedNodes[0],d2wall(0).len);
+  // debug
+  fprintf(stderr,"Before finalization: "
+    "Total sorted nodes = %d out of %d, unsorted nodes = %d\n",
+    nSortedNodes[0],d2wall(0).len,nUnsortedNodes[0]);
 
-  dom.pseudoFastMarchingMethodFinalize<1>(X, d2wall, nSortedNodes, isSharedNode, &LSS);
+  // finalize missed nodes
+  dom.pseudoFastMarchingMethodFinalize<1>(X, d2wall, knownNodes, nSortedNodes,
+    unsortedNodes, nUnsortedNodes, nodeTag, unsortedTag,
+    isSharedNode, &LSS);
 
-/*
-  // check unsorted nodes
-  int nei, nNeighs, nUnsorted = 0; // ,node;
-  Connectivity *NodeToNode;
-  double dist;
-  for (int iSub = 0; iSub < nSub; ++iSub) {
-    NodeToNode = dom.getSubDomain()[iSub]->getNodeToNode();
-    // for (int i = 0; i < nUnsortedNodes[iSub]; i++) {
-    for (int node = 0; node < d2wall(iSub).len; node++) {
-      // node = unsortedNodes[iSub][i];
-      if (d2wall(iSub)[node][0] == 1.0e10) {
-        // fprintf(stderr,"A node was left unknown, perform Dijkstra-type update!\n");
-        nNeighs = NodeToNode->num(node);
-        for (int j = 0; j < nNeighs; j++) {
-          nei = (*NodeToNode)[node][j];
-          if (node==nei) continue;
-          dist = d2wall(iSub)[nei][0]+sqrt(
-            (X(iSub)[node][0]-X(iSub)[nei][0])*(X(iSub)[node][0]-X(iSub)[nei][0])
-            + (X(iSub)[node][1]-X(iSub)[nei][1])*(X(iSub)[node][1]-X(iSub)[nei][1])
-            + (X(iSub)[node][2]-X(iSub)[nei][2])*(X(iSub)[node][2]-X(iSub)[nei][2]));
-          d2wall(iSub)[node][0] = min(d2wall(iSub)[node][0],dist);
-        }
-        nUnsorted++;
-      }
-    }
-  }
+  // // debug (check completeness)
+  // isDone = 1;
+  // for (int iSub = 0; iSub < nSub; ++iSub) {
+  //   if (nSortedNodes[iSub] != d2wall(iSub).len) {
+  //     isDone = 0;
+  //     break;
+  //   }
+  // }
+  // if (isDone != 1) {
+  //   fprintf(stderr,"PROBLEM: At end of update (level %d): "
+  //     "Total sorted nodes = %d out of %d (nSortedElems = %d "
+  //     "out of %d)\n",level-1,nSortedNodes[0],d2wall(0).len,nSortedElems[0],
+  //     dom.getSubDomain()[0]->numElems());
+  //   exit(-1);
+  // }
 
-  // need to do final comm if updated boundary nodes (really this unsorted node check
-  // could be done in ElemTet or SubDomain level? Will differ if allowing for
-  // multiple updates?)
-  */
+  // // debug
+  // fprintf(stderr,"At end of update (level %d): "
+  //   "Total sorted nodes = %d out of %d (nSortedElems = %d "
+  //   "out of %d)\n",level-1,nSortedNodes[0],d2wall(0).len,nSortedElems[0],
+  //   dom.getSubDomain()[0]->numElems());
 
-  // fprintf(stderr,"At end of update (level %d): nUnsortedNodes = %d, nSortedNodes = %d,"
-  //   " total sorted nodes = %d out of %d (nSortedElems = %d "
-  //   "out of %d)\n",level-1,nUnsorted,nSortedNodes[0],nUnsorted+nSortedNodes[0],
-  //   d2wall(0).len,nSortedElems[0], dom.getSubDomain()[0]->numElems());
-
-  fprintf(stderr,"At end of update (level %d): "
-    "Total sorted nodes = %d out of %d (nSortedElems = %d "
-    "out of %d)\n",level-1,nSortedNodes[0],d2wall(0).len,nSortedElems[0],
-    dom.getSubDomain()[0]->numElems());
+  // dom.getCommunicator()->barrier();
   // exit(-1);
 
   // dom.getCommunicator()->fprintf(stderr, "There are %d levels\n", level-1);
@@ -664,8 +623,10 @@ int ReinitializeDistanceToWall<dimLS,dim>::UpdatePredictorsCheckTol(
 
 #ifdef PREDICTOR_DEBUG
           // debugging!!
-          fprintf(stderr,"\nGhost to real transition: new d2w = %e (old d2w = %e)\n\n",
+          fprintf(stderr,"\nGhost to real transition: new d2w = %e (old d2w = %e)\n",
             LSS(iSub).distToInterface(0.0,k),d2wall(iSub)[k][0]);
+
+          if (!(LSS->isNearInterface(0.0,k))) fprintf(stderr,"Problem: updated node has no exact distance!\n\n");
 #endif
           d2wall(iSub)[k][0] = LSS(iSub).distToInterface(0.0,k);
           distGeoState(iSub).getDistanceToWall()[k] = d2wall(iSub)[k][0];

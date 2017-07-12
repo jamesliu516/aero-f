@@ -19,7 +19,7 @@ class ElemTet : public ElemDummy {
   int nodeNumTet[4];
   int edgeNumTet[6];
 
-  double dp1dxj[4][3];
+  // double dp1dxj[4][3]; //sjg, 07/2017: store shape function gradients for Eikonal solution
 
 protected:
   void *getWrapper_dim(GenElemHelper_dim *h,
@@ -39,7 +39,8 @@ protected:
 
 public:
 
-  ElemTet() { volume_id = 0; for (int i=0; i<4; i++) {dp1dxj[i][0] = 0.0; dp1dxj[i][1] = 0.0; dp1dxj[i][2] = 0.0;} }
+  // ElemTet() { volume_id = 0; for (int i=0; i<4; i++) {dp1dxj[i][0] = 0.0; dp1dxj[i][1] = 0.0; dp1dxj[i][2] = 0.0;} }
+  ElemTet() { volume_id = 0; }
   ~ElemTet() {}
 
   int* nodeNum() { return nodeNumTet; }
@@ -232,11 +233,16 @@ public:
                                  SVec<double,3> &X, SVec<double,1> &Psi, SVec<double,dim> &Phi);
 
   template<int dim>
-  void FastMarchingDistanceUpdate(int node,Vec<int> &Tag,int level,
-                                 SVec<double,3> &X,SVec<double,dim> &d2wall);
+  void FastMarchingDistanceUpdate(int node,Vec<int> &Tag, int level,
+                                 SVec<double,3> &X, SVec<double,dim> &d2wall);
 
   template<int dim>
-  void FEMMarchingDistanceUpdate(SVec<double,3> &X,SVec<double,dim> &d2wall, int &node);
+  void FEMMarchingDistanceUpdate(SVec<double,3> &X, SVec<double,dim> &d2wall,
+                                 Vec<int> &tag, double &dist, int &node);
+
+  template<int dim>
+  void FEMMarchingDistanceUpdateUpw(SVec<double,3> &X, SVec<double,dim> &d2wall,
+                                 Vec<int> &tag, double &dist, int &node);
 
   template<int dim, class Obj>
     void integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),int npt);
