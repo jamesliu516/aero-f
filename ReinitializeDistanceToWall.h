@@ -18,14 +18,17 @@ class ReinitializeDistanceToWall
   IoData &iod;
   Domain &dom;
   DistSVec<double, 1> d2wall;
-  int **activeElemList, **tag, **knownNodes;
-  int *nSortedElems, *nSortedNodes, *firstCheckedElem;
 
-  DistVec<int> isSharedNode, nodeTag;
+  // default wall distance
+  DistVec<int> tag;
+  DistVec<int> sortedNodes;
+  int *nActiveNodes, *firstCheckedNode; //,*nSortedNodes
+  // DistSVec<double, dimLS> dummyPhi;
 
-  // TESTING
-  DistVec<int> unsortedNodes, unsortedTag;
-  int *nUnsortedNodes;
+  // FEM wall distance
+  int **activeElemList, **elemTag, **knownNodes;
+  int *nSortedElems, *nSortedNodes, *firstCheckedElem, *nUnsortedNodes;
+  DistVec<int> isSharedNode, nodeTag, unsortedNodes, unsortedTag;
 
   // predictors
   double predictorTime[3];
@@ -46,11 +49,14 @@ private:
   int UpdatePredictorsCheckTol(DistLevelSetStructure &LSS, DistGeoState &distGeoState, DistSVec<double, dim> &V, double t);
   void ReinitializePredictors(int update, double t, DistLevelSetStructure *LSS, DistSVec<double, 3> &X);
 
+  // FEM wall distance
   void PseudoFastMarchingMethod(DistLevelSetStructure &LSS, DistSVec<double, 3> &X);
-  // // int PseudoFastMarchingMethod(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, int iterativeLevel);
-  // void IterativeMethodUpdate(DistLevelSetStructure &LSS, DistSVec<double, 3> &X);
-  // // void InitializeWallFunction(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState, double t);
-  // // void GetLevelsFromInterfaceAndMarchForward(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState);
+
+  // default wall distance
+  void PseudoFastMarchingMethod(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, int iterativeLevel);
+  void IterativeMethodUpdate(DistLevelSetStructure &LSS, DistSVec<double, 3> &X);
+  // void InitializeWallFunction(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState, double t);
+  // void GetLevelsFromInterfaceAndMarchForward(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState);
 
   void ComputeExactErrors(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState);
   void PrescribedValues(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState);
