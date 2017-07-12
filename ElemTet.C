@@ -3140,6 +3140,15 @@ void ElemTet::FEMMarchingDistanceUpdate(SVec<double,3> &X, SVec<double,dim> &d2w
   //   return;
   // }
 
+  // // debug
+  // if (d2wall[nodeNum(idx[0])][0] > 100 ||
+  //     d2wall[nodeNum(idx[1])][0] > 100 ||
+  //     d2wall[nodeNum(idx[2])][0] > 100) {
+  //   fprintf(stderr,"Known distances are wrong: d2w = %e, %e, %e (node = %e)\n",
+  //     d2wall[nodeNum(idx[0])][0],d2wall[nodeNum(idx[1])][0],d2wall[nodeNum(idx[2])][0],
+  //     d2wall[nodenum][0]);
+  // }
+
   // solve quadratic form
   double dx = 0.0, dy = 0.0, dz = 0.0;
   for (int i=0; i<3; i++) {
@@ -3151,15 +3160,16 @@ void ElemTet::FEMMarchingDistanceUpdate(SVec<double,3> &X, SVec<double,dim> &d2w
   double b = 2.0 * (dp1dxj[idx[3]][0]*dx + dp1dxj[idx[3]][1]*dy + dp1dxj[idx[3]][2]*dz);
   double c = dx*dx + dy*dy + dz*dz - 1.0;
 
-  const double eps = 1.0e-10;
-  double disc = b*b-4.0*a*c;
-  if (disc > eps) {
-    double sign = (b>=0)?1.0:-1.0;
-    double q = -0.5*(b + sign*sqrt(disc));
-    dist = max(q/a, c/q);
+  // const double eps = 1.0e-10;
+  double q2 = a*c/(b*b);
+  double disc = 1.0-4.0*q2;
+  if (disc >= 0.0) {
+    double f = 0.5+0.5*sqrt(disc);
+    dist = max(-b/a*f, -c/(b*f));
   }
-  else if (disc < eps && disc > -eps)
-    dist = -0.5*b/a;
+
+  // else if (disc < eps && disc > -eps)
+  //   dist = -0.5*b/a;
   else {
     dist = -1.0;
     return;
@@ -3194,7 +3204,6 @@ void ElemTet::FEMMarchingDistanceUpdateUpw(SVec<double,3> &X, SVec<double,dim> &
   assert(node<4);
   // if (node >= 4)
   //   fprintf(stderr,"PROBLEM: can't find the node (node = %d)!\n",node);
-
   nodenum = nodeNum(node);
 
   // // debug
@@ -3215,14 +3224,14 @@ void ElemTet::FEMMarchingDistanceUpdateUpw(SVec<double,3> &X, SVec<double,dim> &
     idx[3] = node;
   }
 
-  // // check if solution is even possible (useless if not allowing multiple updates)
-  // if (d2wall[nodenum][0] < d2wall[nodeNum(idx[0])][0] ||
-  //     d2wall[nodenum][0] < d2wall[nodeNum(idx[1])][0] ||
-  //     d2wall[nodenum][0] < d2wall[nodeNum(idx[2])][0]) {
-  //   // fprintf(stderr,"Skipped distance calc for a tet!\n");
-  //   dist = -1.0;
-  //   return;
-  // }
+  // check if solution is even possible (only for multiple updates and upwinding)
+  if (d2wall[nodenum][0] < d2wall[nodeNum(idx[0])][0] ||
+      d2wall[nodenum][0] < d2wall[nodeNum(idx[1])][0] ||
+      d2wall[nodenum][0] < d2wall[nodeNum(idx[2])][0]) {
+    // fprintf(stderr,"Skipped distance calc for a tet!\n");
+    dist = -1.0;
+    return;
+  }
 
   // solve quadratic form
   double dx = 0.0, dy = 0.0, dz = 0.0;
@@ -3233,57 +3242,14 @@ void ElemTet::FEMMarchingDistanceUpdateUpw(SVec<double,3> &X, SVec<double,dim> &
   }
   double a = dp1dxj[idx[3]][0]*dp1dxj[idx[3]][0] + dp1dxj[idx[3]][1]*dp1dxj[idx[3]][1] + dp1dxj[idx[3]][2]*dp1dxj[idx[3]][2];
   double b = 2.0 * (dp1dxj[idx[3]][0]*dx + dp1dxj[idx[3]][1]*dy + dp1dxj[idx[3]][2]*dz);
-
-  // double d2w[4] = {d2wall[nodeNum(0)][0], d2wall[nodeNum(1)][0],
-  //                  d2wall[nodeNum(2)][0], d2wall[nodeNum(3)][0]};
-  // double Xv[4][3] = {X[nodeNum(0)][0], X[nodeNum(0)][1], X[nodeNum(0)][2],
-  //                    X[nodeNum(1)][0], X[nodeNum(1)][1], X[nodeNum(1)][2],
-  //                    X[nodeNum(2)][0], X[nodeNum(2)][1], X[nodeNum(2)][2],
-  //                    X[nodeNum(3)][0], X[nodeNum(3)][1], X[nodeNum(3)][2]};
-  // if (node != 3) {
-  //   double dp1tmp[3] = {dp1dxj[node][0], dp1dxj[node][1], dp1dxj[node][2]};
-  //   double Xvtmp[3] = {X[nodenum][0], X[nodenum][1], X[nodenum][2]};
-  //   for (int i = 0; i < 3; i++) {
-  //     dp1dxj[node][i] = dp1dxj[3][i];
-  //     dp1dxj[3][i] = dp1tmp[i];
-  //     Xv[node][i] = X[nodeNum(3)][i];
-  //     Xv[3][i] = Xvtmp[i];
-  //   }
-  //   d2w[node] = d2w[3];
-  // }
-
-  // // solve quadratic form
-  // double dx = 0.0, dy = 0.0, dz = 0.0;
-  // for (int i=0; i<3; i++) {
-  //   dx += dp1dxj[i][0]*d2w[i];
-  //   dy += dp1dxj[i][1]*d2w[i];
-  //   dz += dp1dxj[i][2]*d2w[i];
-  // }
-  // double a = dp1dxj[3][0]*dp1dxj[3][0] + dp1dxj[3][1]*dp1dxj[3][1] + dp1dxj[3][2]*dp1dxj[3][2];
-  // double b = 2.0 * (dp1dxj[3][0]*dx + dp1dxj[3][1]*dy + dp1dxj[3][2]*dz);
   double c = dx*dx + dy*dy + dz*dz - 1.0;
 
-  // const double eps = 1.0e-10;
-  // double disc = b*b-4.0*a*c;
-  double q2 = c*a/(b*b);
+  double q2 = a*c/(b*b);
   double disc = 1.0-4.0*q2;
-  // if (disc > eps) {
   if (disc >= 0.0) {
-    double sign = (b>=0)?1.0:-1.0;
-    double q = -0.5*(b + sign*sqrt(disc));
-    dist = max(q/a, c/q);
-
-    // double f = 0.5+0.5*sqrt(disc);
-    // dist = max(-b*f/a,-c/(f*b));
-
-    // if (b>=0.0)
-    //   double q = -0.5*(b+sqrt(disc));
-    // else
-    //   double q = 0.5*(-b+sqrt(disc));
-    // dist = max(q/a,c/q);
+    double f = 0.5+0.5*sqrt(disc);
+    dist = max(-b/a*f, -c/(b*f));
   }
-  // else if (disc < eps && disc > -eps)
-  //   dist = -0.5*b/a;
   else {
     dist = -1.0;
     return;
@@ -3303,8 +3269,24 @@ void ElemTet::FEMMarchingDistanceUpdateUpw(SVec<double,3> &X, SVec<double,dim> &
   // fprintf(stderr,"X(3) = (%e, %e, %e)\n",X[nodeNum(2)][0],X[nodeNum(2)][1],X[nodeNum(2)][2]);
   // fprintf(stderr,"X(4) = (%e, %e, %e)\n\n",X[nodeNum(3)][0],X[nodeNum(3)][1],X[nodeNum(3)][2]);
 
+  // dot product upwinding check
+  const double eps = 1.0e-10;
+  Vec3D ngrad(-(dx+dp1dxj[idx[3]][0]*dist), -(dy+dp1dxj[idx[3]][1]*dist),
+    -(dz+dp1dxj[idx[3]][2]*dist));
+  Vec3D e1(X[nodeNum(idx[0])][0]-X[nodenum][0],
+    X[nodeNum(idx[0])][1]-X[nodenum][1],
+    X[nodeNum(idx[0])][2]-X[nodenum][2]);
+  Vec3D e2(X[nodeNum(idx[1])][0]-X[nodenum][0],
+    X[nodeNum(idx[1])][1]-X[nodenum][1],
+    X[nodeNum(idx[1])][2]-X[nodenum][2]);
+  Vec3D e3(X[nodeNum(idx[2])][0]-X[nodenum][0],
+    X[nodeNum(idx[2])][1]-X[nodenum][1],
+    X[nodeNum(idx[2])][2]-X[nodenum][2]);
+  bool isUpwind = (ngrad*e1 > -eps && ngrad*e2 > -eps && ngrad*e3 > -eps);
+
   // // barycentric coordinate-based upwinding check
   // // bool print = false;
+  // const double eps = 1.0e-10;
   // double A[9] = {X[nodeNum(idx[0])][0]-X[nodenum][0],
   //   X[nodeNum(idx[1])][0]-X[nodenum][0],X[nodeNum(idx[2])][0]-X[nodenum][0],
   //   X[nodeNum(idx[0])][1]-X[nodenum][1],X[nodeNum(idx[1])][1]-X[nodenum][1],
@@ -3314,7 +3296,6 @@ void ElemTet::FEMMarchingDistanceUpdateUpw(SVec<double,3> &X, SVec<double,dim> &
   //   -(dz+dp1dxj[idx[3]][2]*dist));
   // double bary[3] = {grad[0], grad[1], grad[2]};
   // DenseMatrixOp<double,3,3>::lu(A,bary,3);
-  // const double eps = 1e-10;
   // bool isUpwind = !(bary[0] < -eps || bary[1] < -eps || bary[2] < -eps);
   // // if (!isUpwind) {print = true; fprintf(stderr,"bary1 = %e, bary2 = %e, bary3 = %e\n",
   // //   bary[0],bary[1],bary[2]); }
@@ -3352,9 +3333,9 @@ void ElemTet::FEMMarchingDistanceUpdateUpw(SVec<double,3> &X, SVec<double,dim> &
   //   }
   // }
 
-  // upwind check based on distances
-  bool isUpwind = (dist >= d2wall[nodeNum(idx[0])][0] &&
-    dist >= d2wall[nodeNum(idx[1])][0] && dist >= d2wall[nodeNum(idx[2])][0]);
+  // // upwind check based on distances
+  // bool isUpwind = (dist >= d2wall[nodeNum(idx[0])][0] &&
+  //   dist >= d2wall[nodeNum(idx[1])][0] && dist >= d2wall[nodeNum(idx[2])][0]);
 
   // bool print = false;
   // if (!isUpwind) print = true;
