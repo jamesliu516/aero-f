@@ -27,7 +27,7 @@ int FloodFill::floodFillSubDomain(SubDomain& sub,
 											 EdgeSet& edges, 
 											 const Vec<bool>& edgeIntersections, 
 											 const Vec<bool>& occluded_node, 
-											 Vec<int>&nodeColors) 
+											 Vec<int>&nodeColors)
 {
 
    // A color of -2 means that this node has no neighbors

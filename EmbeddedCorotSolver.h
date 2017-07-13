@@ -38,6 +38,12 @@ class EmbeddedCorotSolver {
   enum SymmetryAxis {NONE, AXIS_X, AXIS_Y, AXIS_Z} SymAxis;
   enum Type {BASIC, COROTATIONAL} type;
 
+  //used in case some of the elements must not be taken into account while rotating
+  bool containsNonWallSurfaces;
+  int numberOfWallNodes;
+  //bool isXoFixed;
+  //double* newX0;
+
 private:
 
   void computeCG(double *, double [3]);
@@ -61,8 +67,8 @@ public:
   void fixNodes(double *Xtilde, int nNodes, DistSVec<double,3> &X, DistSVec<double,3> &dX);
   void computeMeanDXForSlidingPlane(DistSVec<double,3> &dX, double meandX[3]);
 
-  void setup(double *Xtilde, int nNodes);
-  void solve(double *Xtilde, int nNodes, DistSVec<double,3> &X, DistSVec<double,3> &dX);
+  void setup(double *Xtilde, int nNodes,bool isNumberChanged);
+  void solve(double *Xtilde, int nNodes, DistSVec<double,3> &X, DistSVec<double,3> &dX,bool isNumberChanged);
   // setup computes the rotation and CG that will fit best for restarting
 		
 };

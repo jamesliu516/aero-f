@@ -12,36 +12,48 @@ class DistLevelSetStructure;
 class GeoState;
 class LevelSetStructure;
 
-template <int dimLS>
+template <int dimLS, int dim>
 class ReinitializeDistanceToWall
 {
   IoData &iod;
   Domain &dom;
   DistSVec<double, 1> d2wall;
+
+  // default wall distance
   DistVec<int> tag;
   DistVec<int> sortedNodes;
-  int *nSortedNodes, *nActiveNodes, *firstCheckedNode;
+  int *nActiveNodes, *firstCheckedNode; //,*nSortedNodes
   // DistSVec<double, dimLS> dummyPhi;
 
+  // FEM wall distance
+  int **activeElemList, **elemTag, **knownNodes;
+  int *nSortedElems, *nSortedNodes, *firstCheckedElem, *nUnsortedNodes;
+  DistVec<int> isSharedNode, nodeTag, unsortedNodes, unsortedTag;
+
   // predictors
-  double *predictorTime;
+  double predictorTime[3];
   DistSVec<double, 1> d2wnm1, d2wnm2;
   int countreinits, nPredTot;
 
   double tolmin, tolmax;
+  // double cw1;
 
 public:
   ReinitializeDistanceToWall(IoData &ioData, Domain &domain);
   ~ReinitializeDistanceToWall();
 
-  void ComputeWallFunction(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState, double t);
+  void ComputeWallFunction(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState, DistSVec<double, dim> &V, double t);
 
 private:
   // sjg, 04/2017: wall distance predictor
-  int UpdatePredictorsCheckTol(double t, DistLevelSetStructure &LSS, DistGeoState &distGeoState);
+  int UpdatePredictorsCheckTol(DistLevelSetStructure &LSS, DistGeoState &distGeoState, DistSVec<double, dim> &V, double t);
   void ReinitializePredictors(int update, double t, DistLevelSetStructure *LSS, DistSVec<double, 3> &X);
 
-  int PseudoFastMarchingMethod(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, int iterativeLevel);
+  // FEM wall distance
+  void PseudoFastMarchingMethod(DistLevelSetStructure &LSS, DistSVec<double, 3> &X);
+
+  // default wall distance
+  void PseudoFastMarchingMethod(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, int iterativeLevel);
   void IterativeMethodUpdate(DistLevelSetStructure &LSS, DistSVec<double, 3> &X);
   // void InitializeWallFunction(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState, double t);
   // void GetLevelsFromInterfaceAndMarchForward(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState);

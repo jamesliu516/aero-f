@@ -17,6 +17,9 @@ EmbeddedCorotSolver::EmbeddedCorotSolver(IoData &iodata, MatchNodeSet **mns, Dom
 {
 
   numStNodes = nNodes;
+  containsNonWallSurfaces =false;
+  numberOfWallNodes = nNodes;//make the first CG a more reasonnable guess;
+  //isXoFixed = false;
 
   numLocSub = domain->getNumLocSub();
 
@@ -185,7 +188,7 @@ void EmbeddedCorotSolver::computeRotGradAndJac(double *Xs, double RR[3][3],
 
   Vec3D rotGrad[3];
 
-  for (i = 0; i < numStNodes; i++) {
+  for (i = 0; i < numberOfWallNodes; i++) {
     double rd[3];
     // rotate the local vectors using R(n-1)
     rd[0] = Xs0[3*i+0] - cg0[0];
@@ -314,12 +317,12 @@ void EmbeddedCorotSolver::computeCG(double *Xs, double cg[3])
   
   for (int j=0; j<3; ++j) cg[j] = 0.0;
 
-  for (int i=0; i<numStNodes; ++i) {
+  for (int i=0; i<numberOfWallNodes; ++i) {
     for (int j=0; j<3; ++j)
       cg[j] += Xs[3*i+j];
   }
 
-  double invTotNd = 1.0 / double(numStNodes);
+  double invTotNd = 1.0 / double(numberOfWallNodes);
 
   for (int j=0; j<3; ++j)
     cg[j] *= invTotNd;
@@ -579,10 +582,11 @@ void EmbeddedCorotSolver::computeMeanDXForSlidingPlane(DistSVec<double,3> &dX, d
 
 //------------------------------------------------------------------------------
 
-void EmbeddedCorotSolver::solve(double *Xtilde, int nNodes, DistSVec<double,3> &X, DistSVec<double,3> &dX)
+void EmbeddedCorotSolver::solve(double *Xtilde, int nNodes, DistSVec<double,3> &X, DistSVec<double,3> &dX, bool isNumberChanged)
 {
+	numberOfWallNodes = nNodes;
 
-  if(nNodes!=numStNodes) {
+  if((nNodes!=numStNodes)&&(!isNumberChanged)) {
     com->fprintf(stderr,"Number of structure nodes has changed!\n");
     exit(-1);
   }
@@ -625,17 +629,38 @@ void EmbeddedCorotSolver::solve(double *Xtilde, int nNodes, DistSVec<double,3> &
 
 //------------------------------------------------------------------------------
 
-void EmbeddedCorotSolver::setup(double *Xtilde, int nNodes)
+void EmbeddedCorotSolver::setup(double *Xtilde, int nNodes,bool isNumberChanged)
 {
 
-  if(nNodes!=numStNodes) {
+
+	numberOfWallNodes = nNodes;
+  if((nNodes!=numStNodes)&&(!isNumberChanged)) {
     com->fprintf(stderr,"Number of structure nodes has changed!\n");
     exit(-1);
   }
-
+  /*
+  newX0 = new double[3*nNodes];
+  int current =0;
+  for(int i=0;i<numStNodes;i++){
+		  if(isSymmetry[i]==false){
+			  for (int j=0; j<3; j++)
+				  newX0[3*current + j] = Xs0[3*i + j];
+			  current+=1;
+		  }else{
+			  printf("node %d has been found Symmetry !\n",i);
+		  }
+  }
+  isXoFixed=true;
+  */
   // compute cg(n+1)
   double cg1[3];
   computeCG(Xtilde, cg1);
+  /*
+  //added by a2m
+  cg0[0] = cg1[0];
+  cg0[1] = cg1[1];
+  cg0[2] = cg1[2];
+  */
 
   switch(SymAxis) {
     case(EmbeddedCorotSolver::AXIS_X):
@@ -658,6 +683,8 @@ void EmbeddedCorotSolver::setup(double *Xtilde, int nNodes)
   cgN[0] = cg1[0];
   cgN[1] = cg1[1];
   cgN[2] = cg1[2];
+
+
 }
 
 //------------------------------------------------------------------------------
