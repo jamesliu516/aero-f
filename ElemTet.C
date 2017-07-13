@@ -3224,14 +3224,14 @@ void ElemTet::FEMMarchingDistanceUpdateUpw(SVec<double,3> &X, SVec<double,dim> &
     idx[3] = node;
   }
 
-  // check if solution is even possible (only for multiple updates and upwinding)
-  if (d2wall[nodenum][0] < d2wall[nodeNum(idx[0])][0] ||
-      d2wall[nodenum][0] < d2wall[nodeNum(idx[1])][0] ||
-      d2wall[nodenum][0] < d2wall[nodeNum(idx[2])][0]) {
-    // fprintf(stderr,"Skipped distance calc for a tet!\n");
-    dist = -1.0;
-    return;
-  }
+  // // check if solution is even possible (only for multiple updates and upwinding)
+  // if (d2wall[nodenum][0] < d2wall[nodeNum(idx[0])][0] ||
+  //     d2wall[nodenum][0] < d2wall[nodeNum(idx[1])][0] ||
+  //     d2wall[nodenum][0] < d2wall[nodeNum(idx[2])][0]) {
+  //   // fprintf(stderr,"Skipped distance calc for a tet!\n");
+  //   dist = -1.0;
+  //   return;
+  // }
 
   // solve quadratic form
   double dx = 0.0, dy = 0.0, dz = 0.0;
@@ -3269,20 +3269,20 @@ void ElemTet::FEMMarchingDistanceUpdateUpw(SVec<double,3> &X, SVec<double,dim> &
   // fprintf(stderr,"X(3) = (%e, %e, %e)\n",X[nodeNum(2)][0],X[nodeNum(2)][1],X[nodeNum(2)][2]);
   // fprintf(stderr,"X(4) = (%e, %e, %e)\n\n",X[nodeNum(3)][0],X[nodeNum(3)][1],X[nodeNum(3)][2]);
 
-  // dot product upwinding check
-  const double eps = 1.0e-10;
-  Vec3D ngrad(-(dx+dp1dxj[idx[3]][0]*dist), -(dy+dp1dxj[idx[3]][1]*dist),
-    -(dz+dp1dxj[idx[3]][2]*dist));
-  Vec3D e1(X[nodeNum(idx[0])][0]-X[nodenum][0],
-    X[nodeNum(idx[0])][1]-X[nodenum][1],
-    X[nodeNum(idx[0])][2]-X[nodenum][2]);
-  Vec3D e2(X[nodeNum(idx[1])][0]-X[nodenum][0],
-    X[nodeNum(idx[1])][1]-X[nodenum][1],
-    X[nodeNum(idx[1])][2]-X[nodenum][2]);
-  Vec3D e3(X[nodeNum(idx[2])][0]-X[nodenum][0],
-    X[nodeNum(idx[2])][1]-X[nodenum][1],
-    X[nodeNum(idx[2])][2]-X[nodenum][2]);
-  bool isUpwind = (ngrad*e1 > -eps && ngrad*e2 > -eps && ngrad*e3 > -eps);
+  // // dot product upwinding check
+  // const double eps = 1.0e-10;
+  // Vec3D ngrad(-(dx+dp1dxj[idx[3]][0]*dist), -(dy+dp1dxj[idx[3]][1]*dist),
+  //   -(dz+dp1dxj[idx[3]][2]*dist));
+  // Vec3D e1(X[nodeNum(idx[0])][0]-X[nodenum][0],
+  //   X[nodeNum(idx[0])][1]-X[nodenum][1],
+  //   X[nodeNum(idx[0])][2]-X[nodenum][2]);
+  // Vec3D e2(X[nodeNum(idx[1])][0]-X[nodenum][0],
+  //   X[nodeNum(idx[1])][1]-X[nodenum][1],
+  //   X[nodeNum(idx[1])][2]-X[nodenum][2]);
+  // Vec3D e3(X[nodeNum(idx[2])][0]-X[nodenum][0],
+  //   X[nodeNum(idx[2])][1]-X[nodenum][1],
+  //   X[nodeNum(idx[2])][2]-X[nodenum][2]);
+  // bool isUpwind = (ngrad*e1 > -eps && ngrad*e2 > -eps && ngrad*e3 > -eps);
 
   // // barycentric coordinate-based upwinding check
   // // bool print = false;
@@ -3302,36 +3302,36 @@ void ElemTet::FEMMarchingDistanceUpdateUpw(SVec<double,3> &X, SVec<double,dim> &
   // // if (isUpwind) {print = true; fprintf(stderr,"bary1 = %e, bary2 = %e, bary3 = %e\n",
   // //   bary[0],bary[1],bary[2]); }
 
-  // // tri intersection for upwind check (Moeller-Trumbore)
-  // // bool print = false;
-  // bool isUpwind;
-  // // const double eps = 1e-10;
-  // Vec3D grad(-(dx+dp1dxj[idx[3]][0]*dist),-(dy+dp1dxj[idx[3]][1]*dist),-(dz+dp1dxj[idx[3]][2]*dist));
-  // Vec3D e1(X[nodeNum(idx[1])][0]-X[nodeNum(idx[0])][0],
-  //   X[nodeNum(idx[1])][1]-X[nodeNum(idx[0])][1],
-  //   X[nodeNum(idx[1])][2]-X[nodeNum(idx[0])][2]);
-  // Vec3D e2(X[nodeNum(idx[2])][0]-X[nodeNum(idx[0])][0],
-  //   X[nodeNum(idx[2])][1]-X[nodeNum(idx[0])][1],
-  //   X[nodeNum(idx[2])][2]-X[nodeNum(idx[0])][2]);
-  // Vec3D triN = e1^e2/(e1.norm()*e2.norm());
-  // Vec3D pvec = grad^e2;
-  // double det = e1*pvec;
-  // if (det > -eps && det < eps) isUpwind = false; // {isUpwind = false; print = true; fprintf(stderr,"det = %e\n",det); }
-  // else {
-  //   double oodet = 1.0/det;
-  //   Vec3D tvec(X[nodenum][0]-X[nodeNum(idx[0])][0],
-  //     X[nodenum][1]-X[nodeNum(idx[0])][1], X[nodenum][2]-X[nodeNum(idx[0])][2]);
-  //   double bary1 = (tvec*pvec)*oodet;
-  //   if (bary1 < -eps || bary1 > 1.0+eps) isUpwind = false; // {isUpwind = false; print = true; fprintf(stderr,"bary1 = %e\n",bary1); }
-  //   else {
-  //     Vec3D qvec = tvec^e1;
-  //     double bary2 = (grad*qvec)*oodet;
-  //     if (bary2 < -eps || (bary1+bary2) > 1.0+eps) isUpwind = false; // {isUpwind = false; print = true; fprintf(stderr,"bary1 = %e, bary2 = %e\n",bary1,bary2); }
-  //     else isUpwind = true;
-  //     // if (isUpwind) {print = true; fprintf(stderr,"bary1 = %e, bary2 = %e\n",
-  //     //   bary1,bary2); }
-  //   }
-  // }
+  // tri intersection for upwind check (Moeller-Trumbore)
+  // bool print = false;
+  bool isUpwind;
+  const double eps = 1e-10;
+  Vec3D grad(-(dx+dp1dxj[idx[3]][0]*dist),-(dy+dp1dxj[idx[3]][1]*dist),-(dz+dp1dxj[idx[3]][2]*dist));
+  Vec3D e1(X[nodeNum(idx[1])][0]-X[nodeNum(idx[0])][0],
+    X[nodeNum(idx[1])][1]-X[nodeNum(idx[0])][1],
+    X[nodeNum(idx[1])][2]-X[nodeNum(idx[0])][2]);
+  Vec3D e2(X[nodeNum(idx[2])][0]-X[nodeNum(idx[0])][0],
+    X[nodeNum(idx[2])][1]-X[nodeNum(idx[0])][1],
+    X[nodeNum(idx[2])][2]-X[nodeNum(idx[0])][2]);
+  Vec3D triN = e1^e2/(e1.norm()*e2.norm());
+  Vec3D pvec = grad^e2;
+  double det = e1*pvec;
+  if (det > -eps && det < eps) isUpwind = false; // {isUpwind = false; print = true; fprintf(stderr,"det = %e\n",det); }
+  else {
+    double oodet = 1.0/det;
+    Vec3D tvec(X[nodenum][0]-X[nodeNum(idx[0])][0],
+      X[nodenum][1]-X[nodeNum(idx[0])][1], X[nodenum][2]-X[nodeNum(idx[0])][2]);
+    double bary1 = (tvec*pvec)*oodet;
+    if (bary1 < -eps || bary1 > 1.0+eps) isUpwind = false; // {isUpwind = false; print = true; fprintf(stderr,"bary1 = %e\n",bary1); }
+    else {
+      Vec3D qvec = tvec^e1;
+      double bary2 = (grad*qvec)*oodet;
+      if (bary2 < -eps || (bary1+bary2) > 1.0+eps) isUpwind = false; // {isUpwind = false; print = true; fprintf(stderr,"bary1 = %e, bary2 = %e\n",bary1,bary2); }
+      else isUpwind = true;
+      // if (isUpwind) {print = true; fprintf(stderr,"bary1 = %e, bary2 = %e\n",
+      //   bary1,bary2); }
+    }
+  }
 
   // // upwind check based on distances
   // bool isUpwind = (dist >= d2wall[nodeNum(idx[0])][0] &&

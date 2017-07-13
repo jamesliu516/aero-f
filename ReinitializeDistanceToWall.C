@@ -156,7 +156,7 @@ void ReinitializeDistanceToWall<dimLS,dim>::ComputeWallFunction(DistLevelSetStru
     }
     else if (iod.eqs.tc.tm.d2wall.type == WallDistanceMethodData::HYBRID) {
 
-      fprintf(stderr,"*** Warning *** Iterative wall distance is depreciated, calling non-iterative instead\n");
+      fprintf(stderr,"*** Warning *** Hybrid wall distance is depreciated, calling non-iterative instead\n");
       PseudoFastMarchingMethod(LSS, X, 0);
 
       // int iterativeLevel = 0;
@@ -235,15 +235,15 @@ void ReinitializeDistanceToWall<dimLS,dim>::PseudoFastMarchingMethod(
     dom.getCommunicator()->globalMin(1, &isDone);
     ++level;
 
-    // debug
-    if (level >= 100) break;
+    // // debug
+    // if (level >= 200) break;
   }
 
-  // debug
-  fprintf(stderr,"Before finalization (level %d): "
-    "Total sorted nodes = %d out of %d, unsorted nodes = %d (nSortedElems = %d "
-    "out of %d)\n",level-1,nSortedNodes[0],d2wall(0).len,nUnsortedNodes[0],
-    nSortedElems[0],dom.getSubDomain()[0]->numElems());
+  // // debug
+  // fprintf(stderr,"Before finalization (level %d): "
+  //   "Total sorted nodes = %d out of %d, unsorted nodes = %d (nSortedElems = %d "
+  //   "out of %d)\n",level-1,nSortedNodes[0],d2wall(0).len,nUnsortedNodes[0],
+  //   nSortedElems[0],dom.getSubDomain()[0]->numElems());
 
   // int sortedel = 0, sortedel2 = 0;
   // for (int iSub=0; iSub < nSub; iSub++) {
@@ -254,10 +254,10 @@ void ReinitializeDistanceToWall<dimLS,dim>::PseudoFastMarchingMethod(
   // }
   // fprintf(stderr,"Sum tag>-1 = %d, sum knownNodes=4 = %d\n",sortedel,sortedel2);
 
-  // finalize missed nodes
-  dom.pseudoFastMarchingMethodFinalize<1>(X, d2wall, knownNodes, nSortedNodes,
-    unsortedNodes, nUnsortedNodes, nodeTag, unsortedTag,
-    isSharedNode, &LSS);
+  // // finalize missed nodes
+  // dom.pseudoFastMarchingMethodFinalize<1>(X, d2wall, knownNodes, nSortedNodes,
+  //   unsortedNodes, nUnsortedNodes, nodeTag, unsortedTag,
+  //   isSharedNode, &LSS);
 
   // // debug (check completeness)
   // isDone = 1;
@@ -274,12 +274,6 @@ void ReinitializeDistanceToWall<dimLS,dim>::PseudoFastMarchingMethod(
   //     dom.getSubDomain()[0]->numElems());
   //   exit(-1);
   // }
-
-  // // debug
-  // fprintf(stderr,"At end of update (level %d): "
-  //   "Total sorted nodes = %d out of %d (nSortedElems = %d "
-  //   "out of %d)\n",level-1,nSortedNodes[0],d2wall(0).len,nSortedElems[0],
-  //   dom.getSubDomain()[0]->numElems());
 
   // dom.getCommunicator()->barrier();
   // exit(-1);
@@ -614,19 +608,20 @@ int ReinitializeDistanceToWall<dimLS,dim>::UpdatePredictorsCheckTol(
 
           // new delta definition based on SA model values
 
-          // double cb1 =
-          // double cw1 =
-          // double cw2 =
-          // double cw3 =
-          // double cw36 = cw3*cw3*cw3*cw3*cw3*cw3;
-          // double cb2 =
-          // double oosigma
-          // double ooK2 =
 
-          // double r =
-          // double g =
-          // double g6 = g*g*g*g*g*g;
-          // double oog6cw36 = 1.0/(g6+cw36);
+          // double cv1 = iod.eqs.tc.tm.sa.cv1;
+          // double cv13 = cv1*cv1*cv1;
+          // double cb1 = iod.eqs.tc.tm.sa.cb1;
+          // double cb2 = iod.eqs.tc.tm.sa.cb2;
+          // double cw2 = iod.eqs.tc.tm.sa.cw2;
+          // double cw3 = iod.eqs.tc.tm.sa.cw3;
+          // double cw36 = cw3*cw3*cw3*cw3*cw3*cw3;
+          // double oosigma = 1.0 / iod.eqs.tc.tm.sa.sigma;
+          // double ooK2 = 1.0 / (iod.eqs.tc.tm.sa.vkcst*iod.eqs.tc.tm.sa.vkcst);
+          // double cw1 = cb1*oovkcst2 + (1.0+cb2) * oosigma;
+
+          // cw1 /= iod.ref.reynolds_mu;
+          // oosigma /= iod.ref.reynolds_mu;
 
           // double rho =
           // double nu =
@@ -635,21 +630,33 @@ int ReinitializeDistanceToWall<dimLS,dim>::UpdatePredictorsCheckTol(
           // double ood2w2 = 1.0/(d2wall(iSub)[k][0]*d2wall(iSub)[k][0]);
           // double ood2w3 = 1.0/(d2wall(iSub)[k][0]*d2wall(iSub)[k][0]*d2wall(iSub)[k][0]);
 
+          // double Stilde =
+
+          // double rlim =
+          // double r = min(nut*ooStilde*ooK2*ood2w2,rlim);
+          // double r5 = r*r*r*r*r;
+          // double g = r+cw2*r*(r5-1.0);
+          // double g6 = g*g*g*g*g*g;
+          // double oog6cw36 = 1.0/(g6+cw36);
+          // double sixth = 1.0/6.0;
+          // double cw3g6pow1o6 = pow((1.0+cw36)*oog6cw36,sixth);
+          // double fw = g*cw3g6pow1o6;
+
+          // double xsi =
+          // double xsi3 = xsi*xsi*xsi;
+          // double fv1 = xsi3/(xsi3+cv13)
+          // double fv2 = 1.0-xsi/(1.0+xsi*fv1);
+
           // double gnut[3] = {};
           // double normgnut2 = gnut[0]*gnut[0]+gnut[1]*gnut[1]+gnut[2]*gnut[2];
           // double grhodotgnut = gnut[0]*grho[0]+gnut[1]*grho[1]+gnut[2]*grho[2];
 
-          // double fw =
-          // double fv2 =
-
-          // double Stilde =
-
           // double SAterm = rho*cb1*Stilde*nut - rho*cw1*fw*nut2*ood2w2
           //   + rho*cb2*oosigma*normgnut2 - (nu+nut)*oosigma*(grhodotgnut);
 
-          // double drdStilde = -nut/(Stilde*Stilde)*ooK2*ood2w2;
-          // double dgdr = 1+cw2*(6.0*pow(r,5.0)-1.0);
-          // double dfwdg = cw36*oog6cw36*pow((1+cw36)*oog6cw36,1.0/6.0);
+          // double drdStilde = (r>rlim)?-nut/(Stilde*Stilde)*ooK2*ood2w2:0.0;
+          // double dgdr = 1+cw2*(6.0*r5-1.0);
+          // double dfwdg = cw36*oog6cw36*cw3g6pow1o6;
           // double dStildedd = -2.0*nut*fv2*ooK2*ood2w3;
           // double Lambda = cb1*nut-cw1*nut2*ood2w2*dfwdg*dgdr*drdStilde;
           // double dSAterm = rho*(2.0*cw1*fw*nut2*ood2w3+Lambda*dStildedd);

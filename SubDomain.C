@@ -5414,7 +5414,6 @@ void SubDomain::minRcvDataAndAddElems(CommPattern<Scalar> &sp, Scalar (*w)[dim],
             nTets = NodeToElem->num(sharedNodeID);
             for (int k=0; k<nTets; k++) {
               tet = (*NodeToElem)[sharedNodeID][k];
-              // if (newUpdate) knownNodes[tet]++;
               knownNodes[tet]++;
               // remove addition to list for debug (check all tets with ghosts)
               if (knownNodes[tet] == 3 && tag[tet] < 0) {
@@ -9248,9 +9247,6 @@ void SubDomain::pseudoFastMarchingMethodFEM(SVec<double,3> &X, SVec<double,dimLS
           }
           if (isSharedNode[i])
             commFlag = 1;
-
-          // if (d2wall[i][0] < 1.0e-10)
-          //   fprintf(stderr,"Problem: LSS->distToInterface returned d2w = %e!\n",d2wall[i][0]);
         }
       }
     }
@@ -9398,7 +9394,7 @@ void SubDomain::pseudoFastMarchingMethodFEM(SVec<double,3> &X, SVec<double,dimLS
     // delete[] unsolvedNodes;
 
 
-    // if NOT allowing for multiple updates of nodes ----------------------
+    // if NOT allowing for multiple updates of nodes (within a level) ---------
 
     int node, tet, nei, nNeighs, inter = nSortedElems;
     double dist;
@@ -9457,8 +9453,8 @@ void SubDomain::pseudoFastMarchingMethodFEM(SVec<double,3> &X, SVec<double,dimLS
           if (knownNodes[nei] == 3) {
             elems[nei].FEMMarchingDistanceUpdate(X,d2wall,nodeTag,dist,nodetmp);
 
-            // debug
-            if (node != nodetmp) fprintf(stderr,"PROBLEM: updated the wrong node (node = %d, node 2 = %d)!\n",node,nodetmp);
+            // // debug
+            // if (node != nodetmp) fprintf(stderr,"PROBLEM: updated the wrong node (node = %d, node 2 = %d)!\n",node,nodetmp);
 
             if (dist > 0.0) { // found solution
             // fprintf(stderr,"Found an FEM update!\n");
@@ -9469,7 +9465,7 @@ void SubDomain::pseudoFastMarchingMethodFEM(SVec<double,3> &X, SVec<double,dimLS
               for (int k=0; k<nNeighs; k++) {
                 nei = (*NodeToElem)[node][k];
                 knownNodes[nei]++;
-// ADDED LINE TO ADD NEW ELEMS TO ACTIVE LIST!
+// ADD NEW ELEMS TO ACTIVE LIST!
                 if (knownNodes[nei] == 3 && tag[nei] < 0) {
                   tag[nei] = 1;
                   activeElemList[nSortedElems] = nei;
@@ -9486,6 +9482,7 @@ void SubDomain::pseudoFastMarchingMethodFEM(SVec<double,3> &X, SVec<double,dimLS
         // if (nodeTag[node] == 1) continue;
       }
     }
+
     for (int i = 0; i < nUnsolvedNodes; i++) {
       node = unsolvedNodes[i];
       if (nodeTag[node] < 0) {
@@ -9503,7 +9500,7 @@ void SubDomain::pseudoFastMarchingMethodFEM(SVec<double,3> &X, SVec<double,dimLS
         }
 
         assert(d2wall[node][0]<1.0e10);
-        if (d2wall[node][0] == 1.0e10) fprintf(stderr,"PROBLEM: couldn't find a tagged neighbor!\n");
+        // if (d2wall[node][0] == 1.0e10) fprintf(stderr,"PROBLEM: couldn't find a tagged neighbor!\n");
 
         nSortedNodes++;
         nodeTag[node] = 1;
@@ -9511,7 +9508,7 @@ void SubDomain::pseudoFastMarchingMethodFEM(SVec<double,3> &X, SVec<double,dimLS
         for (int j=0; j<nNeighs; j++) {
           nei = (*NodeToElem)[node][j];
           knownNodes[nei]++;
-// ADDED LINE TO ADD NEW ELEMS TO ACTIVE LIST!
+// ADD NEW ELEMS TO ACTIVE LIST!
           if (knownNodes[nei] == 3 && tag[nei] < 0) {
             tag[nei] = 1;
             activeElemList[nSortedElems] = nei;
@@ -9521,13 +9518,14 @@ void SubDomain::pseudoFastMarchingMethodFEM(SVec<double,3> &X, SVec<double,dimLS
         if (isSharedNode[node])
           commFlag = 1;
 
-        if (nodeTag[node] == 1) continue;
+        assert(nodeTag[node]==1);
+        // if (nodeTag[node] == 1) continue;
 
-        // resort to addition to unsorted list
-        fprintf(stderr,"No update found for node!\n");  // should never happen, can also delete if (d2wall<1e10 check above)
-        unsortedTag[node] = 1;
-        unsortedNodes[nUnsortedNodes] = node;
-        nUnsortedNodes++;
+        // // resort to addition to unsorted list
+        // fprintf(stderr,"No update found for node!\n");  // should never happen, can also delete if (d2wall<1e10 check above)
+        // unsortedTag[node] = 1;
+        // unsortedNodes[nUnsortedNodes] = node;
+        // nUnsortedNodes++;
       }
     }
 
@@ -9645,8 +9643,8 @@ void SubDomain::pseudoFastMarchingMethodFinalize(SVec<double,3> &X, SVec<double,
   // check unsorted nodes
   int node, nei, nNeighs, node2;
   double dist;
-  // bool stillUnknown = true;
-  bool stillUnknown = false;
+  bool stillUnknown = true;
+  // bool stillUnknown = false;
 
   // // debug
   // int it = 0;
@@ -9817,19 +9815,6 @@ void SubDomain::pseudoFastMarchingMethodFinalize(SVec<double,3> &X, SVec<double,
       // if (isSharedNode[node])
       //   commFlag = 1;
     // }
-
-
-      // if (d2wall[node][0] >= 100) {
-      //   fprintf(stderr,"PROBLEM: in finalizing distance, d2w = %e, isSharedNode[node] = %d\n",
-      //     d2wall[node][0],isSharedNode[node]);
-      //   nNeighs = NodeToNode->num(node);
-      //   for (int j = 0; j < nNeighs; j++) {
-      //     nei = (*NodeToNode)[node][j];
-      //     fprintf(stderr,"d2w(nei %d) = %e (isSharedNode = %d)\n",j,d2wall[nei][0],isSharedNode[nei]);
-      //   }
-      //   fprintf(stderr,"\n");
-      // }
-
 }
 
 //------------------------------------------------------------------------------
