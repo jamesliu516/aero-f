@@ -34,7 +34,7 @@ void ElemTet::computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
     {
         for(int i=0;i<4;++i)	isTetInactive = isTetInactive && !LSS->isActive(0,nodeNum(i));
 
-		for(int l=0; l<6; ++l) isAtTheInterface = isAtTheInterface || LSS->edgeIntersectsWall(0,edgeNum(l));
+		    for(int l=0; l<6; ++l) isAtTheInterface = isAtTheInterface || LSS->edgeIntersectsWall(0,edgeNum(l));
 
         if(isTetInactive) return;
     }
@@ -51,96 +51,92 @@ void ElemTet::computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
 
     if(ghostPoints && isAtTheInterface)
     {
-        // We don't want to update States associated to ghost points
-        GhostPoint<dim> *gp;
+      // We don't want to update States associated to ghost points
+      GhostPoint<dim> *gp;
 
-        for(int j=0; j<4; ++j)
-        {
-            for (int k=0; k<4; ++k) v[k] = V[nodeNum(k)];
-            int idx = nodeNum(j);
+      for(int j=0; j<4; ++j)
+      {
+          for (int k=0; k<4; ++k) v[k] = V[nodeNum(k)];
+          int idx = nodeNum(j);
 
-            if(LSS->isActive(0,idx))
-            {
-                // We add a contribution for active nodes only
-                for(int e=0; e<6; e++)
+          if(LSS->isActive(0,idx))
+          {
+              // We add a contribution for active nodes only
+              for(int e=0; e<6; e++)
+              {
+                if((j == edgeEnd(e,0) || j == edgeEnd(e,1)) && LSS->edgeIntersectsWall(0.0,edgeNum(e)))
                 {
-					if((j == edgeEnd(e,0) || j == edgeEnd(e,1)) && LSS->edgeIntersectsWall(0.0,edgeNum(e)))
-                    {
-                        int l = (j == edgeEnd(e,0) ? edgeEnd(e,1) : edgeEnd(e,0));
-                        gp = (*ghostPoints)[nodeNum(l)];
-                        if (gp) {
-                            LevelSetResult resij = LSS->getLevelSetDataAtEdgeCenter(0,edgeNum(e),true);
-                            int structureType = resij.structureType;
-                            switch (structureType) {
-                                case BoundaryData::ACTUATORDISK:{ // Actuator disk: use real node value instead of ghost population value
-                                    if(!LSS->isActive(0,l)) v[l] = gp->getPrimitiveState();
-                                    break;
-                                }
-                                case BoundaryData::POROUSWALL:{  // porous wall: use averaged value (1-alpha)*ghost  + alpha*active
-                                    // average the temperature and velcity and turbulence unknowns
-                                    for(int ghost_i = 1; ghost_i < dim;ghost_i ++)
-                                        v_ave[l][ghost_i] = (LSS->isActive(0,l)? (1 - resij.porosity)*gp->getPrimitiveState()[ghost_i]
-                                                                                 + resij.porosity*v[l][ghost_i]: gp->getPrimitiveState()[ghost_i]);
-                                    // If l is active use its density otherwise use ghost value's density.
-                                    v_ave[l][0] = (LSS->isActive(0,l)? v[l][0] : gp->getPrimitiveState()[0]);
-                                    v[l] = v_ave[l];
-                                    break;
-
-                                }
-                                default:{
-                                    v[l] = gp->getPrimitiveState();
-                                    break;
-                                }
-                            }
-
-
-                        }
+                  int l = (j == edgeEnd(e,0) ? edgeEnd(e,1) : edgeEnd(e,0));
+                  gp = (*ghostPoints)[nodeNum(l)];
+                  if (gp) {
+                    LevelSetResult resij = LSS->getLevelSetDataAtEdgeCenter(0,edgeNum(e),true);
+                    int structureType = resij.structureType;
+                    switch (structureType) {
+                      case BoundaryData::ACTUATORDISK:{ // Actuator disk: use real node value instead of ghost population value
+                        if(!LSS->isActive(0,l)) v[l] = gp->getPrimitiveState();
+                        break;
+                      }
+                      case BoundaryData::POROUSWALL:{  // porous wall: use averaged value (1-alpha)*ghost  + alpha*active
+                        // average the temperature and velcity and turbulence unknowns
+                        for(int ghost_i = 1; ghost_i < dim;ghost_i ++)
+                            v_ave[l][ghost_i] = (LSS->isActive(0,l)? (1 - resij.porosity)*gp->getPrimitiveState()[ghost_i]
+                                                                      + resij.porosity*v[l][ghost_i]: gp->getPrimitiveState()[ghost_i]);
+                        // If l is active use its density otherwise use ghost value's density.
+                        v_ave[l][0] = (LSS->isActive(0,l)? v[l][0] : gp->getPrimitiveState()[0]);
+                        v[l] = v_ave[l];
+                        break;
+                      }
+                      default:{
+                        v[l] = gp->getPrimitiveState();
+                        break;
+                      }
                     }
+                  }
                 }
+              }
 
-                fet->computeVolumeTerm(dp1dxj, d2w, v, reinterpret_cast<double *>(r),
-                                       s, pr, vol, X, nodeNum(), volume_id);
+              fet->computeVolumeTerm(dp1dxj, d2w, v, reinterpret_cast<double *>(r),
+                                      s, pr, vol, X, nodeNum(), volume_id);
 
-                for (int k=0; k<dim; ++k)
-                {
-                    R[idx][k] += vol * ( (r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] +
-                                          r[2][k] * dp1dxj[j][2]));// - fourth * s[k] );
-                }
-            }
-        }
-    }
-    else
-    {
-        // All the states are updated
-        for (int k=0; k<4; ++k) v[k] = V[nodeNum(k)];
-        bool porousTermExists =  fet->computeVolumeTerm(dp1dxj, d2w, v, reinterpret_cast<double *>(r),
-                                                        s, pr, vol, X, nodeNum(), volume_id);
-
-        for (int j=0; j<4; ++j)
-        {
-            int idx = nodeNum(j);
-
-            for (int k=0; k<dim; ++k)
-            {
+              for (int k=0; k<dim; ++k)
+              {
                 R[idx][k] += vol * ( (r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] +
-                                      r[2][k] * dp1dxj[j][2]) - fourth * s[k] );
-            }
-        }
+                                      r[2][k] * dp1dxj[j][2]));// - fourth * s[k] );
+              }
+          }
+      }
+  }
+  else
+  {
+    // All the states are updated
+    for (int k=0; k<4; ++k) v[k] = V[nodeNum(k)];
+    bool porousTermExists =  fet->computeVolumeTerm(dp1dxj, d2w, v, reinterpret_cast<double *>(r),
+                                                    s, pr, vol, X, nodeNum(), volume_id);
 
-        if (porousTermExists)
-        {
-            for (int j=0; j<4; ++j)
-            {
-                int idx = nodeNum(j);
+    for (int j=0; j<4; ++j)
+    {
+      int idx = nodeNum(j);
 
-                for (int k=1; k<4; ++k)	R[idx][k] += pr[3*j+k-1];
-            }
-        }
+      for (int k=0; k<dim; ++k)
+      {
+        R[idx][k] += vol * ( (r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] +
+                              r[2][k] * dp1dxj[j][2]) - fourth * s[k] );
+      }
     }
 
+    if (porousTermExists)
+    {
+      for (int j=0; j<4; ++j)
+      {
+        int idx = nodeNum(j);
+
+        for (int k=1; k<4; ++k)	R[idx][k] += pr[3*j+k-1];
+      }
+    }
+  }
 }
 
-
+//------------------------------------------------------------------------------
 
 // Included (MB)
 template<int dim>
@@ -3108,6 +3104,259 @@ void ElemTet::computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim>
+void ElemTet::FEMMarchingDistanceUpdate(SVec<double,3> &X, SVec<double,dim> &d2wall,
+                                        Vec<int> &tag, double &dist, int &nodenum)
+{
+  double dp1dxj[4][3];
+    computeGradientP1Function(X, dp1dxj);
+
+  // find node to solve
+  int node;
+  for (node=0; node<4; node++) {
+    if (tag[nodeNumTet[node]] < 0)
+      break;
+  }
+  assert(node<4);
+  // if (node >= 4)
+  //   fprintf(stderr,"PROBLEM: can't find the node (node = %d)!\n",node);
+
+  nodenum = nodeNum(node);
+
+  // circular connectivity to place unknown @ node 4
+  int idx[4] = {0, 1, 2, 3};
+  if (node != 3) {
+    idx[node] = 3;
+    idx[3] = node;
+  }
+
+  // // check if solution is even possible
+  // if (d2wall[nodenum][0] < d2wall[nodeNum(idx[0])][0] ||
+  //     d2wall[nodenum][0] < d2wall[nodeNum(idx[1])][0] ||
+  //     d2wall[nodenum][0] < d2wall[nodeNum(idx[2])][0]) {
+  //   // fprintf(stderr,"Skipped distance calc for a tet!\n");
+  //   dist = -1.0;
+  //   return;
+  // }
+
+  // // debug
+  // if (d2wall[nodeNum(idx[0])][0] > 100 ||
+  //     d2wall[nodeNum(idx[1])][0] > 100 ||
+  //     d2wall[nodeNum(idx[2])][0] > 100) {
+  //   fprintf(stderr,"Known distances are wrong: d2w = %e, %e, %e (node = %e)\n",
+  //     d2wall[nodeNum(idx[0])][0],d2wall[nodeNum(idx[1])][0],d2wall[nodeNum(idx[2])][0],
+  //     d2wall[nodenum][0]);
+  // }
+
+  // solve quadratic form
+  double dx = 0.0, dy = 0.0, dz = 0.0;
+  for (int i=0; i<3; i++) {
+    dx += dp1dxj[idx[i]][0]*d2wall[nodeNum(idx[i])][0];
+    dy += dp1dxj[idx[i]][1]*d2wall[nodeNum(idx[i])][0];
+    dz += dp1dxj[idx[i]][2]*d2wall[nodeNum(idx[i])][0];
+  }
+  double a = dp1dxj[idx[3]][0]*dp1dxj[idx[3]][0] + dp1dxj[idx[3]][1]*dp1dxj[idx[3]][1] + dp1dxj[idx[3]][2]*dp1dxj[idx[3]][2];
+  double b = 2.0 * (dp1dxj[idx[3]][0]*dx + dp1dxj[idx[3]][1]*dy + dp1dxj[idx[3]][2]*dz);
+  double c = dx*dx + dy*dy + dz*dz - 1.0;
+
+  // const double eps = 1.0e-10;
+  double q2 = a*c/(b*b);
+  double disc = 1.0-4.0*q2;
+  if (disc >= 0.0) {
+    double f = 0.5+0.5*sqrt(disc);
+    dist = max(-b/a*f, -c/(b*f));
+  }
+
+  // else if (disc < eps && disc > -eps)
+  //   dist = -0.5*b/a;
+  else {
+    dist = -1.0;
+    return;
+  }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void ElemTet::FEMMarchingDistanceUpdateUpw(SVec<double,3> &X, SVec<double,dim> &d2wall,
+                                        Vec<int> &tag, double &dist, int &nodenum)
+{
+  double dp1dxj[4][3];
+  // if (dp1dxj[0][0] == 0.0 && dp1dxj[0][1] == 0.0 && dp1dxj[0][2] == 0.0)
+    computeGradientP1Function(X, dp1dxj);
+
+  // find node to solve
+  int node;
+  // int node = -1;
+  // double dmax = -1.0;
+  for (node=0; node<4; node++) {
+    // if (d2wall[nodeNumTet[node]][0]==1.0e10)
+    if (tag[nodeNumTet[node]] < 0)
+      break;
+  // for (int i=0; i<4; i++) {
+  //   if (d2wall[nodeNumTet[i]][0]>dmax) {
+  //     dmax = d2wall[nodeNumTet[i]][0];
+  //     node = i;
+  //   }
+  }
+
+  assert(node<4);
+  // if (node >= 4)
+  //   fprintf(stderr,"PROBLEM: can't find the node (node = %d)!\n",node);
+  nodenum = nodeNum(node);
+
+  // // debug
+  // if (d2wall[nodenum][0] != 1.0e10) {
+  //   fprintf(stderr,"Should not be revisiting nodes (d2w = %e)\n",d2wall[nodenum][0]);
+  // }
+  // if (node == -1) {
+  //   fprintf(stderr,"Something's wrong in distance update: "
+  //     "d2w = %e, %e, %e, %e (d2wmax = %e)", d2wall[nodeNumTet[0]][0], d2wall[nodeNumTet[1]][0],
+  //     d2wall[nodeNumTet[2]][0], d2wall[nodeNumTet[3]][0], d2wmax);
+  //   exit(-1);
+  // }
+
+  // circular connectivity to place unknown @ node 4
+  int idx[4] = {0, 1, 2, 3};
+  if (node != 3) {
+    idx[node] = 3;
+    idx[3] = node;
+  }
+
+  // // check if solution is even possible (only for multiple updates and upwinding)
+  // if (d2wall[nodenum][0] < d2wall[nodeNum(idx[0])][0] ||
+  //     d2wall[nodenum][0] < d2wall[nodeNum(idx[1])][0] ||
+  //     d2wall[nodenum][0] < d2wall[nodeNum(idx[2])][0]) {
+  //   // fprintf(stderr,"Skipped distance calc for a tet!\n");
+  //   dist = -1.0;
+  //   return;
+  // }
+
+  // solve quadratic form
+  double dx = 0.0, dy = 0.0, dz = 0.0;
+  for (int i=0; i<3; i++) {
+    dx += dp1dxj[idx[i]][0]*d2wall[nodeNum(idx[i])][0];
+    dy += dp1dxj[idx[i]][1]*d2wall[nodeNum(idx[i])][0];
+    dz += dp1dxj[idx[i]][2]*d2wall[nodeNum(idx[i])][0];
+  }
+  double a = dp1dxj[idx[3]][0]*dp1dxj[idx[3]][0] + dp1dxj[idx[3]][1]*dp1dxj[idx[3]][1] + dp1dxj[idx[3]][2]*dp1dxj[idx[3]][2];
+  double b = 2.0 * (dp1dxj[idx[3]][0]*dx + dp1dxj[idx[3]][1]*dy + dp1dxj[idx[3]][2]*dz);
+  double c = dx*dx + dy*dy + dz*dz - 1.0;
+
+  double q2 = a*c/(b*b);
+  double disc = 1.0-4.0*q2;
+  if (disc >= 0.0) {
+    double f = 0.5+0.5*sqrt(disc);
+    dist = max(-b/a*f, -c/(b*f));
+  }
+  else {
+    dist = -1.0;
+    return;
+  }
+
+  // // DEBUG
+  // fprintf(stderr,"Unknown node = %d\n",node+1);
+  // fprintf(stderr,"A(1,:) = (%e, %e, %e)\n",A[0],A[1],A[2]);
+  // fprintf(stderr,"A(2,:) = (%e, %e, %e)\n",A[3],A[4],A[5]);
+  // fprintf(stderr,"A(3,:) = (%e, %e, %e)\n\n",A[6],A[7],A[8]);
+  // fprintf(stderr,"Xv(1) = (%e, %e, %e)\n",Xv[0][0],Xv[0][1],Xv[0][2]);
+  // fprintf(stderr,"Xv(2) = (%e, %e, %e)\n",Xv[1][0],Xv[1][1],Xv[1][2]);
+  // fprintf(stderr,"Xv(3) = (%e, %e, %e)\n",Xv[2][0],Xv[2][1],Xv[2][2]);
+  // fprintf(stderr,"Xv(4) = (%e, %e, %e)\n",Xv[3][0],Xv[3][1],Xv[3][2]);
+  // fprintf(stderr,"X(1) = (%e, %e, %e)\n",X[nodeNum(0)][0],X[nodeNum(0)][1],X[nodeNum(0)][2]);
+  // fprintf(stderr,"X(2) = (%e, %e, %e)\n",X[nodeNum(1)][0],X[nodeNum(1)][1],X[nodeNum(1)][2]);
+  // fprintf(stderr,"X(3) = (%e, %e, %e)\n",X[nodeNum(2)][0],X[nodeNum(2)][1],X[nodeNum(2)][2]);
+  // fprintf(stderr,"X(4) = (%e, %e, %e)\n\n",X[nodeNum(3)][0],X[nodeNum(3)][1],X[nodeNum(3)][2]);
+
+  // // dot product upwinding check
+  // const double eps = 1.0e-10;
+  // Vec3D ngrad(-(dx+dp1dxj[idx[3]][0]*dist), -(dy+dp1dxj[idx[3]][1]*dist),
+  //   -(dz+dp1dxj[idx[3]][2]*dist));
+  // Vec3D e1(X[nodeNum(idx[0])][0]-X[nodenum][0],
+  //   X[nodeNum(idx[0])][1]-X[nodenum][1],
+  //   X[nodeNum(idx[0])][2]-X[nodenum][2]);
+  // Vec3D e2(X[nodeNum(idx[1])][0]-X[nodenum][0],
+  //   X[nodeNum(idx[1])][1]-X[nodenum][1],
+  //   X[nodeNum(idx[1])][2]-X[nodenum][2]);
+  // Vec3D e3(X[nodeNum(idx[2])][0]-X[nodenum][0],
+  //   X[nodeNum(idx[2])][1]-X[nodenum][1],
+  //   X[nodeNum(idx[2])][2]-X[nodenum][2]);
+  // bool isUpwind = (ngrad*e1 > -eps && ngrad*e2 > -eps && ngrad*e3 > -eps);
+
+  // // barycentric coordinate-based upwinding check
+  // // bool print = false;
+  // const double eps = 1.0e-10;
+  // double A[9] = {X[nodeNum(idx[0])][0]-X[nodenum][0],
+  //   X[nodeNum(idx[1])][0]-X[nodenum][0],X[nodeNum(idx[2])][0]-X[nodenum][0],
+  //   X[nodeNum(idx[0])][1]-X[nodenum][1],X[nodeNum(idx[1])][1]-X[nodenum][1],
+  //   X[nodeNum(idx[2])][1]-X[nodenum][1],X[nodeNum(idx[0])][2]-X[nodenum][2],
+  //   X[nodeNum(idx[1])][2]-X[nodenum][2],X[nodeNum(idx[2])][2]-X[nodenum][2]};
+  // Vec3D grad(-(dx+dp1dxj[idx[3]][0]*dist), -(dy+dp1dxj[idx[3]][1]*dist),
+  //   -(dz+dp1dxj[idx[3]][2]*dist));
+  // double bary[3] = {grad[0], grad[1], grad[2]};
+  // DenseMatrixOp<double,3,3>::lu(A,bary,3);
+  // bool isUpwind = !(bary[0] < -eps || bary[1] < -eps || bary[2] < -eps);
+  // // if (!isUpwind) {print = true; fprintf(stderr,"bary1 = %e, bary2 = %e, bary3 = %e\n",
+  // //   bary[0],bary[1],bary[2]); }
+  // // if (isUpwind) {print = true; fprintf(stderr,"bary1 = %e, bary2 = %e, bary3 = %e\n",
+  // //   bary[0],bary[1],bary[2]); }
+
+  // tri intersection for upwind check (Moeller-Trumbore)
+  // bool print = false;
+  bool isUpwind;
+  const double eps = 1e-10;
+  Vec3D grad(-(dx+dp1dxj[idx[3]][0]*dist),-(dy+dp1dxj[idx[3]][1]*dist),-(dz+dp1dxj[idx[3]][2]*dist));
+  Vec3D e1(X[nodeNum(idx[1])][0]-X[nodeNum(idx[0])][0],
+    X[nodeNum(idx[1])][1]-X[nodeNum(idx[0])][1],
+    X[nodeNum(idx[1])][2]-X[nodeNum(idx[0])][2]);
+  Vec3D e2(X[nodeNum(idx[2])][0]-X[nodeNum(idx[0])][0],
+    X[nodeNum(idx[2])][1]-X[nodeNum(idx[0])][1],
+    X[nodeNum(idx[2])][2]-X[nodeNum(idx[0])][2]);
+  Vec3D triN = e1^e2/(e1.norm()*e2.norm());
+  Vec3D pvec = grad^e2;
+  double det = e1*pvec;
+  if (det > -eps && det < eps) isUpwind = false; // {isUpwind = false; print = true; fprintf(stderr,"det = %e\n",det); }
+  else {
+    double oodet = 1.0/det;
+    Vec3D tvec(X[nodenum][0]-X[nodeNum(idx[0])][0],
+      X[nodenum][1]-X[nodeNum(idx[0])][1], X[nodenum][2]-X[nodeNum(idx[0])][2]);
+    double bary1 = (tvec*pvec)*oodet;
+    if (bary1 < -eps || bary1 > 1.0+eps) isUpwind = false; // {isUpwind = false; print = true; fprintf(stderr,"bary1 = %e\n",bary1); }
+    else {
+      Vec3D qvec = tvec^e1;
+      double bary2 = (grad*qvec)*oodet;
+      if (bary2 < -eps || (bary1+bary2) > 1.0+eps) isUpwind = false; // {isUpwind = false; print = true; fprintf(stderr,"bary1 = %e, bary2 = %e\n",bary1,bary2); }
+      else isUpwind = true;
+      // if (isUpwind) {print = true; fprintf(stderr,"bary1 = %e, bary2 = %e\n",
+      //   bary1,bary2); }
+    }
+  }
+
+  // // upwind check based on distances
+  // bool isUpwind = (dist >= d2wall[nodeNum(idx[0])][0] &&
+  //   dist >= d2wall[nodeNum(idx[1])][0] && dist >= d2wall[nodeNum(idx[2])][0]);
+
+  // bool print = false;
+  // if (!isUpwind) print = true;
+  // Vec3D grad(-(dx+dp1dxj[idx[3]][0]*dist),-(dy+dp1dxj[idx[3]][1]*dist),-(dz+dp1dxj[idx[3]][2]*dist));
+
+  // if (print) {
+  //   fprintf(stderr,"X1 = %e, %e, %e\n",X[nodeNum(idx[0])][0],X[nodeNum(idx[0])][1],X[nodeNum(idx[0])][2]);
+  //   fprintf(stderr,"X2 = %e, %e, %e\n",X[nodeNum(idx[1])][0],X[nodeNum(idx[1])][1],X[nodeNum(idx[1])][2]);
+  //   fprintf(stderr,"X3 = %e, %e, %e\n",X[nodeNum(idx[2])][0],X[nodeNum(idx[2])][1],X[nodeNum(idx[2])][2]);
+  //   fprintf(stderr,"X4 = %e, %e, %e\n",X[nodeNum(idx[3])][0],X[nodeNum(idx[3])][1],X[nodeNum(idx[3])][2]);
+  //   fprintf(stderr,"-grad = %e, %e, %e\n",grad[0], grad[1], grad[2]);
+  //   fprintf(stderr,"dist = %e (d2w = %e, %e, %e)\n\n",dist,d2wall[nodeNum(idx[0])][0],d2wall[nodeNum(idx[1])][0],d2wall[nodeNum(idx[2])][0]);
+  // }
+
+  // bool isUpwind = true;
+
+  if (!isUpwind) dist = -1.0;
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim>
 void ElemTet::FastMarchingDistanceUpdate(int node, Vec<int> &Tag, int level,
                                     SVec<double,3> &X,SVec<double,dim> &d2wall)
@@ -3124,7 +3373,6 @@ void ElemTet::FastMarchingDistanceUpdate(int node, Vec<int> &Tag, int level,
     exit(-1);
   }
   double distance = computeDistancePlusPhi(i,X,d2wall);
-  // d2wall[nodeNum(i)][0] = min(d2wall[nodeNum(i)][0], distance);
   d2wall[node][0] = min(d2wall[node][0], distance);
 }
 

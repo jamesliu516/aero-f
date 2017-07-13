@@ -15,6 +15,8 @@
 #include "parser/Assigner.h"
 #include <Connectivity.h>
 #include <queue>
+#include <exception>
+
 
 #include "TsRestart.h"
 
@@ -100,32 +102,6 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iodata,
 
   }
 
-	ContainsAnEmbeddedConstraint = false;
-	if(iod.embed.Embedded_Constraint.ConstraintType != EmbeddedConstraint::NOCONSTRAINT){
-		ContainsAnEmbeddedConstraint =true;
-		/*if(iod.embed.Embedded_Constraint.ConstraintType == EmbeddedConstraint::SYMMETRY){
-		ConstraintType =1;
-			switch(iod.embed.Embedded_Constraint.Symmetry_Constraint.Normal){
-				//read the plane normal
-				case SymmetryConstraint::Nx :
-					ConstraintNormal = 0;
-				break;
-				case SymmetryConstraint::Ny :
-                              	ConstraintNormal = 1;
-                              break;
-				case SymmetryConstraint::Nz :
-                              	ConstraintNormal = 2;
-                              break;
-				default :
-					ConstraintNormal = -1;
-			}
-			//read the plane position
-			ConstraintPosition = iod.embed.Embedded_Constraint.Symmetry_Constraint.planeposition;
-			//a2m : there's probably a better way to encode this, and inlet must still be implemented
-			 *
-		}*/
-	}
-
   interpolatedNormal = (iod.embed.structNormal==EmbeddedFramework::NODE_BASED) ? true : false;
 
   //initialize the following to 0(NULL)
@@ -142,6 +118,7 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iodata,
 
   rotOwn = 0;
 
+  numberOfWallNodes =0;
   faceID = NULL;
   surfaceID = NULL;
 
@@ -152,11 +129,6 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iodata,
 
   boundaryConditionsMap = map<int, BoundaryData::Type>();
 
-
-
-  //SymmetryPlaneList  = new map<int,SymmetryInfo>();
-
-
   //Load files. Compute structure normals. Initialize PhysBAM Interface
   if(nNodes && xyz && nElems && abc)
     init(nNodes, xyz, nElems, abc, struct_restart_pos);
@@ -164,6 +136,7 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iodata,
     double XScale = (iod.problem.mode==ProblemData::NON_DIMENSIONAL) ? 1.0 : iod.ref.rv.length;
     init(struct_mesh, struct_restart_pos, XScale);
   }
+  //Set type of all intersections
   checkInputFileCorecnessEmbeddedContraint();
   setStructureType();
   setWallInformation();//has to be after setStructureType
@@ -293,6 +266,7 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface,
       		copyForType[l] = tolower(copyForType[l]);
       		l++;
       	 }
+      	 //Arthur Morlot : Read the name of the file and detects keyword for type
       	 if(strstr(copyForType,"symmetry")!=NULL){
       		if(boundaryConditionsMap.count(surfaceid)!=0){
       			printf("It seems that you have two Embedded surfaces with the same Id. \n. The id is %d. Aborting simulation\n",surfaceid);
@@ -607,6 +581,8 @@ void DistIntersectorPhysBAM::setPorosity() {
 }
 //----------------------------------------------------------------------------
 void DistIntersectorPhysBAM::getSymmetryPlanesInformation() {
+	//Created by Arthur Morlot. This function stores the information of the different symmetry planes in a list.
+	//This list will be read later to decide which nodes should be flagged as inactive
   map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
   map<int,BoundaryData *> &bcMap = iod.bc.bcMap.dataMap;
 
@@ -663,18 +639,41 @@ void DistIntersectorPhysBAM::setStructureType() {
       }
     }
   }
+  setNodeType();
 }
 //----------------------------------------------------------------------------
+void DistIntersectorPhysBAM::setNodeType() {
+	//added by arthur morlot. This list stores the type of each node of the embedded surface
+	//this is used in embeddedALE to decide which nodes must be considered for the translation/rotation
+
+
+  nodeType = new int[numStNodes];
+
+  for(int i=0; i<numStNodes; i++) {
+	  nodeType[i] = BoundaryData::SYMMETRYPLANE;//default
+	  //the default is symmetry Plane so that if a node has no element, it does not count in the embeddedALE computation
+  }
+  //iterate over all the elements
+  for(int i=0;i<numStElems;i++){
+	  int currentType = structureType[i];
+	  int firstNode = stElem[i][0];
+	  int secondNode =stElem[i][1];
+	  int ThirdNode = stElem[i][2];
+	  nodeType[firstNode]=currentType;
+	  nodeType[secondNode]=currentType;
+	  nodeType[ThirdNode]=currentType;
+  }
+}
+//----------------------------------------------------------------------------
+//Specify wall temperature
 void DistIntersectorPhysBAM::setWallInformation() {
 	map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
 	map<int,BoundaryData *> &bcMap = iod.bc.bcMap.dataMap;
 
 	wallTemperature = new double[numStElems];
-	isWallFunction = new int[numStElems];
 	heatFluxType = new int[numStElems];
 	for(int i=0; i<numStElems; i++) {
 		wallTemperature[i] = -1.0;//default
-		isWallFunction[i] = BcsWallData::FULL;
 		heatFluxType[i] = SurfaceData::ADIABATIC;
 	}
 	if(faceID) {
@@ -682,20 +681,27 @@ void DistIntersectorPhysBAM::setWallInformation() {
 				if(structureType[i] == BoundaryData::WALL){
 					map<int,SurfaceData*>::iterator it = surfaceMap.find(faceID[i]);
 					 if (it != surfaceMap.end()) {//The surface have been specified
-						 wallTemperature[i] = it->second->temp;
-						 heatFluxType[i] = it->second->type;
-						 isWallFunction[i] = iod.bc.wall.integration;
+						 if(it->second->temp >0){//temperature is defined
+							 wallTemperature[i] = it->second->temp;
+						 }else{//read the wall temperature
+							 wallTemperature[i] = iod.bc.wall.temperature;
+						 }
+						 if(it->second->type == -1){//default value, undecided
+							 heatFluxType[i] = iod.bc.wall.type;
+						 }else{//the value was specified
+							 heatFluxType[i] = it->second->type;
+						 }
 					 }
 					 else{//Using the information available for wall when not specified
 						 wallTemperature[i] = iod.bc.wall.temperature;
 						 heatFluxType[i] =iod.bc.wall.type;
-						 isWallFunction[i] = iod.bc.wall.integration;
 				 }
 			}
 		}
 	}
 }
 //----------------------------------------------------------------------------
+//Arthur Morlot : Created as a demonstrator. Currently not in use.
 void DistIntersectorPhysBAM::setMassInflow(){
 	  map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
 	  map<int,BoundaryData *> &bcMap = iod.bc.bcMap.dataMap;
@@ -730,12 +736,10 @@ void DistIntersectorPhysBAM::setActuatorDisk() {
   actuatorDiskMethod = new int[numStElems];
   actuatorDiskPressureJump = new double[numStElems];
   actuatorDiskReconstructionMethod = new int[numStElems];
-  isCorrectedMethod = new bool[numStElems];
   for(int i=0; i<numStElems; i++) {
-    actuatorDiskMethod[i] = 1;
+	  actuatorDiskMethod[i] = ActuatorDisk::SOURCETERM;
 	  actuatorDiskPressureJump[i] = 0.0;
 	  actuatorDiskReconstructionMethod[i] = -1;
-	  isCorrectedMethod[i] = false;
   }
   gamma = iod.eqs.fluidModel.gasModel.specificHeatRatio;
   if(faceID) {
@@ -751,28 +755,30 @@ void DistIntersectorPhysBAM::setActuatorDisk() {
         		}
         	}
           if((structureType[i]== BoundaryData::ACTUATORDISK)||(setToActuator)) {
-        	  actuatorDiskPressureJump[i] = it2->second->pressureJump;
+        	  actuatorDiskPressureJump[i] = it2->second->actuatorDisk.pressureJump;
         	  if (iod.problem.mode == ProblemData::DIMENSIONAL)
         		  actuatorDiskPressureJump[i]/= iod.ref.rv.pressure;
             //--------------------------------
-            if(it2->second->actuatorDiskMethod == BoundaryData::SOURCETERM){
-              actuatorDiskMethod[i] = 1;
+            if(it2->second->actuatorDisk.actuatorDiskMethod == ActuatorDisk::SOURCETERM){
+              actuatorDiskMethod[i] = ActuatorDisk::SOURCETERM;
             }
-            else if(it2->second->actuatorDiskMethod == BoundaryData::RIEMANNSOLVER){
-              actuatorDiskMethod[i] = 2;
+            else if(it2->second->actuatorDisk.actuatorDiskMethod == ActuatorDisk::RIEMANNSOLVER){
+              actuatorDiskMethod[i] = ActuatorDisk::RIEMANNSOLVER;
+            }else if(it2->second->actuatorDisk.actuatorDiskMethod == ActuatorDisk::SOURCETERMINCOMPLETE){
+            	actuatorDiskMethod[i] = ActuatorDisk::SOURCETERMINCOMPLETE;
             }else{
               com->fprintf(stderr, "!!! WARNING: no actuator disk method specified, defaulting to SOURCETERM\n\n");
               actuatorDiskMethod[i] = 1;
             }
 
             //--------------------------------
-        	  if(it2->second->velocityReconstructionMethod == BoundaryData::AVERAGE){
+        	  if(it2->second->actuatorDisk.velocityReconstructionMethod == ActuatorDisk::AVERAGE){
         		  actuatorDiskReconstructionMethod[i] = 1;
         	  }
-        	  else if(it2->second->velocityReconstructionMethod == BoundaryData::FIRSTORDER){
+        	  else if(it2->second->actuatorDisk.velocityReconstructionMethod == ActuatorDisk::FIRSTORDER){
         		  actuatorDiskReconstructionMethod[i] = 2;
         	  }
-        	  else if(it2->second->velocityReconstructionMethod == BoundaryData::SECONDORDER){
+        	  else if(it2->second->actuatorDisk.velocityReconstructionMethod == ActuatorDisk::SECONDORDER){
         		  actuatorDiskReconstructionMethod[i] = 3;
         	  }
                 //--------------------------------
@@ -780,6 +786,7 @@ void DistIntersectorPhysBAM::setActuatorDisk() {
         		  com->fprintf(stderr, "!!! WARNING: no actuator disk method specified, defaulting to Average\n\n");
         		  actuatorDiskReconstructionMethod[i] = 1;
         	  }
+        	  /*
         	  if(it2->second->sourceTermExpression==BoundaryData::OLD){
         		  isCorrectedMethod[i] = false;
         	  }
@@ -790,6 +797,7 @@ void DistIntersectorPhysBAM::setActuatorDisk() {
         		  com->fprintf(stderr, "!!! WARNING: no Source term method specified for the actuator Disk, defaulting to Corrected\n\n");
         		  isCorrectedMethod[i] = true;
         	  }
+        	  */
           }
         }
       }
@@ -798,21 +806,27 @@ void DistIntersectorPhysBAM::setActuatorDisk() {
 }
 //----------------------------------------------------------------------------
 void DistIntersectorPhysBAM::checkInputFileCorecnessEmbeddedContraint(){
-
+	//created by arthur Morlot. This checks that the Porous walls and actuator disks in the simulation have the associated values in the input file
 	  map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
 	  map<int,BoundaryData *> &bcMap = iod.bc.bcMap.dataMap;
 	  for(std::map<int,BoundaryData::Type>::iterator it3 = boundaryConditionsMap.begin(); it3 != boundaryConditionsMap.end(); it3++){
 		  int k =  it3->first;
 		  BoundaryData::Type type = it3->second;
 		  if(type ==BoundaryData::ACTUATORDISK || type == BoundaryData::POROUSWALL ){
-			  map<int,BoundaryData *>::iterator it2 = bcMap.find(k);
-			  if(it2 == bcMap.end()) {
-				  printf("Porous wall or Actuator disk detected in the Embedded Structure file, but no information on the porosity or jump value could be found in the Fluid file.\n aborting simulation");
-				  exit(1);
-			  }
+			  map<int,SurfaceData*>::iterator it = surfaceMap.find(k);
+			  	      if (it != surfaceMap.end()) {
+			  	        map<int,BoundaryData *>::iterator it2 = bcMap.find(it->second->bcID);
+			  	        if(it2 == bcMap.end()) { // the bc data have not  been defined
+							  printf("Porous wall or Actuator disk detected in the Embedded Structure file, but no information on the porosity or jump value could be found in the Fluid file even if the surface is defined.\n aborting simulation");
+							  exit(1);
+			  	        }
+			  	      }else{
+			  	    	printf("Porous wall or Actuator disk detected in the Embedded Structure file, but no information on the porosity or jump value could be found in the Fluid file.\n aborting simulation");
+			  	    	exit(1);
+			  	      }
 		  }
 	  }
-	}
+}
 //----------------------------------------------------------------------------
 void DistIntersectorPhysBAM::setdXdSb(int N, double* dxdS, double* dydS, double* dzdS){
 
@@ -1097,8 +1111,8 @@ void DistIntersectorPhysBAM::buildSolidNormals() {
 void DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X,
 													 DistSVec<double,3> &Xn, IoData &iod,
 													 DistVec<int> *point_based_id,
-													 DistVec<int>* oldStatus /*for restart*/)
-{
+													 DistVec<int>* oldStatus /*for restart*/) {
+
   if(this->numFluid<1) {
     fprintf(stderr,"ERROR: numFluid = %d!\n", this->numFluid);
     exit(-1);
@@ -1153,6 +1167,7 @@ void DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X,
 #pragma omp parallel for
   for(int i = 0; i < numLocSub; ++i) {
     intersector[i]->hasCloseTriangle(X(i), Xn(i), (*boxMin)(i), (*boxMax)(i), tId(i));
+
     numIntersectedEdges += intersector[i]->findIntersections(X(i), tId(i), *com);
   }
 
@@ -1164,7 +1179,7 @@ void DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X,
     int count = 0;
     for(pointIt  = iod.embed.embedIC.pointMap.dataMap.begin();
       pointIt != iod.embed.embedIC.pointMap.dataMap.end();
-      pointIt ++) {
+      pointIt ++){
       int myID = pointIt->second->fluidModelID;
       int myPID = ++count;
       Vec3D xyz(pointIt->second->x, pointIt->second->y,pointIt->second->z);
@@ -1187,6 +1202,7 @@ void DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X,
   }
 
   if (iod.mf.levelSetMethod == MultiFluidData::TRIANGULATED) {
+
     points.push_back(pair<Vec3D,int>(Vec3D(0.0,0.0,0.0),0));
     points.push_back(pair<Vec3D,int>(Vec3D(1.0,0.0,0.0),1));
   }
@@ -1257,24 +1273,12 @@ void DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X,
   ///////////////////////////////////////////////////////
   //a2m : Symmetry plane :
   getSymmetryPlanesInformation();
-  if(SymmetryPlaneList.size()!=0){
+if(SymmetryPlaneList.size()!=0){
 #pragma omp parallel for
    	 	for(int iSub = 0; iSub < numLocSub; ++iSub){
   			intersector[iSub]->setInactiveNodesSymmetry((X(iSub)),SymmetryPlaneList);
    	 }
-  }
-
-
-//TODO : depercated, to remove in next versions
-//a2m : embedded constraint
-  if(ContainsAnEmbeddedConstraint == true){
-	printf("you are using a deprecated version of the infinte constraint. Infinite constraint are to be added in the top file.");
-  	//EmbeddedConstraintNormal = ConstraintNormal;
-  	#pragma omp parallel for
-   	 	for(int iSub = 0; iSub < numLocSub; ++iSub){
-  			intersector[iSub]->findIntersectionsEmbeddedConstraint((X(iSub)));
-  		}
-  	}
+}
 }
 
 //----------------------------------------------------------------------------
@@ -1294,6 +1298,7 @@ void DistIntersectorPhysBAM::findActiveNodesUsingFloodFill(const DistVec<bool>& 
 																				intersector[iSub]->is_occluded,
 																				nodeColors(iSub));
 	}
+
 
   floodFill->generateConnectionsSet(*domain,*com,nodeColors);
 
@@ -1320,6 +1325,7 @@ void DistIntersectorPhysBAM::findActiveNodesUsingFloodFill(const DistVec<bool>& 
 					 PhysBAM::getGlobSubNum(*domain->getSubDomain()[iSub]).Value(),
 					 nodeColors(iSub)[ffNode],IntersectorPhysBAM::INSIDE);
 #endif
+      //set the farfield color as active in the map
       globalColorToGlobalStatus[localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(*domain->getSubDomain()[iSub]),nodeColors(iSub)[ffNode])]]=IntersectorPhysBAM::INSIDE;
     }
   }
@@ -1337,6 +1343,7 @@ void DistIntersectorPhysBAM::findActiveNodesUsingFloodFill(const DistVec<bool>& 
 			  localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(sub),nodeColors(iSub)[sub.getElemNodeNum(iElem)[0]])],
 			  PhysBAM::getGlobSubNum(sub).Value(),nodeColors(iSub)[sub.getElemNodeNum(iElem)[0]], iP->second);
 #endif
+          //set the Id of all the users defined point as the predefined id in the map
           globalColorToGlobalStatus[localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(sub),nodeColors(iSub)[sub.getElemNodeNum(iElem)[0]])]]=iP->second;
         }
       }
@@ -1349,7 +1356,15 @@ void DistIntersectorPhysBAM::findActiveNodesUsingFloodFill(const DistVec<bool>& 
   for(int iSub=0;iSub<numLocSub;++iSub){
     SubDomain& sub=intersector[iSub]->subD;
     for(int i=0;i<(*status)(iSub).size();++i){
-      int color=localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(sub),nodeColors(iSub)[i])];
+    	int color =0;
+    	try{
+    	  color=localToGlobalColorMap.at(pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(sub),nodeColors(iSub)[i]));
+        }
+    	catch(std::exception& e){
+    		//the node has no color. This usually happend if you have multiple embedded structures and one of them was messed by the flood fill
+    		//in that case, we put the color to a non existing one to enforce the nodes to be ghost
+    		color = -1;
+    	}
       if((*is_occluded)(iSub)[i] || globalColorToGlobalStatus.find(color)==globalColorToGlobalStatus.end()){
 #if 0 // Debug output
         fprintf(stderr,"Flagging node %d as OUTSIDE COLOR %d, based on occluded = %d, global_color found = %d\n",
@@ -1627,6 +1642,7 @@ DistIntersectorPhysBAM::updatePhysBAMInterface(Vec3D *particles, int size,
 /** compute the intersections, node statuses and normals for the initial geometry */
 int DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts, bool findStatus, bool retry)
 {
+
 	if(dtfLeft < -1.0e-6)
 	{
     fprintf(stderr,"There is a bug in time-step!\n");
@@ -1787,6 +1803,7 @@ void IntersectorPhysBAM::reFlagRealNodes(SVec<double,3>& X, Vec<bool> *bk_isActi
 }
 
 //----------------------------------------------------------------------------
+//Arthur Morlot : This function was created by Dante De Santis. It computes the Intersections for The new version of the ghost points
 void IntersectorPhysBAM::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X,
 																	  SVec<double,3> &boxMin, SVec<double,3> &boxMax,
 																	  bool withViscousTerms)
@@ -2121,7 +2138,7 @@ void IntersectorPhysBAM::setInactiveNodesSymmetry(SVec<double,3>& X,std::map<int
 	//loop over the symmetry planes
 	for(std::map<int,SymmetryInfo>::iterator it = SymmetryPlaneList.begin(); it!=SymmetryPlaneList.end(); ++it){
 		SymmetryInfo planeInfo = it->second;
-		if(true){printf("We found a symmetry plane !\n it's number is %d\n it's normal is  %f %f %f and the point is %f %f %f \n",it->first,planeInfo.normal.v[0],planeInfo.normal.v[1],planeInfo.normal.v[2],planeInfo.xCoordinate,planeInfo.yCoordinate,planeInfo.zCoordinate);}
+		if(false){printf("We found a symmetry plane !\n it's number is %d\n it's normal is  %f %f %f and the point is %f %f %f \n",it->first,planeInfo.normal.v[0],planeInfo.normal.v[1],planeInfo.normal.v[2],planeInfo.xCoordinate,planeInfo.yCoordinate,planeInfo.zCoordinate);}
 		for (int l=0; l<edges.size(); l++) {
 			int (*ptr)[2] = edges.getPtr();//gives us a pointer on the edge
 			int p = ptr[l][0], q = ptr[l][1];//p is the iD of node 1, and q is the Id of node 2
@@ -2152,12 +2169,13 @@ void IntersectorPhysBAM::setInactiveNodesSymmetry(SVec<double,3>& X,std::map<int
 	}
 }
 
-
 //TODO : flag for review(arthur Morlot)
+/*
 int IntersectorPhysBAM::findIntersectionsEmbeddedConstraint(SVec<double,3>&X){
 	return 0;
 	printf("You are calling a deprecated method. infinite planes must be defined in the top file.");
 }
+*/
 
 //----------------------------------------------------------------------------
 
@@ -2183,7 +2201,7 @@ int IntersectorPhysBAM::hasCloseTriangle(SVec<double,3> &X, SVec<double,3> &Xn,
     VECTOR<double,3> min_corner(boxMin[i][0],boxMin[i][1],boxMin[i][2]), max_corner(boxMax[i][0],boxMax[i][1],boxMax[i][2]);
 
     int shrunk_index;
-	  bool occluded;
+	 bool occluded;
 
     tId[i] = physbam_interface.HasCloseTriangle(locIndex+1, VECTOR<double,3>(X[i][0],X[i][1],X[i][2]),
 																min_corner, max_corner, &shrunk_index, &occluded, &candidates);
@@ -2201,10 +2219,11 @@ int IntersectorPhysBAM::hasCloseTriangle(SVec<double,3> &X, SVec<double,3> &Xn,
 
       // sjg, 06/2017: need distance for wall distance anyways so should always do this
       // if(distIntersector.cracking || 1 /*need a flag for 'multi-phase'*/) {
-        findNodeClosestPoint(i,x0,candidates); // fill closest[i], distance[i]
-    }
+        findNodeClosestPoint(i,x0,candidates); //fill closest[i]
+    // }
 
-    else {
+    } else {
+
       is_occluded[i]=false;
       closest[i].mode = -1; // set to "far"
     }
@@ -2283,7 +2302,8 @@ int IntersectorPhysBAM::findIntersections(SVec<double,3>&X,Vec<bool>& tId,Commun
           edge_intersects[l] = true;
           CrossingEdgeRes[l] = edgeRes(i).y;
           ReverseCrossingEdgeRes[l] = edgeRes(i).z;
-	  if(true){//TODO : do only if actuator disk
+	  if(true){//If actuator disk : set edge_intersect as false so that distance computations and ghost node computations do not involve it
+		  	   //instead, put edge_intersects_constraint as true
     	    if(fabs(distIntersector.actuatorDiskPressureJump[CrossingEdgeRes[l].triangleID-1])>0){//this edge itesects an actuator disk
     		  edge_intersects_constraint[l]=true;
     		  edge_intersects[l] = false;
@@ -2415,12 +2435,10 @@ IntersectorPhysBAM::getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j, 
   lsRes.porosity   = distIntersector.porosity[trueTriangleID];
   lsRes.structureType   = distIntersector.structureType[trueTriangleID];
   lsRes.wallTemperature   = distIntersector.wallTemperature[trueTriangleID];
-  lsRes.isWallFunction   = distIntersector.isWallFunction[trueTriangleID];
   lsRes.heatFluxType   = distIntersector.heatFluxType[trueTriangleID];
   lsRes.actuatorDiskMethod = distIntersector.actuatorDiskMethod[trueTriangleID];
 
   lsRes.actuatorDiskPressureJump = distIntersector.actuatorDiskPressureJump[trueTriangleID];
-  lsRes.isCorrectedMethod = distIntersector.isCorrectedMethod[trueTriangleID];
   lsRes.gamma = distIntersector.gamma;
   lsRes.actuatorDiskReconstructionMethod = distIntersector.actuatorDiskReconstructionMethod[trueTriangleID];
   lsRes.massInflow = distIntersector.massJump[trueTriangleID];
@@ -2636,10 +2654,12 @@ void IntersectorPhysBAM::findNodeClosestPoint(const int nodeId, Vec3D& x0, ARRAY
     // Speed improvement.  When we are doing cracking,
     // we do not add phantom triangles to the triangle hierarchy.
     // Added by Alex Main (October 2013)
+    //
     if (!distIntersector.cracking)
       trId = cand(iArray)-1;
     else
       trId = distIntersector.cracking->mapTriangleID(cand(iArray)-1);
+
 
     dist = std::abs(project(x0, trId, xi[0], xi[1])); // project on plane
     xi[2] = 1.0-xi[0]-xi[1];
@@ -2654,8 +2674,7 @@ void IntersectorPhysBAM::findNodeClosestPoint(const int nodeId, Vec3D& x0, ARRAY
           double d2l = std::abs(edgeProject(x0, p1, p2, alpha)); // project on line
           if(alpha>=-eps && alpha<=1.0+eps) {
             if(dist>d2l) {dist = d2l; mod = 1; n1 = p1; n2 = p2; xi[i] = 0.0; xi[(i+1)%3] = 1.0-alpha; xi[(i+2)%3] = alpha;}
-          }
-          else {
+          } else {
             if(alpha<-eps) {
               double d2p = (x0-structX[p1]).norm();
               if(dist>d2p) {dist = d2p; mod = 2; n1 = n2 = p1; xi[i] = xi[(i+2)%3] = 0.0; xi[(i+1)%3] = 1.0;}
@@ -2725,7 +2744,7 @@ double IntersectorPhysBAM::edgeProject(Vec3D x0, Vec3D& xA, Vec3D& xB, double &a
   return (P-x0).norm();
 }
 
-//------------------------------------------------------------------------------
+//----------------------------------------------------------------------------
 
 double IntersectorPhysBAM::edgeProject(Vec3D x0, int n1, int n2, double &alpha) const
 {
@@ -2735,25 +2754,23 @@ double IntersectorPhysBAM::edgeProject(Vec3D x0, int n1, int n2, double &alpha) 
   Vec3D xB = structX[n2];
   return edgeProject(x0, xA, xB, alpha);
 }
-
-//------------------------------------------------------------------------------
+//----------------------------------------------------------------------------
 
 double IntersectorPhysBAM::project(Vec3D x0, int tria, double& xi1, double& xi2) const
 {
   int (*triNodes)[3] = distIntersector.stElem;
+  Vec3D *structX = (distIntersector.getStructPosition()).data();
 
   int iA = triNodes[tria][0];
   int iB = triNodes[tria][1];
   int iC = triNodes[tria][2];
-
-  Vec3D *structX = (distIntersector.getStructPosition()).data();
-  Vec3D xA = structX[iA];
+   Vec3D xA = structX[iA];
   Vec3D xB = structX[iB];
   Vec3D xC = structX[iC];
 
   Vec3D ABC = (xB-xA)^(xC-xA);
-  double RareaABC = 1.0/ABC.norm();
-  Vec3D dir = ABC*RareaABC;
+  double areaABC = ABC.norm();
+  Vec3D dir = 1.0/areaABC*ABC;
 
   //calculate the projection.
   double dist = (x0-xA)*dir;
@@ -2762,8 +2779,8 @@ double IntersectorPhysBAM::project(Vec3D x0, int tria, double& xi1, double& xi2)
   //calculate barycentric coords.
   double areaPBC = (((xB-xp)^(xC-xp))*dir);
   double areaPCA = (((xC-xp)^(xA-xp))*dir);
-  xi1 = areaPBC*RareaABC;
-  xi2 = areaPCA*RareaABC;
+  xi1 = areaPBC/areaABC;
+  xi2 = areaPCA/areaABC;
 
   return dist;
 }

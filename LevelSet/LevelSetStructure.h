@@ -22,13 +22,11 @@ struct LevelSetResult {
   Vec3D normVel; //NOTE: this is the velocity, NOT normal velocity.
   int structureType;
   double wallTemperature;
-  int isWallFunction;
   int heatFluxType;
   double porosity;
   double actuatorDiskPressureJump;
   int actuatorDiskMethod;
   double gamma;
-  bool isCorrectedMethod;
   int actuatorDiskReconstructionMethod;
   double massInflow;
 
@@ -39,17 +37,15 @@ struct LevelSetResult {
     alpha = xi[0] = xi[1] = -1.0;
     trNodes[0] = trNodes[1] = trNodes[2] = -1;
     gradPhi = normVel = dnds = 0.0;
-      structureType = 1;
+    structureType = 1;
     porosity = 0.0;
     actuatorDiskPressureJump = 0.0;
 	  actuatorDiskMethod = 1;
     actuatorDiskReconstructionMethod = -1;
     gamma = 0.0;//error value
-    isCorrectedMethod = false;
     massInflow = 0.0;
     dads = 0.0;
     wallTemperature = -1.0;
-    isWallFunction = BcsWallData::FULL;
     heatFluxType = SurfaceData::ISOTHERMAL;
    }
 
@@ -66,10 +62,8 @@ struct LevelSetResult {
 	        actuatorDiskPressureJump = 0.0;
 	        actuatorDiskReconstructionMethod = -1;
 	        gamma = 0.0;//error value
-	        isCorrectedMethod = false;
 	        massInflow = 0.0;
 	        wallTemperature = -1.0;
-	        isWallFunction = BcsWallData::FULL;
 	        heatFluxType = SurfaceData::ISOTHERMAL;
 		    dnds = 0.0;
 		    dads = 0.0;
@@ -187,7 +181,9 @@ LevelSetStructure(Vec<int>& status,
     bool isSwept(double t, int n) const                   { return is_swept[n]; }
     bool isActive(double t, int n) const                  { return is_active[n]; }
     bool isOccluded(double t, int n) const                { return is_occluded[n]; }
-    bool edgeIntersectsStructure(double t, int eij) const { return (edge_intersects[eij])||edge_intersects_constraint[eij];}//&&(!edge_intersects_constraint[eij]);}//{ return edge_intersects[eij];}
+    //edgeIntersectsStructure : True for all kind of structures
+    bool edgeIntersectsStructure(double t, int eij) const { return (edge_intersects[eij])||edge_intersects_constraint[eij];}
+    //edgeIntersectsWall : True for Structure Type Wall and Symmetry Plane
     bool edgeIntersectsWall(double t,int eij) const {return (edge_intersects[eij]);}
     bool edgeIntersectsConstraint(double t, int eij) const { return edge_intersects_constraint[eij]; }
     void computeSwept(Vec<int> &swept){
@@ -293,6 +289,7 @@ class DistLevelSetStructure {
     virtual int getNumStructElems() = 0;
     virtual int (*getStructElems())[3] = 0;
     virtual int getSurfaceID(int) = 0;
+    virtual int (*getNodesType()) =0;
 
     virtual void updateXb(double) = 0;
     virtual void setdXdSb(int, double*, double*, double*) = 0;

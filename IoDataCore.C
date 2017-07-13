@@ -1004,10 +1004,6 @@ BoundaryData::BoundaryData()
   kenergy = -1.0;
   epsilon = -1.0;
   porosity = 0.0;
-  velocityReconstructionMethod = (VelocityReconstructionMethod) AVERAGE;
-  actuatorDiskMethod = (ActuatorDiskMethod)SOURCETERM;
-  sourceTermExpression = (SourceTermExpression)OLD;
-  pressureJump = 0.0;
   massFlow = 0.0;
 
 
@@ -1018,11 +1014,12 @@ BoundaryData::BoundaryData()
 
 }
 
+
 //------------------------------------------------------------------------------
 
 Assigner *BoundaryData::getAssigner()  {
 
-  ClassAssigner *ca = new ClassAssigner("normal", 20, nullAssigner);
+  ClassAssigner *ca = new ClassAssigner("normal", 18, nullAssigner);
 
   new ClassToken<BoundaryData>(ca, "Type", this,
                               (int BoundaryData::*)(&BoundaryData::type), 7,
@@ -1041,27 +1038,19 @@ Assigner *BoundaryData::getAssigner()  {
   new ClassDouble<BoundaryData>(ca, "Eps", this, &BoundaryData::epsilon);
 
   new ClassDouble<BoundaryData>(ca, "Porosity", this, &BoundaryData::porosity);
-  new ClassDouble<BoundaryData>(ca, "PressureJump", this, &BoundaryData::pressureJump);
-  new ClassToken<BoundaryData>(ca, "VelocityReconstructionMethod", this,
-                                (int BoundaryData::*)(&BoundaryData::velocityReconstructionMethod), 3,
-                                 "Average", AVERAGE, "FirstOrder", FIRSTORDER, "SecondOrder", SECONDORDER);
-  new ClassToken<BoundaryData>(ca, "ActuatorDiskMethod", this,
-                               (int BoundaryData::*)(&BoundaryData::actuatorDiskMethod), 2,
-                               "SourceTerm", SOURCETERM, "RiemannSolver", RIEMANNSOLVER);
-  new ClassToken<BoundaryData>(ca, "SourceTermExpression", this,
-                                  (int BoundaryData::*)(&BoundaryData::sourceTermExpression), 2,
-                                   "Old", OLD, "Corrected", CORRECTED);
 
-  new ClassDouble<BoundaryData>(ca, "MassFlow", this, &BoundaryData::massFlow);
+
+  new ClassDouble<BoundaryData>(ca, "MassFlowEmbedded", this, &BoundaryData::massFlow);
 
   new ClassArray<BoundaryData>(ca, "InletVariableSet", this, &BoundaryData::inVar, 12, "Rho", DENSITY, "Vx", VX, "Vy", VY, "Vz", VZ, "P", PRESSURE, "T", TEMPERATURE, "P_T", TOTALPRESSURE, "T_T", TOTALTEMPERATURE, "MDot", MDOT, "NuTilde", NUTILDE, "K", KENERGY, "Eps", EPSILON);
   new ClassArray<BoundaryData>(ca, "OutletVariableSet", this, &BoundaryData::outVar, 12, "Rho", DENSITY, "Vx", VX, "Vy", VY, "Vz", VZ, "P", PRESSURE, "T", TEMPERATURE, "P_T", TOTALPRESSURE, "T_T", TOTALTEMPERATURE, "MDot", MDOT, "NuTilde", NUTILDE, "K", KENERGY, "Eps", EPSILON);
+
+  actuatorDisk.setup("ActuatorDisk",ca);
 
   return ca;
 }
 
 //------------------------------------------------------------------------------
-
 BcsData::BcsData()
 {
 
@@ -1081,7 +1070,26 @@ void BcsData::setup(const char *name, ClassAssigner *father)
   bcMap.setup("BoundaryData", ca);
 
 }
+//--------------------------------------------------------------
 
+ActuatorDisk::ActuatorDisk(){
+	velocityReconstructionMethod = (VelocityReconstructionMethod) AVERAGE;
+	actuatorDiskMethod = (ActuatorDiskMethod)SOURCETERM;
+	sourceTermExpression = (SourceTermExpression)OLD;
+	pressureJump = 0.0;
+}
+//------------------------------------------------------------------------------
+
+void ActuatorDisk::setup(const char *name, ClassAssigner *father){
+	ClassAssigner *ca = new ClassAssigner(name, 3, father);
+	new ClassDouble<ActuatorDisk>(ca, "PressureJump", this, &ActuatorDisk::pressureJump);
+	new ClassToken<ActuatorDisk>(ca, "VelocityReconstructionMethod", this,
+		                                (int ActuatorDisk::*)(&ActuatorDisk::velocityReconstructionMethod), 3,
+		                                 "Average", AVERAGE, "Constant", FIRSTORDER, "Linear", SECONDORDER);
+	new ClassToken<ActuatorDisk>(ca, "ActuatorDiskMethod", this,
+		                               (int ActuatorDisk::*)(&ActuatorDisk::actuatorDiskMethod), 3,
+		                               "SourceTerm", SOURCETERM, "RiemannSolver", RIEMANNSOLVER,"SourceTermIncomplete", SOURCETERMINCOMPLETE);
+}
 //------------------------------------------------------------------------------
 
 GasModelData::GasModelData()
@@ -6283,40 +6291,41 @@ int IoData::checkFileNames()
     if (eqs.tc.tm.type == TurbulenceModelData::TWO_EQUATION_KE)
       bc.wall.integration = BcsWallData::WALL_FUNCTION;
 
-	 if (eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES &&
-		  strcmp(input.d2wall, "") == 0 && problem.framework == ProblemData::BODYFITTED) {
-      com->fprintf(stderr, "*** Error: no distance to wall file given\n");
-      ++error;
-    }
+  if ((eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES ||
+      eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS) &&
+  	  strcmp(input.d2wall, "") == 0 && problem.framework == ProblemData::BODYFITTED) {
+    com->fprintf(stderr, "*** Error: no distance to wall file given\n");
+    ++error;
+  }
 
-    if (bc.wall.integration == BcsWallData::WALL_FUNCTION)
+  if (bc.wall.integration == BcsWallData::WALL_FUNCTION)
+  {
+	 if(problem.framework == ProblemData::BODYFITTED)
 	 {
-		 if(problem.framework == ProblemData::BODYFITTED)
+		 if (bc.wall.delta < 0.0)
 		 {
-			 if (bc.wall.delta < 0.0)
-			 {
-				 bc.wall.delta_given = false;
+			 bc.wall.delta_given = false;
 
-        com->fprintf(stderr, "*** Error: no delta value given\n");
-        ++error;
-      }
-			 else bc.wall.delta_given = true;
+       com->fprintf(stderr, "*** Error: no delta value given\n");
+       ++error;
+     }
+		 else bc.wall.delta_given = true;
     }
     else
-		 {
-			 bc.wall.delta_given = true;
-			 if(bc.wall.delta < 0.0)
-			 {
-				 bc.wall.delta_given = false;
-      bc.wall.delta = 0.0;
-  }
-		 }
-	 }
-	 else
 	 {
-		 bc.wall.delta_given = false;
-		 bc.wall.delta = 0.0;
-	 }
+  	  bc.wall.delta_given = true;
+  	  if(bc.wall.delta < 0.0)
+  	  {
+  		  bc.wall.delta_given = false;
+        bc.wall.delta = 0.0;
+      }
+    }
+  }
+  else
+  {
+	  bc.wall.delta_given = false;
+	  bc.wall.delta = 0.0;
+  }
 
   } else {
     output.transient.nutturb = "";

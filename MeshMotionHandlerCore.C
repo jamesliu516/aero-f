@@ -2262,11 +2262,37 @@ void EmbeddedALEMeshMotionHandler::setup(DistSVec<double,3> &X, DistSVec<double,
 
   double *Xs = new double [3*distLSS->getNumStructNodes()];
 
-  for (int i=0; i<Xstruct.size(); i++)
-    for (int j=0; j<3; j++)
-      Xs[3*i + j] = Xstruct[i][j];
+  //now we want to remove the symmetry planes from Xs
 
-  cs->setup(Xs, distLSS->getNumStructNodes());
+    int *Nodetype = distLSS->getNodesType();
+    //naive implementation with two fo loops for now TODO
+    int newStructNodeNumber=0;
+
+    //bool* isSymmetry = new bool[distLSS->getNumStructNodes()];
+    for(int i=0;i<distLSS->getNumStructNodes();i++){
+  	  if(Nodetype[i]!=BoundaryData::SYMMETRYPLANE){
+  		  newStructNodeNumber+=1;
+  		  //isSymmetry[i]=false;
+  	  }
+    }
+    double* newXs = new double[3*newStructNodeNumber];
+
+    int current =0;
+      for (int i=0; i<Xstruct.size(); i++){
+    	if(Nodetype[i]!=BoundaryData::SYMMETRYPLANE){
+    		for (int j=0; j<3; j++)
+    			newXs[3*current + j] = Xstruct[i][j];
+    		current+=1;
+    	}
+      }
+
+      bool isSomethingRemoved=false;
+        if(newStructNodeNumber!=distLSS->getNumStructNodes()){
+      	  //we have removed some symmetry plane
+      	  isSomethingRemoved=true;
+        }
+  //cs->setup(Xs, distLSS->getNumStructNodes());
+  cs->setup(newXs, newStructNodeNumber,isSomethingRemoved);//,isSymmetry);
   cs->applyProjector(Xdot);
 
   delete [] Xs;
@@ -2284,11 +2310,40 @@ double EmbeddedALEMeshMotionHandler::update(bool *lastIt, int it, double t,
 
   double *Xs = new double [3*distLSS->getNumStructNodes()];
 
-  for (int i=0; i<Xstruct.size(); i++)
-    for (int j=0; j<3; j++)
-      Xs[3*i + j] = Xstruct[i][j];
+  //now we want to remove the symmetry planes from Xs
 
-  cs->solve(Xs, distLSS->getNumStructNodes(), X, dX);
+  int *Nodetype = distLSS->getNodesType();
+  //naive implementation with two fo loops for now TODO
+  int newStructNodeNumber=0;
+ // bool* isSymmetry = new bool[distLSS->getNumStructNodes()];
+  for(int i=0;i<distLSS->getNumStructNodes();i++){
+	  if(Nodetype[i]!=BoundaryData::SYMMETRYPLANE){
+		  newStructNodeNumber+=1;
+		  //isSymmetry[i]=false;
+	  }//else{
+		  //isSymmetry[i]=true;
+	  //}
+  }
+  double* newXs = new double[3*newStructNodeNumber];
+
+
+  int current =0;
+  for (int i=0; i<Xstruct.size(); i++){
+	if(Nodetype[i]!=BoundaryData::SYMMETRYPLANE){
+		for (int j=0; j<3; j++)
+			newXs[3*current + j] = Xstruct[i][j];
+		current+=1;
+	}else{
+		//printf("node %d has been found symmetry",i);
+	}
+  }
+  bool isSomethingRemoved=false;
+  if(newStructNodeNumber!=distLSS->getNumStructNodes()){
+	  //we have removed some symmetry plane
+	  isSomethingRemoved=true;
+  }
+  //cs->solve(Xs, distLSS->getNumStructNodes(), X, dX);
+  cs->solve(newXs, newStructNodeNumber, X, dX,isSomethingRemoved);
   cs->applyProjector(Xdot);
 
   if (mms) {
@@ -2320,7 +2375,7 @@ double EmbeddedALEMeshMotionHandler::update(bool *lastIt, int it, double t,
   }
 
   delete [] Xs;
-
+  delete [] newXs;
   return dt;
 
 }

@@ -41,6 +41,7 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   bool linRecAtInterface, viscSecOrder;
   int simType;        // 0: steady-state    1: unsteady
   int riemannNormal;  // 0: struct normal;  1: fluid normal (w.r.t. control volume face)
+  //arthur morlot : adding a map to know which Xs belongs to which structure
 
   double (*dFs)[3]; // derivative of force distribution on the structure surface
 
@@ -69,7 +70,7 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   DistSVec<double,dim> *Wextij;
 
-  ReinitializeDistanceToWall<1> *wall_computer;
+  ReinitializeDistanceToWall<1,dim> *wall_computer;
   // ------------------------------------------------------------------------------------
 
   // Copies for fail safe ----- ---------------------------------------------------------

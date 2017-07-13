@@ -109,17 +109,16 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
 
     std::map <int, BoundaryData::Type> boundaryConditionsMap;
     int *faceID;
+    //Embedded Constraints information
 	int *structureType;
 	double* wallTemperature;
-	int* isWallFunction;
 	int* heatFluxType;
     double *porosity;
     bool *isSymmetryPlane;//Embedded plane
-  int * actuatorDiskMethod;
+	int * actuatorDiskMethod;
     double *actuatorDiskPressureJump;
     int *actuatorDiskReconstructionMethod;//method used to compute the velocity at the interface. 1 : vi+Vj/2 2:vi 3 Vi*grad (extrapolation)
     double *massJump;
-    bool* isCorrectedMethod;//For the actuatorDisk
     double gamma;//Value of Gamma, used for the actuatorDiskComputaion
 
     // surface rotation
@@ -133,15 +132,17 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     CrackingSurface *cracking; //only a pointer.
     //embedded Constraint
     //added by arthur Morlot, February 2016
-    bool ContainsAnEmbeddedConstraint;
-    int ConstraintType;//0 is no Constraint, 1 is symmetry, 2 is inlet
     std::map<int,SymmetryInfo> SymmetryPlaneList;//Map of all the symmetry planes in the file to decide which nodes must be innactives.
+
+    //added but arthur morlot on june 20 2017 for EmbeddedALE
+    int numberOfWallNodes;
+    int* nodeType;
 
     double interface_thickness;
 
 	 bool externalSI;
 
-	 bool isoThermalwall;
+	 bool isoThermalwall;	 
 	 double Twall;
 
 	 bool withViscousTerms;
@@ -154,7 +155,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     double *triSize;
     Vec3D *triNorms;
     Vec3D *nodalNormal; //memory allocated only if interpolatedNormal == true
-
+  
     DistSVec<double,3> *X; //pointer to fluid node coords
     DistSVec<double,3> *Xn; //pointer to fluid node coords at previous time
 
@@ -185,12 +186,13 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     void getSymmetryPlanesInformation();
     void setMassInflow();
     void setActuatorDisk();
+    void setNodeType();
     void checkInputFileCorecnessEmbeddedContraint();
     void makerotationownership();
     void updatebc();
 
     void setdXdSb(int, double*, double*, double*); //
-    void updateXb(double); //
+    void updateXb(double); //  
 
     EdgePair makeEdgePair(int,int,int);
     bool checkTriangulatedSurface();
@@ -199,7 +201,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     void initialize(Domain *, DistSVec<double,3> &X, DistSVec<double,3> &Xn, IoData &iod, DistVec<int>* point_based_id = 0,
                     DistVec<int>* oldStatus = 0);
     void updateStructure(double *xs, double *Vs, int nNodes, int (*abc)[3]=0);
-
+   
     void updateCracking(int (*abc)[3]);
     void expandScope();
     void updatePhysBAMInterface(Vec3D *particles, int size,const DistSVec<double,3>& fluid_nodes,const bool fill_scope,const bool retry);
@@ -220,15 +222,16 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     int getNumStructNodes () { return numStNodes; }
     int getNumStructElems () { return numStElems; }
     int (*getStructElems())[3] { return stElem; }
+    int (*getNodesType()) { return nodeType; }
 
     Vec<Vec3D> &getStructDerivative() { return *solidXdS; }
 
     int getSurfaceID(int k) {
       if (!surfaceID)
         return 0;
-
+ 
       if (k >=0 && k < numStNodes) {
-	return surfaceID[k];
+	return surfaceID[k]; 
       }
       else {
         fprintf(stderr,"Error:: SurfaceID requested for invalid point.\n");
@@ -265,17 +268,14 @@ class IntersectorPhysBAM : public LevelSetStructure {
     static const int OUTSIDE = -2, UNDECIDED = -1, INSIDE = 0; //INSIDE: inside real fluid, OUTSIDE: not a fluid
     static int OUTSIDECOLOR;
 
-    int locIndex, globIndex;
+    int locIndex,globIndex;
     int *locToGlobNodeMap;
-
-    //added by arthur Morlot : THings used for the embedded symmetry plane (not the embedded constraint)
-    //int EmbeddedConstraintNormal;
-
+ 
     std::map<int,IntersectionResult<double> > CrossingEdgeRes;
     std::map<int,IntersectionResult<double> > ReverseCrossingEdgeRes;
 
     virtual CrackingSurface* getCrackingSurface() {
-      return distIntersector.cracking;
+      return distIntersector.cracking; 
     }
 
     SubDomain &subD;
@@ -294,7 +294,7 @@ class IntersectorPhysBAM : public LevelSetStructure {
     ARRAY<VECTOR<double,3> > xyz;
     ARRAY<VECTOR<double,3> > xyz_n;
 
-    int findIntersectionsEmbeddedConstraint(SVec<double,3>& X);
+    //int findIntersectionsEmbeddedConstraint(SVec<double,3>& X);
     void setInactiveNodesSymmetry(SVec<double,3>& X,std::map<int,SymmetryInfo> SymmetryPlaneList);
 
     bool testIsActive(double t, int n) const {return (status[n] >= 0 && status[n]!=OUTSIDECOLOR);}
@@ -313,12 +313,10 @@ class IntersectorPhysBAM : public LevelSetStructure {
 
     void reset(const bool findStatus,const bool retry); //<! set status0=status and reset status and nFirstLayer.
     /** find intersections for each edge that has nodes with different statuses */
-
-    // double isPointOnSurface(Vec3D pt, int N1, int N2, int N3);
+        // double isPointOnSurface(Vec3D pt, int N1, int N2, int N3);
     // /** check the distance of a point to a surface triangle */
     // double isPointOnSurface(int nodeId);
     // /** sjg, 05/2017: new implementation to use nearby candidate triangles of fluid mesh vertex */
-
     void printFirstLayer(SubDomain& sub, SVec<double,3>& X, int TYPE = 1);
 
     LevelSetResult getLevelSetDataAtEdgeCenter(double t, int l, bool i_less_j, double *Xr=0, double *Xg=0);
@@ -333,8 +331,8 @@ class IntersectorPhysBAM : public LevelSetStructure {
 	 bool vWallNode(int i, Vec3D &vWall);
 
 	 bool getTwall(double &Tw)
-	 {
-		 Tw = distIntersector.Twall;
+	 { 
+		 Tw = distIntersector.Twall; 
 		 return distIntersector.isoThermalwall;
 	 }
 
@@ -347,11 +345,11 @@ class IntersectorPhysBAM : public LevelSetStructure {
 
 	 double piercing(Vec3D x0, int tria, double xi[3]);
 
-    void derivativeOFnormal(Vec3D  xA, Vec3D  xB, Vec3D  xC,
-			    Vec3D dxA, Vec3D dxB, Vec3D dxC,
+    void derivativeOFnormal(Vec3D  xA, Vec3D  xB, Vec3D  xC, 
+			    Vec3D dxA, Vec3D dxB, Vec3D dxC, 
 			    Vec3D &dnds);
 
-    double derivativeOFalpha(Vec3D  xA, Vec3D  xB, Vec3D  xC,
+    double derivativeOFalpha(Vec3D  xA, Vec3D  xB, Vec3D  xC, 
 	  		     Vec3D dxA, Vec3D dxB, Vec3D dxC,
 			     Vec3D X1, Vec3D X2);
 
