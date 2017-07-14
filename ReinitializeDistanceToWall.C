@@ -2,15 +2,16 @@
 #include <LevelSet/LevelSetStructure.h>
 #include <Domain.h>
 #include <DistVector.h>
+#include <FemEquationTerm.h>
 
 // flags for wall distance predictors
-  // #define USE_PREDICTORS
-  // #define PREDICTOR_DEBUG
+  #define USE_PREDICTORS
+  #define PREDICTOR_DEBUG
 
 //------------------------------------------------------------------------------
 
 template <int dimLS, int dim>
-ReinitializeDistanceToWall<dimLS,dim>::ReinitializeDistanceToWall(IoData &ioData, Domain &domain)
+ReinitializeDistanceToWall<dimLS,dim>::ReinitializeDistanceToWall(IoData &ioData, Domain &domain, SpaceOperator<dim> &spaceOp)
     : iod(ioData), dom(domain), d2wall(domain.getNodeDistInfo()),
     // default wall distance
     tag(domain.getNodeDistInfo()),sortedNodes(domain.getNodeDistInfo()),
@@ -18,7 +19,8 @@ ReinitializeDistanceToWall<dimLS,dim>::ReinitializeDistanceToWall(IoData &ioData
     nodeTag(domain.getNodeDistInfo()),isSharedNode(domain.getNodeDistInfo()),
     unsortedTag(domain.getNodeDistInfo()),unsortedNodes(domain.getNodeDistInfo()),
     // predictors
-    d2wnm1(domain.getNodeDistInfo()), d2wnm2(domain.getNodeDistInfo()), countreinits(0), nPredTot(0)
+    d2wnm1(domain.getNodeDistInfo()), d2wnm2(domain.getNodeDistInfo()), countReinits(0), nPredTot(0),
+    spaceOp(spaceOp),SAsensi(domain.getNodeDistInfo())
 {
   int nSub = dom.getNumLocSub();
 
@@ -57,16 +59,9 @@ ReinitializeDistanceToWall<dimLS,dim>::ReinitializeDistanceToWall(IoData &ioData
   predictorTime[0] = -1.0;
   predictorTime[1] = -1.0;
   predictorTime[2] = -1.0;
+  SAsensi = 0.0;
 
-  tolmax = 1.0e-2, tolmin = 1.0e-9; // predictor tolerances, to be read from parser eventually
-
-  // // cw1 for SA destruction term error prediction
-  // double cb1 = iod.eqs.tc.tm.sa.cb1;
-  // double cb2 = iod.eqs.tc.tm.sa.cb2;
-  // double oosigma = 1.0 / iod.eqs.tc.tm.sa.sigma;
-  // double oovkcst2 = 1.0 / (iod.eqs.tc.tm.sa.vkcst*iod.eqs.tc.tm.sa.vkcst);
-  // double cw1 = cb1*oovkcst2 + (1.0+cb2) * oosigma;
-  // cw1 /= iod.ref.reynolds_mu;
+  tolmax = 5.0e-2, tolmin = 1.0e-9; // predictor tolerances, to be read from parser eventually
 }
 
 //------------------------------------------------------------------------------
@@ -76,7 +71,8 @@ ReinitializeDistanceToWall<dimLS,dim>::~ReinitializeDistanceToWall()
 {
 
 #ifdef PREDICTOR_DEBUG
-  dom.getCommunicator()->fprintf(stderr,"\nWall distance computer: total full domain reinitializations = %d\n\n",countreinits);
+  dom.getCommunicator()->fprintf(stderr,"\nWall distance computer: total full domain reinitializations = %d\n\n",
+    countReinits);
 #endif
 
   // default wall distance
@@ -106,34 +102,25 @@ template <int dimLS, int dim>
 void ReinitializeDistanceToWall<dimLS,dim>::ComputeWallFunction(DistLevelSetStructure &LSS,
                                                             DistSVec<double, 3> &X,
                                                             DistGeoState &distGeoState,
-                                                            DistSVec<double,dim> &V,
-                                                            double t)
+                                                            // DistSVec<double,dim> &V,
+                                                            const double t)
 {
 
 #ifdef USE_PREDICTORS
   // update predictors and check tolerances, receiving global maximum
-  int update = UpdatePredictorsCheckTol(LSS, distGeoState, V, t);
+  int update = UpdatePredictorsCheckTol(LSS, distGeoState, t); //V, t);
 #else
   int update = 3;
 #endif
 
-  // predicted distance change is zero, so correct predictor to exact values
-  if (update == 1) {
-    // store with previous exact updates
-    predictorTime[2] = predictorTime[1];
-    predictorTime[1] = predictorTime[0];
-    predictorTime[0] = t;
-    d2wnm2 = d2wnm1;
-    d2wnm1 = d2wall;
 
-    ReinitializePredictors(update, t, &LSS, X);
-  }
-  else if (update > 1) {
-    // compute distance in full domain
+  if (update >= 1) {
 #ifdef PREDICTOR_DEBUG
-    countreinits++;
-    dom.getCommunicator()->fprintf(stderr, "Performing a full domain wall distance update (update = %d)!\n",update);
+    countReinits++;
+    dom.getCommunicator()->fprintf(stderr, "Performing a full domain wall distance update!\n",update);
 #endif
+
+    // compute distance in full domain
 
     // store with previous exact updates
     predictorTime[2] = predictorTime[1];
@@ -144,8 +131,8 @@ void ReinitializeDistanceToWall<dimLS,dim>::ComputeWallFunction(DistLevelSetStru
 
     // update d2wall exactly
     if (iod.eqs.tc.tm.d2wall.type == WallDistanceMethodData::NONITERATIVE) {
-      // PseudoFastMarchingMethod(LSS, X, 0); // default
-      PseudoFastMarchingMethod(LSS, X); // new FEM
+      PseudoFastMarchingMethod(LSS, X, 0); // default
+      // PseudoFastMarchingMethodFEM(LSS, X); // new FEM
     }
     else if (iod.eqs.tc.tm.d2wall.type == WallDistanceMethodData::ITERATIVE) {
       // InitializeWallFunction(LSS, X, distGeoState, t);
@@ -175,11 +162,11 @@ void ReinitializeDistanceToWall<dimLS,dim>::ComputeWallFunction(DistLevelSetStru
       exit(1);
     }
 
-    // ComputePercentChange(LSS, distGeoState);
-
     // reinitialize predictors
-    if (update == 2)
+    if (update < 3)
       ReinitializePredictors(update, t, &LSS, X);
+
+    // ComputePercentChange(LSS, distGeoState);
 
 #pragma omp parallel for
     for (int iSub = 0; iSub < dom.getNumLocSub(); ++iSub) {
@@ -190,7 +177,7 @@ void ReinitializeDistanceToWall<dimLS,dim>::ComputeWallFunction(DistLevelSetStru
   }
 #ifdef PREDICTOR_DEBUG
   else {
-    dom.getCommunicator()->fprintf(stderr, "SUCCESS: Skipped wall distance calculation (update = %d)!\n\n",update);
+    dom.getCommunicator()->fprintf(stderr, "SUCCESS: Skipped wall distance calculation!\n\n",update);
   }
   // dom.getCommunicator()->fprintf(stderr, "Times: tn = %e, tnm1 = %e, tnm2 = %e\n\n",predictorTime[0],predictorTime[1],predictorTime[2]);
 #endif
@@ -205,7 +192,7 @@ void ReinitializeDistanceToWall<dimLS,dim>::ComputeWallFunction(DistLevelSetStru
 
 // sjg, 06/2017: FEM based wall distance via a marching method
 template <int dimLS, int dim>
-void ReinitializeDistanceToWall<dimLS,dim>::PseudoFastMarchingMethod(
+void ReinitializeDistanceToWall<dimLS,dim>::PseudoFastMarchingMethodFEM(
     DistLevelSetStructure &LSS, DistSVec<double, 3> &X)
 {
   d2wall = 1.0e10;
@@ -559,14 +546,14 @@ void ReinitializeDistanceToWall<dimLS,dim>::IterativeMethodUpdate(DistLevelSetSt
 
 //------------------------------------------------------------------------------
 
-// sjg, 04/2017: predictor function to check if wall distance update is required
+// predictor function to check if wall distance update is required
 // error code key:  0 = no tolerances exceeded, do not update d2wall
-//                  1 = change in d = 0, reinitialize d @ current predictors
-//                  2 = delta tolerance exceeded, reinitialize and update d in flow domain
-//                  3 = not enough timestep info to initialize predictors
+//                  1 = change in d = 0, full update d
+//                  2 = delta tolerance exceeded, full update d
+//                  3 = not enough timestep info to initialize predictors, full update d
 template <int dimLS, int dim>
 int ReinitializeDistanceToWall<dimLS,dim>::UpdatePredictorsCheckTol(
-  DistLevelSetStructure &LSS, DistGeoState &distGeoState, DistSVec<double,dim> &V, double t)
+  DistLevelSetStructure &LSS, DistGeoState &distGeoState, const double t) //DistSVec<double,dim> &V, double t)
 {
   int update = 0;
 
@@ -574,23 +561,21 @@ int ReinitializeDistanceToWall<dimLS,dim>::UpdatePredictorsCheckTol(
     update = 3;
   else if (predictorTime[2] < 0)
     update = 2;
+
   else {
     // compute distance predictions
-#ifdef PREDICTOR_DEBUG
-    dom.getCommunicator()->fprintf(stderr,"\nUpdating predictors...\n");
-#endif
-
     double dtnm2, dtnm1, dtn;
     dtnm2 = predictorTime[1]-predictorTime[2];
     dtnm1 = predictorTime[0]-predictorTime[1];
     dtn = t-predictorTime[0];
 
-    double maxdd = -1.0;
-    double delta, d2wp, deltatmp, deltam, meandel = 0.0;
-    int k;
+    double d2wp, delta, meandelta = 0.0;  // RMS error
+    double dd, maxdd = -1.0;              // min error
 
 #ifdef PREDICTOR_DEBUG
-    double maxdel = -1.0, maxd2w = -1.0, mind2w = 1.0e16;
+    dom.getCommunicator()->fprintf(stderr,"\nUpdating predictors...\n");
+    double maxdelta = -1.0, maxd2w = -1.0, mind2w = 1.0e10, meandd2w = 0.0;
+    double maxdeltaloc;
     // int nvi = 0;
 #endif
 
@@ -600,88 +585,17 @@ int ReinitializeDistanceToWall<dimLS,dim>::UpdatePredictorsCheckTol(
         if (d2wall(iSub)[k][0] > 0.0) {
           if (!(d2wnm1(iSub)[k][0] > 0.0 && d2wnm2(iSub)[k][0] > 0.0)) continue;
 
+          // predictor distance
           d2wp = (1.0+dtn/dtnm1*(dtn+2.0*dtnm1+dtnm2)/(dtnm1+dtnm2))*d2wall(iSub)[k][0]
           -(dtn/dtnm1)*(dtn+dtnm1+dtnm2)/dtnm2*d2wnm1(iSub)[k][0]
           +(dtn/dtnm2)*(dtn+dtnm1)/(dtnm1+dtnm2)*d2wnm2(iSub)[k][0];
 
-          delta = 2.0*fabs(d2wp-d2wall(iSub)[k][0])/d2wall(iSub)[k][0];
+          // // 1/d^2 delta
+          // delta = 2.0*fabs(d2wp-d2wall(iSub)[k][0])/d2wall(iSub)[k][0];
 
-          // new delta definition based on SA model values
-
-
-          // double cv1 = iod.eqs.tc.tm.sa.cv1;
-          // double cv13 = cv1*cv1*cv1;
-          // double cb1 = iod.eqs.tc.tm.sa.cb1;
-          // double cb2 = iod.eqs.tc.tm.sa.cb2;
-          // double cw2 = iod.eqs.tc.tm.sa.cw2;
-          // double cw3 = iod.eqs.tc.tm.sa.cw3;
-          // double cw36 = cw3*cw3*cw3*cw3*cw3*cw3;
-          // double oosigma = 1.0 / iod.eqs.tc.tm.sa.sigma;
-          // double ooK2 = 1.0 / (iod.eqs.tc.tm.sa.vkcst*iod.eqs.tc.tm.sa.vkcst);
-          // double cw1 = cb1*oovkcst2 + (1.0+cb2) * oosigma;
-
-          // cw1 /= iod.ref.reynolds_mu;
-          // oosigma /= iod.ref.reynolds_mu;
-
-          // double rho =
-          // double nu =
-          // double nut =
-          // double nut2 = nut*nut;
-          // double ood2w2 = 1.0/(d2wall(iSub)[k][0]*d2wall(iSub)[k][0]);
-          // double ood2w3 = 1.0/(d2wall(iSub)[k][0]*d2wall(iSub)[k][0]*d2wall(iSub)[k][0]);
-
-          // double Stilde =
-
-          // double rlim =
-          // double r = min(nut*ooStilde*ooK2*ood2w2,rlim);
-          // double r5 = r*r*r*r*r;
-          // double g = r+cw2*r*(r5-1.0);
-          // double g6 = g*g*g*g*g*g;
-          // double oog6cw36 = 1.0/(g6+cw36);
-          // double sixth = 1.0/6.0;
-          // double cw3g6pow1o6 = pow((1.0+cw36)*oog6cw36,sixth);
-          // double fw = g*cw3g6pow1o6;
-
-          // double xsi =
-          // double xsi3 = xsi*xsi*xsi;
-          // double fv1 = xsi3/(xsi3+cv13)
-          // double fv2 = 1.0-xsi/(1.0+xsi*fv1);
-
-          // double gnut[3] = {};
-          // double normgnut2 = gnut[0]*gnut[0]+gnut[1]*gnut[1]+gnut[2]*gnut[2];
-          // double grhodotgnut = gnut[0]*grho[0]+gnut[1]*grho[1]+gnut[2]*grho[2];
-
-          // double SAterm = rho*cb1*Stilde*nut - rho*cw1*fw*nut2*ood2w2
-          //   + rho*cb2*oosigma*normgnut2 - (nu+nut)*oosigma*(grhodotgnut);
-
-          // double drdStilde = (r>rlim)?-nut/(Stilde*Stilde)*ooK2*ood2w2:0.0;
-          // double dgdr = 1+cw2*(6.0*r5-1.0);
-          // double dfwdg = cw36*oog6cw36*cw3g6pow1o6;
-          // double dStildedd = -2.0*nut*fv2*ooK2*ood2w3;
-          // double Lambda = cb1*nut-cw1*nut2*ood2w2*dfwdg*dgdr*drdStilde;
-          // double dSAterm = rho*(2.0*cw1*fw*nut2*ood2w3+Lambda*dStildedd);
-
-          // delta = dSAterm*(d2wp-d2wall(iSub)[k][0])/SAterm;
-
-
-
-          // double S =
-          // double d2w3 = d2wall(iSub)[k][0]*d2wall(iSub)[k][0]*d2wall(iSub)[k][0];
-          // double P = cb1*S*nut*d2w3;
-          // double D = -cw1*nut*d2wall(iSub)[k][0];
-          // delta = 2.0*fabs(d2wp-d2wall(iSub)[k][0])*cw1*nut/(P+D);
-
-          // delta =  2.0*fabs(d2wp-d2wall(iSub)[k][0])/d2wall(iSub)[k][0]
-          //   *cw1*V(iSub)[k][0]*V(iSub)[k][5];
-
-
-          meandel += delta*delta;
-#ifdef PREDICTOR_DEBUG
-          // for viewing maximum predicted change and other values
-          maxdel = max(delta,maxdel);
-          mind2w = min(mind2w,d2wall(iSub)[k][0]);
-          maxd2w = max(maxd2w,d2wall(iSub)[k][0]);
-#endif
+          // new delta definition based on SA source error
+          delta = SAsensi(iSub)[k]*(d2wp-d2wall(iSub)[k][0]);
+          meandelta += delta*delta;
 
     //       if (delta > tolmax) {
     //         update = 2;
@@ -696,19 +610,29 @@ int ReinitializeDistanceToWall<dimLS,dim>::UpdatePredictorsCheckTol(
     // // #endif
     //       }
           // else {
-            deltam = fabs(d2wp-d2wall(iSub)[k][0])/d2wall(iSub)[k][0];
-            maxdd  = max(deltam,maxdd);
+            dd = fabs(d2wp-d2wall(iSub)[k][0])/d2wall(iSub)[k][0];
+            maxdd  = max(dd,maxdd);
           // }
+
+#ifdef PREDICTOR_DEBUG
+          // for viewing maximum predicted change and other values
+          if (delta>maxdelta) {
+            maxdelta = delta;
+            maxdeltaloc = d2wall(iSub)[k][0];
+          }
+          mind2w = min(mind2w,d2wall(iSub)[k][0]);
+          maxd2w = max(maxd2w,d2wall(iSub)[k][0]);
+          meandd2w += ((d2wp-d2wall(iSub)[k][0])/d2wall(iSub)[k][0])
+            *((d2wp-d2wall(iSub)[k][0])/d2wall(iSub)[k][0]);
+#endif
         }
         else if (LSS(iSub).isActive(0.0,k)) {
           // ghost real transition
 
 #ifdef PREDICTOR_DEBUG
-          // debugging!!
           fprintf(stderr,"\nGhost to real transition: new d2w = %e (old d2w = %e)\n",
             LSS(iSub).distToInterface(0.0,k),d2wall(iSub)[k][0]);
-
-          if (!(LSS->isNearInterface(0.0,k))) fprintf(stderr,"Problem: updated node has no exact distance!\n\n");
+          if (!(LSS(iSub).isNearInterface(0.0,k))) fprintf(stderr,"Problem: updated node has no exact distance!\n\n");
 #endif
           d2wall(iSub)[k][0] = LSS(iSub).distToInterface(0.0,k);
           distGeoState(iSub).getDistanceToWall()[k] = d2wall(iSub)[k][0];
@@ -720,36 +644,44 @@ int ReinitializeDistanceToWall<dimLS,dim>::UpdatePredictorsCheckTol(
     // dom.getCommunicator()->globalMax(1,&update);
 
     // RMS error
-    dom.getCommunicator()->globalSum(1,&meandel);
-    meandel = sqrt(meandel/nPredTot);
+    dom.getCommunicator()->globalSum(1,&meandelta);
+    meandelta = sqrt(meandelta/nPredTot);
 
 #ifdef PREDICTOR_DEBUG
     // max and mean error outputs to view (for testing)
-    dom.getCommunicator()->globalMax(1,&maxdel);
-    dom.getCommunicator()->fprintf(stderr,"Max (2deltad/d) = %e (vs. tol = %e)\n",
-      maxdel, tolmax);
-
-    dom.getCommunicator()->fprintf(stderr,"RMS (2deltad/d) = %e\n", meandel);
-
     dom.getCommunicator()->globalMax(1,&maxd2w);
     dom.getCommunicator()->globalMin(1,&mind2w);
-    dom.getCommunicator()->fprintf(stderr,"Max predictor distance = %e, min = %e\n\n",
+    dom.getCommunicator()->fprintf(stderr,"Max predictor distance = %e, min = %e\n",
       maxd2w, mind2w);
+
+    // dom.getCommunicator()->globalMax(1,&maxdelta);
+    // dom.getCommunicator()->fprintf(stderr,"Max error = %e (vs. tol = %e)\n",
+    //   maxdelta, tolmax);
+    double buff[2] = {maxdelta, maxdeltaloc};
+    MPI_Comm comm = dom.getCommunicator()->getMPIComm();
+    MPI_Allreduce(&buff, &buff, 1, MPI_2DOUBLE_PRECISION, MPI_MAXLOC, comm);
+    dom.getCommunicator()->fprintf(stderr,"Max error = %e at d2w = %e (vs. tol = %e)\n",
+      maxdelta, maxdeltaloc, tolmax);
+
+    dom.getCommunicator()->fprintf(stderr,"RMS error = %e\n", meandelta);
+
+    dom.getCommunicator()->globalSum(1,&meandd2w);
+    meandd2w = sqrt(meandd2w/nPredTot);
+    dom.getCommunicator()->fprintf(stderr,"RMS delta d2w = %e\n", meandd2w);
+
+    dom.getCommunicator()->fprintf(stderr,"\n");
+
+    // dom.getCommunicator()->globalSum(1,&nvi);
+    // dom.getCommunicator()->fprintf(stderr,"Total %d violating predictors\n",nvi);
 #endif
 
-    if (meandel > tolmax)
+    if (meandelta > tolmax)
       update = 2;
     else {
-    // if (update < 2) {
       dom.getCommunicator()->globalMax(1,&maxdd);
       if (maxdd < tolmin)
         update = 1;
     }
-
-  // #ifdef PREDICTOR_DEBUG
-  //     dom.getCommunicator()->globalSum(1,&nvi);
-  //     dom.getCommunicator()->fprintf(stderr,"Total %d violating predictors\n",nvi);
-  // #endif
   }
 
   // dom.getCommunicator()->globalMax(1,&update);
@@ -758,56 +690,136 @@ int ReinitializeDistanceToWall<dimLS,dim>::UpdatePredictorsCheckTol(
 
 //------------------------------------------------------------------------------
 
-// sjg, 04/2017: reinitialize predictors
+// create new predictors and populate
 template <int dimLS, int dim>
 void ReinitializeDistanceToWall<dimLS,dim>::ReinitializePredictors(int update,
-                                                               double t,
+                                                               const double t,
                                                                DistLevelSetStructure *LSS,
                                                                DistSVec<double, 3> &X)
 {
-  int nSub = dom.getNumLocSub();
-  // update distance at current predictors exactly
+  // pointers to relevant data
+  FemEquationTerm *fet = spaceOp.getFemEquationTerm();
+  FemEquationTermSA* sa = dynamic_cast<FemEquationTermSA*>(fet);
+  if (!sa) {
+    fprintf(stderr,"*** Error: Cannot construct a NavierStokesTerm in ReinitializeDistanceToWall\n");
+    exit(-1);
+  }
+  DistSVec<double,dim>& V = *spaceOp.getCurrentPrimitiveVector();
+  DistNodalGrad<dim, double>& ngrad = *spaceOp.getDistNodalGrad(V);
+  DistSVec<double,dim>& dVdx = ngrad.getX();
+  DistSVec<double,dim>& dVdy = ngrad.getY();
+  DistSVec<double,dim>& dVdz = ngrad.getZ();
 
-//   if (update == 1) {
+  // non-loop dependent quantities
+  const double sixth = 1.0/6.0;
+  double cv1 = iod.eqs.tc.tm.sa.cv1;
+  double cv13 = cv1*cv1*cv1;
+  double cb1 = iod.eqs.tc.tm.sa.cb1;
+  double cb2 = iod.eqs.tc.tm.sa.cb2;
+  double cw2 = iod.eqs.tc.tm.sa.cw2;
+  double cw3 = iod.eqs.tc.tm.sa.cw3;
+  double cw36 = cw3*cw3*cw3*cw3*cw3*cw3;
+  double oosigma = 1.0 / iod.eqs.tc.tm.sa.sigma;
+  double ooK2 = 1.0 / (iod.eqs.tc.tm.sa.vkcst*iod.eqs.tc.tm.sa.vkcst);
+  double cw1 = cb1 * ooK2 + (1.0+cb2) * oosigma;
+  double rlim = 2.0;
 
-// #ifdef PREDICTOR_DEBUG
-//     dom.getCommunicator()->fprintf(stderr, "Reinitializing due to flat ...\n");
-// #endif
+  double ooreynolds_mu = sa->get_ooreynolds_mu();
+  cw1 *= ooreynolds_mu;
+  oosigma *= ooreynolds_mu;
 
-//     sortedNodes = -1;
-//     tag = -1;
-//     for (int iSub = 0; iSub < dom.getNumLocSub(); ++iSub) {
-//       nSortedNodes[iSub] = 0;
-//       nActiveNodes[iSub] = 0;
-//       firstCheckedNode[iSub] = 0;
-//     }
-//     dom.pseudoFastMarchingMethod<1>(tag, X, d2wall, 1, 0,
-//       sortedNodes, nSortedNodes, nActiveNodes, firstCheckedNode, LSS);
-//   }
+  // allocate loop dependent quantities
+  double rho, T, mul, nul, nutilde, nutilde2;
+  double chi, chi3, fv1, fv2, ood2w2, zz;
+  double dnutildedxj[3], drhodxj[3];
+  double om12, om23, om31, Omega, Stilde;
+  double rr, rr5, gg, gg6, oog6cw36, cw3g6sixth, fw;
+  double AA, BB, CC, DD, SAterm, drdStilde, dgdr, dfwdg, dStildedd, Lambda, dSAterm;
 
-  // create new predictors and populate
-  if (update == 2) {
+  nPredTot = 0;
 
 #ifdef PREDICTOR_DEBUG
-    dom.getCommunicator()->fprintf(stderr, "Reinitializing predictors...");
+  double meandSA = 0.0;
 #endif
 
-    nPredTot = 0;
 #pragma omp parallel for
-    for (int iSub = 0; iSub < nSub; ++iSub) {
-      for (int i = 0; i < d2wall(iSub).len; i++)
-        nPredTot += (d2wall(iSub)[i][0]>0.0 && d2wnm1(iSub)[i][0]>0.0 && d2wnm2(iSub)[i][0]>0.0);
-    }
-    dom.getCommunicator()->globalSum(1,&nPredTot);
+  for (int iSub = 0; iSub < dom.getNumLocSub(); ++iSub) {
+    for (int k = 0; k < d2wall(iSub).len; k++) {
+      if (!(d2wall(iSub)[k][0]>0.0 && d2wnm1(iSub)[k][0]>0.0 && d2wnm2(iSub)[k][0]>0.0)) continue;
+
+      // sensitivity calculation
+      rho = V(iSub)[k][0];
+      T = sa->getVarFcn()->computeTemperature(V(iSub)[k]);
+      mul = sa->getViscoFcn()->compute_mu(T);
+      nul = mul/rho;
+      nutilde = max(V(iSub)[k][5],0.0);
+      nutilde2 = nutilde*nutilde;
+
+      chi = nutilde/nul;
+      chi3 = chi*chi*chi;
+      fv1 = chi3/(chi3+cv13);
+      fv2 = 1.0-chi/(1.0+chi*fv1);
+
+      ood2w2 = 1.0/(d2wall(iSub)[k][0]*d2wall(iSub)[k][0]);
+      zz = ooreynolds_mu*ooK2*nutilde*ood2w2;
+
+      // nodal gradients
+      dnutildedxj[0] = dVdx(iSub)[k][5];
+      dnutildedxj[1] = dVdy(iSub)[k][5];
+      dnutildedxj[2] = dVdz(iSub)[k][5];
+
+      drhodxj[0] = dVdx(iSub)[k][0];
+      drhodxj[1] = dVdy(iSub)[k][0];
+      drhodxj[2] = dVdz(iSub)[k][0];
+
+      om12 = dVdy(iSub)[k][1] - dVdx(iSub)[k][2];
+      om23 = dVdz(iSub)[k][2] - dVdy(iSub)[k][3];
+      om31 = dVdx(iSub)[k][3] - dVdz(iSub)[k][1];
+      Omega = sqrt(om12*om12 + om23*om23 + om31*om31);
+      Stilde = max(Omega+zz*fv2,1.0e-12);
+
+      rr = min(zz/Stilde,rlim);
+      rr5 = rr*rr*rr*rr*rr;
+      gg = rr+cw2*rr*(rr5-1.0);
+      gg6 = gg*gg*gg*gg*gg*gg;
+      oog6cw36 = 1.0/(gg6+cw36);
+      cw3g6sixth = pow((1.0+cw36)*oog6cw36,sixth);
+      fw = gg*cw3g6sixth;
+
+      AA = rho*cb2*oosigma*(dnutildedxj[0]*dnutildedxj[0]
+        + dnutildedxj[1]*dnutildedxj[1] + dnutildedxj[2]*dnutildedxj[2]);
+      BB = rho*nutilde*cb1*Stilde;
+      CC = -rho*cw1*fw*nutilde2*ood2w2;
+      DD = -(nul+nutilde)*oosigma*(dnutildedxj[0]*drhodxj[0]
+        + dnutildedxj[1]*drhodxj[1] + dnutildedxj[2]*drhodxj[2]);
+      SAterm = AA + BB + CC + DD;
+
+      drdStilde = (rr>rlim)?-zz/(Stilde*Stilde):0.0;
+      dgdr = 1.0+cw2*(6.0*rr5-1.0);
+      dfwdg = cw36*oog6cw36*cw3g6sixth;
+      dStildedd = -2.0*fv2*zz/d2wall(iSub)[k][0];
+      Lambda = cb1*nutilde-cw1*nutilde2*ood2w2*dfwdg*dgdr*drdStilde;
+      dSAterm = rho*(2.0*cw1*fw*nutilde2*(ood2w2*d2wall(iSub)[k][0]) + Lambda*dStildedd);
 
 #ifdef PREDICTOR_DEBUG
-    dom.getCommunicator()->fprintf(stderr, "initialized %d predictors\n\n", nPredTot);
+      if (SAsensi(iSub)[k]>0.0)
+        meandSA += ((dSAterm/SAterm-SAsensi(iSub)[k])/SAsensi(iSub)[k])
+          *((dSAterm/SAterm-SAsensi(iSub)[k])/SAsensi(iSub)[k]);
 #endif
+
+      // store sensitivities
+      SAsensi(iSub)[k] = dSAterm/SAterm;
+      nPredTot++;
+    }
   }
-  else {
-      fprintf(stderr, " *** Error ***, Wall distance predictor update case is invalid\n");
-      exit(1);
-  }
+  dom.getCommunicator()->globalSum(1,&nPredTot);
+
+#ifdef PREDICTOR_DEBUG
+  dom.getCommunicator()->globalSum(1,&meandSA);
+  meandSA = sqrt(meandSA/nPredTot);
+  dom.getCommunicator()->fprintf(stderr,"RMS delta SA sensitivity = %e. ", meandSA);
+  dom.getCommunicator()->fprintf(stderr, "Initialized %d predictors\n\n", nPredTot);
+#endif
 }
 
 //------------------------------------------------------------------------------
@@ -840,8 +852,8 @@ void ReinitializeDistanceToWall<dimLS,dim>::ComputeExactErrors(DistLevelSetStruc
   // compare to noniterative
   dom.getCommunicator()->fprintf(stderr,
     "Comparing specified wall distance computation to noniterative method.\n");
-  // PseudoFastMarchingMethod(LSS,X,0);
-  PseudoFastMarchingMethod(LSS,X);
+  PseudoFastMarchingMethod(LSS,X,0);
+  // PseudoFastMarchingMethodFEM(LSS,X);
 
   DistSVec<double, 1> d2wall_ref = d2wall;
 
@@ -919,8 +931,10 @@ void ReinitializeDistanceToWall<dimLS,dim>::ComputeExactErrors(DistLevelSetStruc
   errorsEx[0][1] /= nDofs[0];
   errorsEx[0][1] = sqrt(errorsEx[0][1]);
 
-  dom.getCommunicator()->fprintf(stderr, "Absolute d2wall Error: %12.8e, %12.8e, %12.8e at %12.8e\n", errors[0][0], errors[0][1], errors[0][2], errors[0][3]);
-  dom.getCommunicator()->fprintf(stderr, "Relative d2wall Error: %12.8e, %12.8e, %12.8e at %12.8e\n\n", errorsEx[0][0], errorsEx[0][1], errorsEx[0][2], errorsEx[0][3]);
+  dom.getCommunicator()->fprintf(stderr, "Absolute d2wall Error: %12.8e, %12.8e, %12.8e at %12.8e\n",
+    errors[0][0], errors[0][1], errors[0][2], errors[0][3]);
+  dom.getCommunicator()->fprintf(stderr, "Relative d2wall Error: %12.8e, %12.8e, %12.8e at %12.8e\n\n",
+    errorsEx[0][0], errorsEx[0][1], errorsEx[0][2], errorsEx[0][3]);
 
   for (int iSub = 0; iSub < nSub; iSub++)
     delete[] errors[iSub];
