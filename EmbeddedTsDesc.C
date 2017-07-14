@@ -182,7 +182,8 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
       this->com->fprintf(stderr,"ERROR: No valid intersector specified! Check input file\n");
       exit(-1);
   }
-  wall_computer=new ReinitializeDistanceToWall<1,dim>(ioData, *this->domain);
+  wall_computer=new ReinitializeDistanceToWall<1,dim>(ioData, *this->domain, *this->spaceOp); //sjg, 07/2017: fet for wall distance predictors
+  // wall_computer=new ReinitializeDistanceToWall<1,dim>(ioData, *this->domain);
 
 #else
   this->com->fprintf(stderr,"ERROR: Embedded framework is NOT compiled! Check your makefile.\n");
@@ -1240,7 +1241,7 @@ void EmbeddedTsDesc<dim>::computeDistanceToWall(IoData &ioData, double t)
       // this->spaceOp->computeSASourceTerm();
 
       // wall_computer->ComputeWallFunction(*this->distLSS,*this->X,*this->geoState,*this->spaceOp,t);
-      wall_computer->ComputeWallFunction(*this->distLSS,*this->X,*this->geoState,*(this->spaceOp->getCurrentPrimitiveVector()),t);
+      wall_computer->ComputeWallFunction(*this->distLSS,*this->X,*this->geoState,t);
 
       this->timer->addWallDistanceTime(t0);
 

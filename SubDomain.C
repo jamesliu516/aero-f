@@ -9465,7 +9465,7 @@ void SubDomain::pseudoFastMarchingMethodFEM(SVec<double,3> &X, SVec<double,dimLS
               for (int k=0; k<nNeighs; k++) {
                 nei = (*NodeToElem)[node][k];
                 knownNodes[nei]++;
-// ADD NEW ELEMS TO ACTIVE LIST!
+                // ADD NEW ELEMS TO ACTIVE LIST!
                 if (knownNodes[nei] == 3 && tag[nei] < 0) {
                   tag[nei] = 1;
                   activeElemList[nSortedElems] = nei;
@@ -9508,7 +9508,7 @@ void SubDomain::pseudoFastMarchingMethodFEM(SVec<double,3> &X, SVec<double,dimLS
         for (int j=0; j<nNeighs; j++) {
           nei = (*NodeToElem)[node][j];
           knownNodes[nei]++;
-// ADD NEW ELEMS TO ACTIVE LIST!
+          // ADD NEW ELEMS TO ACTIVE LIST!
           if (knownNodes[nei] == 3 && tag[nei] < 0) {
             tag[nei] = 1;
             activeElemList[nSortedElems] = nei;
