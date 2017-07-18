@@ -315,31 +315,52 @@ template <int dimLS, int dim>
 void ReinitializeDistanceToWall<dimLS,dim>::IterativeMethodUpdate(DistLevelSetStructure &LSS,
                                                               DistSVec<double, 3> &X)
 {
-  // sortedNodes = -1;
+  int nSub = dom.getNumLocSub();
+
+  // double res0, res, resnm1, resGlob, resnm1Glob;
+  // testing
+  double res, res0, resScaleTmp, resScale = -1.0; // res is not needed
+  DistSVec<double, 1> resnm1(dom.getNodeDistInfo());
+
+  // initialization (levels 0, 1) and first local sweep pass
   d2wall = 1.0e10;
   tag = -1;
+  res = 0.0;
 
-  int nSub = dom.getNumLocSub(), level = 1, isDone;
-  double res0, resnm1, res = 1.0e10;
-
-  // initialization (levels 0, 1)
-  dom.pseudoFastMarchingMethodSerial<1>(tag, X, d2wall, level, 0,
+  int level = 1, it = 1, isDone = 0, isConverged = 0;
+  res += dom.pseudoFastMarchingMethodSerial<1>(tag, X, d2wall, level, 0,
     sortedNodes, nSortedNodes, firstCheckedNode, isSharedNode, &LSS);
+  dom.pseudoFastMarchingMethodComm<1>(tag, d2wall, sortedNodes, nSortedNodes, it);
+  level++;
 
-  // while (level < 2 && isDone == 0) {
-  // res += dom.pseudoFastMarchingMethodSerial<1>(tag, X, d2wall, level, 0,
-  //   sortedNodes, nSortedNodes, firstCheckedNode, &LSS);
-  //   isDone = 1;
-  //   for (int iSub = 0; iSub < nSub; ++iSub) {
-  //     if (nSortedNodes[iSub]!=firstCheckedNode[iSub]) {
-  //       isDone = 0;
-  //       break;
-  //     }
-  //   }
-  //   ++level;
-  // }
-  // dom.getCommunicator()->globalSum(1, &res);
-  // res = sqrt(res);
+  while (!isDone) {
+    res += dom.pseudoFastMarchingMethodSerial<1>(tag, X, d2wall, level, 0,
+      sortedNodes, nSortedNodes, firstCheckedNode, isSharedNode, &LSS);
+    isDone = 1;
+    for (int iSub = 0; iSub < nSub; ++iSub) {
+      if (nSortedNodes[iSub] != firstCheckedNode[iSub]) {
+        isDone = 0;
+        break;
+      }
+    }
+    level++;
+  }
+  it++;
+
+  // resGlob = res;
+  // dom.getCommunicator()->globalSum(1, &resGlob);
+  // resGlob = sqrt(resGlob);
+
+  // wipe all tags, set embedded surface neighbors fixed (tag = 0)
+  // ONLY do if nCPU > 1 (otherwise will mess up multiple passes for 1 subdomain)
+  if (dom.getNumLocSub() > 1 || dom.getCommunicator()->size() > 1) {
+    for (int iSub = 0; iSub < nSub; ++iSub) {
+      for (int i = 0; i < d2wall(iSub).len; i++) {
+        if (tag(iSub)[i] == 1) tag(iSub)[i] = 0;
+        else if (tag(iSub)[i] != 0) tag(iSub)[i] = -1;
+      }
+    }
+  }
 
   /* NOTE: max level and hybrid method no longer possible with full domain
            iteration (enforce instead using a max distance if desired)
@@ -348,49 +369,27 @@ void ReinitializeDistanceToWall<dimLS,dim>::IterativeMethodUpdate(DistLevelSetSt
       iod.eqs.tc.tm.d2wall.iterativelvl > 1)
     max_level = min(iod.eqs.tc.tm.d2wall.iterativelvl, max_level); */
 
-  // communication and iteration loop
-  int it = 1, isConverged = 0;
-
-  // int *checkConverged = new int[nSub+1];
-  // for (int iSub = 0; iSub <= nSub; ++iSub) checkConverged[iSub] = 0;
-
+  // iteration loop
+  const double eps = 1.0e-10;
   while (!isConverged) {
-    isConverged = 1;
-    resnm1 = res;
 
-    dom.getCommunicator()->fprintf(stderr,"Iteration %d of wall distance (res = %e)\n\n",it,res0);
+    // resnm1Glob = resGlob;
+    // resnm1 = res;
+    // res = 0.0;
+    // testing
+    resnm1 = d2wall;
 
-    // // total wipe of tags after first pass from wall ----------- TESTING!
-    // if (it == 2) {
-    //   for (int iSub = 0; iSub < nSub; ++iSub) {
-    //     for (int i = 0; i < d2wall(iSub).len; i++) {
-    //       if (tag(iSub)[i] != 0) tag(iSub)[i] = -1;
-    //     }
-    //     // nSortedNodes[iSub] = 0;
-    //     // firstCheckedNode[iSub] = 0;
-    //   }
-    // }
+    // share information across processes (min node tag)
+    dom.pseudoFastMarchingMethodComm<1>(tag, d2wall, sortedNodes, nSortedNodes, it);
 
-    // share information across processes
-    dom.pseudoFastMarchingMethodComm<1>(tag, d2wall, sortedNodes, nSortedNodes, level);
-
-    fprintf(stderr,"After comm, nSortedNodes = %d (firstCheckedNode = %d)\n",
-      nSortedNodes[0],firstCheckedNode[0]);
-
-    // propagate information outwards from minimum level
+    // sweep subdomains (reset all tags > 1 to -1 on first level = 1 call)
     level = 1, isDone = 0;
-    // level = 2, isDone = 0;
-    res = 0.0;
-
     while (!isDone) {
       res += dom.pseudoFastMarchingMethodSerial<1>(tag, X, d2wall, level, 1,
         sortedNodes, nSortedNodes, firstCheckedNode, isSharedNode, &LSS);
       isDone = 1;
       for (int iSub = 0; iSub < nSub; ++iSub) {
-        if (nSortedNodes[iSub]==0)
-          isConverged = 0;
-        else if (nSortedNodes[iSub]!=firstCheckedNode[iSub]) {
-        // if (nSortedNodes[iSub]!=firstCheckedNode[iSub]) {
+        if (nSortedNodes[iSub] != firstCheckedNode[iSub]) {
           isDone = 0;
           break;
         }
@@ -398,34 +397,140 @@ void ReinitializeDistanceToWall<dimLS,dim>::IterativeMethodUpdate(DistLevelSetSt
       ++level;
     }
 
-    // // convergence  check
-    // if (checkConverged[nSub] != nSub) {
-    //   for (int iSub = 0; iSub < nSub; ++iSub) {
-    //     if (nSortedNodes[iSub] > 0 && !checkConverged[iSub]) {
-    //       checkConverged[iSub] = 1;
-    //       checkConverged[nSub]++;
-    //     }
-    //   }
-    // }
+    // // check convergence
+    // if (res < eps) res = resnm1;
+    // if (res < eps) isConverged = 0;
     // else isConverged = 1;
+    // dom.getCommunicator()->globalMin(1, &isConverged);
+
+    // if (isConverged) {
+    //   resGlob = res;
+    //   dom.getCommunicator()->globalSum(1, &resGlob);
+    //   resGlob = sqrt(resGlob);
+    //   res0 = fabs(resGlob-resnm1Glob)/(resGlob+resnm1Glob);
+    //   isConverged = (res0 < iod.eqs.tc.tm.d2wall.eps || it > iod.eqs.tc.tm.d2wall.maxIts);
+    // }
+
+    // alteratively, 2 norm convergence check with additional loop over nodes
+    resScaleTmp = 0.0;
+    res0 = 0.0;
+    isConverged = 1;
+    for (int iSub = 0; iSub < nSub; ++iSub) {
+      for (int i = 0; i < d2wall(iSub).len; i++) {
+        if (d2wall(iSub)[i][0] == 1.0e10) {  // not converged: have not visited all subdomains yet
+          isConverged = 0;
+          goto breakpt;
+        }
+        resScaleTmp += d2wall(iSub)[i][0]*d2wall(iSub)[i][0];
+        res0     += (d2wall(iSub)[i][0]-resnm1(iSub)[i][0])
+                      *(d2wall(iSub)[i][0]-resnm1(iSub)[i][0]);
+      }
+    }
+    breakpt:
     dom.getCommunicator()->globalMin(1, &isConverged);
 
-    dom.getCommunicator()->globalSum(1, &res);
-    res = sqrt(res);
+    if (isConverged) {
+      if (resScale <= eps) {
+        // for (int iSub = 0; iSub < nSub; ++iSub) {
+        //   for (int i = 0; i < d2wall(iSub).len; i++) {
+        //     resScale += d2wall(iSub)[i][0]*d2wall(iSub)[i][0];
+        //   }
+        // }
+        resScale = resScaleTmp;
+        dom.getCommunicator()->globalSum(1, &resScale);
+        resScale = sqrt(resScale);
+      }
 
-    if (isConverged) { // update residual
-      res0 = fabs(res-resnm1)/(res+resnm1);
+      dom.getCommunicator()->globalSum(1, &res0);
+      res0 = sqrt(res0)/resScale;
       isConverged = (res0 < iod.eqs.tc.tm.d2wall.eps || it > iod.eqs.tc.tm.d2wall.maxIts);
-
-      // dom.getCommunicator()->fprintf(stderr, "Residual = %e @ iteration %d (isConverged = %d)\n", res[0], it, isConverged);
     }
+
+    dom.getCommunicator()->fprintf(stderr,"Iteration %d of wall distance (res = %e, isConverged = %d)\n",it,res0,isConverged);
+
     it++;
   }
+
+
+
+  // // int *checkConverged = new int[nSub+1];
+  // // for (int iSub = 0; iSub <= nSub; ++iSub) checkConverged[iSub] = 0;
+
+  // while (!isConverged) {
+  //   isConverged = 1;
+  //   resnm1 = res;
+
+  //   dom.getCommunicator()->fprintf(stderr,"\nIteration %d of wall distance (res = %e)\n\n",it,res0);
+
+  //   // // total wipe of tags after first pass from wall ----------- TESTING!
+  //   // if (it == 2) {
+  //   //   for (int iSub = 0; iSub < nSub; ++iSub) {
+  //   //     for (int i = 0; i < d2wall(iSub).len; i++) {
+  //   //       if (tag(iSub)[i] != 0) tag(iSub)[i] = -1;
+  //   //     }
+  //   //     // nSortedNodes[iSub] = 0;
+  //   //     // firstCheckedNode[iSub] = 0;
+  //   //   }
+  //   // }
+
+  //   // share information across processes
+  //   dom.pseudoFastMarchingMethodComm<1>(tag, d2wall, sortedNodes, nSortedNodes, level);
+
+  //   fprintf(stderr,"After comm, nSortedNodes = %d (firstCheckedNode = %d on cpu %d)\n",
+  //     nSortedNodes[0],firstCheckedNode[0], dom.getCommunicator()->cpuNum());
+
+  //   // propagate information outwards from minimum level
+  //   level = 1, isDone = 0;
+  //   // level = 2, isDone = 0;
+  //   res = 0.0;
+
+  //   while (!isDone) {
+  //     res += dom.pseudoFastMarchingMethodSerial<1>(tag, X, d2wall, level, 1,
+  //       sortedNodes, nSortedNodes, firstCheckedNode, isSharedNode, &LSS);
+  //     isDone = 1;
+  //     for (int iSub = 0; iSub < nSub; ++iSub) {
+  //       if (nSortedNodes[iSub]==0)
+  //         isConverged = 0;
+  //       else if (nSortedNodes[iSub]!=firstCheckedNode[iSub]) {
+  //       // if (nSortedNodes[iSub]!=firstCheckedNode[iSub]) {
+  //         isDone = 0;
+  //         break;
+  //       }
+  //     }
+  //     ++level;
+  //   }
+
+  //   // debug
+  //   if (it==2) return;
+
+  //   // // convergence  check
+  //   // if (checkConverged[nSub] != nSub) {
+  //   //   for (int iSub = 0; iSub < nSub; ++iSub) {
+  //   //     if (nSortedNodes[iSub] > 0 && !checkConverged[iSub]) {
+  //   //       checkConverged[iSub] = 1;
+  //   //       checkConverged[nSub]++;
+  //   //     }
+  //   //   }
+  //   // }
+  //   // else isConverged = 1;
+  //   dom.getCommunicator()->globalMin(1, &isConverged);
+
+  //   dom.getCommunicator()->globalSum(1, &res);
+  //   res = sqrt(res);
+
+  //   if (isConverged) { // update residual
+  //     res0 = fabs(res-resnm1)/(res+resnm1);
+  //     isConverged = (res0 < iod.eqs.tc.tm.d2wall.eps || it > iod.eqs.tc.tm.d2wall.maxIts);
+
+  //     // dom.getCommunicator()->fprintf(stderr, "Residual = %e @ iteration %d (isConverged = %d)\n", res[0], it, isConverged);
+  //   }
+  //   it++;
+  // }
 
   // delete[] checkConverged;
 
   dom.getCommunicator()->fprintf(stderr,
-    "Iterative distance to wall computation: final residual = %e, target = %e @ iteration %d\n",
+    "Iterative distance to wall computation: final residual = %e, target = %e @ it %d\n\n",
     res0, iod.eqs.tc.tm.d2wall.eps, it-1);
 }
 

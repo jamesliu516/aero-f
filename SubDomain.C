@@ -5359,21 +5359,49 @@ void SubDomain::minRcvData(CommPattern<Scalar> &sp, Scalar (*w)[dim])
 // sjg, 06/2017: Called from Domain::pseudoFastMarchingMethodComm at level > 1
 template<class Scalar, int dim>
 void SubDomain::minRcvDataAndFindMin(CommPattern<Scalar> &sp, Scalar (*w)[dim],
-  Vec<int> &Tag, Vec<int> &sortedNodes, int &nSortedNodes)
+  Vec<int> &Tag, Vec<int> &sortedNodes, int &nSortedNodes, int it)
 {
   assert(dim == 1); // if you intend to use it in Vectorial mode, modify it your way
 
-  // track boundary node with minimum d2wall
-  double mind2w = 1.0e10;
-  static int minNode = -1;
+  // track boundary node with minimum d2wall (take 1)
+  // double mind2w = 1.0e10;
+  // static int minNode = -1;
 
-  if (minNode > 0) {
-    Tag[minNode] = -1;
-    minNode = -1;
+  // if (minNode > 0) {
+  //   Tag[minNode] = -1;
+  //   minNode = -1;
+  // }
+
+  // take 2
+  double mind2w;
+  static int *minNode;
+
+  if (minNode == NULL) {  // initialize at first call
+    minNode = new int[numNeighb];
+    for (int iSub = 0; iSub < numNeighb; ++iSub) minNode[iSub] = -1;
   }
+
+  // addition for take 3
+  static int minNeighb = 0;
+  static int minNodeNeighb = -1;
+
+  if (it==2) minNeighb = 0;
+
+  // if (minNeighb>0)
+  //   Tag[minNode[(minNeighb-1)%numNeighb]] = -1;
+
+  if (minNodeNeighb>0) Tag[minNodeNeighb] = -1;
 
   int sharedNodeID;
   for (int iSub = 0; iSub < numNeighb; ++iSub) {
+
+    mind2w = 1.0e10;
+
+    if (minNode[iSub] > 0) {  // reset tags from previous comm
+      // Tag[minNode[iSub]] = -1;
+      minNode[iSub] = -1;
+    }
+
     SubRecInfo<Scalar> sInfo = sp.recData(rcvChannel[iSub]);
     Scalar (*buffer)[dim] = reinterpret_cast<Scalar (*)[dim]>(sInfo.data);
     for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode) {
@@ -5382,25 +5410,42 @@ void SubDomain::minRcvDataAndFindMin(CommPattern<Scalar> &sp, Scalar (*w)[dim],
       if (buffer[iNode][0] < w[sharedNodeID][0]) {
         w[sharedNodeID][0] = buffer[iNode][0];
 
+        if (Tag[sharedNodeID] == 0) fprintf(stderr,"Problem: updating distance @ a fixed node!\n");
+
         if (buffer[iNode][0] < mind2w) {
           mind2w = buffer[iNode][0];
-          minNode = sharedNodeID;
+          // minNode = sharedNodeID;
+          minNode[iSub] = sharedNodeID;
         }
       }
+      // else Tag[sharedNodeID] = -1;
+    }
 
-      // if (w[sharedNodeID][0] < mind2w) {
-      //   mind2w = buffer[iNode][0];
-      //   minNode = sharedNodeID;
-      // }
+    // if (minNode[iSub] > 0)  // tag min node for each neighbor
+    //   Tag[minNode[iSub]] = 1;
+
+  }
+
+  int iSub, jSub;
+  for (iSub = minNeighb; iSub < numNeighb+minNeighb; ++iSub) {
+    jSub = iSub%numNeighb;
+    if (minNode[jSub] > 0)  {
+      Tag[minNode[jSub]] = 1;
+      break;
     }
   }
+  if (iSub < numNeighb+minNeighb) { // minNode has been found and tagged, increment minNeighb for next time
+    minNeighb++;
 
-  if (minNode > 0) {
-    Tag[minNode] = 1;
-
-    // sortedNodes[nSortedNodes] = sharedNodeID;
-    // nSortedNodes++;
+    minNodeNeighb = minNode[jSub];
+    // fprintf(stderr,"Found a minNode at minNeighb = %d!\n",minNeighb-1);
   }
+
+
+
+  // if (minNode > 0) {
+  //   Tag[minNode] = 1;
+  // }
 
 //---------------------------------
 
@@ -5445,7 +5490,6 @@ void SubDomain::minRcvDataAndCountUpdates(CommPattern<Scalar> &sp, Scalar (*w)[d
       if (buffer[iNode][0] < w[sharedNodeID][0]) {
         w[sharedNodeID][0] = buffer[iNode][0];
         if (Tag[sharedNodeID] < 0) {
-          // Tag[sharedNodeID] = 1;
           Tag[sharedNodeID] = level;
           sortedNodes[nSortedNodes] = sharedNodeID;
           nSortedNodes++;
@@ -9838,7 +9882,6 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
       //   nSortedNodes++;
       if (Tag[i] == iterativeLevel) {
         sortedNodes[nSortedNodes] = i;
-        // nActiveNodes++;
         nSortedNodes++;
         res += d2wall[i][0]*d2wall[i][0];
       }
@@ -9969,7 +10012,7 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
       // Should be useless. Remove the following if.Adam 2011.09
       // if(Tag[fixedNode]==lowerLevel){
 
-      assert(Tag[fixedNode] == lowerLevel); // THIS WILL FAIL USING NEW COMM STRATEGY
+      assert(Tag[fixedNode] == lowerLevel);
       // if (Tag[fixedNode] != lowerLevel) {
       //   fprintf(stderr,"Failed assert in SubDomain.C for Tag[fixedNode] != lowerlevel (Tag[fixedNode] = %d, lowerlevel = %d, node %d out of %d)\n",Tag[fixedNode],lowerLevel,i,nSortedNodes-firstCheckedNode+1);
       //   exit(-1);

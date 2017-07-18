@@ -5563,7 +5563,7 @@ double Domain::pseudoFastMarchingMethodSerial(DistVec<int> &Tag, DistSVec<double
 
 template<int dimLS>
 void Domain::pseudoFastMarchingMethodComm(DistVec<int> &Tag, DistSVec<double,dimLS> &d2wall,
-  DistVec<int> &sortedNodes, int *nSortedNodes, int level)
+  DistVec<int> &sortedNodes, int *nSortedNodes, int it)
 {
   int iSub;
 
@@ -5573,19 +5573,19 @@ void Domain::pseudoFastMarchingMethodComm(DistVec<int> &Tag, DistSVec<double,dim
 
   volPat->exchange();
 
-  if (level==1) {
+  if (it==1) {
 #pragma omp parallel for
     for (iSub = 0; iSub < numLocSub; ++iSub)
       subDomain[iSub]->minRcvDataAndCountUpdates
         (*volPat,reinterpret_cast<double (*)[dimLS]>(d2wall.subData(iSub)),Tag(iSub),
-        sortedNodes(iSub),*(nSortedNodes+iSub),level);
+        sortedNodes(iSub),*(nSortedNodes+iSub),it);
   }
   else {
 #pragma omp parallel for
     for (iSub = 0; iSub < numLocSub; ++iSub)
       subDomain[iSub]->minRcvDataAndFindMin
         (*volPat,reinterpret_cast<double (*)[dimLS]>(d2wall.subData(iSub)),Tag(iSub),
-        sortedNodes(iSub),*(nSortedNodes+iSub));
+        sortedNodes(iSub),*(nSortedNodes+iSub),it);
   }
 }
 

@@ -470,7 +470,7 @@ public:
 
   template<int dimLS>
   void pseudoFastMarchingMethodComm(DistVec<int> &Tag, DistSVec<double,dimLS> &d2wall,
-          DistVec<int> &sortedNodes, int *nSortedNodes, int level);
+          DistVec<int> &sortedNodes, int *nSortedNodes, int it);
 
   //template<int dimLS>
   //void FinishReinitialization(DistVec<int> &Tag, DistSVec<double,dimLS> &Psi, int level);
