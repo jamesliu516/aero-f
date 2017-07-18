@@ -3223,6 +3223,10 @@ void ElemTet::FEMMarchingDistanceUpdateUpw(SVec<double,3> &X, SVec<double,dim> &
     idx[node] = 3;
     idx[3] = node;
   }
+  // // OR (use this for indexing)
+  // int oppi = 3 - i;
+  // int oppn[3]  = {faceDefTet[oppi][0],faceDefTet[oppi][1],faceDefTet[oppi][2]};
+  // oppn[0]=nodeNum(oppn[0]); oppn[1]=nodeNum(oppn[1]); oppn[2]=nodeNum(oppn[2]);
 
   // // check if solution is even possible (only for multiple updates and upwinding)
   // if (d2wall[nodenum][0] < d2wall[nodeNum(idx[0])][0] ||
@@ -3361,17 +3365,19 @@ template<int dim>
 void ElemTet::FastMarchingDistanceUpdate(int node, Vec<int> &Tag, int level,
                                     SVec<double,3> &X,SVec<double,dim> &d2wall)
 {
-  // if (!(Tag[nodeNumTet[0]]==level || Tag[nodeNumTet[1]]==level ||
-  //       Tag[nodeNumTet[2]]==level || Tag[nodeNumTet[3]]==level))
+  // // if (!(Tag[nodeNumTet[0]]==level || Tag[nodeNumTet[1]]==level ||
+  // //       Tag[nodeNumTet[2]]==level || Tag[nodeNumTet[3]]==level))
+  // //   return;
+  // // if (d2wall[node][0] <= min(min(min( // iterative method requires a non-tag based check
+  // //     d2wall[nodeNumTet[0]][0], d2wall[nodeNumTet[1]][0]),
+  // //     d2wall[nodeNumTet[2]][0]),d2wall[nodeNumTet[3]][0]))
+  // // if (d2wall[node][0] <= d2wall[nodeNumTet[0]][0] &&
+  // //     d2wall[node][0] <= d2wall[nodeNumTet[1]][0] &&
+  // //     d2wall[node][0] <= d2wall[nodeNumTet[2]][0] &&
+  // //     d2wall[node][0] <= d2wall[nodeNumTet[3]][0])
+  // if (d2wall[nodeNumTet[0]][0] + d2wall[nodeNumTet[1]][0]
+  //   + d2wall[nodeNumTet[2]][0] + d2wall[nodeNumTet[3]][0] >= 2.0e10)
   //   return;
-  if (d2wall[node][0] <= min(min(min( // iterative method requires a non-tag based check
-      d2wall[nodeNumTet[0]][0], d2wall[nodeNumTet[1]][0]),
-      d2wall[nodeNumTet[2]][0]),d2wall[nodeNumTet[3]][0]))
-  // if (d2wall[node][0] <= d2wall[nodeNumTet[0]][0] &&
-  //     d2wall[node][0] <= d2wall[nodeNumTet[1]][0] &&
-  //     d2wall[node][0] <= d2wall[nodeNumTet[2]][0] &&
-  //     d2wall[node][0] <= d2wall[nodeNumTet[3]][0])
-    return;
 
   // Looking for node position in the Tet
   int i;
@@ -3382,6 +3388,14 @@ void ElemTet::FastMarchingDistanceUpdate(int node, Vec<int> &Tag, int level,
   //   exit(-1);
   // }
   assert(i<4);
+
+  // nodes in opposing face and upwinding check (don't restrict to lower levels for iterative method!)
+  int oppi = 3 - i;
+  int oppn[3]  = {faceDefTet[oppi][0],faceDefTet[oppi][1],faceDefTet[oppi][2]};
+  if (!(d2wall[nodeNum(oppn[0])][0] < d2wall[node][0] ||
+        d2wall[nodeNum(oppn[1])][0] < d2wall[node][0] ||
+        d2wall[nodeNum(oppn[2])][0] < d2wall[node][0] ))
+    return;
 
   double distance = computeDistancePlusPhi(i,X,d2wall);
   d2wall[node][0] = min(d2wall[node][0], distance);

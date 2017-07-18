@@ -1114,7 +1114,7 @@ public:
   void minRcvDataAndCountUpdates(CommPattern<Scalar> &sp, Scalar (*w)[dim], Vec<int> &, Vec<int> &, int &, int);
 
   template<class Scalar, int dim>
-  void minRcvDataAndFindMin(CommPattern<Scalar> &sp, Scalar (*w)[dim], Vec<int> &, Vec<int> &, int &);
+  void minRcvDataAndFindMin(CommPattern<Scalar> &sp, Scalar (*w)[dim], Vec<int> &, Vec<int> &, int &, int);
 
   template<class Scalar, int dim>
   void maxRcvData(CommPattern<Scalar> &, Scalar (*)[dim]);
