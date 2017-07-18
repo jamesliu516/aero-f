@@ -62,7 +62,7 @@ void startModalSolver(Communicator *com, IoData &ioData, Domain &domain)
     exit(1);
   }
 */
- 
+
 }
 
 //------------------------------------------------------------------------------

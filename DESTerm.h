@@ -15,10 +15,10 @@ using std::max;
 class DESTerm {
 
   double oorey;
-  
+
 // Included (MB)
   double dRe_mudMach;
-  
+
 protected:
 
   double alpha;
@@ -34,6 +34,7 @@ protected:
   double oocv2;
   double oosigma;
   double oovkcst2;
+  double rlim;
   bool usefv3;
 
 public:
@@ -49,7 +50,7 @@ public:
   double min(double a, double b) { return (a<b) ? a : b; }
 
   template<int neq, int shift>
-  void computeJacobianVolumeTermDES(double [4][3], double [4], double [3][3], double, 
+  void computeJacobianVolumeTermDES(double [4][3], double [4], double [3][3], double,
 				   double, double *[4], double (*)[3][neq][neq],
 				   double (*)[neq][neq],  SVec<double,3> &, int [4]);
 
@@ -57,6 +58,9 @@ public:
   double computeDerivativeOfTurbulentViscosity(double *[4], double *[4], double, double, double &, double &);
   double computeDerivativeOfTurbulentViscosity(double *, double *, double, double);
   void rstVarDES(IoData &);
+
+  template <int dimLS, int dim>
+  friend class ReinitializeDistanceToWall;  // sjg, 2017: so that d2wall calc can access SA constants for sensititivites
 
 };
 
@@ -88,6 +92,8 @@ DESTerm::DESTerm(IoData &iod)
 
   cw1 /= iod.ref.reynolds_mu;
   oosigma /= iod.ref.reynolds_mu;
+
+  rlim = 2.0; // sjg, 07/2017: should be in iodata eventually, but for now OK here
 
   if (iod.eqs.tc.tm.des.form == DESModelData::FV3)
     usefv3 = true;
@@ -152,7 +158,7 @@ double DESTerm::computeDerivativeOfTurbulentViscosity(double *V[4], double *dV[4
   mutilde = 0.25 * (V[0][0]*V[0][5] + V[1][0]*V[1][5] +
 		    V[2][0]*V[2][5] + V[3][0]*V[3][5]);
 
-  dmutilde = 0.25 * (dV[0][0]*V[0][5] + V[0][0]*dV[0][5] + dV[1][0]*V[1][5] + V[1][0]*dV[1][5] + 
+  dmutilde = 0.25 * (dV[0][0]*V[0][5] + V[0][0]*dV[0][5] + dV[1][0]*V[1][5] + V[1][0]*dV[1][5] +
 		     dV[2][0]*V[2][5] + V[2][0]*dV[2][5] + dV[3][0]*V[3][5] + V[3][0]*dV[3][5]);
 
   double chi = mutilde / mul;
@@ -230,9 +236,9 @@ double DESTerm::computeDerivativeOfSecondTurbulentViscosity(double lambdal, doub
 //------------------------------------------------------------------------------
 
 template<int neq, int shift>
-void DESTerm::computeJacobianVolumeTermDES(double dp1dxj[4][3], double d2w[4], 
-					 double dudxj[3][3], double mul, double mutilde, 
-					 double *V[4], double (*dRdU)[3][neq][neq], 
+void DESTerm::computeJacobianVolumeTermDES(double dp1dxj[4][3], double d2w[4],
+					 double dudxj[3][3], double mul, double mutilde,
+					 double *V[4], double (*dRdU)[3][neq][neq],
 					 double (*dSdU)[neq][neq], SVec<double,3> &X, int nodeNum[4])
 {
 
@@ -241,22 +247,22 @@ void DESTerm::computeJacobianVolumeTermDES(double dp1dxj[4][3], double d2w[4],
   double absmutilde = fabs(mutilde);
   double maxmutilde = max(mutilde, 0.0);
   double dabsmutilde,dmaxmutilde;
-  if (mutilde != 0.0) 
+  if (mutilde != 0.0)
     dabsmutilde = fabs(mutilde)/mutilde;
   else
     dabsmutilde = 0.0;
 
-  if (maxmutilde == 0.0) 
+  if (maxmutilde == 0.0)
     dmaxmutilde = 0.0;
   else
     dmaxmutilde = 1.0;
-      
+
   double mu5 = oosigma * (mul + absmutilde);
-  double dnutildedx = dp1dxj[0][0]*V[0][5] + dp1dxj[1][0]*V[1][5] + 
+  double dnutildedx = dp1dxj[0][0]*V[0][5] + dp1dxj[1][0]*V[1][5] +
     dp1dxj[2][0]*V[2][5] + dp1dxj[3][0]*V[3][5];
-  double dnutildedy = dp1dxj[0][1]*V[0][5] + dp1dxj[1][1]*V[1][5] + 
+  double dnutildedy = dp1dxj[0][1]*V[0][5] + dp1dxj[1][1]*V[1][5] +
     dp1dxj[2][1]*V[2][5] + dp1dxj[3][1]*V[3][5];
-  double dnutildedz = dp1dxj[0][2]*V[0][5] + dp1dxj[1][2]*V[1][5] + 
+  double dnutildedz = dp1dxj[0][2]*V[0][5] + dp1dxj[1][2]*V[1][5] +
     dp1dxj[2][2]*V[2][5] + dp1dxj[3][2]*V[3][5];
   double drdx = oosigma * 0.25 * dnutildedx;
   double drdy = oosigma * 0.25 * dnutildedy;
@@ -326,7 +332,7 @@ void DESTerm::computeJacobianVolumeTermDES(double dp1dxj[4][3], double d2w[4],
   double dfv3 = 0;
   if (usefv3) {
     dfv2 = -3.0*dchi*oocv2 * coef3*coef3;
-    dfv3 = ((dchi*fv1 + chi*dfv1)*(1.0 - fv2) - 
+    dfv3 = ((dchi*fv1 + chi*dfv1)*(1.0 - fv2) -
 	   (1.0 + chi*fv1)*dfv2 - fv3*dchi) / chi;
   }
   double dStilde = s*dfv3 + oorey*oovkcst2*oorho*ood2wall2 * (fv2*dmaxmutilde + maxmutilde*dfv2);
@@ -346,9 +352,9 @@ void DESTerm::computeJacobianVolumeTermDES(double dp1dxj[4][3], double d2w[4],
   double coef4 = oosigma * cb2 * rho * 2.0;
 
   for (k=0; k<4; ++k)
-    dSdU[k][shift][shift] = coef4 / V[k][0] * 
+    dSdU[k][shift][shift] = coef4 / V[k][0] *
       (dnutildedx*dp1dxj[k][0] + dnutildedy*dp1dxj[k][1] + dnutildedz*dp1dxj[k][2]) - s00;
-  
+
 }
 
 //------------------------------------------------------------------------------

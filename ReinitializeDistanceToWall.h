@@ -23,7 +23,7 @@ class ReinitializeDistanceToWall
   // default wall distance
   DistVec<int> tag;
   DistVec<int> sortedNodes;
-  int *nActiveNodes, *firstCheckedNode; //,*nSortedNodes
+  int *firstCheckedNode; //,*nSortedNodes, *nActiveNodes,
   // DistSVec<double, dimLS> dummyPhi;
 
   // FEM wall distance
@@ -32,13 +32,13 @@ class ReinitializeDistanceToWall
   DistVec<int> isSharedNode, nodeTag, unsortedNodes, unsortedTag;
 
   // predictors
+  SpaceOperator<dim> &spaceOp;
   double predictorTime[3];
   DistSVec<double, 1> d2wnm1, d2wnm2;
   int countReinits, nPredTot;
-  double tolmin, tolmax; // to be read from parser!
-
-  SpaceOperator<dim> &spaceOp;
   DistVec<double> SAsensi;
+
+  double tolmin, tolmax; // to be read from parser!
 
 public:
   ReinitializeDistanceToWall(IoData &ioData, Domain &domain, SpaceOperator<dim> &spaceOp);
@@ -62,6 +62,7 @@ private:
   // void InitializeWallFunction(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState, double t);
   // void GetLevelsFromInterfaceAndMarchForward(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState);
 
+  // miscellaneous debugging tools
   void ComputeExactErrors(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState);
   void PrescribedValues(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState);
   void ComputePercentChange(DistLevelSetStructure &LSS, DistGeoState &distGeoState);

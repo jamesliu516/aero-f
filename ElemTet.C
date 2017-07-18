@@ -15,7 +15,7 @@
 #include <PolygonReconstructionData.h>
 
 //------------------------------------------------------------------------------
-//--------------functions in ElemTet class
+// functions in ElemTet class
 // contact Daniel Huang if you have problems
 //------------------------------------------------------------------------------
 
@@ -3361,17 +3361,28 @@ template<int dim>
 void ElemTet::FastMarchingDistanceUpdate(int node, Vec<int> &Tag, int level,
                                     SVec<double,3> &X,SVec<double,dim> &d2wall)
 {
-  if (!(Tag[nodeNumTet[0]]==level || Tag[nodeNumTet[1]]==level ||
-       Tag[nodeNumTet[2]]==level || Tag[nodeNumTet[3]]==level   ))
+  // if (!(Tag[nodeNumTet[0]]==level || Tag[nodeNumTet[1]]==level ||
+  //       Tag[nodeNumTet[2]]==level || Tag[nodeNumTet[3]]==level))
+  //   return;
+  if (d2wall[node][0] <= min(min(min( // iterative method requires a non-tag based check
+      d2wall[nodeNumTet[0]][0], d2wall[nodeNumTet[1]][0]),
+      d2wall[nodeNumTet[2]][0]),d2wall[nodeNumTet[3]][0]))
+  // if (d2wall[node][0] <= d2wall[nodeNumTet[0]][0] &&
+  //     d2wall[node][0] <= d2wall[nodeNumTet[1]][0] &&
+  //     d2wall[node][0] <= d2wall[nodeNumTet[2]][0] &&
+  //     d2wall[node][0] <= d2wall[nodeNumTet[3]][0])
     return;
 
   // Looking for node position in the Tet
   int i;
   for (i=0; i<4; i++) {if(nodeNum(i)==node) break;} // Found i
-  if(i==4) { // Didn't find it. Something is wrong
-    printf("This may not be the tet you are looking for\n Node: %d, Tet Nodes: %d %d %d %d\nAbort!",node,nodeNum(0),nodeNum(1),nodeNum(2),nodeNum(3));
-    exit(-1);
-  }
+
+  // if(i==4) { // Didn't find it. Something is wrong
+  //   printf("This may not be the tet you are looking for\n Node: %d, Tet Nodes: %d %d %d %d\nAbort!",node,nodeNum(0),nodeNum(1),nodeNum(2),nodeNum(3));
+  //   exit(-1);
+  // }
+  assert(i<4);
+
   double distance = computeDistancePlusPhi(i,X,d2wall);
   d2wall[node][0] = min(d2wall[node][0], distance);
 }
