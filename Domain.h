@@ -433,8 +433,10 @@ public:
 	 std::cout << "computePressureSensor not implemented for complex operations" <<endl; }
 
   // ----- BEGIN LEVELSET - MULTIPHASE FLOW SPECIFIC FUNCTIONS ----- //
+
   template<int dimLS>
   void setupPhiVolumesInitialConditions(const int volid, const int fluidId, DistSVec<double,dimLS> &Phi);
+
   template<int dimLS>
   void TagInterfaceNodes(int lsdim, DistVec<int> &Tag, DistSVec<double,dimLS> &Phi, int level,DistLevelSetStructure *distLSS=0);
   template<int dimLS>
@@ -446,6 +448,7 @@ public:
         int *nSortedNodes, int *nSortedElems, int *firstCheckedElem,
         DistVec<int> &unsortedTag, DistVec<int> &unsortedNodes, int *nUnsortedNodes,
         DistVec<int> &isSharedNode, DistLevelSetStructure *distLSS);
+
   template<int dimLS>
   void pseudoFastMarchingMethodFinalize(DistSVec<double,3> &X, DistSVec<double,dimLS> &d2wall,
         int **knownNodes, int *nSortedNodes,
@@ -456,16 +459,18 @@ public:
   template<int dimLS>
   double pseudoFastMarchingMethod(DistVec<int> &Tag, DistSVec<double,3> &X,
 				DistSVec<double,dimLS> &d2wall, int level, int iterativeLevel,
-				DistVec<int> &sortedNodes, int *nSortedNodes, int *nActiveNodes,
-				int *firstCheckedNode, DistLevelSetStructure *distLSS=0);
+				DistVec<int> &sortedNodes, int *nSortedNodes, int *firstCheckedNode,
+        DistVec<int> &isSharedNode, DistLevelSetStructure *distLSS=0);
+
   template<int dimLS>
-  double pseudoFastMarchingMethodSerial(int iSub, DistVec<int> &Tag, DistSVec<double,3> &X,
+  double pseudoFastMarchingMethodSerial(DistVec<int> &Tag, DistSVec<double,3> &X,
 				DistSVec<double,dimLS> &d2wall, int level, int iterativeLevel,
-				DistVec<int> &sortedNodes, int *nSortedNodes, int *nActiveNodes,
-				int *firstCheckedNode, DistLevelSetStructure *distLSS=0);
+				DistVec<int> &sortedNodes, int *nSortedNodes, //int *nActiveNodes,
+				int *firstCheckedNode, DistVec<int> &isSharedNode, DistLevelSetStructure *distLSS=0);
+
   template<int dimLS>
   void pseudoFastMarchingMethodComm(DistVec<int> &Tag, DistSVec<double,dimLS> &d2wall,
-          DistVec<int> &sortedNodes, int *nSortedNodes,int *nActiveNodes);
+          DistVec<int> &sortedNodes, int *nSortedNodes, int level);
 
   //template<int dimLS>
   //void FinishReinitialization(DistVec<int> &Tag, DistSVec<double,dimLS> &Psi, int level);

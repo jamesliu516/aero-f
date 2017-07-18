@@ -647,7 +647,7 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
     double s31 = dudxj[2][0] - dudxj[0][2];
     double s = sqrt(s12*s12 + s23*s23 + s31*s31);
     double Stilde = max(s*fv3 + zz*fv2,1.0e-12); // To avoid possible numerical problems, the term \tilde S must never be allowed to reach zero or go negative.
-    double rr = min(zz/Stilde, 2.0);
+    double rr = min(zz/Stilde, rlim);
     double rr2 = rr*rr;
     double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
     double gg2 = gg*gg;
@@ -781,7 +781,7 @@ void FemEquationTermSA::computeSourceTerm(double dudxj[3][3],double dnudx[3],
     double s31 = dudxj[2][0] - dudxj[0][2];
     double s = sqrt(s12*s12 + s23*s23 + s31*s31);
     double Stilde = max(s*fv3 + zz*fv2,1.0e-12); // To avoid possible numerical problems, the term \tilde S must never be allowed to reach zero or go negative.
-    double rr = min(zz/Stilde, 2.0);
+    double rr = min(zz/Stilde, rlim);
     double rr2 = rr*rr;
     double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
     double gg2 = gg*gg;
@@ -1001,9 +1001,9 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
     double ds = 1.0 / ( 2.0*s ) * (2.0*s12*ds12 + 2.0*s23*ds23 + 2.0*s31*ds31);
     double Stilde = s*fv3 + zz*fv2;
     double dStilde = ds*fv3 + s*dfv3 + dzz*fv2 + zz*dfv2;
-    double rr = min(zz/Stilde, 2.0);
+    double rr = min(zz/Stilde, rlim);
     double drr;
-    if (rr==2.0)
+    if (rr==rlim)
       drr = 0.0;
     else
       drr = ( dzz * Stilde - zz*dStilde ) / ( Stilde * Stilde );
@@ -1812,7 +1812,7 @@ bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
     double s31 = dudxj[2][0] - dudxj[0][2];
     double s = sqrt(s12*s12 + s23*s23 + s31*s31);
     double Stilde = max(s*fv3 + zz*fv2,1.0e-12); // To avoid possible numerical problems, the term \tilde S must never be allowed to reach zero or go negative.
-    double rr = min(zz/Stilde, 2.0);
+    double rr = min(zz/Stilde, rlim);
     double rr2 = rr*rr;
     double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
     double gg2 = gg*gg;

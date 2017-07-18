@@ -1106,12 +1106,15 @@ public:
   template<class Scalar, int dim>
   void minRcvData(CommPattern<Scalar> &, Scalar (*)[dim]);
 
-  // TESTING TESTING -------------------------------------------------------------------------
+  // TESTING TESTING -----------------------------------------------------------
   template<class Scalar, int dim>
   void minRcvDataAndAddElems(CommPattern<Scalar> &, Scalar (*)[dim], Vec<int> &, int *, int *, int *, int &, int &);
 
   template<class Scalar, int dim>
-  void minRcvDataAndCountUpdates(CommPattern<Scalar> &sp, Scalar (*w)[dim], Vec<int> &, int &, Vec<int> &);
+  void minRcvDataAndCountUpdates(CommPattern<Scalar> &sp, Scalar (*w)[dim], Vec<int> &, Vec<int> &, int &, int);
+
+  template<class Scalar, int dim>
+  void minRcvDataAndFindMin(CommPattern<Scalar> &sp, Scalar (*w)[dim], Vec<int> &, Vec<int> &, int &);
 
   template<class Scalar, int dim>
   void maxRcvData(CommPattern<Scalar> &, Scalar (*)[dim]);
@@ -1244,8 +1247,8 @@ public:
   template<int dimLS>
   void pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
 				SVec<double,dimLS> &d2wall, int level, int iterativeLevel,
-        Vec<int> &sortedNodes, int &nSortedNodes, int &nActiveNodes,
-        int &firstCheckedNode, double &res, LevelSetStructure *LSS=0);
+        Vec<int> &sortedNodes, int &nSortedNodes, int &firstCheckedNode,
+        double &res, Vec<int> &isSharedNode, int &commFlag, LevelSetStructure *LSS=0);
 
   template<int dimLS>
   void FinishReinitialization(Vec<int> &Tag, SVec<double,dimLS> &Psi, int level);

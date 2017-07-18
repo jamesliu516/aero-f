@@ -45,6 +45,7 @@ protected:
   double oocv2;
   double oosigma;
   double oovkcst2;
+  double rlim;
   bool usefv3;
 
 public:
@@ -76,6 +77,9 @@ public:
 
   void rstVarSA(IoData &);
 
+  template <int dimLS, int dim>
+  friend class ReinitializeDistanceToWall;  // sjg, 2017: so that d2wall calc can access SA constants for sensititivites
+
 };
 
 //------------------------------------------------------------------------------
@@ -102,6 +106,8 @@ SATerm::SATerm(IoData &iod)
 
   cw1 /= iod.ref.reynolds_mu;
   oosigma /= iod.ref.reynolds_mu;
+
+  rlim = 2.0; // sjg, 07/2017: should be in iodata eventually, but for now OK here
 
   if (iod.eqs.tc.tm.sa.form == SAModelData::FV3)
     usefv3 = true;
@@ -311,7 +317,7 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
   double s31 = dudxj[2][0] - dudxj[0][2];
   double s = sqrt(s12*s12 + s23*s23 + s31*s31);
   double Stilde = max(s*fv3 + zz*fv2,1.0e-12); // To avoid possible numerical problems, the term \tilde S must never be allowed to reach zero or go negative.
-  double rr = min(zz/Stilde, 2.0);
+  double rr = min(zz/Stilde, rlim);
   double rr2 = rr*rr;
   double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
   double gg2 = gg*gg;
@@ -672,7 +678,7 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
       dStilde[k][5] = ds[k][5]*fv3 + s*dfv3[k][5] + dzz[k][5]*fv2 + zz*dfv2[k][5];
     }
 
-    rr = min(zz/Stilde, 2.0);
+    rr = min(zz/Stilde, rlim);
     if (rr==2.0) {
       drr[k][0] = 0.0;
       drr[k][1] = 0.0;

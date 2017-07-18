@@ -1236,10 +1236,6 @@ void EmbeddedTsDesc<dim>::computeDistanceToWall(IoData &ioData, double t)
 		{
       double t0 = this->timer->getTime();
 
-      // wall_computer->ComputePredictors();
-
-      // this->spaceOp->computeSASourceTerm();
-
       // wall_computer->ComputeWallFunction(*this->distLSS,*this->X,*this->geoState,*this->spaceOp,t);
       wall_computer->ComputeWallFunction(*this->distLSS,*this->X,*this->geoState,t);
 

@@ -7342,14 +7342,14 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
     bc.inlet.pressure /= ref.rv.pressure;
     bc.inlet.velocity /= ref.rv.velocity;
     bc.inlet.temperature /= ref.rv.temperature;
-    bc.inlet.nutilde /= ref.rv.nutilde;
+    // bc.inlet.nutilde /= ref.rv.nutilde;
     bc.inlet.kenergy /= ref.rv.kenergy;
     bc.inlet.eps /= ref.rv.epsilon;
     bc.outlet.density /= ref.rv.density;
     bc.outlet.pressure /= ref.rv.pressure;
     bc.outlet.velocity /= ref.rv.velocity;
     bc.outlet.temperature /= ref.rv.temperature;
-    bc.outlet.nutilde /= ref.rv.nutilde;
+    // bc.outlet.nutilde /= ref.rv.nutilde;
     bc.outlet.kenergy /= ref.rv.kenergy;
     bc.outlet.eps /= ref.rv.epsilon;
 
@@ -7376,7 +7376,7 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
         it2->second->totalPressure /= ref.rv.pressure;
         it2->second->totalTemperature /= ref.rv.temperature;
         it2->second->mdot /= ref.rv.density*ref.rv.velocity*ref.rv.length*ref.rv.length;
-        it2->second->nutilde /= ref.rv.nutilde;
+        // it2->second->nutilde /= ref.rv.nutilde;
         it2->second->kenergy /= ref.rv.kenergy;
         it2->second->epsilon /= ref.rv.epsilon;
     }
