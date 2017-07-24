@@ -1893,7 +1893,6 @@ struct SensitivityAnalysis {
   const char* sensoutput;
 
   // temporary parameters for debugging
-  const char* tempStateDeriv;
   const char* linsolverhs;
 
   const char* dFdS_inviscid;

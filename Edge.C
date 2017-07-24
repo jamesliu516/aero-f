@@ -3307,7 +3307,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         fprintf(stdout, "%s", iActive ? "true" : "false");
         fprintf(stdout, " Node %i ", j);
         fprintf(stdout, "%s\n", jActive ? "true" : "false");
-                Dev::Error(MPI_COMM_WORLD,"MESSAGE",true);
         exit(-1);
       }
 

@@ -268,7 +268,7 @@ inline
 void computeDerivativeOfLocalWeightsLeastSquares(double dx[3], double ddx[3], double *R, double *dR, double *W, double *dW)
 {
 
-  if(R[0]*R[3]*R[5] == 0.0) fprintf(stderr, "!!! ERROR Going to divide by 0 %e %e %e\n",
+  if(R[0]*R[3]*R[5] == 0.0) fprintf(stderr, "!!! 4 ERROR Going to divide by 0 %e %e %e\n",
          R[0], R[3], R[5]);
 
   if(R[0]*R[3]*R[5] == 0.0){
@@ -907,7 +907,6 @@ void SubDomain::computeDerivativeOfGradientsLeastSquaresEmb(
 
 
     //TODO DEBUG
-    std::cout<<i<<":"<<LSS->isActive(0.0, i)<<"   "<<j<<":"<<LSS->isActive(0.0, j)<<std::endl;//TODO delete line
 
     double Wi[3], Wj[3], deltaVar;
     double dWi[3]={0}, dWj[3]={0}, dDeltaVar;
@@ -917,15 +916,12 @@ void SubDomain::computeDerivativeOfGradientsLeastSquaresEmb(
     double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
     double ddx[3] = {dX[j][0] - dX[i][0], dX[j][1] - dX[i][1], dX[j][2] - dX[i][2]};
 
-    std::cout<<" computeDerivativeOfLocalWeightsLeastSquares Node i"<<std::endl;//TODO delete line
-    computeDerivativeOfLocalWeightsLeastSquares(dx, ddx, R[i], dR[i], Wi, dWi);
+    computeDerivativeOfLocalWeightsLeastSquares(dx, ddx, R[i], dR[i], Wi, dWi);//TODO
 
     dx[0] = -dx[0]; dx[1] = -dx[1]; dx[2] = -dx[2];
     ddx[0] = -ddx[0]; ddx[1] = -ddx[1]; ddx[2] = -ddx[2];
 
-    std::cout<<" computeDerivativeOfLocalWeightsLeastSquares Node j"<<std::endl;//TODO delete line
-    computeDerivativeOfLocalWeightsLeastSquares(dx, ddx, R[j], dR[j], Wj, dWj);
-    std::cout<<" All nodes done"<<std::endl;//TODO delete line
+    computeDerivativeOfLocalWeightsLeastSquares(dx, ddx, R[j], dR[j], Wj, dWj);//TODOD
 
     for (int k=0; k<dim; ++k) {
       deltaVar = var[j][k] - var[i][k];
@@ -4591,8 +4587,8 @@ void SubDomain::addDiagonalInMatVecProdH2transpose(Vec<double> &ctrlVol, GenMat<
    VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
 
    if (bcMap.size() > 0)  {
-     std::cout << "****Not sure about what to do *****\n";//TODO commented this out, check what it is about
-     exit(-1);
+     //std::cout << "****Not sure about what to do *****\n";//TODO commented this out, check what it is about
+     //exit(-1);
    }
 
    for (l=0; l<numEdges; ++l) {

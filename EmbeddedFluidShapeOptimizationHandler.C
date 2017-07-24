@@ -293,9 +293,9 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSetUpLinearSolver(
     this->timeState->add_dAW_dt(1, *this->geoState, A, U, FluxFD, this->distLSS);
   }
 
-  this->output->writeAnyVectorToDisk("results/FluxFD_withoutBC",1,1,FluxFD);
+  //this->output->writeAnyVectorToDisk("results/FluxFD_withoutBC",1,1,FluxFD);
   this->spaceOp->applyBCsToResidual(U, FluxFD, this->distLSS);
-  this->output->writeAnyVectorToDisk("results/FluxFD_withBC",1,1,FluxFD);
+  //this->output->writeAnyVectorToDisk("results/FluxFD_withBC",1,1,FluxFD);
 
   mvp->evaluate(0, X, A, U, FluxFD);
 
@@ -1059,6 +1059,8 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoComputeDerivativesOfFluxAndS
 
   }
 
+  this->output->writeAnyVectorToDisk("results/populated_state",1,1,U,this->distLSS,this->ghostPoints);
+
   fsoLinearSolver(ioData, dFdS, dUdS, isFSI);
 
 }
@@ -1608,10 +1610,21 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoComputeSensitivities(
   
   if ( ioData.sa.scFlag == SensitivityAnalysis::FINITEDIFFERENCE ){
     fsoGetDerivativeOfEffortsFiniteDifference(ioData, X, U, dUdS, dFds, dMds, dLds);//old
-  } else {
-    this->com->fprintf(stderr,"\033[91mANALYTIC FORCE CALCULATION NOT FULLY IMPLEMENTED. SWITCHED TO FD\033[00m\n");
+  }
+  else if(ioData.sa.scFlag == SensitivityAnalysis::SEMIANALYTICAL)
+  {
     fsoGetDerivativeOfEffortsFiniteDifference(ioData, X, U, dUdS, dFds, dMds, dLds);//old
-    //fsoGetDerivativeOfEffortsAnalytical(isSparse,ioData, X, dXdS, U, dUdS, dFds, dMds, dLds);
+  }
+  else{
+    this->com->fprintf(stderr,"\033[91mANALYTIC FORCE CALCULATION MAY NOT BE CORRECTLY\033[00m\n");
+
+    //TODO this is basically a quick hack, since the analytic one doesn't really give correct results
+    //for shape sensitivity however, using finite diff=erence in the embedded framework will generally crash
+    if(ioData.sa.sensMesh  == SensitivityAnalysis::ON_SENSITIVITYMESH)
+      fsoGetDerivativeOfEffortsAnalytical(isSparse,ioData, X, dXdS, U, dUdS, dFds, dMds, dLds);
+    else
+      fsoGetDerivativeOfEffortsAnalytical(isSparse,ioData, X, dXdS, U, dUdS, dFds, dMds, dLds);//TODO HACK
+      //fsoGetDerivativeOfEffortsFiniteDifference(ioData, X, U, dUdS, dFds, dMds, dLds);
   }
 
   
@@ -1719,11 +1732,11 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoGetEfforts
 //------------------------------------------------------------------------------
 
 template<int dim>
-void EmbeddedFluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsAnalytical(
+void EmbeddedFluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsAnalytical2(
                                                    bool isSparse,
                                                    IoData &ioData,
                                                    DistSVec<double,3> &X,
-                                                   DistSVec<double,3> &dX,  //derivative of mesh motion
+                                                   DistSVec<double,3> &dX,
                                                    DistSVec<double,dim> &U,
                                                    DistSVec<double,dim> &dU,
                                                    Vec3D &dForces,
@@ -1802,7 +1815,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsAnalyt
 //  dM = dMi[0] + dMv[0];
 
   //spaceOp->computeDerivativeOfGradP(X, dX, *this->A, dAdS, U, dU);
-  spaceOp->computeDerivativeOfGradP(X, dX, *this->A, dAdS, U, dU, fluidId, distLSS);
+  this->spaceOp->computeDerivativeOfGradP(X, dX, *this->A, dAdS, U, dU, fluidId, distLSS);
 
   getderivativeOfForcesAndMoments(
                                   this->postOp->surfOutMap,
@@ -1824,7 +1837,6 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsAnalyt
     dMoments=dM;
   }
   else {
-    std::cout<<__FILE__<<":"<<__LINE__<<std::endl;
     dF *= this->refVal->force;
     dM *= this->refVal->energy;
     Vec3D t(F*dForce);
@@ -1834,9 +1846,89 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsAnalyt
     M *= this->refVal->energy;
   }
 
+  dForces2dLifts(ioData,F,dForces,dL);
+}
+
+
+template<int dim>
+void EmbeddedFluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsAnalytical(
+                                                   bool isSparse,
+                                                   IoData &ioData,
+                                                   DistSVec<double,3> &X,
+                                                   DistSVec<double,3> &dX,  //derivative of mesh motion
+                                                   DistSVec<double,dim> &U,
+                                                   DistSVec<double,dim> &dU,
+                                                   Vec3D &dForces,
+                                                   Vec3D &dMoments,
+                                                   Vec3D &dL)
+{
+    double gamma     = ioData.eqs.fluidModel.gasModel.specificHeatRatio;
+
+    double velocity  = ioData.ref.mach * sqrt(gamma * ioData.ref.pressure / ioData.ref.density);
+    double dVelocity = sqrt(gamma * ioData.ref.pressure / ioData.ref.density)*DFSPAR[0];
+
+    double dForce    = 2.0*ioData.ref.density*ioData.ref.length*ioData.ref.length*velocity*dVelocity;
+    double dEnergy   = 2.0*ioData.ref.density*ioData.ref.length*ioData.ref.length*ioData.ref.length*velocity*dVelocity;
+
+    int nSurfs = this->postOp->getNumSurf();
+
+    Vec3D x0, F, dF, M, dM;
+
+    Vec3D *Fi = new Vec3D[nSurfs];
+    Vec3D *Mi = new Vec3D[nSurfs];
+    Vec3D *Fv = new Vec3D[nSurfs];
+    Vec3D *Mv = new Vec3D[nSurfs];
+
+    Vec3D *dFi = new Vec3D[nSurfs];
+    Vec3D *dMi = new Vec3D[nSurfs];
+    Vec3D *dFv = new Vec3D[nSurfs];
+    Vec3D *dMv = new Vec3D[nSurfs];
+
+    x0[0] = ioData.output.transient.x0;
+    x0[1] = ioData.output.transient.y0;
+    x0[2] = ioData.output.transient.z0;
+
+    this->postOp->computeForceAndMoment(x0, X, U, &this->nodeTag, Fi, Mi, Fv, Mv);
+
+    F = 0.0;  M = 0.0;
+    F = Fi[0] + Fv[0];
+    M = Mi[0] + Mv[0];
+
+    this->postOp->computeDerivativeOfForceAndMomentEmb(x0, X, U, dU, &this->nodeTag, DFSPAR, dFi, dMi, dFv, dMv);
+
+  dF = 0.0;
+  dM = 0.0;
+
+  dF = dFi[0] + dFv[0];
+  dM = dMi[0] + dMv[0];
+  std::cout<<"dFi[0] + dFv[0]: "<<dF.norm()<<std::endl;
+  std::cout<<"dMi[0] + dMv[0: "<<dM.norm()<<std::endl;
+
+  if (this->refVal->mode == RefVal::NON_DIMENSIONAL) {
+    this->com->fprintf(stderr, "Sensitivity Analysis does not support NON-Dimensional analysis");
+    exit(-1);
+    dF *= 2.0 * this->refVal->length*this->refVal->length / surface;
+    dM *= 2.0 * this->refVal->length*this->refVal->length*this->refVal->length / (surface * length);
+    dForces=dF;
+    dMoments=dM;
+  }
+  else {
+    std::cout<<__FILE__<<":"<<__LINE__<<std::endl;
+    dF *= this->refVal->force;
+    dM *= this->refVal->energy;
+    std::cout<<"===Force deriv part 1: "<<dF[0]<<" "<<dF[1]<<" "<<dF[2]<<std::endl;//TODO delete line
+    Vec3D t(F*dForce);
+    std::cout<<"===Force deriv part 2: "<<t[0]<<" "<<t[1]<<" "<<t[2]<<std::endl;//TODO delete line
+    dForces = dF+F*dForce;//product rule
+    dMoments = dM+M*dEnergy;//product rule
+    F *= this->refVal->force;
+    M *= this->refVal->energy;
+  }
+
   std::cout<<__FILE__<<":"<<__LINE__<<std::endl;
   dForces2dLifts(ioData,F,dForces,dL);
 }
+
 
 //------------------------------------------------------------------------------
 
@@ -2033,6 +2125,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsFinite
   if (this->refVal->mode == RefVal::NON_DIMENSIONAL) {
     dF *= 2.0 * this->refVal->length*this->refVal->length / surface;
     dM *= 2.0 * this->refVal->length*this->refVal->length*this->refVal->length / (surface * length);
+
     dForces=dF;
     dMoments=dM;
   }

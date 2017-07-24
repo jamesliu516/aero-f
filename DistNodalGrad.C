@@ -1051,10 +1051,11 @@ void DistNodalGrad<dim, Scalar>::compute(int config, DistSVec<double,3> &X,
 					 bool includeSweptNodes)
 {
 
+  std::cout<<__FILE__<<":"<<__LINE__<<std::endl; //TODO delte line
+
 	if(typeGradient == SchemeData::LEAST_SQUARES)
 	{    
 		domain->computeWeightsLeastSquares(X, fluidId, *R, distLSS, includeSweptNodes);
-    
     domain->computeGradientsLeastSquares(X, fluidId, *R, V, *ddx, *ddy, *ddz, linFSI, 
 					 distLSS, includeSweptNodes);
 	}
@@ -1067,6 +1068,10 @@ void DistNodalGrad<dim, Scalar>::compute(int config, DistSVec<double,3> &X,
   }
 
 }
+
+
+
+
 
 //------------------------------------------------------------------------------
 // least square gradient of temperature involving only nodes of same fluid (multiphase flow)
@@ -1106,6 +1111,7 @@ void DistNodalGrad<dim, Scalar>::compute(int config, DistSVec<double,3> &X,
 					 bool linFSI, DistLevelSetStructure *distLSS)
 
 {
+  std::cout<<__FILE__<<":"<<__LINE__<<std::end; //TODO delte line
   if (typeGradient == SchemeData::LEAST_SQUARES){
     
     domain->computeWeightsLeastSquares(X, fluidId, *R, countWstarij, countWstarji, distLSS);

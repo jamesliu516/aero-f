@@ -1623,24 +1623,20 @@ void FluidShapeOptimizationHandler<dim>::fsoLinearSolver(
   int numberIteration;
   bool istop = false;
   int iter = 0;
+  std::cout<<"iter="<<iter<<std::endl;//TODO delete line
 
   while ((istop == false) && (iter < 100))
   {
+    std::cout<<"iter="<<iter<<std::endl;//TODO delete line
     numberIteration = ksp->solve(dFdS, dUdS);
     //if ((!ioData.sa.excsol) || (numberIteration < ioData.sa.ksp.maxIts))
-    if ((true) || (numberIteration < ioData.sa.ksp.maxIts))
+    if ((false) || (numberIteration < ioData.sa.ksp.maxIts))
       istop = true;
     iter += 1;
 
   }
 
   dFdS *= (-1.0);
-
-  DistSVec<double,dim> *multresult  = new DistSVec<double,dim>(this->domain->getNodeDistInfo());
-
-
-  DistSVec<double,dim> *onevec  = new DistSVec<double,dim>(this->domain->getNodeDistInfo());
-  *onevec=1.0;
 
   fsoPrintTextOnScreen("Finished LinearSolver");
 
@@ -2149,6 +2145,7 @@ void FluidShapeOptimizationHandler<dim>::fso_on_aeroelasticSensitivityFSI(bool i
     dXdS = 0.0;
     dXdSb = 0.0;
     dAdS = 0.0;
+
 
     while (!lastIt) {
 
