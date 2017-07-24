@@ -197,6 +197,17 @@ public:
 					   DistSVec<double,dim> &U, DistSVec<double,dim> &dU,
 					   Vec3D &dForces, Vec3D &dMoments, Vec3D &dL);
 
+  void fsoGetDerivativeOfEffortsAnalytical2(
+                                            bool isSparse,
+                                            IoData &ioData,
+                                            DistSVec<double,3> &X,
+                                            DistSVec<double,3> &dX,
+                                            DistSVec<double,dim> &U,
+                                            DistSVec<double,dim> &dU,
+                                            Vec3D &dForces,
+                                            Vec3D &dMoments,
+                                            Vec3D &dL);
+
   void fsoGetDerivativeOfEffortsFiniteDifference(IoData &ioData, DistSVec<double,3> &X,
 						 DistSVec<double,dim> &U, DistSVec<double,dim> &dU,
 						 Vec3D &dForces, Vec3D &dMoments, Vec3D &dL);

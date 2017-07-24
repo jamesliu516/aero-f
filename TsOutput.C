@@ -1046,6 +1046,9 @@ exactforces(false)
 
   tscale = iod.ref.rv.time;
   xscale = iod.ref.rv.length;
+
+
+  this->exactforces = iod.output.transient.exactforceoutput;
 }
 
 //------------------------------------------------------------------------------

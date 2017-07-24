@@ -3340,10 +3340,8 @@ SensitivityAnalysis::SensitivityAnalysis()
 void SensitivityAnalysis::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 34, father);
-  new ClassToken<SensitivityAnalysis>(ca, "Method",
-      this, reinterpret_cast<int SensitivityAnalysis::*>
-      (&SensitivityAnalysis::method), 2, "Direct", 0, "Adjoint", 1);
+  ClassAssigner *ca = new ClassAssigner(name, 24, father);
+  new ClassToken<SensitivityAnalysis>(ca, "Method",this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::method), 2, "Direct", 0, "Adjoint", 1);
 
   new ClassToken<SensitivityAnalysis>(ca, "SparseApproach",      this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sparseFlag), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "MatrixVectorProduct", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::mvp), 4, "Exact", 0, "FiniteDifference", 1);

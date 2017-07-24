@@ -1311,7 +1311,9 @@ void SpaceOperator<dim>::computeDerivativeOfResidualEmb(
                          DistVec<GhostPoint<dim>*> *ghostPoints,
                          double dMach,
                          DistSVec<double,dim> &R, DistSVec<double,dim> &dR,
-                         DistTimeState<dim> *timeState){
+                         DistTimeState<dim> *timeState)
+{
+  std::cout<<__FILE__<<":"<<__LINE__<<std::endl;//TODO delete line
 
   dR = 0.0;
 
@@ -1324,12 +1326,16 @@ void SpaceOperator<dim>::computeDerivativeOfResidualEmb(
 
   if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)  {
     bool linFSI = linRecAtInterface || viscSecOrder;
-    ngrad->compute(geoState->getConfig(), X, ctrlVol, fluidId, *V, linFSI, distLSS);
+    //ngrad->compute(geoState->getConfig(), X, ctrlVol, fluidId, *V, linFSI, distLSS);
+    ngrad->compute(geoState->getConfig(), X, ctrlVol, fluidId, *V, true, distLSS);//TODO delete line
+    std::cout<<__FILE__<<":"<<__LINE__<<std::endl;//TODO delete line
     ngrad->computeDerivativeEmb(geoState->getConfigSA(), X, dX, ctrlVol, dCtrlVol, *V, *dV, fluidId, linFSI, distLSS,false);
+    std::cout<<__FILE__<<":"<<__LINE__<<std::endl;//TODO delete line
     ngrad->limit(recFcn, X, ctrlVol, *V);
   }
 
   if (fet){
+    std::cout<<"Ghost points are populated"<<std::endl;//TODO delete line
     this->populateGhostPoints(ghostPoints,X,U,varFcn,distLSS,viscSecOrder,fluidId);
   }
 

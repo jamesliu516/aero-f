@@ -1784,7 +1784,12 @@ void SubDomain::computeDerivativeOfWeightsLeastSquaresEdgePartEmb(
 // least square gradient involving only nodes of same fluid (multiphase flow)
 //d2d$
 void SubDomain::computeWeightsLeastSquaresEdgePart(
-                  SVec<double,3> &X, const Vec<int> &fluidId,SVec<int,1> &count, SVec<double,6> &R,LevelSetStructure *LSS, bool includeSweptNodes)
+                  SVec<double,3> &X,
+                  const Vec<int> &fluidId,
+                  SVec<int,1> &count,
+                  SVec<double,6> &R,
+                  LevelSetStructure *LSS,
+                  bool includeSweptNodes)
 {
 
   R = 0.0;
@@ -1847,10 +1852,14 @@ void SubDomain::computeWeightsLeastSquaresEdgePart(
 //------------------------------------------------------------------------------
 // least square gradient involving only nodes of same fluid (FSI)
 // with option to take into account of Riemann solution at interface
-void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const Vec<int> &fluidId,
-                                                   SVec<int,1> &count, SVec<double,6> &R, 
-												   Vec<int> &countWstarij, Vec<int> &countWstarji,
-												   LevelSetStructure *LSS)
+void SubDomain::computeWeightsLeastSquaresEdgePart(
+                  SVec<double,3> &X,
+                  const Vec<int> &fluidId,
+                  SVec<int,1> &count,
+                  SVec<double,6> &R,
+									Vec<int> &countWstarij,
+									Vec<int> &countWstarji,
+									LevelSetStructure *LSS)
 {
 
   R = 0.0;
