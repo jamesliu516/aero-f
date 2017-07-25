@@ -5356,125 +5356,65 @@ void SubDomain::minRcvData(CommPattern<Scalar> &sp, Scalar (*w)[dim])
 
 //------------------------------------------------------------------------------
 
-// sjg, 06/2017: Called from Domain::pseudoFastMarchingMethodComm at level > 1
+// sjg, 06/2017: Called from Domain::pseudoFastMarchingMethodComm at it > 1,
+// reference point becomes point with largest change after update
 template<class Scalar, int dim>
-void SubDomain::minRcvDataAndFindMin(CommPattern<Scalar> &sp, Scalar (*w)[dim],
-  Vec<int> &Tag, Vec<int> &sortedNodes, int &nSortedNodes, int it)
+void SubDomain::minRcvDataAndTagRef(CommPattern<Scalar> &sp, Scalar (*w)[dim],
+  double &maxErr, int &minNode)
 {
   assert(dim == 1); // if you intend to use it in Vectorial mode, modify it your way
-
-  // track boundary node with minimum d2wall (take 1)
-  // double mind2w = 1.0e10;
-  // static int minNode = -1;
-
-  // if (minNode > 0) {
-  //   Tag[minNode] = -1;
-  //   minNode = -1;
-  // }
-
-  // take 2
-  double mind2w;
-  static int *minNode;
-
-  if (minNode == NULL) {  // initialize at first call
-    minNode = new int[numNeighb];
-    for (int iSub = 0; iSub < numNeighb; ++iSub) minNode[iSub] = -1;
-  }
-
-  // addition for take 3
-  static int minNeighb = 0;
-  static int minNodeNeighb = -1;
-
-  if (it==2) minNeighb = 0;
-
-  // if (minNeighb>0)
-  //   Tag[minNode[(minNeighb-1)%numNeighb]] = -1;
-
-  if (minNodeNeighb>0) Tag[minNodeNeighb] = -1;
-
   int sharedNodeID;
+  double err;
+
   for (int iSub = 0; iSub < numNeighb; ++iSub) {
-
-    mind2w = 1.0e10;
-
-    if (minNode[iSub] > 0) {  // reset tags from previous comm
-      // Tag[minNode[iSub]] = -1;
-      minNode[iSub] = -1;
-    }
-
     SubRecInfo<Scalar> sInfo = sp.recData(rcvChannel[iSub]);
     Scalar (*buffer)[dim] = reinterpret_cast<Scalar (*)[dim]>(sInfo.data);
     for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode) {
       sharedNodeID = (*sharedNodes)[iSub][iNode];
-      // for better comm, only mark closest boundary node as source (causality)
-      if (buffer[iNode][0] < w[sharedNodeID][0]) {
-        w[sharedNodeID][0] = buffer[iNode][0];
-
-        if (Tag[sharedNodeID] == 0) fprintf(stderr,"Problem: updating distance @ a fixed node!\n");
-
-        if (buffer[iNode][0] < mind2w) {
-          mind2w = buffer[iNode][0];
-          // minNode = sharedNodeID;
-          minNode[iSub] = sharedNodeID;
+      err = (w[sharedNodeID][0]-buffer[iNode][0]);
+      if (err > 1.0e-10) {
+        // err = (w[sharedNodeID][0]-buffer[iNode][0]); // always > 0 because of conditional above
+        err /= w[sharedNodeID][0];
+        if (err > maxErr) {
+          maxErr = err;
+          minNode = sharedNodeID;
         }
+        w[sharedNodeID][0] = buffer[iNode][0];
       }
-      // else Tag[sharedNodeID] = -1;
-    }
-
-    // if (minNode[iSub] > 0)  // tag min node for each neighbor
-    //   Tag[minNode[iSub]] = 1;
-
-  }
-
-  int iSub, jSub;
-  for (iSub = minNeighb; iSub < numNeighb+minNeighb; ++iSub) {
-    jSub = iSub%numNeighb;
-    if (minNode[jSub] > 0)  {
-      Tag[minNode[jSub]] = 1;
-      break;
     }
   }
-  if (iSub < numNeighb+minNeighb) { // minNode has been found and tagged, increment minNeighb for next time
-    minNeighb++;
-
-    minNodeNeighb = minNode[jSub];
-    // fprintf(stderr,"Found a minNode at minNeighb = %d!\n",minNeighb-1);
-  }
-
-
-
-  // if (minNode > 0) {
-  //   Tag[minNode] = 1;
-  // }
-
-//---------------------------------
-
-  // int sharedNodeID;
-  // for (int iSub = 0; iSub < numNeighb; ++iSub) {
-  //   SubRecInfo<Scalar> sInfo = sp.recData(rcvChannel[iSub]);
-  //   Scalar (*buffer)[dim] = reinterpret_cast<Scalar (*)[dim]>(sInfo.data);
-  //   for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode) {
-  //     sharedNodeID = (*sharedNodes)[iSub][iNode];
-
-  //     if (buffer[iNode][0] < w[sharedNodeID][0]) {
-  //       w[sharedNodeID][0] = buffer[iNode][0];
-
-  //       if (Tag[sharedNodeID] < 0) {
-  //         Tag[sharedNodeID] = 1;
-  //         sortedNodes[nSortedNodes] = sharedNodeID;
-  //         nSortedNodes++;
-  //       }
-  //     }
-  //     // else if (Tag[sharedNodeID] != 0)   // ADD BACK IN FOR SPEED (eliminate tag overwrite loop in main function, then can use hybrid method again)
-  //     //   Tag[sharedNodeID] = -1;
-  //   }
-  // }
 }
 
 //------------------------------------------------------------------------------
 
-// sjg, 07/2017: Called from Domain::pseudoFastMarchingMethodComm, for first layer
-// must add all embedded surface neighbors to the active list
+// sjg, 07/2017: Called from Domain::pseudoFastMarchingMethodComm, search for
+// new reference node on all inlet/outlet boundaries
+template<class Scalar, int dim>
+void SubDomain::minTagBoundaries(SVec<Scalar,dim> &res, SVec<Scalar,dim> &resnm1,
+  double &maxErr, int &minNode)
+{
+  assert(dim == 1); // if you intend to use it in Vectorial mode, modify it your way
+  int sharedNodeID;
+  double err;
+
+  for (int i = 0; i < farFieldNodes.size(); i++) {
+    sharedNodeID = farFieldNodes[i];
+    err = (resnm1[sharedNodeID][0]-res[sharedNodeID][0]);
+    // if (err < 0.0) fprintf(stderr,"PROBLEM: updated value is LARGER than previous sweep (err = %e)\n",err);
+    if (err > 1.0e-10) {
+      err /= resnm1[sharedNodeID][0];
+      if (err > maxErr) {
+        maxErr = err;
+        minNode = sharedNodeID;
+      }
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+
+// sjg, 07/2017: Called from Domain::pseudoFastMarchingMethod and " " Comm,
+// adds updates nodes to active list
 template<class Scalar, int dim>
 void SubDomain::minRcvDataAndCountUpdates(CommPattern<Scalar> &sp, Scalar (*w)[dim],
   Vec<int> &Tag, Vec<int> &sortedNodes, int &nSortedNodes, int level)
@@ -5489,7 +5429,7 @@ void SubDomain::minRcvDataAndCountUpdates(CommPattern<Scalar> &sp, Scalar (*w)[d
       sharedNodeID = (*sharedNodes)[iSub][iNode];
       if (buffer[iNode][0] < w[sharedNodeID][0]) {
         w[sharedNodeID][0] = buffer[iNode][0];
-        if (Tag[sharedNodeID] < 0) {
+        if (Tag[sharedNodeID] < 0) { // add untagged nodes to active list
           Tag[sharedNodeID] = level;
           sortedNodes[nSortedNodes] = sharedNodeID;
           nSortedNodes++;
@@ -5513,30 +5453,26 @@ void SubDomain::minRcvDataAndAddElems(CommPattern<Scalar> &sp, Scalar (*w)[dim],
     SubRecInfo<Scalar> sInfo = sp.recData(rcvChannel[iSub]);
     Scalar (*buffer)[dim] = reinterpret_cast<Scalar (*)[dim]>(sInfo.data);
     for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode) {
-      // for (int j = 0; j < dim; ++j) {
-        sharedNodeID = (*sharedNodes)[iSub][iNode];
-        if (buffer[iNode][0] < w[sharedNodeID][0]) {
-          if (nodeTag[sharedNodeID] < 0) {
+      sharedNodeID = (*sharedNodes)[iSub][iNode];
+      if (buffer[iNode][0] < w[sharedNodeID][0]) {
+        if (nodeTag[sharedNodeID] < 0) {
+          nodeTag[sharedNodeID] = 1;
+          nSortedNodes++;
 
-            nodeTag[sharedNodeID] = 1;
-            nSortedNodes++;
-
-            // look @ connectivities and add relevant elems to active list
-            nTets = NodeToElem->num(sharedNodeID);
-            for (int k=0; k<nTets; k++) {
-              tet = (*NodeToElem)[sharedNodeID][k];
-              knownNodes[tet]++;
-              // remove addition to list for debug (check all tets with ghosts)
-              if (knownNodes[tet] == 3 && tag[tet] < 0) {
-                tag[tet] = 1;
-                activeElemList[nSortedElems] = tet;
-                nSortedElems++;
-              }
+          // look @ connectivities and add relevant elems to active list
+          nTets = NodeToElem->num(sharedNodeID);
+          for (int k=0; k<nTets; k++) {
+            tet = (*NodeToElem)[sharedNodeID][k];
+            knownNodes[tet]++;
+            if (knownNodes[tet] == 3 && tag[tet] < 0) {
+              tag[tet] = 1;
+              activeElemList[nSortedElems] = tet;
+              nSortedElems++;
             }
           }
-          w[sharedNodeID][0] = buffer[iNode][0];
         }
-      // }
+        w[sharedNodeID][0] = buffer[iNode][0];
+      }
     }
   }
 }
@@ -9304,15 +9240,7 @@ void SubDomain::pseudoFastMarchingMethodFEM(SVec<double,3> &X, SVec<double,dimLS
     LevelSetResult resij;
     for (int i=0;i<d2wall.size();++i) {
       if (!LSS->isActive(0.0,i)) {
-
-        // if (isSharedNode[i]) {
-        //   int myrank;
-        //   MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
-        //   fprintf(stderr,"Found a SHARED ghost node (cpu = %d, i = %d, global ID = %d)!\n",
-        //     myrank,i, locToGlobNodeMap[i]);
-        // }
-
-        d2wall[i][0] = 0.0; // not a problem as inactive nodes should be marked as ghost on all subdomains
+        d2wall[i][0] = 0.0;
         // nodeTag[i] = 0;
         nSortedNodes++;
         nTets = NodeToElem->num(i);
@@ -9327,7 +9255,7 @@ void SubDomain::pseudoFastMarchingMethodFEM(SVec<double,3> &X, SVec<double,dimLS
           // }
         }
       }
-      else if (LSS->isNearInterface(0.0,i)) {
+      else if (LSS->isNearInterface(0.0,i) && nodeTag[i] < 0) {
         // must make sure wall intersected is actually a wall
         doInit = false;
         nNeighs = NodeToNode->num(i);
@@ -9337,7 +9265,8 @@ void SubDomain::pseudoFastMarchingMethodFEM(SVec<double,3> &X, SVec<double,dimLS
           l = edges.findOnly(i,nei);
           if (LSS->edgeIntersectsWall(0,l)) {
             resij = LSS->getLevelSetDataAtEdgeCenter(0.0, l, true);
-            if (resij.structureType==BoundaryData::WALL || resij.structureType==BoundaryData::POROUSWALL) {
+            if (resij.structureType==BoundaryData::WALL ||
+                resij.structureType==BoundaryData::POROUSWALL) {
               doInit = true;
               break;
             }
@@ -9357,8 +9286,28 @@ void SubDomain::pseudoFastMarchingMethodFEM(SVec<double,3> &X, SVec<double,dimLS
               nSortedElems++;
             }
           }
-          if (isSharedNode[i])
-            commFlag = 1;
+
+          if (isSharedNode[i] && !commFlag) commFlag = 1;
+
+          if (nodeTag[nei]<0) {
+            assert(LSS->isNearInterface(0.0,nei)); // should never fail due do BB construction
+
+            d2wall[nei][0] = LSS->distToInterface(0.0,nei);
+            nodeTag[nei] = 1;
+            nSortedNodes++;
+            nTets = NodeToElem->num(nei);
+            for (int j=0; j<nTets; j++) {
+              tet = (*NodeToElem)[nei][j];
+              knownNodes[tet]++;
+              if (knownNodes[tet] == 3 && tag[tet] < 0) {
+                tag[tet] = 1;
+                activeElemList[nSortedElems] = tet;
+                nSortedElems++;
+              }
+            }
+
+            if (isSharedNode[nei] && !commFlag) commFlag = 1;
+          }
         }
       }
     }
@@ -9511,15 +9460,15 @@ void SubDomain::pseudoFastMarchingMethodFEM(SVec<double,3> &X, SVec<double,dimLS
     int node, tet, nei, nNeighs, inter = nSortedElems;
     double dist;
 
-    int *unsolvedNodes = new int[inter-firstCheckedElem];
-    int nUnsolvedNodes = 0;
+    // int *unsolvedNodes = new int[inter-firstCheckedElem];
+    // int nUnsolvedNodes = 0;
 
     for (int i = firstCheckedElem; i < inter; i++) {
       tet = activeElemList[i];
       if (knownNodes[tet] == 3) { // need double check because we do not remove an item from the list if it is subsequently updated to 4
         // elems[tet].FEMMarchingDistanceUpdate(X,d2wall,nodeTag,dist,node);
         elems[tet].FEMMarchingDistanceUpdateUpw(X,d2wall,nodeTag,dist,node);
-        if (dist > 0.0) {
+        if (dist < 1.0e10) { // successful solution
           d2wall[node][0] = dist;
           nodeTag[node] = 1;
           nSortedNodes++;
@@ -9536,12 +9485,12 @@ void SubDomain::pseudoFastMarchingMethodFEM(SVec<double,3> &X, SVec<double,dimLS
           if (isSharedNode[node])
             commFlag = 1;
         }
-        // else {
-        else if (unsortedTag[node] < 0) {
-          unsortedTag[node] = 1;
-          unsolvedNodes[nUnsolvedNodes] = node;
-          nUnsolvedNodes++;
-        }
+        // // else {
+        // else if (unsortedTag[node] < 0) {
+        //   unsortedTag[node] = 1;
+        //   unsolvedNodes[nUnsolvedNodes] = node;
+        //   nUnsolvedNodes++;
+        // }
         // else if (unsortedTag[node] < 0) { // add unknown nodes directly to unsorted
         //   unsortedTag[node] = 1;
         //   unsortedNodes[nUnsortedNodes] = node;
@@ -9550,98 +9499,98 @@ void SubDomain::pseudoFastMarchingMethodFEM(SVec<double,3> &X, SVec<double,dimLS
       }
     }
 
-    // must occur after we have tagged all solved nodes to avoid accidentally adding
-    // a solved node to the unsolved list
-    int nodetmp;
-    for (int i = 0; i < nUnsolvedNodes; i++) {
-      node = unsolvedNodes[i];
-      // if (nodeTag[node] < 0 && unsortedTag[node] < 0) {
-      if (nodeTag[node] < 0) { // a node on inactive list could have later been solved
+    // // must occur after we have tagged all solved nodes to avoid accidentally adding
+    // // a solved node to the unsolved list
+    // int nodetmp;
+    // for (int i = 0; i < nUnsolvedNodes; i++) {
+    //   node = unsolvedNodes[i];
+    //   // if (nodeTag[node] < 0 && unsortedTag[node] < 0) {
+    //   if (nodeTag[node] < 0) { // a node on inactive list could have later been solved
 
-        // attempt approximate solution with FEM
-        nNeighs = NodeToElem->num(node);
-        for (int j = 0; j < nNeighs; j++) {
-          nei = (*NodeToElem)[node][j];
-          if (knownNodes[nei] == 3) {
-            elems[nei].FEMMarchingDistanceUpdate(X,d2wall,nodeTag,dist,nodetmp);
+    //     // attempt approximate solution with FEM
+    //     nNeighs = NodeToElem->num(node);
+    //     for (int j = 0; j < nNeighs; j++) {
+    //       nei = (*NodeToElem)[node][j];
+    //       if (knownNodes[nei] == 3) {
+    //         elems[nei].FEMMarchingDistanceUpdate(X,d2wall,nodeTag,dist,nodetmp);
 
-            // // debug
-            // if (node != nodetmp) fprintf(stderr,"PROBLEM: updated the wrong node (node = %d, node 2 = %d)!\n",node,nodetmp);
+    //         // // debug
+    //         // if (node != nodetmp) fprintf(stderr,"PROBLEM: updated the wrong node (node = %d, node 2 = %d)!\n",node,nodetmp);
 
-            if (dist > 0.0) { // found solution
-            // fprintf(stderr,"Found an FEM update!\n");
+    //         if (dist > 0.0) { // found solution
+    //         // fprintf(stderr,"Found an FEM update!\n");
 
-              d2wall[node][0] = dist;
-              nodeTag[node] = 1;
-              nSortedNodes++;
-              for (int k=0; k<nNeighs; k++) {
-                nei = (*NodeToElem)[node][k];
-                knownNodes[nei]++;
-                // ADD NEW ELEMS TO ACTIVE LIST!
-                if (knownNodes[nei] == 3 && tag[nei] < 0) {
-                  tag[nei] = 1;
-                  activeElemList[nSortedElems] = nei;
-                  nSortedElems++;
-                }
-              }
-              if (isSharedNode[node])
-                commFlag = 1;
-              break;
-            }
-          }
-        }
+    //           d2wall[node][0] = dist;
+    //           nodeTag[node] = 1;
+    //           nSortedNodes++;
+    //           for (int k=0; k<nNeighs; k++) {
+    //             nei = (*NodeToElem)[node][k];
+    //             knownNodes[nei]++;
+    //             // ADD NEW ELEMS TO ACTIVE LIST!
+    //             if (knownNodes[nei] == 3 && tag[nei] < 0) {
+    //               tag[nei] = 1;
+    //               activeElemList[nSortedElems] = nei;
+    //               nSortedElems++;
+    //             }
+    //           }
+    //           if (isSharedNode[node])
+    //             commFlag = 1;
+    //           break;
+    //         }
+    //       }
+    //     }
 
-        // if (nodeTag[node] == 1) continue;
-      }
-    }
+    //     // if (nodeTag[node] == 1) continue;
+    //   }
+    // }
 
-    for (int i = 0; i < nUnsolvedNodes; i++) {
-      node = unsolvedNodes[i];
-      if (nodeTag[node] < 0) {
+    // for (int i = 0; i < nUnsolvedNodes; i++) {
+    //   node = unsolvedNodes[i];
+    //   if (nodeTag[node] < 0) {
 
-        // complete level with Dijkstra update
-        nNeighs = NodeToNode->num(node);
-        for (int j = 0; j < nNeighs; j++) {
-          nei = (*NodeToNode)[node][j];
-          if (node==nei) continue;
-          dist = d2wall[nei][0]+sqrt(
-              (X[node][0]-X[nei][0])*(X[node][0]-X[nei][0])
-            + (X[node][1]-X[nei][1])*(X[node][1]-X[nei][1])
-            + (X[node][2]-X[nei][2])*(X[node][2]-X[nei][2]));
-          d2wall[node][0] = min(d2wall[node][0],dist);
-        }
+    //     // complete level with Dijkstra update
+    //     nNeighs = NodeToNode->num(node);
+    //     for (int j = 0; j < nNeighs; j++) {
+    //       nei = (*NodeToNode)[node][j];
+    //       if (node==nei) continue;
+    //       dist = d2wall[nei][0]+sqrt(
+    //           (X[node][0]-X[nei][0])*(X[node][0]-X[nei][0])
+    //         + (X[node][1]-X[nei][1])*(X[node][1]-X[nei][1])
+    //         + (X[node][2]-X[nei][2])*(X[node][2]-X[nei][2]));
+    //       d2wall[node][0] = min(d2wall[node][0],dist);
+    //     }
 
-        assert(d2wall[node][0]<1.0e10);
-        // if (d2wall[node][0] == 1.0e10) fprintf(stderr,"PROBLEM: couldn't find a tagged neighbor!\n");
+    //     assert(d2wall[node][0]<1.0e10);
+    //     // if (d2wall[node][0] == 1.0e10) fprintf(stderr,"PROBLEM: couldn't find a tagged neighbor!\n");
 
-        nSortedNodes++;
-        nodeTag[node] = 1;
-        nNeighs = NodeToElem->num(node);
-        for (int j=0; j<nNeighs; j++) {
-          nei = (*NodeToElem)[node][j];
-          knownNodes[nei]++;
-          // ADD NEW ELEMS TO ACTIVE LIST!
-          if (knownNodes[nei] == 3 && tag[nei] < 0) {
-            tag[nei] = 1;
-            activeElemList[nSortedElems] = nei;
-            nSortedElems++;
-          }
-        }
-        if (isSharedNode[node])
-          commFlag = 1;
+    //     nSortedNodes++;
+    //     nodeTag[node] = 1;
+    //     nNeighs = NodeToElem->num(node);
+    //     for (int j=0; j<nNeighs; j++) {
+    //       nei = (*NodeToElem)[node][j];
+    //       knownNodes[nei]++;
+    //       // ADD NEW ELEMS TO ACTIVE LIST!
+    //       if (knownNodes[nei] == 3 && tag[nei] < 0) {
+    //         tag[nei] = 1;
+    //         activeElemList[nSortedElems] = nei;
+    //         nSortedElems++;
+    //       }
+    //     }
+    //     if (isSharedNode[node])
+    //       commFlag = 1;
 
-        assert(nodeTag[node]==1);
-        // if (nodeTag[node] == 1) continue;
+    //     assert(nodeTag[node]==1);
+    //     // if (nodeTag[node] == 1) continue;
 
-        // // resort to addition to unsorted list
-        // fprintf(stderr,"No update found for node!\n");  // should never happen, can also delete if (d2wall<1e10 check above)
-        // unsortedTag[node] = 1;
-        // unsortedNodes[nUnsortedNodes] = node;
-        // nUnsortedNodes++;
-      }
-    }
+    //     // // resort to addition to unsorted list
+    //     // fprintf(stderr,"No update found for node!\n");  // should never happen, can also delete if (d2wall<1e10 check above)
+    //     // unsortedTag[node] = 1;
+    //     // unsortedNodes[nUnsortedNodes] = node;
+    //     // nUnsortedNodes++;
+    //   }
+    // }
 
-    delete[] unsolvedNodes;
+    // delete[] unsolvedNodes;
     firstCheckedElem = inter;
   }
 }
@@ -9659,6 +9608,9 @@ void SubDomain::pseudoFastMarchingMethodFinalize(SVec<double,3> &X, SVec<double,
   if (!NodeToNode)
      NodeToNode = createEdgeBasedConnectivity();
 
+  // debug
+  if (nUnsortedNodes != 0) fprintf(stderr,"PROBLEM: nUnsortedNodes > 0?\n");
+
   // must add any non-visited nodes to unsorted list for completeness
   for (int i = 0; i < d2wall.len; i++) {
     // if (nodeTag[i] < 0 && unsortedTag[i] < 0) { // WRONG: ghost nodes are not tagged!
@@ -9674,7 +9626,7 @@ void SubDomain::pseudoFastMarchingMethodFinalize(SVec<double,3> &X, SVec<double,
     nSortedNodes,d2wall.len,nUnsortedNodes);
 
   // check unsorted nodes
-  int node, nei, nNeighs, node2;
+  int node, nei, nNeighs; //, node2;
   double dist;
   bool stillUnknown = true;
   // bool stillUnknown = false;
@@ -9714,17 +9666,22 @@ void SubDomain::pseudoFastMarchingMethodFinalize(SVec<double,3> &X, SVec<double,
   //   }
   // }
 
+  int inter, firstCheckedNode = 0;  // use unsortedNodes as a buffer, hoping we never have enough unknowns that overrun becomes an issue
+
   while (stillUnknown) {
     stillUnknown = false;
+
+    inter = nUnsortedNodes;
 
     // it++;
     // fprintf(stderr,"Looping to find unsorted nodes (it = %d, nSortedNodes = %d out of %d, nUnsortedNodes = %d)\n",
     //   it,nSortedNodes,d2wall.len,nUnsortedNodes);
 
-    for (int i = 0; i < nUnsortedNodes; i++) {
+    for (int i = firstCheckedNode; i < inter; i++) {
+    // for (int i = 0; i < nUnsortedNodes; i++) {
       node = unsortedNodes[i];
 
-      if (d2wall[node][0] == 1.0e10) {
+      // if (d2wall[node][0] == 1.0e10) {
         // Dijkstra update
         nNeighs = NodeToNode->num(node);
         for (int j = 0; j < nNeighs; j++) {
@@ -9750,88 +9707,15 @@ void SubDomain::pseudoFastMarchingMethodFinalize(SVec<double,3> &X, SVec<double,
         else { // no solve still! flag for need more loops
           stillUnknown = true;
           fprintf(stderr,"No update found for node!\n");
+
+          unsortedNodes[nUnsortedNodes] = node;
+          nUnsortedNodes++;
         }
-      }
+      // }
     }
+
+    firstCheckedNode = inter;
   }
-
-  //   for (int i = 0; i < d2wall.size(); i++) {
-  //     if (d2wall[i][0] == 1.0e10) {
-
-  //       // // first, try updating using eligible elements
-  //       // nNeighs = NodeToElem->num(i);
-  //       // for (int j = 0; j < nNeighs; j++) {
-  //       //   nei = (*NodeToElem)[i][j];
-  //       //   if (knownNodes[nei] == 3) {
-  //       //     elems[nei].FEMMarchingDistanceUpdate(X,d2wall,node);
-
-  //       //     if (d2wall[i][0] < 1.0e10) { // found solution
-  //       //       fprintf(stderr,"Found an FEM update!\n");
-  //       //       int nei2, nNeighs2;
-  //       //       nNeighs2 = NodeToElem->num(i);
-  //       //       for (int k=0; k<nNeighs2; k++) {
-  //       //         nei2 = (*NodeToElem)[i][k];
-  //       //         knownNodes[nei2]++;
-  //       //       }
-  //       //       nSortedNodes++;
-  //       //       if (isSharedNode[i])
-  //       //         commFlag = 1;
-  //       //       break;
-  //       //     }
-  //       //   }
-  //       // }
-
-  //       // if (d2wall[i][0] < 1.0e10) continue;
-  //       // else { // otherwise, do an approximate solve
-
-  //         // fprintf(stderr,"No FEM update found, trying Dijkstra-type update . . .\n");
-
-  //         // Dijkstra update
-  //         nNeighs = NodeToNode->num(i);
-  //         for (int j = 0; j < nNeighs; j++) {
-  //           nei = (*NodeToNode)[i][j];
-  //           if (i==nei) continue;
-  //           dist = d2wall[nei][0]+sqrt(
-  //               (X[i][0]-X[nei][0])*(X[i][0]-X[nei][0])
-  //             + (X[i][1]-X[nei][1])*(X[i][1]-X[nei][1])
-  //             + (X[i][2]-X[nei][2])*(X[i][2]-X[nei][2]));
-  //           d2wall[i][0] = min(d2wall[i][0],dist);
-  //         }
-
-  //         // // averaging update
-  //         // dist = 0.0;
-  //         // int nSolvedNeighs = 0;
-  //         // nNeighs = NodeToNode->num(i);
-  //         // for (int j = 0; j < nNeighs; j++) {
-  //         //   nei = (*NodeToNode)[i][j];
-
-  //         //   if (i==nei || d2wall[nei][0] == 1.0e10) continue;
-  //         //   dist += d2wall[nei][0];
-  //         //   nSolvedNeighs++;
-  //         // }
-
-  //         // if (nSolvedNeighs > 0) {
-  //         //   dist /= nSolvedNeighs;
-  //         //   d2wall[i][0] = dist;
-  //         if (d2wall[i][0] < 1.0e10) {
-  //           // int nei2, nNeighs2;
-  //           // nNeighs2 = NodeToElem->num(i);
-  //           // for (int k=0; k<nNeighs2; k++) {
-  //           //   nei2 = (*NodeToElem)[i][k];
-  //           //   knownNodes[nei2]++;
-  //           // }
-  //           nSortedNodes++;
-  //           if (isSharedNode[i])
-  //             commFlag = 1;
-  //         }
-  //         else { // no solve still! flag for need more loops
-  //           stillUnknown = true;
-  //           fprintf(stderr,"No update found for node!\n");
-  //         }
-  //       // }
-  //     }
-  //   }
-  // }
 }
 
 //------------------------------------------------------------------------------
@@ -9840,56 +9724,14 @@ template<int dimLS>
 void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
 					 SVec<double,dimLS> &d2wall, int level, int iterativeLevel,
 					 Vec<int> &sortedNodes, int &nSortedNodes, int &firstCheckedNode,
-           double &res, Vec<int> &isSharedNode, int &commFlag, LevelSetStructure *LSS)
+           Vec<int> &isSharedNode, int &commFlag, LevelSetStructure *LSS)
 {
   if (!NodeToNode)
      NodeToNode = createEdgeBasedConnectivity();
   if (!NodeToElem)
      NodeToElem = createNodeToElementConnectivity();
 
-  // if (level > 0 && level == iterativeLevel) {
-  if (level == iterativeLevel) { // level = 0 should never be called
-
-    // fprintf(stderr,"PROBLEM: should never be inside hybrid re-tagging method!\n");
-
-    // // account for all previously fixed nodes, with correct ordering in sortedNodes
-    // nSortedNodes     = 0;
-    // for (int i=0;i<Tag.size();++i) {
-    //   // modify strictly for calling with iterative level = 1
-    //   // if (Tag[i] <= iterativeLevel-1 && Tag[i] >= 0) {
-    //   if (Tag[i] == 0) {
-    //     // sortedNodes[nSortedNodes] = i;
-    //     nSortedNodes++;
-    //   }
-    // }
-    // firstCheckedNode = nSortedNodes;
-    // for (int i=0;i<Tag.size();++i) {
-    //   if (Tag[i] == iterativeLevel) {
-    //     sortedNodes[nSortedNodes] = i;
-    //     nSortedNodes++;
-    //   }
-    //   else if (Tag[i] > iterativeLevel) {
-	  //     Tag[i] = -1;
-    //   }
-    // }
-
-    // firstCheckedNode starts @ 0 for initial pass always
-    nSortedNodes     = 0;
-    firstCheckedNode = 0;
-    for (int i=0; i < Tag.size(); ++i) {
-      // if (Tag[i] <= iterativeLevel-1 && Tag[i] >= 0) {
-      // if (Tag[i] == 0) // modify strictly for calling with iterative level = 1
-      //   nSortedNodes++;
-      if (Tag[i] == iterativeLevel) {
-        sortedNodes[nSortedNodes] = i;
-        nSortedNodes++;
-        res += d2wall[i][0]*d2wall[i][0];
-      }
-      else if (Tag[i] > iterativeLevel)
-	      Tag[i] = -1;
-    }
-  }
-  else if (level == 1) {
+  if (level == 1) {
     // Tag is globally set to -1, 0 level are inactive nodes
     nSortedNodes     = 0;
     firstCheckedNode = 0;
@@ -9906,7 +9748,7 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
         Tag[i] = 0;
         d2wall[i][0] = 0.0; // not a problem as inactive nodes should be marked as ghost on all subdomains
       }
-      else if (LSS->isNearInterface(0.0,i)) {
+      else if (LSS->isNearInterface(0.0,i) && Tag[i] < 0) {
         // must make sure wall intersected is actually a wall
         doInit = false;
         nNeighs = NodeToNode->num(i);
@@ -9914,22 +9756,32 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
           nei = (*NodeToNode)[i][k];
           if (i==nei) continue;
           l = edges.findOnly(i,nei);
-          if (LSS->edgeIntersectsWall(0,l)) {
-            resij = LSS->getLevelSetDataAtEdgeCenter(0.0, l, true);
-            if (resij.structureType==BoundaryData::WALL || resij.structureType==BoundaryData::POROUSWALL) {
-              doInit = true;
-              break;
-            }
+          if (!(LSS->edgeIntersectsWall(0,l))) continue;
+          resij = LSS->getLevelSetDataAtEdgeCenter(0.0, l, true);
+          if (resij.structureType==BoundaryData::WALL ||
+              resij.structureType==BoundaryData::POROUSWALL) {
+            doInit = true;
+            break;
           }
         }
         if (doInit) {
+          d2wall[i][0] = LSS->distToInterface(0.0,i);
+          Tag[i]  = 1;
           sortedNodes[nSortedNodes] = i;
           nSortedNodes++;
-          Tag[i]  = 1;
-          d2wall[i][0] = LSS->distToInterface(0.0,i);
-          res += d2wall[i][0]*d2wall[i][0];
 
-          if (isSharedNode[i]) commFlag = 1; // TESTING
+          if (isSharedNode[i] && !commFlag) commFlag = 1;
+
+          if (Tag[nei]<0) {
+            assert(LSS->isNearInterface(0.0,nei)); // should never fail due do BB construction
+
+            d2wall[nei][0] = LSS->distToInterface(0.0,nei);
+            Tag[nei] = 1;
+            sortedNodes[nSortedNodes] = nei;
+            nSortedNodes++;
+
+            if (isSharedNode[nei] && !commFlag) commFlag = 1;
+          }
 
           // // for debugging!
           // if(d2wall[i][0]<=0.0 || d2wall[i][0] >= 1.0e10) {
@@ -9940,89 +9792,20 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
         }
       }
     }
+    // depreciated
+    // edges.pseudoFastMarchingMethodInitialization(X,Tag,d2wall,sortedNodes,nSortedNodes,LSS);
   }
-  // else if (level == 0) {
-  //   // just get inactive nodes
-  //   nSortedNodes     = 0;
-  //   nActiveNodes     = 0;
-  //   firstCheckedNode = 0;
-  //   for (int i=0;i<Tag.size();++i) {
-  //     if (!LSS->isActive(0.0,i)) {
-  //       nSortedNodes++;
-  //       Tag[i] = 0;
-  //       d2wall[i][0] = 0.0; // not a problem as inactive nodes should be marked as ghost on all subdomains
-  //     }
-  //   }
-  // }
-  // else if (level == 1) {
-  //   // Tag is globally set to -1, 0 level are inactive nodes, firstCheckedNode = 0
-  //   // (level one is always called directly following level 0)
-
-  //   // faster to loop over nodes and retrieve distance info from intersector
-  //   // than to loop over all edges
-  //   bool doInit;
-  //   int nei, nNeighs, l;
-  //   LevelSetResult resij;
-  //   for (int i=0;i<Tag.size();++i) {
-  //     if (LSS->isNearInterface(0.0,i) && Tag[i] != 0) {
-  //       // must make sure wall intersected is actually a wall
-  //       doInit = false;
-  //       nNeighs = NodeToNode->num(i);
-  //       for (int k=0;k<nNeighs;k++) {
-  //         nei = (*NodeToNode)[i][k];
-  //         if(i==nei) continue;
-  //         l = edges.findOnly(i,nei);
-  //         if (LSS->edgeIntersectsWall(0,l)) {
-  //           resij = LSS->getLevelSetDataAtEdgeCenter(0.0, l, true);
-  //           if (resij.structureType==BoundaryData::WALL || resij.structureType==BoundaryData::POROUSWALL) {
-  //             doInit = true;
-  //             break;
-  //           }
-  //         }
-  //       }
-  //       if (doInit) {
-  //         sortedNodes[nActiveNodes] = i;
-  //         nSortedNodes++;
-  //         nActiveNodes++;
-  //         Tag[i]  = 1;
-  //         d2wall[i][0] = LSS->distToInterface(0.0,i);
-  //         res += d2wall[i][0]*d2wall[i][0];
-  //         // // for debugging!
-  //         // if(d2wall[i][0]<=0.0 || d2wall[i][0] >= 1.0e10) {
-  //         //   fprintf(stderr,"PROBLEM: Node %d is near FS interface but its wall distance (%e) is invalid.\n",
-  //         //     locToGlobNodeMap[i]+1, d2wall[i][0]);
-  //         //   // exit(-1);
-  //         // }
-  //       }
-  //     }
-  //   }
-
-  //   // depreciated
-  //   // edges.pseudoFastMarchingMethodInitialization(X,Tag,d2wall,sortedNodes,nSortedNodes,LSS);
-  // }
   else {
     // Tag nodes that are neighbours of already Tagged nodes and compute their distance
-    int nNeighs, nTets, nei, tet, lowerLevel = level-1;
+    int nNeighs, nTets, nei, tet, lowerlevel = level-1;
     int inter = nSortedNodes, fixedNode;
     for (int i = firstCheckedNode; i < inter; i++) {
       fixedNode = sortedNodes[i];
-      // if(Tag[fixedNode] == 0) continue; // structure nodes
-      // -> if any nodes are inactive, will always have a level 1 node on the same subdomain
-
-      // Should be useless. Remove the following if.Adam 2011.09
-      // if(Tag[fixedNode]==lowerLevel){
-
-      assert(Tag[fixedNode] == lowerLevel);
-      // if (Tag[fixedNode] != lowerLevel) {
-      //   fprintf(stderr,"Failed assert in SubDomain.C for Tag[fixedNode] != lowerlevel (Tag[fixedNode] = %d, lowerlevel = %d, node %d out of %d)\n",Tag[fixedNode],lowerLevel,i,nSortedNodes-firstCheckedNode+1);
-      //   exit(-1);
-      // }
+      assert(Tag[fixedNode] == lowerlevel);
 
       nNeighs = NodeToNode->num(fixedNode);
       for (int k=0; k < nNeighs; k++) {
         nei = (*NodeToNode)[fixedNode][k];
-        // Not necessary because of following test.
-        // if(nei==i) continue;
         if (Tag[nei] < 0) {
           Tag[nei] = level;
           sortedNodes[nSortedNodes] = nei;
@@ -10031,11 +9814,11 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
           nTets = NodeToElem->num(nei);
           for (int j=0; j<nTets; j++) {
             tet        = (*NodeToElem)[nei][j];
-            elems[tet].FastMarchingDistanceUpdate(nei,Tag,lowerLevel,X,d2wall);
+            elems[tet].FastMarchingDistanceUpdate(nei,Tag,X,d2wall,lowerlevel);
+            // elems[tet].FastMarchingDistanceUpdate(nei,Tag,X,d2wall);
           }
-          res += d2wall[nei][0]*d2wall[nei][0];
 
-          if (isSharedNode[nei]) commFlag = 1; // TESTING
+          if (isSharedNode[nei]) commFlag = 1;
         }
       }
     }

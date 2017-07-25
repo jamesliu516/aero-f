@@ -137,7 +137,9 @@ class SubDomain {
   FaceSet &faces;
   ElemSet &elems;
 
-  InletNodeSet inletNodes;
+  InletNodeSet inletNodes;  // list contains all OUTLET/INLET_FIXED/MOVING nodes,
+                            // but only populated for boundary scheme = constant or
+                            // linear extrapolation (no Steger Warming, etc.)
 
   // for weighting the residual in Nonlinear ROM simulations
   std::vector<int> farFieldNodes;
@@ -1108,19 +1110,27 @@ public:
 
   // TESTING TESTING -----------------------------------------------------------
   template<class Scalar, int dim>
-  void minRcvDataAndAddElems(CommPattern<Scalar> &, Scalar (*)[dim], Vec<int> &, int *, int *, int *, int &, int &);
+  void minRcvDataAndAddElems(CommPattern<Scalar> &, Scalar (*)[dim],
+    Vec<int> &, int *, int *, int *, int &, int &);
 
   template<class Scalar, int dim>
-  void minRcvDataAndCountUpdates(CommPattern<Scalar> &sp, Scalar (*w)[dim], Vec<int> &, Vec<int> &, int &, int);
+  void minRcvDataAndCountUpdates(CommPattern<Scalar> &sp, Scalar (*w)[dim],
+    Vec<int> &, Vec<int> &, int &, int);
 
   template<class Scalar, int dim>
-  void minRcvDataAndFindMin(CommPattern<Scalar> &sp, Scalar (*w)[dim], Vec<int> &, Vec<int> &, int &, int);
+  void minRcvDataAndTagRef(CommPattern<Scalar> &sp, Scalar (*w)[dim],
+    double &, int &);
+
+  template<class Scalar, int dim>
+  void minTagBoundaries(SVec<Scalar,dim> &, SVec<Scalar,dim> &,
+    double &, int &);
 
   template<class Scalar, int dim>
   void maxRcvData(CommPattern<Scalar> &, Scalar (*)[dim]);
 
   template<class Scalar, int dim>
-  void maxRcvDataAndCountUpdates(CommPattern<Scalar> &, Scalar (*)[dim],int &, Vec<int> &);
+  void maxRcvDataAndCountUpdates(CommPattern<Scalar> &, Scalar (*)[dim],
+    int &, Vec<int> &);
 
   template<class Scalar1, class Scalar2, int dim1, int dim2>
   void TagPsiExchangeData(CommPattern<Scalar1> &splevel, Scalar1 (*level)[dim1],
@@ -1248,7 +1258,7 @@ public:
   void pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
 				SVec<double,dimLS> &d2wall, int level, int iterativeLevel,
         Vec<int> &sortedNodes, int &nSortedNodes, int &firstCheckedNode,
-        double &res, Vec<int> &isSharedNode, int &commFlag, LevelSetStructure *LSS=0);
+        Vec<int> &isSharedNode, int &commFlag, LevelSetStructure *LSS=0);
 
   template<int dimLS>
   void FinishReinitialization(Vec<int> &Tag, SVec<double,dimLS> &Psi, int level);
@@ -1799,7 +1809,6 @@ public:
   Connectivity *getNodeToNode() { if(!NodeToNode) NodeToNode = createEdgeBasedConnectivity();  return NodeToNode; }
   Connectivity *getNodeToSubD() { if(!NodeToSubD) NodeToSubD = createNodeToSubDomainConnectivity();  return NodeToSubD; }
   int findFarfieldNode();
-
 
   template<int dim>
   void blur(SVec<double,dim> &U, SVec<double,dim> &U0,Vec<double>& weight);
