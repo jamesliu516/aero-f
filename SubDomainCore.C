@@ -1740,8 +1740,6 @@ void SubDomain::computeDerivativeOfWeightsLeastSquaresEdgePartEmb(
 
     //node i
     if(LSS->isActive(0.0, i)){
-      if(dxdx==0.0 && dxdy==0.0 && dxdz==0.0 && dydy==0.0 && dydz==0.0 && dzdz==0.0)
-        std::cout<<"\033[91m computing at active node "<<i<<" with \033[00m"<<dxdx<<" "<<dxdy<<" "<<dxdz<<" "<<dydy<<" "<<dydz<<" "<<dzdz<<std::endl;//TODO delete line
 
       R[i][0] += dxdx;
       R[i][1] += dxdy;
@@ -1759,8 +1757,6 @@ void SubDomain::computeDerivativeOfWeightsLeastSquaresEdgePartEmb(
     }
 
     if(LSS->isActive(0.0, j)){
-      if(dxdx==0.0 && dxdy==0.0 && dxdz==0.0 && dydy==0.0 && dydz==0.0 && dzdz==0.0)
-        std::cout<<"\033[91m computing at active node "<<j<<" with \033[00m"<<dxdx<<" "<<dxdy<<" "<<dxdz<<" "<<dydy<<" "<<dydz<<" "<<dzdz<<std::endl;//TODO delete line
 
       R[j][0] += dxdx;
       R[j][1] += dxdy;
@@ -7144,7 +7140,6 @@ bool SubDomain::getFEMstencil2(int Ni, SVec<double,3> &X,
 		dir = normWall * (1.0/norm);
 	}
   //dzh
-  //std::cout << "Ni " << Ni << "xx "<<" " << X_i[0]<<" " <<X_i[1] <<" xx "  <<  xWall[0] << " " <<xWall[1] << " dir " << dir[0] <<" "<< dir[1]<<" " << dir[2] << std::endl;
 
 
   Vec3D ve_p = X_i + 1000.0*dir;

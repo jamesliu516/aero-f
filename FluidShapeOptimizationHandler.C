@@ -15,7 +15,6 @@
 #include <iostream>
 #include <string>
 
-#include "Dev/devtools.h"
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -501,7 +500,7 @@ void FluidShapeOptimizationHandler<dim>::fsoRestartBcFluxs(IoData &ioData)
 template<int dim>
 void FluidShapeOptimizationHandler<dim>::fsaRestartBcFluxs(IoData &ioData)
 {
-  Dev::Error(this->com,"Not yet implemented",true);
+  this->com->fprintf("Not yet implemented"); exit(-1);
 }
 
 //------------------------------------------------------------------------------
@@ -519,10 +518,10 @@ void FluidShapeOptimizationHandler<dim>::fsoGetEfforts(IoData &ioData,
 
   Vec3D x0, force, moment;
 
-  Vec3D *Fi = new Vec3D[nSurfs];//internal forces
-  Vec3D *Mi = new Vec3D[nSurfs];//internal moments
-  Vec3D *Fv = new Vec3D[nSurfs];//transmitted forces
-  Vec3D *Mv = new Vec3D[nSurfs];//transmitted moments
+  Vec3D *Fi = new Vec3D[nSurfs];//inviscid forces
+  Vec3D *Mi = new Vec3D[nSurfs];//inviscid moments
+  Vec3D *Fv = new Vec3D[nSurfs];//viscous forces
+  Vec3D *Mv = new Vec3D[nSurfs];//viscous moments
 
   x0[0] = ioData.output.transient.x0;
   x0[1] = ioData.output.transient.y0;
@@ -633,11 +632,6 @@ void FluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsFiniteDifferen
   Vec3D *Fvm = new Vec3D[nSurfs];
   Vec3D *Mvm = new Vec3D[nSurfs];
 
-  Vec3D *dFi2 = new Vec3D[nSurfs];
-  Vec3D *dMi2 = new Vec3D[nSurfs];
-  Vec3D *dFv2 = new Vec3D[nSurfs];
-  Vec3D *dMv2 = new Vec3D[nSurfs];
-
   x0[0] = ioData.output.transient.x0;
   x0[1] = ioData.output.transient.y0;
   x0[2] = ioData.output.transient.z0;
@@ -656,10 +650,10 @@ void FluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsFiniteDifferen
                   X,   //mesh motion
                   U,   //fluid state vector
                   0,   //fluid
-                  Fi,  //internal forces
-                  Mi,  //internal moments
-                  Fv,  //transmitted forces
-                  Mv); //transmitted moments
+                  Fi,  //inviscid forces
+                  Mi,  //inviscid moments
+                  Fv,  //viscous forces
+                  Mv); //viscous moments
 
   F = 0.0;
   M = 0.0;
@@ -837,10 +831,10 @@ void FluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsAnalytical(
                   X,   //mesh motion
                   U,   //fluid state vector
                   0,   //fluid ID
-                  Fi,  //internal forces
-                  Mi,  //internal moments
-                  Fv,  //transmitted forces
-                  Mv); //transmitted moments
+                  Fi,  //inviscid forces
+                  Mi,  //inviscid moments
+                  Fv,  //viscous forces
+                  Mv); //viscous moments
 
   F = 0.0;
   M = 0.0;
@@ -1293,14 +1287,9 @@ void FluidShapeOptimizationHandler<dim>::fsoSemiAnalytical
   //
 
   Xc=X;
-  this->com->fprintf(stderr,"GOING TO ADD\n");
   *Xp=X+eps*dXdS;
 //  if (X.norm()!= Xp->norm())
 //    this->com->fprintf(stderr,"Currently not wanted %e\n",X.norm()- Xp->norm()); exit(-1);
-  this->com->fprintf(stderr,"DID TO ADD\n");
-
-  this->output->writeAnyVectorToDisk("results/Xp",1,1,*Xp);
-  this->output->writeAnyVectorToDisk("results/X",1,1,X);
 
   X=*Xp;
 
@@ -1321,11 +1310,8 @@ void FluidShapeOptimizationHandler<dim>::fsoSemiAnalytical
   this->computeTimeStep(1, &dtLeft, U);
 
   this->spaceOp->computeResidual(*Xp, *Ap, U, *Fp, this->timeState);
-  temp= *Fp;
-  this->output->writeAnyVectorToDisk("results/Fp_beforeBC",1,1,temp);
+  
   this->spaceOp->applyBCsToResidual(U, *Fp);
-  temp= *Fp;
-  this->output->writeAnyVectorToDisk("results/Fp_afterBC",1,1,temp);
 
   if(ioData.sa.debugOutput == SensitivityAnalysis::ON_DEBUGOUTPUT){
     this->spaceOp->computeInviscidResidual(*Xp, *Ap, U, *Fp_inviscid, this->timeState);
@@ -1362,12 +1348,8 @@ void FluidShapeOptimizationHandler<dim>::fsoSemiAnalytical
 
   this->spaceOp->computeResidual(*Xm, *Am, U, *Fm, this->timeState);
 
-  temp= *Fm; this->output->writeAnyVectorToDisk("results/Fm_beforeBC",1,1,temp);
   this->spaceOp->applyBCsToResidual(U, *Fm);
 
-  temp= *Fm; this->output->writeAnyVectorToDisk("results/Fm_afterBC",1,1,temp);
-
-  this->output->writeAnyVectorToDisk("results/Xm",1,1,*Xm);
 
   if(ioData.sa.debugOutput == SensitivityAnalysis::ON_DEBUGOUTPUT){
     this->spaceOp->computeInviscidResidual(*Xm, *Am, U, *Fm_inviscid, this->timeState);
@@ -1375,8 +1357,6 @@ void FluidShapeOptimizationHandler<dim>::fsoSemiAnalytical
     this->spaceOp->applyBCsToResidual(U, *Fm_inviscid);
     this->spaceOp->applyBCsToResidual(U, *Fm_viscous);
   }
-
-
 
   dAdS=1.0/(2.0*eps)*((*Ap)-(*Am));
 
@@ -1517,9 +1497,7 @@ void FluidShapeOptimizationHandler<dim>::fsoSetUpLinearSolver(IoData &ioData, Di
   if (ioData.sa.homotopy == SensitivityAnalysis::ON_HOMOTOPY)
     this->timeState->add_dAW_dt(1, *this->geoState, A, U, FluxFD);
 
-  this->output->writeAnyVectorToDisk("results/FluxFD_withoutBC",1,1,FluxFD);
   this->spaceOp->applyBCsToResidual(U, FluxFD);
-  this->output->writeAnyVectorToDisk("results/FluxFD_withBC",1,1,FluxFD);
 
   mvp->evaluate(0, X, A, U, FluxFD);
 
@@ -1623,11 +1601,9 @@ void FluidShapeOptimizationHandler<dim>::fsoLinearSolver(
   int numberIteration;
   bool istop = false;
   int iter = 0;
-  std::cout<<"iter="<<iter<<std::endl;//TODO delete line
 
   while ((istop == false) && (iter < 100))
   {
-    std::cout<<"iter="<<iter<<std::endl;//TODO delete line
     numberIteration = ksp->solve(dFdS, dUdS);
     //if ((!ioData.sa.excsol) || (numberIteration < ioData.sa.ksp.maxIts))
     if ((false) || (numberIteration < ioData.sa.ksp.maxIts))
@@ -1679,7 +1655,6 @@ void FluidShapeOptimizationHandler<dim>::fsoAdjointLinearSolver
 }
 
 //------------------------------------------------------------------------------
-
 
 template<int dim>
 void FluidShapeOptimizationHandler<dim>::fsoPrintTextOnScreen(const char *Text)

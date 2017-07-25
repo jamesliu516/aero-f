@@ -11,7 +11,6 @@ using std::max;
 using std::min;
 #endif
 
-#include "Dev/devtools.h"//TODO delete line
 
 //------------------------------------------------------------------------------
 //CHANGES_FOR_WATER
@@ -49,12 +48,9 @@ void FemEquationTermNS::computeTransportCoefficients(
   const double T, double &mu, double &lambda, double &kappa)
 {
 
-  //std::cout<<"CALLING VISCOFCNS----------------------------------"<<std::endl;
   mu     = viscoFcn->compute_mu(T);
-  //std::cout<<"mu:"<<mu<<std::endl;
   lambda = viscoFcn->compute_lambda(T,mu);
   kappa  = thermalCondFcn->compute(T);
-  //std::cout<<"CALLED VISCOFCNS----------------------------------\n\n"<<std::endl;
 
 }
 
@@ -113,50 +109,25 @@ bool FemEquationTermNS::computeVolumeTerm(
        int material_id)     // (INPUT) ID of the fluid volume
 {
 
-  //Extensive output
-  //std::cout<<"dp1dxj[4][3]  "<<dp1dxj[0][0]<<" "<<dp1dxj[1][0]<<" "<<dp1dxj[1][1]<<" "<<dp1dxj[2][0]<<" "<<dp1dxj[3][0]<<" "<<dp1dxj[3][1]<<" "<<dp1dxj[3][1]<<std::endl;
-  //std::cout<<"d2w[4],       "<<d2w[0]<<" "<<d2w[1]<<" "<<d2w[2]<<" "<<d2w[3]<<std::endl;
-  //std::cout<<"*V[4],        "<<V[0][0]<<" "<<V[0][1]<<" "<<V[0][2]<<" "<<V[0][3]<<V[0][4]<<std::endl;
-  //std::cout<<"*V[4],        "<<V[1][0]<<" "<<V[1][1]<<" "<<V[1][2]<<" "<<V[1][3]<<V[0][4]<<std::endl;
-  //std::cout<<"*V[4],        "<<V[2][0]<<" "<<V[2][1]<<" "<<V[2][2]<<" "<<V[2][3]<<V[0][4]<<std::endl;
-  //std::cout<<"*V[4],        "<<V[3][0]<<" "<<V[3][1]<<" "<<V[3][2]<<" "<<V[3][3]<<V[0][4]<<std::endl;
-  //std::cout<<"*r,           "<<*r<<std::endl;
-  //std::cout<<"*S,           "<<*S<<std::endl;
-  //std::cout<<"*PR,          "<<*PR<<std::endl;
-  //std::cout<<"tetVol,       "<<tetVol<<std::endl;
-  //std::cout<<"&X,           "<<X.norm()<<std::endl;
-  //std::cout<<"nodeNum[4]    "<<nodeNum[0]<<" "<<nodeNum[1]<<" "<<nodeNum[2]<<" "<<nodeNum[3]<<std::endl;
-  //std::cout<<"material_id)  "<<material_id<<" "<<std::endl;
-
-
   bool porousmedia = false; 
 
   double u[4][3], ucg[3];
   computeVelocity(V, u, ucg);
-  //std::cout<<"ucg           "<<ucg[0]<<" "<<ucg[1]<<" "<<ucg[2]<<" "<<std::endl;
 
   double T[4], Tcg;
   computeTemperature(V, T, Tcg);
-  //std::cout<<"Tcg           "<<Tcg<<std::endl;
 
   double dudxj[3][3];
   computeVelocityGradient(dp1dxj, u, dudxj);
-  //std::cout<<"dudxj[0],     "<<dudxj[0][0]<<" "<<dudxj[0][1]<<" "<<dudxj[0][2]<<std::endl;
-  //std::cout<<"dudxj[1],     "<<dudxj[1][0]<<" "<<dudxj[1][1]<<" "<<dudxj[1][2]<<std::endl;
-  //std::cout<<"dudxj[2],     "<<dudxj[2][0]<<" "<<dudxj[2][1]<<" "<<dudxj[2][2]<<std::endl;
 
 
   double dTdxj[3];
   computeTemperatureGradient(dp1dxj, T, dTdxj);
-  //std::cout<<"dTdxj[3],     "<<dTdxj[0]<<" "<<dTdxj[1]<<" "<<dTdxj[2]<<std::endl;
-  //std::cout<<"d2w[4],       "<<d2w[0]<<" "<<d2w[1]<<" "<<d2w[2]<<" "<<d2w[3]<<std::endl;
 
   double mu, lambda, kappa;
   mu=0.0;
   lambda=0.0;
   kappa=0.0;//TODO clean
-  //std::cout<<"Tcg           "<<Tcg<<std::endl;
-  //std::cout<<"ooreynolds_mu "<<ooreynolds_mu<<std::endl;
   computeTransportCoefficients(Tcg, mu, lambda, kappa);
   mu     *= ooreynolds_mu;
   lambda *= ooreynolds_mu;
@@ -165,16 +136,7 @@ bool FemEquationTermNS::computeVolumeTerm(
 
   //reinterpret cast in order to get rid of the template parameter dim
   double (*R)[5] = reinterpret_cast<double (*)[5]>(r);
-  //std::cout<<"*r[0],        "<<R[0][0]<<" "<<R[0][1]<<" "<<R[0][2]<<" "<<R[0][3]<<R[0][4]<<std::endl;
-  //std::cout<<"*r[1],        "<<R[1][0]<<" "<<R[1][1]<<" "<<R[1][2]<<" "<<R[1][3]<<R[0][4]<<std::endl;
-  //std::cout<<"*r[2],        "<<R[2][0]<<" "<<R[2][1]<<" "<<R[2][2]<<" "<<R[2][3]<<R[0][4]<<std::endl;
-  //std::cout<<"*r[3],        "<<R[3][0]<<" "<<R[3][1]<<" "<<R[3][2]<<" "<<R[3][3]<<R[0][4]<<std::endl;
   computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, R);
-  //std::cout<<"*R[0],        "<<R[0][0]<<" "<<R[0][1]<<" "<<R[0][2]<<" "<<R[0][3]<<R[0][4]<<std::endl;
-  //std::cout<<"*R[1],        "<<R[1][0]<<" "<<R[1][1]<<" "<<R[1][2]<<" "<<R[1][3]<<R[0][4]<<std::endl;
-  //std::cout<<"*R[2],        "<<R[2][0]<<" "<<R[2][1]<<" "<<R[2][2]<<" "<<R[2][3]<<R[0][4]<<std::endl;
-  //std::cout<<"*R[3],        "<<R[3][0]<<" "<<R[3][1]<<" "<<R[3][2]<<" "<<R[3][3]<<R[0][4]<<std::endl;
-  //std::cout<<"\n"<<std::endl;
   
   // Initialize PR (porous media term)
   for (int j=0; j<3*4; ++j) PR[j] = 0.0; 
@@ -218,10 +180,6 @@ bool FemEquationTermNS::computeDerivativeOfVolumeTerm(
                           int nodeNum[4],       // (INPUT) node IDs
                           int material_id)      // (INPUT) material ID
 {
-//  std::cout<<"FemEquationTermNS::computeDerivativeOfVolumeTerm 0: "<<dV[0][0]<<" "<<dV[0][1]<<" "<<dV[0][2]<<std::endl;
-//  std::cout<<"FemEquationTermNS::computeDerivativeOfVolumeTerm 1: "<<dV[1][0]<<" "<<dV[1][1]<<" "<<dV[1][2]<<std::endl;
-//  std::cout<<"FemEquationTermNS::computeDerivativeOfVolumeTerm 2: "<<dV[2][0]<<" "<<dV[2][1]<<" "<<dV[2][2]<<std::endl;
-//  std::cout<<"FemEquationTermNS::computeDerivativeOfVolumeTerm 3: "<<dV[3][0]<<" "<<dV[3][1]<<" "<<dV[3][2]<<std::endl;
 
   if (dV[0][0]+dV[0][1]+dV[0][2]+
       dV[1][0]+dV[1][1]+dV[1][2]+
@@ -969,11 +927,6 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(
        int material_id)     //Material IDs
 {
 
-//  if(V[0][5]==0.0 && V[1][5]==0.0 && V[2][5]==0.0 && V[3][5]==0.0){
-//    //std::cout<<"\033[91mAll pressures are zero!\033[00m"<<std::endl;//TODO delete line
-//    Dev::Warning(MPI_COMM_WORLD,"All RANS components of that element are zero",true);
-//  }
-
   bool porousmedia = false;
 
   const double sixth = 1.0/6.0;
@@ -1037,9 +990,8 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(
   else {
     mut = computeTurbulentViscosity(V, mul, mutilde);
     dmut = computeDerivativeOfTurbulentViscosity(V, dV, mul, dmul, dmutilde);
-    //std::cout<<"mul: "<<mul<<"  mutilde: "<<mutilde<<std::endl;//TODO delete line
   }
-  //std::cout<<"mul: "<<mul<<"  mutilde: "<<mutilde<<std::endl;//TODO delete line
+
 
   lambdat  = computeSecondTurbulentViscosity(lambdal, mul, mut);
   dlambdat = computeDerivativeOfSecondTurbulentViscosity(lambdal, dlambdal, mul, dmul, mut, dmut);

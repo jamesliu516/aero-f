@@ -47,7 +47,6 @@ public:
   virtual void exportMemory(MemoryPool *mp)
   {
 //    Dev::Error(MPI_COMM_WORLD, "exportMemory not implemented",true); sleep(2000);
-//    std::cout<<"*** Error: exportMemory not implemented for MatVecProd:"<<__LINE__<<std::endl; exit(-1);
   }
 
   virtual void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 

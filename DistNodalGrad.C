@@ -1050,9 +1050,6 @@ void DistNodalGrad<dim, Scalar>::compute(int config, DistSVec<double,3> &X,
 					 DistLevelSetStructure *distLSS,
 					 bool includeSweptNodes)
 {
-
-  std::cout<<__FILE__<<":"<<__LINE__<<std::endl; //TODO delte line
-
 	if(typeGradient == SchemeData::LEAST_SQUARES)
 	{    
 		domain->computeWeightsLeastSquares(X, fluidId, *R, distLSS, includeSweptNodes);
@@ -1111,7 +1108,6 @@ void DistNodalGrad<dim, Scalar>::compute(int config, DistSVec<double,3> &X,
 					 bool linFSI, DistLevelSetStructure *distLSS)
 
 {
-  std::cout<<__FILE__<<":"<<__LINE__<<std::end; //TODO delte line
   if (typeGradient == SchemeData::LEAST_SQUARES){
     
     domain->computeWeightsLeastSquares(X, fluidId, *R, countWstarij, countWstarji, distLSS);

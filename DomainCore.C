@@ -1536,7 +1536,6 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistVec<int
                                         DistSVec<double,6> &R, DistLevelSetStructure *distLSS,
 					bool includeSweptNodes)
 {
-  std::cout<<__FILE__<<":"<<__LINE__<<std::endl; //TODO delte line
 
   int iSub;
 

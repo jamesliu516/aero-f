@@ -166,7 +166,6 @@ SpaceOperator<dim>::SpaceOperator(IoData &ioData, VarFcn *vf, DistBcData<dim> *b
 template<int dim>
 SpaceOperator<dim>::SpaceOperator(const SpaceOperator<dim> &spo, bool typeAlloc)
 {
-
   locAlloc = typeAlloc;
 
   varFcn = spo.varFcn;
@@ -1059,7 +1058,6 @@ void SpaceOperator<dim>::computeDerivativeOfResidual(
   }
   irey = 0;
   direy = 0;
-
 }
 
 //--------------------------------------------------------------------
@@ -1313,7 +1311,6 @@ void SpaceOperator<dim>::computeDerivativeOfResidualEmb(
                          DistSVec<double,dim> &R, DistSVec<double,dim> &dR,
                          DistTimeState<dim> *timeState)
 {
-  std::cout<<__FILE__<<":"<<__LINE__<<std::endl;//TODO delete line
 
   dR = 0.0;
 
@@ -1327,15 +1324,12 @@ void SpaceOperator<dim>::computeDerivativeOfResidualEmb(
   if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)  {
     bool linFSI = linRecAtInterface || viscSecOrder;
     //ngrad->compute(geoState->getConfig(), X, ctrlVol, fluidId, *V, linFSI, distLSS);
-    ngrad->compute(geoState->getConfig(), X, ctrlVol, fluidId, *V, true, distLSS);//TODO delete line
-    std::cout<<__FILE__<<":"<<__LINE__<<std::endl;//TODO delete line
+    ngrad->compute(geoState->getConfig(), X, ctrlVol, fluidId, *V, true, distLSS);
     ngrad->computeDerivativeEmb(geoState->getConfigSA(), X, dX, ctrlVol, dCtrlVol, *V, *dV, fluidId, linFSI, distLSS,false);
-    std::cout<<__FILE__<<":"<<__LINE__<<std::endl;//TODO delete line
     ngrad->limit(recFcn, X, ctrlVol, *V);
   }
 
   if (fet){
-    std::cout<<"Ghost points are populated"<<std::endl;//TODO delete line
     this->populateGhostPoints(ghostPoints,X,U,varFcn,distLSS,viscSecOrder,fluidId);
   }
 
@@ -2213,10 +2207,7 @@ void SpaceOperator<dim>::computeInviscidResidual(DistSVec<double,3> &X, DistVec<
     timer->addNodalGradTime(t0);
 
   }
-
-//  if (fet)
-//    this->populateGhostPoints(ghostPoints,X,U,varFcn,distLSS,viscSecOrder,fluidId);
-
+  
   if (egrad)
     egrad->compute(geoState->getConfig(), X);
 
@@ -2232,11 +2223,6 @@ void SpaceOperator<dim>::computeInviscidResidual(DistSVec<double,3> &X, DistVec<
 
   if (dles)
     dles->compute(ctrlVol, *bcData, X, *V, R, ghostPoints, distLSS, externalSI);
-
-//  if (fet) {
-//      domain->computeGalerkinTerm(fet, *bcData, *geoState, X, *V, R, ghostPoints, distLSS, externalSI);
-//      bcData->computeNodeValue(X);
-//  }
 
   if (volForce)
     domain->computeVolumicForceTerm(volForce, ctrlVol, *V, R);

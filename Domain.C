@@ -2419,14 +2419,9 @@ void Domain::computeDerivativeOfGalerkinTerm(
 
 }
 
-
-
-
-
-//TODO VISCOUSDERIV
 /****************************************************************************************
  * Computes the derivative of the viscous term for embedded simulations.                *
- * This is the non-sparse implementation                                         (lscheuch) *
+ * This is the non-sparse implementation                                                *
  ****************************************************************************************/
 template<int dim>
 void Domain::computeDerivativeOfGalerkinTermEmb(

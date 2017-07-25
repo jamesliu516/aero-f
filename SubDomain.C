@@ -59,8 +59,6 @@ typedef Eigen::SparseMatrix<double> SpMat;
 
 #include "FSI/CrackingSurface.h"
 
-//#include "Dev/devtools.h"
-
 extern "C" {
   void F77NAME(mvp5d)(const int &, const int &, int *, int *, int (*)[2],
 		      double (*)[25], double (*)[5], double (*)[5]);
