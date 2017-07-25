@@ -18,6 +18,7 @@
 
 // included for rom (lei lei, Sep 27 2016)
 #include <VectorSet.h>
+
 //------------------------------------------------------------------------------
 
 template<int dim, int neq>
@@ -37,7 +38,6 @@ MatVecProdFD<dim, neq>::MatVecProdFD
 {
 
   com = domain->getCommunicator();
-
   if (ts)
     timeState = new DistTimeState<dim>(*ts, false, ioData);
   else
@@ -68,7 +68,6 @@ MatVecProdFD<dim, neq>::MatVecProdFD
 template<int dim, int neq>
 MatVecProdFD<dim, neq>::~MatVecProdFD()
 { 
-
   if (spaceOp) delete spaceOp;
   if (timeState) delete timeState;
   recFcnCon = 0; // deleted by spaceOp
@@ -87,10 +86,14 @@ void MatVecProdFD<dim, neq>::attachHH(DistEmbeddedVec<double,dim>& v) {
 //------------------------------------------------------------------------------
 
 template<int dim, int neq>
-void MatVecProdFD<dim, neq>::evaluate(int it, DistSVec<double,3> &x, DistVec<double> &cv,
-				 DistSVec<double,dim> &q, DistSVec<double,dim> &f)
+void MatVecProdFD<dim, neq>::evaluate(
+                               int it,
+                               DistSVec<double,3> &x,   //Mesh Positions
+                               DistVec<double> &cv,     //Vector of cell volumes
+                               DistSVec<double,dim> &q, //State Vector solution
+                               DistSVec<double,dim> &f) //Fluid Residual
 {
-	// ****
+  // ****
   X = &x;
   ctrlVol = &cv;
   Qeps = q;
@@ -103,7 +106,9 @@ void MatVecProdFD<dim, neq>::evaluate(int it, DistSVec<double,3> &x, DistVec<dou
 
     spaceOp->applyBCsToResidual(Qeps, Feps);
   }
-	else Feps = f;
+	else{
+	  Feps = f;
+	}
 
 	if(timeState && iod->ts.dualtimestepping == TsData::ON) 
 	{
@@ -644,7 +649,7 @@ void MatVecProdFD<dim, neq>::applyWeightedRestrict(DistSVec<double,neq> &p,
 }
 
 //--------------------------------------------------
-
+//Computes prod=J*p
 template<int dim, int neq>
 void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedVec<double,neq> & prod) 
 {
@@ -656,20 +661,22 @@ void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedV
 
   Qepstmp.pad(Qeps);
   
-	if(p.hasHHBoundaryTerm()) 
+
+	if(p.hasHHBoundaryTerm())
 	{
     *hhEps = *hhVal + eps*p.hh();
     *spaceOp->getDistBcData()->getBoundaryStateHH() = *hhEps;
   }
 
-  if (!this->isFSI)
+  if (!this->isFSI){
     spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
-  else
+  }
+  else//FSI case
 	  spaceOp->computeResidual(*X, *ctrlVol, Qeps, 
-										*(this->fsi.Wtemp), *(this->fsi.Wtemp), *(this->fsi.Wtemp), this->fsi.LSS, 
-										this->fsi.linRecAtInterface, this->fsi.viscSecOrder, 
-										*(this->fsi.fluidId), Feps, this->fsi.riemann, 
-										this->fsi.Nriemann, 0, this->fsi.ghostPoints);
+              *(this->fsi.Wtemp), *(this->fsi.Wtemp), *(this->fsi.Wtemp), this->fsi.LSS,
+                this->fsi.linRecAtInterface, this->fsi.viscSecOrder,
+              *(this->fsi.fluidId), Feps, this->fsi.riemann,
+                this->fsi.Nriemann, 0, this->fsi.ghostPoints);
 
 	if(p.hasHHBoundaryTerm()) 
 	{
@@ -710,9 +717,9 @@ void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedV
   
 		if(!this->isFSI)	spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
 		else              spaceOp->computeResidual(*X,*ctrlVol, Qeps, *(this->fsi.Wtemp), *(this->fsi.Wtemp),*(this->fsi.Wtemp),
-																 this->fsi.LSS, this->fsi.linRecAtInterface, 
-																 this->fsi.viscSecOrder, *(this->fsi.fluidId),
-                               Feps, this->fsi.riemann, this->fsi.Nriemann, 0, this->fsi.ghostPoints);
+                        this->fsi.LSS, this->fsi.linRecAtInterface,
+                        this->fsi.viscSecOrder, *(this->fsi.fluidId),
+                        Feps, this->fsi.riemann, this->fsi.Nriemann, 0, this->fsi.ghostPoints);
  
 		if(timeState) 
 		{
@@ -949,7 +956,6 @@ MatVecProdH1<dim,Scalar,neq>::MatVecProdH1(DistTimeState<dim> *ts, SpaceOperator
 					   Domain *domain) : 
   DistMat<Scalar,neq>(domain), timeState(ts), spaceOp(spo)
 {
-
 #ifdef _OPENMP 
   this->numLocSub = DistMat<Scalar,neq>::numLocSub; //BUG omp
 #endif
@@ -981,7 +987,6 @@ MatVecProdH1<dim,Scalar,neq>::MatVecProdH1(DistTimeState<dim> *ts, SpaceOperator
                                            Domain *domain, IoData &ioData) :
   DistMat<Scalar,neq>(domain), timeState(ts), spaceOp(spo)
 {
-
 #ifdef _OPENMP
   this->numLocSub = DistMat<Scalar,neq>::numLocSub; //BUG omp
 #endif
@@ -1072,8 +1077,12 @@ void MatVecProdH1<dim,Scalar,neq>::evaluateHH(DistVec<double> &hhterm,
 }
 
 template<int dim, class Scalar, int neq>
-void MatVecProdH1<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &X, DistVec<double> &ctrlVol, 
-					    DistSVec<double,dim> &Q, DistSVec<double,dim> &F)
+void MatVecProdH1<dim,Scalar,neq>::evaluate(
+                                     int it,
+                                     DistSVec<double,3> &X,//Mesh Positions
+                                     DistVec<double> &ctrlVol,//Vector of cell volumes
+                                     DistSVec<double,dim> &Q,//State Vector solution
+                                     DistSVec<double,dim> &F)//Fluid Residual
 {
 
   if (!this->isFSI)
@@ -1409,7 +1418,6 @@ MatVecProdH2<dim,Scalar,neq>::MatVecProdH2
       RFD = new MatVecProdFD<dim,neq>(ioData.ts.implicit, ts, gs, spo, domain, ioData);
     }
   }
-
 }
 
 //------------------------------------------------------------------------------
@@ -1709,8 +1717,6 @@ template<int dim, class Scalar, int neq>
 void MatVecProdH2<dim,Scalar,neq>::apply(DistEmbeddedVec<double,dim> &p, DistEmbeddedVec<double,dim> &prod)
 {
 
-  //std::cout << "$$$$$ IN MatVecProc EMB H2 applyXXXX \n";
-
   spaceOp->applyH2(*X, *ctrlVol, *Q, 
 		   this->fsi.LSS, *(this->fsi.fluidId), 
 		   this->fsi.linRecAtInterface, this->fsi.viscSecOrder,
@@ -1926,12 +1932,12 @@ void MatVecProdH2<dim,Scalar,neq>::Multiplier<dd,dd,Scalar1,Scalar2>::ApplyTrans
 
   if (R)
   {
-    std::cout << "\n !!! R is being added !!\n";
+//    std::cout << "\n !!! R is being added !!\n";
     *vProd = (Scalar2) 0;
-    R->apply(p, *vProd);
+    R->applyTranspose(p, *vProd);
     prod += *vProd;
   }
-  else if (RFD)
+  else if (RFD) //TODO: YC: have not checked this works
   {
     *vProd = (Scalar2) 0;
     RFD->applyViscous(p, *vProd);
@@ -2772,6 +2778,7 @@ MatVecProd_dRdX<dim,Scalar,neq>::MatVecProd_dRdX
 ) :
   MatVecProd<dim,neq>(),
   timeState(ts),
+  iod(&ioData),
   spaceOp(0),
   fluxFcn(0),
   X(0),
@@ -2805,6 +2812,18 @@ MatVecProd_dRdX<dim,Scalar,neq>::MatVecProd_dRdX
     dRdXop->dFluxdFaceNormalVel[iSub] = subDomain[iSub]->template create_NodeToFaceBaseddRdXoperators<1,dim>();
     dRdXop->dFluxdUb[iSub] = subDomain[iSub]->template create_NodeToFaceBaseddRdXoperators<dim,dim>();
     dRdXop->dFaceNormdX[iSub] = subDomain[iSub]->template create_FaceBaseddRdXoperators<3,3>();
+    dRdXop->dFidGradP[iSub] = subDomain[iSub]->template create_ConstantToNodeBaseddRdXoperators<3,3>();
+    dRdXop->dFidX[iSub] = subDomain[iSub]->template create_ConstantToNodeBaseddRdXoperators<3,3>();
+    dRdXop->dFvdX[iSub] = subDomain[iSub]->template create_ConstantToNodeBaseddRdXoperators<3,3>();
+    dRdXop->dFidV[iSub] = subDomain[iSub]->template create_ConstantToNodeBaseddRdXoperators<dim,3>();
+    dRdXop->dFvdV[iSub] = subDomain[iSub]->template create_ConstantToNodeBaseddRdXoperators<dim,3>();
+    dRdXop->dFidS[iSub] = subDomain[iSub]->template create_ConstantToConstantBaseddRdXoperators<3,3>();
+    dRdXop->dMidGradP[iSub] = subDomain[iSub]->template create_ConstantToNodeBaseddRdXoperators<3,3>();
+    dRdXop->dMidX[iSub] = subDomain[iSub]->template create_ConstantToNodeBaseddRdXoperators<3,3>();
+    dRdXop->dMvdX[iSub] = subDomain[iSub]->template create_ConstantToNodeBaseddRdXoperators<3,3>();
+    dRdXop->dMvdV[iSub] = subDomain[iSub]->template create_ConstantToNodeBaseddRdXoperators<dim,3>();
+    dRdXop->dMidV[iSub] = subDomain[iSub]->template create_ConstantToNodeBaseddRdXoperators<dim,3>();
+    dRdXop->dMidS[iSub] = subDomain[iSub]->template create_ConstantToConstantBaseddRdXoperators<3,3>();
     dRdXop->dCtrlVoldX[iSub] = subDomain[iSub]->template create_NodeBaseddRdXoperators<3,1>();
     dRdXop->dRdX[iSub] = subDomain[iSub]->template create_NodeBaseddRdXoperators<3,6>();
     dRdXop->dRdR[iSub] = subDomain[iSub]->template create_NodeBaseddRdXoperators<6,6>();
@@ -2821,15 +2840,28 @@ MatVecProd_dRdX<dim,Scalar,neq>::MatVecProd_dRdX
     dRdXop->dFluxdddy[iSub] = subDomain[iSub]->template create_NodeBaseddRdXoperators<dim,dim>();
     dRdXop->dFluxdddz[iSub] = subDomain[iSub]->template create_NodeBaseddRdXoperators<dim,dim>();
     dRdXop->dFluxdX[iSub] = subDomain[iSub]->template create_NodeBaseddRdXoperators<3,dim>();
+    dRdXop->dViscousFluxdX[iSub] = subDomain[iSub]->template create_NodeBaseddRdXoperators<3,dim>();
     dRdXop->dGradPdddx[iSub] = subDomain[iSub]->template create_NodeBaseddRdXoperators<dim,3>();
     dRdXop->dGradPdddy[iSub] = subDomain[iSub]->template create_NodeBaseddRdXoperators<dim,3>();
     dRdXop->dGradPdddz[iSub] = subDomain[iSub]->template create_NodeBaseddRdXoperators<dim,3>();
     dRdXop->dForcedGradP[iSub] = subDomain[iSub]->template create_NodeBaseddRdXoperators<3,3>();
     dRdXop->dForcedX[iSub] = subDomain[iSub]->template create_NodeBaseddRdXoperators<3,3>();
     dRdXop->dForcedV[iSub] = subDomain[iSub]->template create_NodeBaseddRdXoperators<dim,3>();
-    dRdXop->dForcedS[iSub] = subDomain[iSub]->template create_ConstantBaseddRdXoperators<3,3>();
+    dRdXop->dForcedS[iSub] = subDomain[iSub]->template create_NodeToConstantBaseddRdXoperators<3,3>();
     dRdXop->dVdU[iSub] = subDomain[iSub]->template create_NodeBaseddRdXoperators<dim,dim>();
-    dRdXop->dVdPstiff[iSub] = subDomain[iSub]->template create_ConstantBaseddRdXoperators<1,dim>();
+    dRdXop->dVdPstiff[iSub] = subDomain[iSub]->template create_NodeToConstantBaseddRdXoperators<1,dim>();
+    size += double(dRdXop->dMidGradP[iSub]->numNonZeroBlocks()*3*3*sizeof(double)) / (1024.*1024.);
+    size += double(dRdXop->dMidX[iSub]->numNonZeroBlocks()*3*3*sizeof(double)) / (1024.*1024.);
+    size += double(dRdXop->dMvdX[iSub]->numNonZeroBlocks()*3*3*sizeof(double)) / (1024.*1024.);
+    size += double(dRdXop->dMvdV[iSub]->numNonZeroBlocks()*dim*3*sizeof(double)) / (1024.*1024.);
+    size += double(dRdXop->dMidV[iSub]->numNonZeroBlocks()*dim*3*sizeof(double)) / (1024.*1024.);
+    size += double(dRdXop->dMidS[iSub]->numNonZeroBlocks()*3*3*sizeof(double)) / (1024.*1024.);
+    size += double(dRdXop->dFidGradP[iSub]->numNonZeroBlocks()*3*3*sizeof(double)) / (1024.*1024.);
+    size += double(dRdXop->dFidX[iSub]->numNonZeroBlocks()*3*3*sizeof(double)) / (1024.*1024.);
+    size += double(dRdXop->dFvdX[iSub]->numNonZeroBlocks()*3*3*sizeof(double)) / (1024.*1024.);
+    size += double(dRdXop->dFidV[iSub]->numNonZeroBlocks()*dim*3*sizeof(double)) / (1024.*1024.);
+    size += double(dRdXop->dFvdV[iSub]->numNonZeroBlocks()*dim*3*sizeof(double)) / (1024.*1024.);
+    size += double(dRdXop->dFidS[iSub]->numNonZeroBlocks()*3*3*sizeof(double)) / (1024.*1024.);
     size += double(dRdXop->dCtrlVoldX[iSub]->numNonZeroBlocks()*3*sizeof(double)) / (1024.*1024.);
     size += double(dRdXop->dEdgeNormdX[iSub]->numNonZeroBlocks()*3*3*sizeof(double)) / (1024.*1024.);
     size += double(dRdXop->dFaceNormdX[iSub]->numNonZeroBlocks()*3*3*sizeof(double)) / (1024.*1024.);
@@ -2851,6 +2883,7 @@ MatVecProd_dRdX<dim,Scalar,neq>::MatVecProd_dRdX
     size += double(dRdXop->dFluxdddy[iSub]->numNonZeroBlocks()*dim*dim*sizeof(double)) / (1024.*1024.);
     size += double(dRdXop->dFluxdddz[iSub]->numNonZeroBlocks()*dim*dim*sizeof(double)) / (1024.*1024.);
     size += double(dRdXop->dFluxdX[iSub]->numNonZeroBlocks()*3*dim*sizeof(double)) / (1024.*1024.);
+    size += double(dRdXop->dViscousFluxdX[iSub]->numNonZeroBlocks()*3*dim*sizeof(double)) / (1024.*1024.);
     size += double(dRdXop->dGradPdddx[iSub]->numNonZeroBlocks()*3*dim*sizeof(double)) / (1024.*1024.);
     size += double(dRdXop->dGradPdddy[iSub]->numNonZeroBlocks()*3*dim*sizeof(double)) / (1024.*1024.);
     size += double(dRdXop->dGradPdddz[iSub]->numNonZeroBlocks()*3*dim*sizeof(double)) / (1024.*1024.);
@@ -2858,7 +2891,7 @@ MatVecProd_dRdX<dim,Scalar,neq>::MatVecProd_dRdX
     size += double(dRdXop->dForcedGradP[iSub]->numNonZeroBlocks()*3*3*sizeof(double)) / (1024.*1024.);
     size += double(dRdXop->dForcedX[iSub]->numNonZeroBlocks()*3*3*sizeof(double)) / (1024.*1024.);
     size += double(dRdXop->dForcedV[iSub]->numNonZeroBlocks()*dim*3*sizeof(double)) / (1024.*1024.);
-    size += double(dRdXop->dForcedS[iSub]->numNonZeroBlocks()*3*3*sizeof(double)) / (1024.*1024.);
+    size += double(dRdXop->dForcedS[iSub]->numNonZeroBlocks()*3*3*sizeof(double)) / (1024.*1024.);//TODO BUGHUNY bug here
     size += double(dRdXop->dVdU[iSub]->numNonZeroBlocks()*dim*dim*sizeof(double)) / (1024.*1024.);
     size += double(dRdXop->dVdPstiff[iSub]->numNonZeroBlocks()*dim*sizeof(double)) / (1024.*1024.);
   }
@@ -2917,6 +2950,18 @@ void MatVecProd_dRdX<dim,Scalar,neq>::initializeOperators(double x)
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
+	*dRdXop->dMidX[iSub] = x;
+	*dRdXop->dMvdX[iSub] = x;
+	*dRdXop->dMvdV[iSub] = x;
+	*dRdXop->dMidV[iSub] = x;
+	*dRdXop->dMidS[iSub] = x;
+	*dRdXop->dMidGradP[iSub] = x;
+	*dRdXop->dFidX[iSub] = x;
+	*dRdXop->dFvdX[iSub] = x;
+	*dRdXop->dFidV[iSub] = x;
+	*dRdXop->dFvdV[iSub] = x;
+	*dRdXop->dFidS[iSub] = x;
+	*dRdXop->dFidGradP[iSub] = x;
     *dRdXop->dCtrlVoldX[iSub] = x;
     *dRdXop->dEdgeNormdX[iSub] = x;
     *dRdXop->dFaceNormdX[iSub] = x;
@@ -2935,6 +2980,7 @@ void MatVecProd_dRdX<dim,Scalar,neq>::initializeOperators(double x)
     *dRdXop->dFluxdddy[iSub] = x;
     *dRdXop->dFluxdddz[iSub] = x;
     *dRdXop->dFluxdX[iSub] = x;
+    *dRdXop->dViscousFluxdX[iSub] = x;
     *dRdXop->dGradPdddx[iSub] = x;
     *dRdXop->dGradPdddy[iSub] = x;
     *dRdXop->dGradPdddz[iSub] = x;
@@ -2954,7 +3000,8 @@ void MatVecProd_dRdX<dim,Scalar,neq>::initializeOperators(double x)
 
 //------------------------------------------------------------------------------
 template<int dim, class Scalar, int neq>
-void MatVecProd_dRdX<dim,Scalar,neq>::constructOperators(DistSVec<double,3> &X, 
+void MatVecProd_dRdX<dim,Scalar,neq>::constructOperators(Vec3D &x0,
+                                                         DistSVec<double,3> &X,
                                                          DistVec<double> &ctrlVol,
                                                          DistSVec<double,dim> &U,
                                                          double dMach,
@@ -2963,489 +3010,8 @@ void MatVecProd_dRdX<dim,Scalar,neq>::constructOperators(DistSVec<double,3> &X,
                                                          DistTimeState<dim> *timeState,
                                                          PostOperator<dim> *postOp)
 {
-  com->printf(5," ... in MatVecProd_dRdX<dim,Scalar,neq>::constructOperators\n");
+  com->printf(5," ... in MatVecProd_dRdX<dim,Scalar,neq>::constructOperators, norm of X is %e\n", X.norm());
   initializeOperators(0.0);
-  spaceOp->computeDerivativeOperators(X, ctrlVol, U, dMach, R, Pin, timeState, postOp, dRdXop); 
+  spaceOp->computeDerivativeOperators(x0, X, ctrlVol, U, dMach, R, Pin, timeState, postOp, dRdXop);
 }
 
-//------------------------------------------------------------------------------
-
-template<int dim, class Scalar, int neq>
-void MatVecProd_dRdX<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &x, DistVec<double> &cv, 
-					DistSVec<double,dim> &q, DistSVec<double,dim> &f)
-{
-/*
-// Included (MB)
-  evaluateInviscid(it, x, cv, q, f);
-  evaluateViscous( it, x, cv, q, f);
-*/
-}
-
-//------------------------------------------------------------------------------
-
-// Included (MB)
-template<int dim, class Scalar, int neq>
-void MatVecProd_dRdX<dim,Scalar,neq>::evaluateInviscid(int it, DistSVec<double,3> &x, DistVec<double> &cv, 
-					DistSVec<double,dim> &q, DistSVec<double,dim> &f)
-{
-/*
-  X = &x;
-  ctrlVol = &cv;
-  Q = &q;
-
-  if (!this->isFSI){
-    spaceOp->computeH2(*X, *ctrlVol, *Q, *this, aij, aji, bij, bji);
-  }else{
-    spaceOp->computeH2(*X, *ctrlVol, *Q, this->fsi.LSS, *(this->fsi.fluidId), 
-		       this->fsi.riemann, this->fsi.Nriemann,
-		       this->fsi.ghostPoints, *this, aij, aji, bij, bji, betaij, betaji);
-  }
-
-  if (timeState)
-    timeState->addToH2(*ctrlVol, *Q, *this);
-
-  spaceOp->applyBCsToH2Jacobian(*Q, *this);
-*/
-}
-
-//------------------------------------------------------------------------------
-
-// Included (MB)
-template<int dim, class Scalar, int neq>
-void MatVecProd_dRdX<dim,Scalar,neq>::evaluateViscous(int it, DistSVec<double,3> &x, DistVec<double> &cv, 
-					DistSVec<double,dim> &q, DistSVec<double,dim> &f)
-{
-/*
-  // compute viscous flux jacobian
-  if (R)  {
-    R->evaluateViscous(it, *X, *ctrlVol);
-    spaceOp->applyBCsToJacobian(*Q, *R);
-  }
-
-  if (RFD) {
-    F = &f;
-    RFD->evaluateViscous(it, *X, *ctrlVol, *Q, *F);
-  }
-*/
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim, class Scalar, int neq>
-void MatVecProd_dRdX<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &x, 
-                               DistVec<double> &cv, DistSVec<double,dim> &q, 
-                               DistSVec<double,dim> &F, Scalar shift)
-{
-/*
-  X = &x;
-  ctrlVol = &cv;
-  Q = &q;
-
-  spaceOp->computeH2(*X, *ctrlVol, *Q, *this, aij, aji, bij, bji);
-
-  if (timeState) {
-     switch (it)  {
-       //case for the construction of the POD
-       case 0:
-         timeState->addToH2(*ctrlVol, *Q, *this, shift, 1.0);
-         break;   
-       case 1:
-         timeState->addToH2(*ctrlVol, *Q, *this, Scalar(2.0), 1.0);
-         break;
-       case 2:
-         timeState->addToH2(*ctrlVol, *Q, *this, Scalar(2.0), -1.0);
-         break;
-       case 3:
-         timeState->addToH2(*ctrlVol, *Q, *this, Scalar(3.0), 2.0);
-         break;
-       case 4:
-         timeState->addToH2(*ctrlVol, *Q, *this, Scalar(4.0), -2.0);
-         break;
-       case 5:
-         timeState->addToH2(*ctrlVol, *Q, *this, Scalar(2.0), -2.0);
-         break;
-       case 6:
-         timeState->addToH2(*ctrlVol, *Q, *this, (Scalar(4.0)*shift+Scalar(2.0))/(shift*(shift+Scalar(1.0))), 2.0);
-         break;
-       case 7:
-         timeState->addToH2(*ctrlVol, *Q, *this, Scalar(8.0/3.0), 2.0);
-         break;
-       case 8:
-         timeState->addToH2(*ctrlVol, *Q, *this, Scalar(16.0/3.0), 2.0);
-         break;
-       case 9:
-         timeState->addToH2(*ctrlVol, *Q, *this, Scalar(10.0/3.0), 2.0);
-         break;
-
-    }
-  }
-*/
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim, class Scalar, int neq>
-void MatVecProd_dRdX<dim,Scalar,neq>::evaluate2(int it, DistSVec<double,3> &x, DistVec<double> &cv, 
-                                         DistSVec<double,dim> &q, DistSVec<double,dim> &F)
-{
-/*
-  X = &x;
-  ctrlVol = &cv;
-  Q = &q;
-
-  spaceOp->computeH2(*X, *ctrlVol, *Q, *this, aij, aji, bij, bji);
-
-  if (timeState) {
-    timeState->addToH2Minus(*ctrlVol, *Q, *this);
-  }
-*/
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim, class Scalar, int neq>
-void MatVecProd_dRdX<dim,Scalar,neq>::evalH(int it, DistSVec<double,3> &x,
-                               DistVec<double> &cv, DistSVec<double,dim> &q)  
-{
-/*
-  X = &x;
-  ctrlVol = &cv;
-  Q = &q;
-
-  spaceOp->computeH2(*X, *ctrlVol, *Q, *this, aij, aji, bij, bji);
-*/
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim, class Scalar, int neq>
-void MatVecProd_dRdX<dim,Scalar,neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq> &prod)
-{
-/*
-  Multiplier<dim,neq,Scalar,double> Operator;
-  Operator.Apply(spaceOp, *X, *ctrlVol, *Q, *this, aij, aji, bij, bji, p, prod,
-                 R, RFD, vProd);
-*/
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim, class Scalar, int neq>
-void MatVecProd_dRdX<dim,Scalar,neq>::apply(DistEmbeddedVec<double,dim> &p, DistEmbeddedVec<double,dim> &prod)
-{
-/*
-  //std::cout << "$$$$$ IN MatVecProc EMB H2 applyXXXX \n";
-
-  spaceOp->applyH2(*X, *ctrlVol, *Q, 
-		   this->fsi.LSS, *(this->fsi.fluidId), 
-		   this->fsi.linRecAtInterface, this->fsi.viscSecOrder,
-		   this->fsi.riemann, this->fsi.Nriemann,
-		   this->fsi.ghostPoints, 
-		   *this, aij, aji, bij, bji, betaij, betaji,
-		   p.real(), prod.real());
-*/
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim, class Scalar, int neq>
-template<int dd, int nn, class Scalar1, class Scalar2>
-void MatVecProd_dRdX<dim,Scalar,neq>::Multiplier<dd,nn,Scalar1,Scalar2>::Apply
-(
-  SpaceOperator<dd> *spaceOp
-  , DistSVec<double,3> &X
-  , DistVec<double> &ctrlVol
-  , DistSVec<double,dd> &U
-  , DistMat<Scalar1,dd> &H2
-  , DistSVec<double,dd> &aij, DistSVec<double,dd> &aji
-  , DistSVec<double,dd> &bij, DistSVec<double,dd> &bji
-  , DistSVec<Scalar2,nn> &p, DistSVec<Scalar2,nn> &prod
-  , MatVecProdH1<dd, Scalar1, nn> *R
-  , MatVecProdFD<dd, nn> *RFD
-  , DistSVec<Scalar2, nn> *vProd
-)
-{
-/*
-  if (nn > dd)
-  {
-    std::cout << "\n !!! Apply Not Implemented for dd = " << dd;
-    std::cout << " nn = " << nn << std::endl;
-    exit(-1);
-  }
-
-  DistSVec<Scalar2,dd> pExt(p.info());
-  pExt = (Scalar2) 0;
-
-  int numLocSub = p.numLocSub();
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-  {
-    Scalar2 (*locp)[nn] = p.subData(iSub);
-    Scalar2 (*locExt)[dd] = pExt.subData(iSub);
-    for (int i = 0; i < p.subSize(iSub); ++i)
-    {
-      for (int jj = 0; jj < nn; ++jj)
-        locExt[i][jj] = locp[i][jj];
-    }
-  } // for (int iSub = 0; iSub < numLocSub; ++iSub)
-
-  spaceOp->applyH2(X, ctrlVol, U, H2, aij, aji, bij, bji, pExt, pExt);
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-  {
-    Scalar2 (*locp)[nn] = prod.subData(iSub);
-    Scalar2 (*locExt)[dd] = pExt.subData(iSub);
-    for (int i = 0; i < p.subSize(iSub); ++i)
-    {
-      for (int jj = 0; jj < nn; ++jj)
-        locp[i][jj] = locExt[i][jj];
-    }
-  } // for (int iSub = 0; iSub < numLocSub; ++iSub)
-
-  if (R)
-  {
-    *vProd = (Scalar2) 0;
-    R->apply(p, *vProd);
-    prod += *vProd;
-  }
-  else if (RFD)
-  {
-    *vProd = (Scalar2) 0;
-    RFD->applyViscous(p, *vProd);
-    prod += *vProd;
-  }
-*/
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim, class Scalar, int neq>
-template<int dd, class Scalar1, class Scalar2>
-void MatVecProd_dRdX<dim,Scalar,neq>::Multiplier<dd,dd,Scalar1,Scalar2>::Apply
-(
-  SpaceOperator<dd> *spaceOp
-  , DistSVec<double,3> &X
-  , DistVec<double> &ctrlVol
-  , DistSVec<double,dd> &U
-  , DistMat<Scalar1,dd> &H2
-  , DistSVec<double,dd> &aij, DistSVec<double,dd> &aji
-  , DistSVec<double,dd> &bij, DistSVec<double,dd> &bji
-  , DistSVec<Scalar2,dd> &p, DistSVec<Scalar2,dd> &prod
-  , MatVecProdH1<dd, Scalar1, dd> *R
-  , MatVecProdFD<dd, dd> *RFD
-  , DistSVec<Scalar2, dd> *vProd
-)
-{
-/*
-  spaceOp->applyH2(X, ctrlVol, U, H2, aij, aji, bij, bji, p, prod);
-  
-
-  if (R)
-  {
-    *vProd = (Scalar2) 0;
-    R->apply(p, *vProd);
-    prod += *vProd;
-  }
-  else if (RFD)
-  {
-    *vProd = (Scalar2) 0;
-    RFD->applyViscous(p, *vProd);
-    prod += *vProd;
-  }
-*/
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim, class Scalar, int neq>
-void MatVecProd_dRdX<dim,Scalar,neq>::apply(DistSVec<bcomp,neq> &p,
-                DistSVec<bcomp,neq> &prod)
-{
-/*
-  //std::cout << "$$$$$ IN MatVecProc H2 C applyapply\n";
-
-  Multiplier<dim,neq,Scalar,bcomp> Operator;
-  Operator.Apply(spaceOp, *X, *ctrlVol, *Q, *this, aij, aji, bij, bji, p, prod,
-                 0, 0, 0);
-*/
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim, class Scalar, int neq>
-void MatVecProd_dRdX<dim,Scalar,neq>::applyT(DistSVec<double,neq> &p,
-        DistSVec<double,neq> &prod)
-{
-/*
-  Multiplier<dim,neq,Scalar,double> Operator;
-  Operator.ApplyT(spaceOp, *X, *ctrlVol, *Q, *this, aij, aji, bij, bji, p, prod);
-*/
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim, class Scalar, int neq>
-void MatVecProd_dRdX<dim,Scalar,neq>::applyT(DistSVec<bcomp,neq> &p,
-        DistSVec<bcomp,neq> &prod)
-{
-/*
-  Multiplier<dim,neq,Scalar,bcomp> Operator;
-  Operator.ApplyT(spaceOp, *X, *ctrlVol, *Q, *this, aij, aji, bij, bji, p, prod);
-*/
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim, class Scalar, int neq>
-template<int dd, int nn, class Scalar1, class Scalar2>
-void MatVecProd_dRdX<dim,Scalar,neq>::Multiplier<dd,nn,Scalar1,Scalar2>::ApplyT
-(
-  SpaceOperator<dd> *spaceOp
-  , DistSVec<double,3> &X
-  , DistVec<double> &ctrlVol
-  , DistSVec<double,dd> &U
-  , DistMat<Scalar1,dd> &H2
-  , DistSVec<double,dd> &aij, DistSVec<double,dd> &aji
-  , DistSVec<double,dd> &bij, DistSVec<double,dd> &bji
-  , DistSVec<Scalar2,nn> &p, DistSVec<Scalar2,nn> &prod
-)
-{
-/*
-  std::cout << "\n !!! ApplyT Not Implemented !!\n";
-  exit(-1);
-*/
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim, class Scalar, int neq>
-template<int dd, class Scalar1, class Scalar2>
-void MatVecProd_dRdX<dim,Scalar,neq>::Multiplier<dd,dd,Scalar1,Scalar2>::ApplyT
-(
-  SpaceOperator<dd> *spaceOp
-  , DistSVec<double,3> &X
-  , DistVec<double> &ctrlVol
-  , DistSVec<double,dd> &U
-  , DistMat<Scalar1,dd> &H2
-  , DistSVec<double,dd> &aij, DistSVec<double,dd> &aji
-  , DistSVec<double,dd> &bij, DistSVec<double,dd> &bji
-  , DistSVec<Scalar2,dd> &p, DistSVec<Scalar2,dd> &prod
-)
-{
-/*
-  spaceOp->applyH2T(X, ctrlVol, U, H2, aij, aji, bij, bji, p, prod);
-*/
-}
-
-//------------------------------------------------------------------------------
-
-// Included (MB)
-template<int dim, class Scalar, int neq>
-void MatVecProd_dRdX<dim,Scalar,neq>::rstSpaceOp
-(
-  IoData & ioData, VarFcn *varFcn, SpaceOperator<dim> *spo, 
-  bool typeAlloc, SpaceOperator<dim> *spofd
-)
-{
-/*
-  if (dim != neq)
-  {
-    // UH (09/10) This function is only called from the sensitivity module.
-    // The sensitivity module assumes a strong turbulence model coupling
-    // (i.e. dim == neq).
-    this->com->fprintf(stderr, "\n *** MatVecProd_dRdX<dim,Scalar,neq>::rstSpaceOp");
-    this->com->fprintf(stderr, " is not verified for weakly coupled systems.\n\n");
-    exit(1);
-  }
-
-  // UH (09/10) -> Check for memory leak
-  // No FluxFcn pointer is deleted.
-
-  fluxFcn = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1]; 
-  fluxFcn -= BC_MIN_CODE;
-  if(BC_MAX_CODE-BC_MIN_CODE+1 < 22)
-    fprintf(stderr,"Be prepared to see a segmentation fault shortly...\n");
-
-  fluxFcn[BC_SYMMETRY] = new FluxFcn(0,BC_SYMMETRY,ioData,varFcn,FluxFcnBase::PRIMITIVE);
-  fluxFcn[BC_MASSFLOW_OUTLET_MOVING] = new FluxFcn(0,BC_MASSFLOW_OUTLET_MOVING,ioData,varFcn,FluxFcnBase::PRIMITIVE);
-  fluxFcn[BC_MASSFLOW_OUTLET_FIXED] = new FluxFcn(0,BC_MASSFLOW_OUTLET_FIXED,ioData,varFcn,FluxFcnBase::PRIMITIVE);
-  fluxFcn[BC_MASSFLOW_INLET_MOVING] = new FluxFcn(0,BC_MASSFLOW_INLET_MOVING,ioData,varFcn,FluxFcnBase::PRIMITIVE);
-  fluxFcn[BC_MASSFLOW_INLET_FIXED] = new FluxFcn(0,BC_MASSFLOW_INLET_FIXED,ioData,varFcn,FluxFcnBase::PRIMITIVE);
-  fluxFcn[BC_DIRECTSTATE_OUTLET_MOVING] = new FluxFcn(0,BC_DIRECTSTATE_OUTLET_MOVING,ioData,varFcn,FluxFcnBase::PRIMITIVE);
-  fluxFcn[BC_DIRECTSTATE_OUTLET_FIXED] = new FluxFcn(0,BC_DIRECTSTATE_OUTLET_FIXED,ioData,varFcn,FluxFcnBase::PRIMITIVE);
-  fluxFcn[BC_DIRECTSTATE_INLET_MOVING] = new FluxFcn(0,BC_DIRECTSTATE_INLET_MOVING,ioData,varFcn,FluxFcnBase::PRIMITIVE);
-  fluxFcn[BC_DIRECTSTATE_INLET_FIXED] = new FluxFcn(0,BC_DIRECTSTATE_INLET_FIXED,ioData,varFcn,FluxFcnBase::PRIMITIVE);
-  fluxFcn[BC_OUTLET_MOVING] = new FluxFcn(0,BC_OUTLET_MOVING,ioData,varFcn,FluxFcnBase::PRIMITIVE);
-  fluxFcn[BC_OUTLET_FIXED] = new FluxFcn(0,BC_OUTLET_FIXED,ioData,varFcn,FluxFcnBase::PRIMITIVE);
-  fluxFcn[BC_INLET_MOVING] = new FluxFcn(0,BC_INLET_MOVING,ioData,varFcn,FluxFcnBase::PRIMITIVE);
-  fluxFcn[BC_INLET_FIXED] = new FluxFcn(0,BC_INLET_FIXED,ioData,varFcn,FluxFcnBase::PRIMITIVE);
-  fluxFcn[BC_POROUS_WALL_MOVING] = new FluxFcn(0,BC_POROUS_WALL_MOVING,ioData,varFcn,FluxFcnBase::PRIMITIVE);
-  fluxFcn[BC_POROUS_WALL_FIXED] = new FluxFcn(0,BC_POROUS_WALL_FIXED,ioData,varFcn,FluxFcnBase::PRIMITIVE);
-  fluxFcn[BC_ADIABATIC_WALL_MOVING] = new FluxFcn(0,BC_ADIABATIC_WALL_MOVING,ioData,varFcn,FluxFcnBase::PRIMITIVE);
-  fluxFcn[BC_ADIABATIC_WALL_FIXED] = new FluxFcn(0,BC_ADIABATIC_WALL_FIXED,ioData,varFcn,FluxFcnBase::PRIMITIVE);
-  fluxFcn[BC_SLIP_WALL_MOVING] = new FluxFcn(0,BC_SLIP_WALL_MOVING,ioData,varFcn,FluxFcnBase::PRIMITIVE);
-  fluxFcn[BC_SLIP_WALL_FIXED] = new FluxFcn(0,BC_SLIP_WALL_FIXED,ioData,varFcn,FluxFcnBase::PRIMITIVE);
-  fluxFcn[BC_ISOTHERMAL_WALL_MOVING] = new FluxFcn(0,BC_ISOTHERMAL_WALL_MOVING,ioData,varFcn,FluxFcnBase::PRIMITIVE);
-  fluxFcn[BC_ISOTHERMAL_WALL_FIXED] = new FluxFcn(0,BC_ISOTHERMAL_WALL_FIXED,ioData,varFcn,FluxFcnBase::PRIMITIVE);
-  fluxFcn[BC_INTERNAL] = new FluxFcn(0,BC_INTERNAL,ioData,varFcn,FluxFcnBase::PRIMITIVE);
-
-  spaceOp->setFluxFcn(fluxFcn);
-*/
-}
-
-
-/*
-template<int dim, class Scalar, int neq>
-MatVecProdRomH1<dim,Scalar,neq>::MatVecProdRomH1(DistTimeState<dim> *ts, SpaceOperator<dim> *spo,
-                                                 Domain *domain, IoData &ioData,
-                                                 VecSet<DistSVec<Scalar, dim> > &_Phi) :
-MatVecProdH1<dim, Scalar, neq>(ts, spo, domain, ioData),
-Phi(_Phi)
-{
-  this->reducedDimension = this->Phi.numVectors();
-}
-
-
-template<int dim, class Scalar, int neq>
-MatVecProdRomH1<dim,Scalar,neq>::~MatVecProdRomH1()
-{
-  // todo: remove Phi
-}
-
-/*
- * let A be the matrix mvpOp represent,
- * then Phi^T A Phi x = b.
- * warning: unoptimized code.
- *
-template<int dim, class Scalar, int neq>
-void MatVecProdRomH1<dim,Scalar,neq>::apply(Vec<double> &x, Vec<double> &b){
-  // step 0: skipped. check x.len == this->reducedDimension
-  //todo: not sure about this declaration
-  VecSet<DistSVec<Scalar, dim> > result(this->reducedDimension, this->domain->getNodeDistInfo());
-  // step 1: compute A * Phi = result
-  for(int i = 0; i < this->reducedDimension; i++){
-    DistEmbeddedVec<Scalar, dim> embedded_x(this->domain->getNodeDistInfo());
-    DistEmbeddedVec<Scalar, dim> embedded_b(this->domain->getNodeDistInfo());
-    embedded_b = 0.0;
-    embedded_x = 0.0;
-    embedded_x.real() = reducedBasis[i];
-
-    // result from apply on distEmbeddedSVec type
-    this->apply(embedded_x, embedded_b);
-    DistSVec<Scalar, dim> result(this->domain->getNodeDistInfo());
-    result[i] = embedded_b.real();
-  }
-  // step 2: compute result * x = res
-  DistSVec<Scalar, dim> res(this->domain->getNodeDistInfo());
-  res = 0.0;
-  for(int i = 0; i < this->reducedDimension; i++){
-    res += result[i] * x[i];
-  }
-  // step 3: compute Phi^T * res = b
-  b = 0.0;
-  for(int i = 0; i < this->reducedDimension; i++){
-    b[i] = Phi[i] * res;
-  }
-}
-*/

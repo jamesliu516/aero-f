@@ -34,7 +34,9 @@ public:
 
 // Included (MB)
   virtual double compute_muDerivative(double, double, double) = 0;
+  virtual void compute_muDerivativeOperators(double, double&, double &) = 0;
   virtual double compute_lambdaDerivative(double, double, double) = 0;
+  virtual void compute_lambdaDerivativeOperators(double&, double&) = 0;
   virtual void rstVar(IoData &) = 0;
 
 };
@@ -49,13 +51,19 @@ public:
   ConstantViscoFcn(IoData &iod):ViscoFcn(iod) { bulkViscosity = iod.eqs.viscosityModel.bulkViscosity;}
   ~ConstantViscoFcn() {}
 
-  double compute_mu(double T) { return 1.0; }
+  double compute_mu(double T) {
+    //std::cout<<"compute_mu Constant"<<std::endl;
+    return 1.0;}
   double compute_lambda(double T, double mu) { return bulkViscosity - twothird*mu; }
 
 // Included (MB)
   double compute_muDerivative(double T, double dT, double dMach) { return 0.0; }
+  void compute_muDerivativeOperators(double T, double &dmudT, double &dmudMach) { dmudT = 0.0; dmudMach = 0.0; }
   double compute_lambdaDerivative(double mu, double dmu, double dMach) { 
     return -twothird*dmu;
+  }
+  void compute_lambdaDerivativeOperators(double &dlambdadmu, double &dlambdadMach) { //YC
+    dlambdadmu = -twothird;  dlambdadMach = 0.0;
   }
 
   void rstVar(IoData &iod) {  
@@ -90,6 +98,7 @@ public:
 
   double compute_mu(double Tadim)
   {
+    //std::cout<<"compute_mu Sutherland"<<std::endl;
     double T = alpha * Tadim;
     return T * sqrt(T) * (1.0 + Ts) / (T + Ts); 
   }
@@ -104,8 +113,21 @@ public:
     double dT = dAlpha * Tadim + alpha * dTadim;
     return ( ( 1.5*(1.0 + Ts)*sqrt(T)*dT*(T + Ts) - T*sqrt(T)*(1.0 + Ts)*dT ) / ( (T + Ts)*(T + Ts) ) );
   }
+
+  void compute_muDerivativeOperators(double Tadim, double &dmudTadim, double &dmudMach) //YC
+  {
+    double T = alpha * Tadim;
+    double coef = 1.0/( (T + Ts)*(T + Ts) ), coef1 = 1.5*(1.0 + Ts)*sqrt(T)*(T+Ts), coef2 = - T*sqrt(T)*(1.0 + Ts);
+    dmudTadim = coef*(coef1+coef2)*alpha;
+    dmudMach = coef*(coef1+coef2)*dalpha*Tadim;
+  }
+
   double compute_lambdaDerivative(double mu, double dmu, double dMach) { 
     return -twothird*dmu;
+  }
+
+  void compute_lambdaDerivativeOperators(double &dlambdadmu, double &dlambdadMach) {//YC
+    dlambdadmu = -twothird;  dlambdadMach = 0.0;
   }
 
   void rstVar(IoData &iod)
@@ -142,7 +164,9 @@ public:
   }
   ~PrandtlViscoFcn() {}
 
-  double compute_mu(double Tadim) { return alpha * Tadim; }
+  double compute_mu(double Tadim) {
+    //std::cout<<"compute_mu Prandtl"<<std::endl
+    return alpha * Tadim; }
   double compute_lambda(double Tadim, double mu) { return -twothird*mu;}
 
 // Included (MB)
@@ -151,8 +175,17 @@ public:
     double dAlpha = dalpha*dMach;
     return (dAlpha * Tadim + alpha * dTadim);
   }
+  void compute_muDerivativeOperators(double Tadim, double &dmudTadim, double &dmudMach) //YC
+  {
+    dmudTadim = alpha;
+    dmudMach = dalpha*Tadim;
+  }
   double compute_lambdaDerivative(double mu, double dmu, double dMach) { 
     return -twothird*dmu;
+  }
+
+  void compute_lambdaDerivativeOperators(double &dlambdadmu, double &dlambdadMach) {//YC
+    dlambdadmu = -twothird;  dlambdadMach = 0.0;
   }
 
   void rstVar(IoData &iod)
