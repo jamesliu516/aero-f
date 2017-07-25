@@ -573,7 +573,7 @@ void StructExc::sendForce(DistSVec<double,3> &F, bool applyScale)
         }
         else
         {
-          std::cout<<"Cannot send when masterflag is NULL"<<std::endl;//TODO delete line
+          std::cout<<"Cannot send when masterflag is NULL"<<std::endl;
           exit(-1);
         }
       }

@@ -163,8 +163,6 @@ EmbeddedFluidShapeOptimizationHandler<dim>::EmbeddedFluidShapeOptimizationHandle
 
   numLocSub = dom->getNumLocSub();
 
-
-
   //////////
   dXdS=0.0;
   dFdS=0.0;
@@ -214,11 +212,6 @@ EmbeddedFluidShapeOptimizationHandler<dim>::~EmbeddedFluidShapeOptimizationHandl
   if (dLoadref) delete dLoadref;
 
 }
-
-//------------------------------------------------------------------------------
-//------------------------------------------------------------------------------
-//------------------------------------------------------------------------------
-//------------------------------------------------------------------------------
 
 template<int dim>
 void EmbeddedFluidShapeOptimizationHandler<dim>::fsoInitialize(IoData &ioData, DistSVec<double,dim> &U)
@@ -274,10 +267,6 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSetUpLinearSolver(
   this->geoState->compute(this->timeState->getData(), this->bcData->getVelocityVector(), X, A);
   this->bcData->update(X);
 
-//  if (this->ghostPoints == NULL){
-//    this->com->fprintf(stderr,"\033[91m Ghost Points should not be zero\n\033[00m");exit(-1);
-//  }
-
   FluxFD = 0.0;
   this->spaceOp->computeResidual(X, A, U, 
                  *this->Wstarij, *this->Wstarji, *this->Wextij,
@@ -293,9 +282,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSetUpLinearSolver(
     this->timeState->add_dAW_dt(1, *this->geoState, A, U, FluxFD, this->distLSS);
   }
 
-  //this->output->writeAnyVectorToDisk("results/FluxFD_withoutBC",1,1,FluxFD);
   this->spaceOp->applyBCsToResidual(U, FluxFD, this->distLSS);
-  //this->output->writeAnyVectorToDisk("results/FluxFD_withBC",1,1,FluxFD);
 
   mvp->evaluate(0, X, A, U, FluxFD);
 
@@ -1049,17 +1036,11 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoComputeDerivativesOfFluxAndS
 
   //Analytical or FD sensitivities
   if ( ioData.sa.scFlag == SensitivityAnalysis::ANALYTICAL ) {
-
-    this->com->fprintf(stderr,"\033[96mdFdS is computed analytically\n\033[00m");
     fsoAnalytical(ioData, X, A, U, dFdS);
-       
   } else {
-    this->com->fprintf(stderr,"\033[96mdFdS is computed semi-analytically\n\033[00m");
     fsoSemiAnalytical(ioData, X, A, U, dFdS);
 
   }
-
-  this->output->writeAnyVectorToDisk("results/populated_state",1,1,U,this->distLSS,this->ghostPoints);
 
   fsoLinearSolver(ioData, dFdS, dUdS, isFSI);
 
@@ -1380,215 +1361,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoLinearSolver(
   this->embeddedB.ghost() =  1.0;
   this->embeddedB.real() =  0.0;
 
-
-  if(ioData.sa.debugOutput==SensitivityAnalysis::ON_DEBUGOUTPUT){
-    //OUTPUT of the column sum of the Jacobian
-      DistEmbeddedVec<double,dim> *onevecE      = new DistEmbeddedVec<double,dim>(this->domain->getNodeDistInfo());
-      DistSVec<double,dim>        *onevec       = new DistSVec<double,dim>(this->domain->getNodeDistInfo());
-      DistEmbeddedVec<double,dim> *multresultE  = new DistEmbeddedVec<double,dim>(this->domain->getNodeDistInfo());
-      DistSVec<double,dim>        *multresult   = new DistSVec<double,dim>(this->domain->getNodeDistInfo());
-      (*onevecE).real()=1.0; (*onevecE).ghost()=0.0;
-      this->mvp->apply(*onevecE,*multresultE);
-      *multresult=multresultE->real();
-      this->output->writeAnyVectorToDisk("results/jacobian_colsum",1,1,*multresult);
-    //write dFdS to disk
-//      this->output->writeAnyVectorToDisk("results/dFdS_inviscid",1,1,dFdS_inviscid);
-//      this->output->writeAnyVectorToDisk("results/dFdS_viscous",1,1,dFdS_viscous);
-  }
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 }
-
-
-
-
-//------------------------------------------------------------------------------
-
-//template<int dim>
-//void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSemiAnalytical2
-//(
-//  IoData &ioData,
-//  DistSVec<double,3> &X,
-//  DistVec<double> &A,
-//  DistSVec<double,dim> &U,
-//  DistSVec<double,dim> &dF
-//)
-//{
-//
-//  //
-//  // Error mesage for pointers
-//  //
-//
-//  if (Fp == 0) {
-//    fprintf(stderr, "*** Error: Variable Fp does not exist!\n");
-//    exit(1);
-//  }
-//  if (Fm == 0) {
-//    fprintf(stderr, "*** Error: Variable Fm does not exist!\n");
-//    exit(1);
-//  }
-//  if (Xp == 0) {
-//    fprintf(stderr, "*** Error: Variable Xp does not exist!\n");
-//
-//    exit(1);
-//  }
-//  if (Xm == 0) {
-//    fprintf(stderr, "*** Error: Variable Xm does not exist!\n");
-//    exit(1);
-//  }
-//  if (Ap == 0) {
-//    fprintf(stderr, "*** Error: Variable Ap does not exist!\n");
-//    exit(1);
-//  }
-//  if (Am == 0) {
-//    fprintf(stderr, "*** Error: Variable Am does not exist!\n");
-//    exit(1);
-//  }
-//
-//  double dtLeft;
-//  double eps=ioData.sa.eps;
-//  double xmachc;
-//  double alpradc;
-//  double tetac;
-//
-//  xmachc=xmach;
-//  alpradc=alprad;
-//  tetac=teta;
-//
-//  *Fp = 0.0;
-//  *Fm = 0.0;
-//   dF = 0.0;
-//  *Xp = 0.0;
-//  *Xm = 0.0;
-//  *Ap = 0.0;
-//  *Am = 0.0;
-//
-//  //
-//  // Compute the first flux for the FD approach
-//  //
-//
-//  Xc=X;
-//
-//  *Xp=X+eps*dXdS;
-//
-//  X=*Xp;
-//
-//  xmach=xmachc+eps*DFSPAR[0];
-//  alprad=alpradc+eps*DFSPAR[1];
-//  teta=tetac+eps*DFSPAR[2];
-//
-//  fsoRestartBcFluxs(ioData);
-//
-//  this->geoState->reset(*Xp);
-//  this->geoState->compute(this->timeState->getData(), this->bcData->getVelocityVector(), *Xp, *Ap);
-//  this->bcData->update(*Xp);
-//
-//  A=*Ap;
-//
-//  dtLeft = 0.0;
-//  this->computeTimeStep(1, &dtLeft, U);
-//
-//  this->spaceOp->computeResidual(*Xp, *Ap, U, *Fp, this->timeState);
-//
-//  this->spaceOp->applyBCsToResidual(U, *Fp);
-//
-//  //
-//  // Compute the second flux for the FD approach
-//  //
-//
-//  X=Xc;
-//
-//  *Xm=X-eps*dXdS;
-//
-//  X=*Xm;
-//
-//  xmach=xmachc-eps*DFSPAR[0];
-//  alprad=alpradc-eps*DFSPAR[1];
-//  teta=tetac-eps*DFSPAR[2];
-//
-//  fsoRestartBcFluxs(ioData);
-//
-//  this->geoState->reset(*Xm);
-//  this->geoState->compute(this->timeState->getData(), this->bcData->getVelocityVector(), *Xm, *Am);
-//  this->bcData->update(*Xm);
-//
-//  A=*Am;
-//
-//  dtLeft = 0.0;
-//  this->computeTimeStep(1, &dtLeft, U);
-//
-//  this->spaceOp->computeResidual(*Xm, *Am, U, *Fm, this->timeState);
-//
-//  this->spaceOp->applyBCsToResidual(U, *Fm);
-//
-//  dAdS=1.0/(2.0*eps)*((*Ap)-(*Am));
-//
-//  dF=1.0/(2.0*eps)*((*Fp)-(*Fm));
-//  if((ioData.sa.angleRad == ioData.sa.OFF_ANGLERAD) && (DFSPAR[1] || DFSPAR[2]))
-//     dF *= perRad2perDeg;
-//  //
-//  // Reset the steady state
-//  //
-//
-//  X=Xc;
-//
-//  xmach=xmachc;
-//  alprad=alpradc;
-//  teta=tetac;
-//
-//  fsoRestartBcFluxs(ioData);
-//
-//  this->geoState->reset(X);
-//  this->geoState->compute(this->timeState->getData(), this->bcData->getVelocityVector(), X, A);
-//  this->bcData->update(X);
-//
-//  dtLeft = 0.0;
-//  this->computeTimeStep(1, &dtLeft, U);
-//
-//  this->spaceOp->computeGradP(X, A, U);
-//
-//  if ( ioData.sa.scFlag == SensitivityAnalysis::SEMIANALYTICAL ) {
-//    this->geoState->updateConfigSA();
-//    this->bcData->initializeSA(ioData, X, dXdS, DFSPAR[0], DFSPAR[1], DFSPAR[2]);
-//  }
-//
-//}
-
-
-
-//template<int dim>
-//void EmbeddedFluidShapeOptimizationHandler<dim>::fsoLinearSolver2(
-//                                         IoData &ioData,
-//                                         DistSVec<double,dim> &dFdS,
-//                                         DistSVec<double,dim> &dUdS,
-//                                         bool isFSI
-//)
-//{
-//  fsoPrintTextOnScreen("Starting LinearSolver - NonEmbedded");
-//
-////  dUdS = 0.0;
-//
-//  dFdS *= (-1.0);
-//  if(!isFSI) ksp2->setup(0, 1, dFdS);
-//
-//  int numberIteration;
-//  bool istop = false;
-//  int iter = 0;
-//
-//  while ((istop == false) && (iter < 100))
-//  {
-//    numberIteration = ksp2->solve(dFdS, dUdS);
-//    if ((!ioData.sa.excsol) || (numberIteration < ioData.sa.ksp.maxIts))
-//      istop = true;
-//    iter += 1;
-//
-//  }
-//
-//  dFdS *= (-1.0);
-//
-//  fsoPrintTextOnScreen("Finished LinearSolver");
-//
-//}
 
 //------------------------------------------------------------------------------
 
@@ -1678,9 +1451,6 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoComputeSensitivities(
 
   if (ioData.sa.dFdS_inviscid != NULL)
     this->output->writeAnyVectorToDisk(ioData.sa.dFdS_inviscid,1,1,dFdS_inviscid);
-
-//  if (ioData.sa.dFdS_viscous != NULL)
-//    this->output->writeAnyVectorToDisk(ioData.sa.dFdS_viscous,1,1,dFdS_viscous);
 
 }
 
@@ -1825,9 +1595,6 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsAnalyt
                                   &dF,
                                   &dM);
 
-//  std::cout<<"dFi[0] + dFv[0]: "<<dF.norm()<<std::endl;
-//  std::cout<<"dMi[0] + dMv[0: "<<dM.norm()<<std::endl;
-
   if (this->refVal->mode == RefVal::NON_DIMENSIONAL) {
     this->com->fprintf(stderr, "Sensitivity Analysis does not support NON-Dimensional analysis");
     exit(-1);
@@ -1913,19 +1680,15 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsAnalyt
     dMoments=dM;
   }
   else {
-    std::cout<<__FILE__<<":"<<__LINE__<<std::endl;
     dF *= this->refVal->force;
     dM *= this->refVal->energy;
-    std::cout<<"===Force deriv part 1: "<<dF[0]<<" "<<dF[1]<<" "<<dF[2]<<std::endl;//TODO delete line
     Vec3D t(F*dForce);
-    std::cout<<"===Force deriv part 2: "<<t[0]<<" "<<t[1]<<" "<<t[2]<<std::endl;//TODO delete line
     dForces = dF+F*dForce;//product rule
     dMoments = dM+M*dEnergy;//product rule
     F *= this->refVal->force;
     M *= this->refVal->energy;
   }
 
-  std::cout<<__FILE__<<":"<<__LINE__<<std::endl;
   dForces2dLifts(ioData,F,dForces,dL);
 }
 
@@ -2203,7 +1966,6 @@ bool EmbeddedFluidShapeOptimizationHandler<dim>::getdXdSb(int istep){
       found = true;
       for(int i=0; i<NumNodes; ++i){
         fgets(line, MAXrLINE, dFile);
-        //sscanf(line, "%d %lf %lf %lf", &id, &dxdSb[i], &dydSb[i], &dzdSb[i]);
 	sscanf(line, "%lf %lf %lf", &dxdSb[i], &dydSb[i], &dzdSb[i]);
       }
       break;
