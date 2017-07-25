@@ -28,7 +28,7 @@ TetMeshMotionSolver::TetMeshMotionSolver
   DefoMeshMotionData &data, MatchNodeSet **matchNodes, 
   Domain *dom, MemoryPool *mp
 ) 
-: domain(dom)
+: domain(dom), adjointFlag(false), stiffFlag(false), sensitivityFlag(false)
 {
 
   com = domain->getCommunicator();
@@ -119,6 +119,13 @@ TetMeshMotionSolver::~TetMeshMotionSolver()
   if (pc) delete pc;
 }  
 
+void TetMeshMotionSolver::applyProjectorTranspose(DistSVec<double,3> &X)
+{
+   if(meshMotionBCs) meshMotionBCs->applyPt(X);
+}
+
+//------------------------------------------------------------------------------
+
 //------------------------------------------------------------------------------
 //HB: X <- P.X where P is the projector onto the sliding type of constraints
 void
@@ -157,6 +164,27 @@ int TetMeshMotionSolver::solve(DistSVec<double,3> &dX, DistSVec<double,3> &X)  {
 }
 
 //------------------------------------------------------------------------------
+
+
+//------------------------------------------------------------------------------
+
+int TetMeshMotionSolver::solveAdjoint(DistSVec<double,3> &rhs, DistSVec<double,3> &lambdaX)  {
+
+  dX0 = &rhs;
+  ns->solve(lambdaX);
+
+  return 0;
+}
+
+//------------------------------------------------------------------------------
+
+void TetMeshMotionSolver::set_dX0(DistSVec<double,3> &dX)
+{
+  dX0 = &dX;
+}
+
+//------------------------------------------------------------------------------
+
 
 void TetMeshMotionSolver::setup(DistSVec<double,3> &X)
 {
@@ -198,34 +226,68 @@ void TetMeshMotionSolver::computeFunction(int it, DistSVec<double,3> &X,
 
   DistMat<PrecScalar,3> *_pc = dynamic_cast<DistMat<PrecScalar,3> *>(pc);
 
+  if(it == 0 && (typeElement == DefoMeshMotionData::NON_LINEAR_FE
+     || typeElement == DefoMeshMotionData::NL_BALL_VERTEX)
+     && adjointFlag) {
+    com->fprintf(stderr, " *** WARNING: Currently, only linear mesh motion solver is allowed for adjoint sensitivity method\n");
+    exit(-1);
+  }
+
   // PJSA FIX
   if(it == 0 && (typeElement == DefoMeshMotionData::NON_LINEAR_FE 
      || typeElement == DefoMeshMotionData::NL_BALL_VERTEX)) {
     X += *dX0; 
   }
 
-  domain->computeStiffAndForce(typeElement, X, F, *mvp, _pc, volStiff);
-
+  if((sensitivityFlag && !stiffFlag) || !sensitivityFlag) {
+    domain->computeStiffAndForce(typeElement, X, F, *mvp, _pc, volStiff);
+    stiffFlag = true;
+  }
+  if(adjointFlag) F = *dX0;  // overwrite F for adjoint method
 
   // PJSA FIX 
-  if (it == 0 && !(typeElement == DefoMeshMotionData::NON_LINEAR_FE 
-      || typeElement == DefoMeshMotionData::NL_BALL_VERTEX)) { // compute F0 <- F0 + [Kib*dXb,0] & X <- X + [0,dXb]
+    if (it == 0) {
+      if(!(typeElement == DefoMeshMotionData::NON_LINEAR_FE
+        || typeElement == DefoMeshMotionData::NL_BALL_VERTEX
+        || adjointFlag) ) { // compute F0 <- F0 + [Kib*dXb,0] & X <- X + [0,dXb]
       mvp->BCs = 0;
       mvp->apply(*dX0, *F0);
       mvp->BCs = meshMotionBCs;
       F += *F0;
       X += *dX0;
+      } else if(adjointFlag) {
+         X += *dX0;
     }
+  }
 
   // PJSA FIX
   if(meshMotionBCs) {
 //		meshMotionBCs->applyD(F);
 //		com->fprintf(stderr,"F*F in TetMeshMotionSolver::computeFunction after applyD in final PJSA FIX is %e.\n", F*F);
 //		meshMotionBCs->applyP(F);
-		meshMotionBCs->applyPD(F);
+	    if(adjointFlag) meshMotionBCs->applyPDt(F);
+	    else meshMotionBCs->applyPD(F);
 	}
 
 }
+
+
+void TetMeshMotionSolver::computeStiffnessMatrix(DistSVec<double,3> &X)
+{
+
+  DistMat<PrecScalar,3> *_pc = dynamic_cast<DistMat<PrecScalar,3> *>(pc);
+  DistSVec<double,3> F(X);
+
+  if(!stiffFlag) {
+    domain->computeStiffAndForce(typeElement, X, F, *mvp, _pc, volStiff);
+    stiffFlag = true;
+  }
+}
+
+//------------------------------------------------------------------------------
+
+
+
 
 //------------------------------------------------------------------------------
 
@@ -265,12 +327,33 @@ int TetMeshMotionSolver::solveLinearSystem(int it, DistSVec<double,3> &rhs,
   int lits = ksp->solve(rhs, dX);
 
   // PJSA FIX (note rhs has already been projected in computeFunction)
-  if(meshMotionBCs) meshMotionBCs->applyPD(dX);
+  if(meshMotionBCs) {
+    if(adjointFlag) meshMotionBCs->applyPDt(dX);
+    else meshMotionBCs->applyPD(dX);
+  }
+
+  if(adjointFlag) {
+    mvp->BCs = 0;
+    DistSVec<double,3> dummy(dX);
+    dummy = 0.0;
+    mvp->apply(dX, dummy);
+    dX = dummy;
+    mvp->BCs = meshMotionBCs;
+  }
 
   timer->addMeshKspTime(t0);
   
   return lits;
 
+}
+
+
+//------------------------------------------------------------------------------
+
+void TetMeshMotionSolver::apply(DistSVec<double,3> &b,
+                                DistSVec<double,3> &Ab)
+{
+  mvp->apply(b, Ab);
 }
 
 //--------------------------------------------------------------------------------------------------

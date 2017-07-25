@@ -8,8 +8,9 @@ GeoData::GeoData(IoData &ioData)
 // Included (MB)
   if (ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
       ioData.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
-      ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
-    
+      ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_ ||
+      ioData.problem.alltype == ProblemData::_SENSITIVITY_ANALYSIS_ ) {
+
     if (ioData.ts.type != TsData::IMPLICIT)
       ioData.ts.type = TsData::IMPLICIT;
 
@@ -18,7 +19,7 @@ GeoData::GeoData(IoData &ioData)
 
     if (ioData.dgcl.normals != DGCLData::IMPLICIT_FIRST_ORDER_GCL)
       ioData.dgcl.normals = DGCLData::IMPLICIT_FIRST_ORDER_GCL;
-      
+
     if (ioData.dgcl.velocities != DGCLData::IMPLICIT_ZERO)
       typeVelocities = DGCLData::IMPLICIT_ZERO;
 
@@ -44,7 +45,7 @@ GeoData::GeoData(IoData &ioData)
         use_nm1 = true;
         use_nm2 = true;
       }
-      
+
       //Choice of Normals
       if (ioData.dgcl.normals == DGCLData::AUTO) {
         if (ioData.ts.implicit.type == ImplicitData::BACKWARD_EULER ||
@@ -56,8 +57,8 @@ GeoData::GeoData(IoData &ioData)
           typeNormals = DGCLData::IMPLICIT_THIRD_ORDER_EZGCL;
       }
       else
-        typeNormals = ioData.dgcl.normals;    
-      
+        typeNormals = ioData.dgcl.normals;
+
       //Choice of Velocities
       if (ioData.dgcl.velocities == DGCLData::AUTO_VEL)
         typeVelocities = DGCLData::IMPLICIT_BACKWARD_EULER_VEL;

@@ -73,3 +73,17 @@ void MatchNodeSet::send(double scale, double (*f)[dim], double (*buffer)[dim])
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim>
+void MatchNodeSet::sendWithMasterFlag(double scale, double (*f)[dim], double (*buffer)[dim], bool *masterFlag, int locOffset)
+{
+
+  for (int i=0; i<numNodes; ++i)
+    for (int k=0; k<dim; ++k) {
+      if(masterFlag[ locOffset + index[i][0] ])
+        buffer[ index[i][2] ][k] = scale * f[ index[i][0] ][k];
+      else
+        buffer[ index[i][2] ][k] = 0.0;
+    }
+
+}
