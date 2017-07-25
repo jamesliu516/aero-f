@@ -22,17 +22,18 @@ class ReinitializeDistanceToWall
 
   // default wall distance
   DistVec<int> tag;
-  DistVec<int> sortedNodes;
-  int *firstCheckedNode; //,*nSortedNodes, *nActiveNodes,
+  DistVec<int> sortedNodes; // acts as an active nodes list with computed distances
+  int *firstCheckedNode, *nSortedNodes;
   // DistSVec<double, dimLS> dummyPhi;
 
   // FEM wall distance
   int **activeElemList, **elemTag, **knownNodes;
-  int *nSortedElems, *nSortedNodes, *firstCheckedElem, *nUnsortedNodes;
+  int *nSortedElems, *firstCheckedElem, *nUnsortedNodes;
   DistVec<int> isSharedNode, nodeTag, unsortedNodes, unsortedTag;
 
   // predictors
   SpaceOperator<dim> &spaceOp;
+  DistVec<int> predictorTag;
   double predictorTime[3];
   DistSVec<double, 1> d2wnm1, d2wnm2;
   int countReinits, nPredTot;
@@ -55,7 +56,7 @@ private:
   void PseudoFastMarchingMethodFEM(DistLevelSetStructure &LSS, DistSVec<double, 3> &X);
 
   // default wall distance
-  void PseudoFastMarchingMethod(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, int iterativeLevel);
+  void PseudoFastMarchingMethod(DistLevelSetStructure &LSS, DistSVec<double, 3> &X);
   void IterativeMethodUpdate(DistLevelSetStructure &LSS, DistSVec<double, 3> &X);
 
   // depreciated methods for old iterative implementation

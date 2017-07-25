@@ -799,7 +799,9 @@ void Domain::setInletNodes(IoData &ioData)
     inletCountPat->finalize();
   }
 
-  if (ioData.romOffline.gappy.minFractionOfSampledNodesOnSurfaceInTargetRegion > 0) { // sampled node selection
+  // sjg, 07/2017: populate FarFieldNodes even for non-ROM simulations for use
+  // in wall distance
+  // if (ioData.romOffline.gappy.minFractionOfSampledNodesOnSurfaceInTargetRegion > 0) { // sampled node selection
     // Create node lists for far field nodes and wall nodes.
     // Note that the far field node list is identical to the inletNodes information, but it was
     // necessary to duplicate this because when the inletNodes object is defined it triggers the
@@ -809,7 +811,7 @@ void Domain::setInletNodes(IoData &ioData)
       subDomain[iSub]->setFarFieldNodes();
       subDomain[iSub]->setWallNodes();
     }
-  }
+  // }
 }
 
 //------------------------------------------------------------------------------

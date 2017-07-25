@@ -218,8 +218,8 @@ public:
                                  SVec<double,3> &X, SVec<double,1> &Psi, SVec<double,dim> &Phi) = 0;
 
   virtual
-  void FastMarchingDistanceUpdate(int node, Vec<int> &Tag, int level,
-                              SVec<double,3> &X,SVec<double,dim> &d2wall) = 0;
+  void FastMarchingDistanceUpdate(int node, Vec<int> &Tag, SVec<double,3> &X,
+                                  SVec<double,dim> &d2wall, int level) = 0;
 
   virtual
   void FEMMarchingDistanceUpdate(SVec<double,3> &X,SVec<double,dim> &d2wall,Vec<int> &tag,double &dist,int &node) = 0;
@@ -402,9 +402,9 @@ public:
     t->recomputeDistanceCloseNodes(lsdim,Tag,X,ddx,ddy,ddz,Phi,Psi);
   }
 
-  void FastMarchingDistanceUpdate(int node, Vec<int> &Tag, int level,
-                              SVec<double,3> &X,SVec<double,dim> &d2wall){
-    t->FastMarchingDistanceUpdate(node,Tag,level,X,d2wall);
+  void FastMarchingDistanceUpdate(int node, Vec<int> &Tag, SVec<double,3> &X,
+                                  SVec<double,dim> &d2wall, int level) {
+    t->FastMarchingDistanceUpdate(node,Tag,X,d2wall,level);
   }
 
   void FEMMarchingDistanceUpdate(SVec<double,3> &X,SVec<double,dim> &d2wall,Vec<int> &tag,double &dist,int &node){
@@ -909,14 +909,14 @@ public:
   }
 
   template<int dimLS>
-  void FastMarchingDistanceUpdate(int node, Vec<int> &Tag, int level,
-                               SVec<double,3> &X,SVec<double,dimLS> &d2wall)
+  void FastMarchingDistanceUpdate(int node, Vec<int> &Tag, SVec<double,3> &X,
+                                  SVec<double,dimLS> &d2wall, int level)
   {
     ElemHelper_dim<dimLS> h;
     char xx[64];
     GenElemWrapper_dim<dimLS> *wrapper=
       (GenElemWrapper_dim<dimLS> *)getWrapper_dim(&h, 64, xx);
-    wrapper->FastMarchingDistanceUpdate(node,Tag,level,X,d2wall);
+    wrapper->FastMarchingDistanceUpdate(node,Tag,X,d2wall,level);
   }
 
   template<int dimLS>
@@ -1156,8 +1156,8 @@ public:
   }
 
   template<int dim>
-  void FastMarchingDistanceUpdate(int node, Vec<int> &Tag, int level,
-                              SVec<double,3> &X,SVec<double,dim> &d2wall)
+  void FastMarchingDistanceUpdate(int node, Vec<int> &Tag, SVec<double,3> &X,
+                                  SVec<double,dim> &d2wall, int level)
   {
 	fprintf(stderr, "Error: undefined function (FastMarchingDistanceUpdate) for this elem type\n"); exit(1);
   }
