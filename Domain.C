@@ -5422,7 +5422,6 @@ template<int dimLS>
 void Domain::pseudoFastMarchingMethodFEM(DistSVec<double,3> &X,	DistSVec<double,dimLS> &d2wall,
         DistVec<int> &nodeTag, int level, int **tag, int **activeElemList, int **knownNodes,
         int *nSortedNodes, int *nSortedElems, int *firstCheckedElem,
-        DistVec<int> &unsortedTag, DistVec<int> &unsortedNodes, int *nUnsortedNodes,
         DistVec<int> &isSharedNode, DistLevelSetStructure *distLSS)
 {
   int iSub, commFlag = 0;
@@ -5432,7 +5431,6 @@ void Domain::pseudoFastMarchingMethodFEM(DistSVec<double,3> &X,	DistSVec<double,
     subDomain[iSub]->pseudoFastMarchingMethodFEM<dimLS>(X(iSub),d2wall(iSub),
       nodeTag(iSub),level,*(tag+iSub),*(activeElemList+iSub),*(knownNodes+iSub),
       *(nSortedNodes+iSub),*(nSortedElems+iSub),*(firstCheckedElem+iSub),
-      unsortedTag(iSub), unsortedNodes(iSub), *(nUnsortedNodes+iSub),
       isSharedNode(iSub),commFlag,distLSS?&((*distLSS)(iSub)):NULL);
   }
 
@@ -5459,20 +5457,14 @@ void Domain::pseudoFastMarchingMethodFEM(DistSVec<double,3> &X,	DistSVec<double,
 
 template<int dimLS>
 void Domain::pseudoFastMarchingMethodFinalize(DistSVec<double,3> &X, DistSVec<double,dimLS> &d2wall,
-        int **knownNodes, int *nSortedNodes,
-        DistVec<int> &unsortedNodes, int *nUnsortedNodes,
-        DistVec<int> &nodeTag, DistVec<int> &unsortedTag,
-        DistVec<int> &isSharedNode, DistLevelSetStructure *distLSS)
+        int *nSortedNodes, DistVec<int> &isSharedNode)
 {
   int iSub, commFlag = 0;
 
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
     subDomain[iSub]->pseudoFastMarchingMethodFinalize<dimLS>(X(iSub),d2wall(iSub),
-      *(knownNodes+iSub),*(nSortedNodes+iSub),
-      unsortedNodes(iSub),*(nUnsortedNodes+iSub),
-      nodeTag(iSub), unsortedTag(iSub),
-      isSharedNode(iSub),commFlag,distLSS?&((*distLSS)(iSub)):NULL);
+      *(nSortedNodes+iSub),isSharedNode(iSub),commFlag);
   }
 
   com->globalMax(1, &commFlag);
@@ -5538,8 +5530,8 @@ void Domain::pseudoFastMarchingMethod(DistVec<int> &Tag, DistSVec<double,3> &X,
 template<int dimLS>
 void Domain::pseudoFastMarchingMethodSerial(DistVec<int> &Tag, DistSVec<double,3> &X,
 				DistSVec<double,dimLS> &d2wall, int level,  int iterativeLevel,
-				DistVec<int> &sortedNodes, int *nSortedNodes,
-				int *firstCheckedNode, DistVec<int> &isSharedNode, DistLevelSetStructure *distLSS)
+				DistVec<int> &sortedNodes, int *nSortedNodes, int *firstCheckedNode,
+        DistVec<int> &isSharedNode, DistLevelSetStructure *distLSS)
 {
   int iSub, commFlag = 0;
 
@@ -5597,7 +5589,7 @@ void Domain::pseudoFastMarchingMethodComm(DistVec<int> &Tag, DistSVec<double,dim
         nSortedNodes[iSub]++;
       }
 
-      // // alternatively, retag wall nodes
+      // // alternatively, just retag wall nodes
       // for (int i = 0; i < Tag(iSub).len; i++) {
       //   if (Tag(iSub)[i] == 0 && d2wall(iSub)[i][0] > 0.0) {
       //     Tag(iSub)[minNode] = 1;

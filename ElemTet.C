@@ -3109,71 +3109,48 @@ template<int dim>
 void ElemTet::FEMMarchingDistanceUpdate(SVec<double,3> &X, SVec<double,dim> &d2wall,
                                         Vec<int> &tag, double &dist, int &nodenum)
 {
+  dist = 1.0e10;
+
   double dp1dxj[4][3];
-    computeGradientP1Function(X, dp1dxj);
+  computeGradientP1Function(X, dp1dxj);
 
   // find node to solve
-  int node;
-  for (node=0; node<4; node++) {
-    if (tag[nodeNumTet[node]] < 0)
+  for (nodenum=0; nodenum<4; nodenum++) {
+    if (tag[nodeNumTet[nodenum]] < 0)
       break;
   }
-  assert(node<4);
-  // if (node >= 4)
-  //   fprintf(stderr,"PROBLEM: can't find the node (node = %d)!\n",node);
+  assert(nodenum<4);
+  if (nodenum == 4) { fprintf(stderr,"PROBLEM: could not find node to solve!\n"); exit(-1); }
 
-  nodenum = nodeNum(node);
+  int oppi = 3 - nodenum;
+  int oppn[3]  = {faceDefTet[oppi][0],faceDefTet[oppi][1],faceDefTet[oppi][2]};
 
-  // circular connectivity to place unknown @ node 4
-  int idx[4] = {0, 1, 2, 3};
-  if (node != 3) {
-    idx[node] = 3;
-    idx[3] = node;
-  }
-
-  // // check if solution is even possible
-  // if (d2wall[nodenum][0] < d2wall[nodeNum(idx[0])][0] ||
-  //     d2wall[nodenum][0] < d2wall[nodeNum(idx[1])][0] ||
-  //     d2wall[nodenum][0] < d2wall[nodeNum(idx[2])][0]) {
-  //   // fprintf(stderr,"Skipped distance calc for a tet!\n");
-  //   dist = -1.0;
-  //   return;
-  // }
-
-  // // debug
-  // if (d2wall[nodeNum(idx[0])][0] > 100 ||
-  //     d2wall[nodeNum(idx[1])][0] > 100 ||
-  //     d2wall[nodeNum(idx[2])][0] > 100) {
-  //   fprintf(stderr,"Known distances are wrong: d2w = %e, %e, %e (node = %e)\n",
-  //     d2wall[nodeNum(idx[0])][0],d2wall[nodeNum(idx[1])][0],d2wall[nodeNum(idx[2])][0],
-  //     d2wall[nodenum][0]);
-  // }
-
-  // solve quadratic form
+  // solve quadratic
   double dx = 0.0, dy = 0.0, dz = 0.0;
   for (int i=0; i<3; i++) {
-    dx += dp1dxj[idx[i]][0]*d2wall[nodeNum(idx[i])][0];
-    dy += dp1dxj[idx[i]][1]*d2wall[nodeNum(idx[i])][0];
-    dz += dp1dxj[idx[i]][2]*d2wall[nodeNum(idx[i])][0];
+    dx += dp1dxj[oppn[i]][0]*d2wall[nodeNum(oppn[i])][0];
+    dy += dp1dxj[oppn[i]][1]*d2wall[nodeNum(oppn[i])][0];
+    dz += dp1dxj[oppn[i]][2]*d2wall[nodeNum(oppn[i])][0];
   }
-  double a = dp1dxj[idx[3]][0]*dp1dxj[idx[3]][0] + dp1dxj[idx[3]][1]*dp1dxj[idx[3]][1] + dp1dxj[idx[3]][2]*dp1dxj[idx[3]][2];
-  double b = 2.0 * (dp1dxj[idx[3]][0]*dx + dp1dxj[idx[3]][1]*dy + dp1dxj[idx[3]][2]*dz);
+  double a = dp1dxj[nodenum][0]*dp1dxj[nodenum][0]
+           + dp1dxj[nodenum][1]*dp1dxj[nodenum][1]
+           + dp1dxj[nodenum][2]*dp1dxj[nodenum][2];
+  double b = 2.0 * (dp1dxj[nodenum][0]*dx + dp1dxj[nodenum][1]*dy + dp1dxj[nodenum][2]*dz);
   double c = dx*dx + dy*dy + dz*dz - 1.0;
 
-  // const double eps = 1.0e-10;
-  double q2 = a*c/(b*b);
-  double disc = 1.0-4.0*q2;
-  if (disc >= 0.0) {
-    double f = 0.5+0.5*sqrt(disc);
-    dist = max(-b/a*f, -c/(b*f));
+  const double eps = 1.0e-8;
+  double disc = b*b-4.0*a*c;
+  if (disc > eps) {
+    double q = -0.5*(b+(b>=0.0?1.0:-1.0)*sqrt(disc));
+    dist = max(q/a,c/q);
+  }
+  else if (disc < eps && disc > -eps) {
+    dist = -0.5*b/a;
   }
 
-  // else if (disc < eps && disc > -eps)
-  //   dist = -0.5*b/a;
-  else {
-    dist = -1.0;
-    return;
-  }
+  if (dist<=0.0) fprintf(stderr,"PROBLEM: quadratic solution is WRONG!\n");
+
+  nodenum = nodeNum(nodenum);
 }
 
 //------------------------------------------------------------------------------
@@ -3182,6 +3159,22 @@ template<int dim>
 void ElemTet::FEMMarchingDistanceUpdateUpw(SVec<double,3> &X, SVec<double,dim> &d2wall,
                                         Vec<int> &tag, double &dist, int &nodenum)
 {
+
+
+  // // default Mut, Buscaglia solver --------------------
+
+  // // find node to solve
+  // int i;
+  // for (i=0; i<4; i++) {
+  //   if (tag[nodeNumTet[i]] < 0)
+  //     break;
+  // }
+  // assert(i<4);
+  // nodenum = nodeNum(i);
+
+  // dist = computeDistancePlusPhi(i,X,d2wall);
+  // return;
+
 
   // FSM 3D local solver on tet ----------------------
 
@@ -3193,16 +3186,25 @@ void ElemTet::FEMMarchingDistanceUpdateUpw(SVec<double,3> &X, SVec<double,dim> &
       break;
   }
   assert(nodenum<4);
+  if (nodenum == 4) { fprintf(stderr,"PROBLEM: could not find node to solve!\n"); exit(-1); }
+
   int oppi = 3 - nodenum;
-  int oppn[3]  = {faceDefTet[oppi][0],faceDefTet[oppi][1],faceDefTet[oppi][2]};
+  int oppn[3]  = {nodeNum(faceDefTet[oppi][0]),nodeNum(faceDefTet[oppi][1]),
+                  nodeNum(faceDefTet[oppi][2])};
   nodenum = nodeNum(nodenum);
+
+  // debug
+  if ( d2wall[oppn[0]][0] >= 1.0e8 ||
+       d2wall[oppn[1]][0] >= 1.0e8 ||
+       d2wall[oppn[2]][0] >= 1.0e8 )
+    return;
 
   // rearrange so dA = min(dA, dB, dC)
   double d2wmin = 1.0e10;
   int idxmin, oppntmp;
   for (int j = 0; j < 3; j++) {
-    if (d2wall[nodeNum(oppn[j])][0] < d2wmin) {
-      d2wmin = d2wall[nodeNum(oppn[j])][0];
+    if (d2wall[oppn[j]][0] < d2wmin) {
+      d2wmin = d2wall[oppn[j]][0];
       idxmin = j;
     }
   }
@@ -3212,25 +3214,28 @@ void ElemTet::FEMMarchingDistanceUpdateUpw(SVec<double,3> &X, SVec<double,dim> &
     oppn[idxmin] = oppntmp;
   }
 
-  double dAB = d2wall[nodeNum(oppn[1])][0]-d2wall[nodeNum(oppn[0])][0];
-  double dAC = d2wall[nodeNum(oppn[2])][0]-d2wall[nodeNum(oppn[0])][0];
-  Vec3D eAB(X[nodeNum(oppn[1])][0]-X[nodeNum(oppn[0])][0],
-            X[nodeNum(oppn[1])][1]-X[nodeNum(oppn[0])][1],
-            X[nodeNum(oppn[1])][2]-X[nodeNum(oppn[0])][2]);
-  Vec3D eAC(X[nodeNum(oppn[2])][0]-X[nodeNum(oppn[0])][0],
-            X[nodeNum(oppn[2])][1]-X[nodeNum(oppn[0])][1],
-            X[nodeNum(oppn[2])][2]-X[nodeNum(oppn[0])][2]);
-  Vec3D eAD(X[nodenum][0]-X[nodeNum(oppn[0])][0],
-            X[nodenum][1]-X[nodeNum(oppn[0])][1],
-            X[nodenum][2]-X[nodeNum(oppn[0])][2]);
+  double dAB = d2wall[oppn[1]][0]-d2wall[oppn[0]][0];
+  double dAC = d2wall[oppn[2]][0]-d2wall[oppn[0]][0];
+  Vec3D eAB(X[oppn[1]][0]-X[oppn[0]][0],
+            X[oppn[1]][1]-X[oppn[0]][1],
+            X[oppn[1]][2]-X[oppn[0]][2]);
+  Vec3D eAC(X[oppn[2]][0]-X[oppn[0]][0],
+            X[oppn[2]][1]-X[oppn[0]][1],
+            X[oppn[2]][2]-X[oppn[0]][2]);
+  Vec3D eAD(X[nodenum][0]-X[oppn[0]][0],
+            X[nodenum][1]-X[oppn[0]][1],
+            X[nodenum][2]-X[oppn[0]][2]);
+
+  // // debug
+  // if (dAB < 0.0 || dAC < 0.0) fprintf(stderr,"PROBLEM: sorting in element distance is wrong!\n");
 
   // TO BE a 3D update function . . .
   if (dAB <= eAB.norm() && dAC <= eAC.norm()) {
-    const double eps = 1e-10;
+    const double eps = 1e-6;
     Vec3D nvec, nvec1, nvec2;
 
     double ABAC = (eAB[2]*eAC[1]-eAB[1]*eAC[2]);
-    if (ABAC > eps || ABAC < -eps) {
+    if (ABAC != 0.0) {
       double ooABAC = 1.0/ABAC;
       double a1 = ooABAC*(-eAC[2]*dAB+eAB[2]*dAC);
       double a2 = ooABAC*(-eAB[2]*eAC[0]+eAB[0]*eAC[2]);
@@ -3257,7 +3262,7 @@ void ElemTet::FEMMarchingDistanceUpdateUpw(SVec<double,3> &X, SVec<double,dim> &
     }
     else {
       ABAC = (eAB[2]*eAC[0]-eAB[0]*eAC[2]);
-      if (ABAC > eps || ABAC < -eps) {
+      if (ABAC != 0.0) {
         double ooABAC = 1.0/ABAC;
         double a1 = ooABAC*(-eAC[2]*dAB+eAB[2]*dAC);
         double a2 = ooABAC*(-eAB[2]*eAC[1]+eAB[1]*eAC[2]);
@@ -3284,7 +3289,7 @@ void ElemTet::FEMMarchingDistanceUpdateUpw(SVec<double,3> &X, SVec<double,dim> &
       }
       else {
         ABAC = (eAB[1]*eAC[0]-eAB[0]*eAC[1]);
-        if (ABAC > eps || ABAC < -eps) {
+        if (ABAC != 0.0) {
           double ooABAC = 1.0/ABAC;
           double a1 = ooABAC*(-eAC[1]*dAB+eAB[1]*dAC);
           double a2 = ooABAC*(-eAB[1]*eAC[2]+eAB[2]*eAC[1]);
@@ -3312,57 +3317,71 @@ void ElemTet::FEMMarchingDistanceUpdateUpw(SVec<double,3> &X, SVec<double,dim> &
       }
     }
 
-    // upwind check (tri intersection using Moeller-Trumbore)
-    if (nvec1.norm() > eps) { // test first solution
-      nvec = nvec1;
+    // alternative upwinding (far less strict)
+    Vec3D triN = eAB^eAC;
+    triN = triN/triN.norm();
+    if (triN*eAD < 0.0) triN = -1.0*triN;
 
-      bool isUpwind;
-      // const double eps = 1e-10;
-      Vec3D pvec = nvec^eAC;
-      double det = eAB*pvec;
-      if (det > -eps && det < eps) isUpwind = false;
-      else {
-        double oodet = 1.0/det;
-        double bary1 = (eAD*pvec)*oodet;
-        if (bary1 < -eps || bary1 > 1.0+eps) isUpwind = false;
-        else {
-          Vec3D qvec = eAD^eAB;
-          double bary2 = (nvec*qvec)*oodet;
-          if (bary2 < -eps || (bary1+bary2) > 1.0+eps) isUpwind = false;
-          else isUpwind = true;
-        }
-      }
-      if (isUpwind)
-        dist = d2wall[nodeNum(oppn[0])][0]+fabs(eAD*nvec);
-    }
-    if (nvec2.norm() > eps) { // test second solution
-      nvec = nvec2;
+    // const double eps2 = 0.5*sqrt(2.0);  // require 45 deg angle max alignment
+    const double eps2 = 1.0e-6;
+    if (nvec1.norm() > eps)
+      if (nvec1*triN > eps2) dist = d2wall[oppn[0]][0]+fabs(eAD*nvec1);
 
-      bool isUpwind;
-      // const double eps = 1e-10;
-      Vec3D pvec = nvec^eAC;
-      double det = eAB*pvec;
-      if (det > -eps && det < eps) isUpwind = false;
-      else {
-        double oodet = 1.0/det;
-        double bary1 = (eAD*pvec)*oodet;
-        if (bary1 < -eps || bary1 > 1.0+eps) isUpwind = false;
-        else {
-          Vec3D qvec = eAD^eAB;
-          double bary2 = (nvec*qvec)*oodet;
-          if (bary2 < -eps || (bary1+bary2) > 1.0+eps) isUpwind = false;
-          else isUpwind = true;
-        }
-      }
-      if (isUpwind)
-        dist = min(dist,d2wall[nodeNum(oppn[0])][0]+fabs(eAD*nvec));
-    }
+    if (nvec2.norm() > eps)
+      if (nvec2*triN > eps2) dist = min(dist,d2wall[oppn[0]][0]+fabs(eAD*nvec2));
   }
 
-  return;
+  //   const double eps2 = 1.0e-1; // loosen tolerance for upwinding (on Barycentric coordinates)
+
+  //   // upwind check (tri intersection using Moeller-Trumbore)
+  //   if (nvec1.norm() > eps) { // test first solution
+  //     nvec = -1*nvec1;  // solution is for normal pointing toward D
+  //     // const double eps2 = 1e-10;
+  //     Vec3D pvec = nvec^eAC;
+  //     double det = eAB*pvec;
+  //     if (!(det > -eps && det < eps)) {
+  //       double oodet = 1.0/det;
+  //       double u = (eAD*pvec)*oodet;
+  //       if (!(u < -eps2 || u > 1.0+eps2)) {
+  //         Vec3D qvec = eAD^eAB;
+  //         double v = (nvec*qvec)*oodet;
+  //         if (!(v < -eps2 || (u+v) > 1.0+eps2))
+  //           dist = d2wall[oppn[0]][0]+fabs(eAD*nvec);
+  //         else
+  //           fprintf(stderr,"Upwinding failed: u = %e, v = %e (nvec = %e, %e, %e)\n",
+  //             u,v,nvec[0],nvec[1],nvec[2]);
+  //       }
+  //     }
+  //   }
+  //   if (nvec2.norm() > eps) { // test second solution
+  //     nvec = -1*nvec2;
+  //     // const double eps2 = 1e-10;
+  //     Vec3D pvec = nvec^eAC;
+  //     double det = eAB*pvec;
+  //     if (!(det > -eps && det < eps)) {
+  //       double oodet = 1.0/det;
+  //       double u = (eAD*pvec)*oodet;
+  //       if (!(u < -eps2 || u > 1.0+eps2)) {
+  //         Vec3D qvec = eAD^eAB;
+  //         double v = (nvec*qvec)*oodet;
+  //         if (!(v < -eps2 || (u+v) > 1.0+eps2))
+  //           dist = min(dist,d2wall[oppn[0]][0]+fabs(eAD*nvec));
+  //         else
+  //           fprintf(stderr,"Upwinding failed: u = %e, v = %e (nvec = %e, %e, %e)\n",
+  //             u,v,nvec[0],nvec[1],nvec[2]);
+  //       }
+  //     }
+  //   }
+
+  //   if (nvec1.norm() < eps && nvec2.norm() < eps)
+  //     fprintf(stderr,"Solution failed because no quadratic solution found!\n");
+  // }
+
+  // debug
+  // if (dist < 1.0e10) fprintf(stderr,"Successfuly found distance update (d2w = %e)\n",dist);
 
 
-
+  // FEM SOLVER --------------------
 
   // double dp1dxj[4][3];
   // // if (dp1dxj[0][0] == 0.0 && dp1dxj[0][1] == 0.0 && dp1dxj[0][2] == 0.0)
@@ -3567,13 +3586,13 @@ void ElemTet::FastMarchingDistanceUpdate(int node, Vec<int> &Tag, SVec<double,3>
   // Looking for node position in the Tet
   int i;
   for (i=0; i<4; i++) {if(nodeNum(i)==node) break;} // Found i
+  assert(i<4);
   // if(i==4) { // Didn't find it. Something is wrong
   //   printf("This may not be the tet you are looking for\n Node: %d, Tet Nodes: %d %d %d %d\nAbort!",node,nodeNum(0),nodeNum(1),nodeNum(2),nodeNum(3));
   //   exit(-1);
   // }
-  assert(i<4);
 
-  // // causality check to skip updates from all larger nodes
+  // // (weaker) causality check to skip updates from all larger nodes
   // int oppi = 3 - i;
   // if (!(d2wall[nodeNum(faceDefTet[oppi][0])][0] < d2wall[node][0] ||
   //       d2wall[nodeNum(faceDefTet[oppi][1])][0] < d2wall[node][0] ||

@@ -1244,15 +1244,11 @@ public:
   void pseudoFastMarchingMethodFEM(SVec<double,3> &X, SVec<double,dimLS> &d2wall,
         Vec<int> &nodeTag, int level, int *tag, int *activeElemList, int *knownNodes,
         int &nSortedNodes, int &nSortedElems, int &firstCheckedElem,
-        Vec<int> &unsortedTag, Vec<int> &unsortedNodes, int &nUnsortedNodes,
         Vec<int> &isSharedNode, int &commFlag, LevelSetStructure *LSS=0);
 
   template<int dimLS>
   void pseudoFastMarchingMethodFinalize(SVec<double,3> &X, SVec<double,dimLS> &d2wall,
-        int *knownNodes, int &nSortedNodes,
-        Vec<int> &unsortedNodes, int &nUnsortedNodes,
-        Vec<int> &nodeTag, Vec<int> &unsortedTag,
-        Vec<int> &isSharedNode, int &commFlag, LevelSetStructure *LSS=0);
+        int &nSortedNodes, Vec<int> &isSharedNode, int &commFlag);
 
   template<int dimLS>
   void pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
