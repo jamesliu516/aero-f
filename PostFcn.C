@@ -1764,6 +1764,43 @@ Vec3D PostFcnNS::computeViscousForce(double dp1dxj[4][3], Vec3D& n, double d2w[3
 }
 
 //------------------------------------------------------------------------------
+/***************
+ * n: the vector from wall point Xp to point Xpp,  Xpp - Xp
+ * Vwall: wall velocity
+ * Vtet: the Tetrahedron that contains Xpp, its primitive variables
+ * bary: double[3] Xp's Barycentric Coordinates
+ */
+double PostFcnNS::computeSkinFriction(Vec3D& n, double dist, double* Vwall,  double* Vtet[4], double* bary)
+{
+
+    double sk = 0.0; //skin friction
+    double T[4], T_pp;
+    Vec3D v_pp;
+    for (int i = 0; i < 4;  i ++)
+        T[i] = NavierStokesTerm::varFcn->computeTemperature(Vtet[i]);
+    for (int i = 0; i < 3; i++) {
+        v_pp[i] = bary[0] * Vtet[0][i + 1] + bary[1] * Vtet[1][i + 1] +
+                    bary[2] * Vtet[2][i + 1] + (1 - bary[0] - bary[1] - bary[2]) * Vtet[3][i + 1];
+    }
+
+    T_pp = bary[0] * T[0] + bary[1] *T[1] +
+                  bary[2] *T[2] + (1 - bary[0] - bary[1] - bary[2]) * T[3];
+    std::cout << "v_pp " << v_pp[0] <<" " <<v_pp[1] << " " << v_pp[2] << " T_pp " << T_pp <<std::endl;
+    double mu     = viscoFcn->compute_mu(T_pp);
+    mu     *= ooreynolds_mu;
+    std::cout << " mu is " << mu << std::endl;
+     v_pp = v_pp - (v_pp*n)*n; //tangential component
+    sk = 2*mu*v_pp.norm()/dist; //sk is the skin fraction coefficient
+
+    Vec3D orientation = v_pp^n;
+    if (orientation[2] < 0) sk = -sk;
+
+    return sk;
+
+
+
+}
+//------------------------------------------------------------------------------
 
 Vec3D PostFcnNS::computeViscousForceCVBoundary(Vec3D& n,  double* Vi, double dudxj[3][3])
 {

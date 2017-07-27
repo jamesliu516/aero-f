@@ -106,6 +106,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     Vec<Vec3D> *solidXnp1;//pointer to Xs_np1
     Vec<Vec3D> *solidX0;  //pointer to Xs0
     Vec<Vec3D> *solidXdS; //pointer to dXdSb
+	int * strucOrientation;//structure orientation, 1: (x1 -x0)^(x2 -x0) points the fluid, otherwise -1
 
     std::map <int, BoundaryData::Type> boundaryConditionsMap;
     int *faceID;
@@ -222,6 +223,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     int getNumStructNodes () { return numStNodes; }
     int getNumStructElems () { return numStElems; }
     int (*getStructElems())[3] { return stElem; }
+	int *getStructOrientation() { return strucOrientation; }
     int (*getNodesType()) { return nodeType; }
 
     Vec<Vec3D> &getStructDerivative() { return *solidXdS; }
@@ -304,7 +306,6 @@ class IntersectorPhysBAM : public LevelSetStructure {
 
 	 void reFlagRealNodes(SVec<double,3>& X, Vec<bool> *bk_ISactive = 0); //d2d
 	 void ComputeSIbasedIntersections(int iSub, SVec<double,3>& X, SVec<double,3> &boxMin, SVec<double,3> &boxMax, bool withViscousTerms); //d2d
-
   public:
     IntersectorPhysBAM(SubDomain &, SVec<double, 3> &X, Vec<int> &status0, Vec<ClosestPoint> &closest,
                        Vec<bool>& occluded_node0,DistIntersectorPhysBAM &);
