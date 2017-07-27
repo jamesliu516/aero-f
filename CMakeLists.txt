@@ -207,7 +207,6 @@ ADD_LIBRARY(FluidBase
              ConnectivityCore.C 
              CorotSolver.C 
              CurvatureDetection.C 
-             Dev/devtools.C 
              DistGeoState.C
              DistLeastSquareSolver.C
              DistMacroCellCore.C 
