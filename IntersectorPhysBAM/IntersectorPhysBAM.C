@@ -189,6 +189,7 @@ DistIntersectorPhysBAM::~DistIntersectorPhysBAM()
   if(rotOwn) delete[] rotOwn;
 
   if(dXdSb) delete[] dXdSb;
+  if(strucOrientation)  delete []strucOrientation;
 }
 
 //----------------------------------------------------------------------------
@@ -1148,7 +1149,7 @@ void DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X,
      eta_node = new DistVec<double>(domain->getNodeDistInfo());
 	TriID_node = new DistVec<int>(domain->getNodeDistInfo());
 	nWall_node = new DistVec<Vec3D>(domain->getNodeDistInfo());
-
+    strucOrientation = new int[numStElems];
   // for hasCloseTriangle
   DistVec<bool> tId(domain->getNodeDistInfo());
 
@@ -1279,7 +1280,15 @@ if(SymmetryPlaneList.size()!=0){
   			intersector[iSub]->setInactiveNodesSymmetry((X(iSub)),SymmetryPlaneList);
    	 }
 }
+
+
+    //Daniel Huang, initialize structure information
+    for(int i = 0 ; i < numStElems; i++) strucOrientation[i] = -1;
+    domain->computeStrucOrientation(X,numStElems,stElem,*solidX,*is_active, strucOrientation);
+
+    com->globalMax(numStElems, strucOrientation);
 }
+
 
 //----------------------------------------------------------------------------
 
@@ -2101,6 +2110,7 @@ IntersectorPhysBAM::IntersectorPhysBAM(SubDomain &sub,SVec<double,3> &X,
 IntersectorPhysBAM::~IntersectorPhysBAM()
 {
     delete []package;
+
 }
 
 //----------------------------------------------------------------------------

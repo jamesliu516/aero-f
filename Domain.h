@@ -1389,6 +1389,12 @@ public:
     void setExactBoundaryJacobian(DistSVec<double,dim>& U, DistSVec<double,3>& X,
 				  IoData& iod,double t, VarFcn* varFcn,
 				  DistMat<Scalar,neq>& A);
+
+	//-----------------------------------------------------------------------------------------------
+	void computeStrucOrientation(DistSVec<double,3> &X,
+										 int numStructElems, int (*stElem)[3],
+										 Vec<Vec3D>& Xstruct, DistVec<bool> & is_active,
+								 int *strucOrientation) ;
 };
 
 //------------------------------------------------------------------------------

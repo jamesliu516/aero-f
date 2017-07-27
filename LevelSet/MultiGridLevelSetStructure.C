@@ -14,8 +14,8 @@ MultiGridLevelSetStructure(DistMultiGridLevelSetStructure& lss,
     subD(sub), mySub(mySub), myLevel(myLevel), edges(*myLevel->getEdges()[mySub]),
     status(status), distance(distance), is_swept(is_swept), is_active(is_active),
     surfaceNormals(surfaceNormals),
-    is_occluded(is_occluded), edge_intersects(edge_intersects),/*edge_intersects_embedded_constraint(edge_intersects_embedded_constraint),Embedded_Constraint_Alpha(Embedded_Constraint_Alpha),*/edge_intersects_constraint(edge_intersects_constraint)
-    {}
+    is_occluded(is_occluded), edge_intersects(edge_intersects),/*edge_intersects_embedded_constraint(edge_intersects_embedded_constraint),
+ * Embedded_Constraint_Alpha(Embedded_Constraint_Alpha),*/edge_intersects_constraint(edge_intersects_constraint){}
 
 void MultiGridLevelSetStructure::
 recompute() {
@@ -295,7 +295,7 @@ initialize(Domain * d, DistSVec<double,3> &X, DistSVec<double,3> &Xn,
   edge_intersects_constraint = new DistVec<bool>(myLevel->getEdgeDistInfo());
   //Embedded_Constraint_Alpha = new DistVec<double>(myLevel->getEdgeDistInfo());
   surfaceNormals = new DistVec<Vec3D>(myLevel->getEdgeDistInfo());
-
+    strucOrientation = 0;
 
 #pragma omp parallel for
   for(int i = 0; i < numLocSub; ++i)
