@@ -14,8 +14,6 @@
 #include <BasicGeometry.h>
 #include <PolygonReconstructionData.h>
 
-#include "Dev/devtools.h"
-
 //------------------------------------------------------------------------------
 //--------------functions in ElemTet class
 // contact Daniel Huang if you have problems
