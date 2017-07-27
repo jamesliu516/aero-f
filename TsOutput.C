@@ -226,8 +226,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
             iod.output.transient.prefix, iod.output.transient.tempnormalderivative);
   }
   if (iod.output.transient.nutturb[0] != 0) {
-    // sscale[PostFcn::NUT_TURB] = iod.ref.rv.viscosity_mu/iod.ref.rv.density;
-    sscale[PostFcn::NUT_TURB] = 1.0; // sjg, 07/2017
+    sscale[PostFcn::NUT_TURB] = iod.ref.rv.viscosity_mu/iod.ref.rv.density;
     scalars[PostFcn::NUT_TURB] = new char[sp + strlen(iod.output.transient.nutturb)];
     sprintf(scalars[PostFcn::NUT_TURB], "%s%s",
             iod.output.transient.prefix, iod.output.transient.nutturb);

@@ -21,15 +21,14 @@ class ReinitializeDistanceToWall
   DistSVec<double, 1> d2wall;
 
   // default wall distance
-  DistVec<int> tag;
-  DistVec<int> sortedNodes; // acts as an active nodes list with computed distances
+  DistVec<int> tag, sortedNodes, isSharedNode; // acts as an active nodes list with computed distances
   int *firstCheckedNode, *nSortedNodes;
-  // DistSVec<double, dimLS> dummyPhi;
+  // DistSVec<double, dimLS> dummyPhi; // depreciated iterative wall distance
 
   // FEM wall distance
   int **activeElemList, **elemTag, **knownNodes;
-  int *nSortedElems, *firstCheckedElem, *nUnsortedNodes;
-  DistVec<int> isSharedNode, nodeTag, unsortedNodes, unsortedTag;
+  int *nSortedElems, *firstCheckedElem;
+  DistVec<int> nodeTag;
 
   // predictors
   SpaceOperator<dim> &spaceOp;
