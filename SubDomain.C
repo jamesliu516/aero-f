@@ -2268,7 +2268,7 @@ void SubDomain::computeGalerkinTerm(FemEquationTerm *fet, BcData<dim> &bcData,
 
 	elems.computeGalerkinTerm(fet, geoState, X, V, R, ghostPoints, LSS, externalSI);
 
-  faces.computeGalerkinTerm(elems, fet, bcData, geoState, X, V, R,LSS);
+  faces.computeGalerkinTerm(elems, fet, bcData, geoState, X, V, R, LSS);
 
 }
 
@@ -9453,68 +9453,19 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
      NodeToElem = createNodeToElementConnectivity();
 
   if (level == 1) {
-    // Tag is globally set to -1, 0 level are inactive nodes
+    // Tag is globally set to -1, level 0 are inactive nodes
     nSortedNodes     = 0;
     firstCheckedNode = 0;
 
-    bool doInit;
-    int nei, nNeighs, l;
-    LevelSetResult resij;
-
-    // faster to loop over nodes and retrieve distance info from intersector
-    // than to loop over all edges
-    for (int i=0;i<Tag.size();++i) {
+    for (int i=0; i<Tag.size(); ++i) {
       if (!LSS->isActive(0.0,i)) {
-        // nSortedNodes++;
         Tag[i] = 0;
-        d2wall[i][0] = 0.0; // not a problem as inactive nodes should be marked as ghost on all subdomains
-      }
-      else if (LSS->isNearInterface(0.0,i) && Tag[i] < 0) {
-        // must make sure wall intersected is actually a wall
-        doInit = false;
-        nNeighs = NodeToNode->num(i);
-        for (int k=0;k<nNeighs;k++) {
-          nei = (*NodeToNode)[i][k];
-          if (i==nei) continue;
-          l = edges.findOnly(i,nei);
-          if (!(LSS->edgeIntersectsWall(0,l))) continue;
-          resij = LSS->getLevelSetDataAtEdgeCenter(0.0, l, true);
-          if (resij.structureType==BoundaryData::WALL ||
-              resij.structureType==BoundaryData::POROUSWALL) {
-            doInit = true;
-            break;
-          }
-        }
-        if (doInit) {
-          d2wall[i][0] = LSS->distToInterface(0.0,i);
-          Tag[i]  = 1;
-          sortedNodes[nSortedNodes] = i;
-          nSortedNodes++;
-
-          if (isSharedNode[i] && !commFlag) commFlag = 1;
-
-          if (LSS->isActive(0.0,nei) && Tag[nei]<0) {
-            assert(LSS->isNearInterface(0.0,nei)); // should never fail due do BB construction
-
-            d2wall[nei][0] = LSS->distToInterface(0.0,nei);
-            Tag[nei] = 1;
-            sortedNodes[nSortedNodes] = nei;
-            nSortedNodes++;
-
-            if (isSharedNode[nei] && !commFlag) commFlag = 1;
-          }
-
-          // // for debugging!
-          // if(d2wall[i][0]<=0.0 || d2wall[i][0] >= 1.0e10) {
-          //   fprintf(stderr,"PROBLEM: Node %d is near FS interface but its wall distance (%e) is invalid.\n",
-          //     locToGlobNodeMap[i]+1, d2wall[i][0]);
-          //   // exit(-1);
-          // }
-        }
+        d2wall[i][0] = 0.0; // inactive nodes should be marked as ghost on all subdomains
       }
     }
-    // depreciated
-    // edges.pseudoFastMarchingMethodInitialization(X,Tag,d2wall,sortedNodes,nSortedNodes,LSS);
+
+    edges.pseudoFastMarchingMethodInitialization(Tag,d2wall,sortedNodes,
+      nSortedNodes,isSharedNode,commFlag,LSS);
   }
   else {
     // Tag nodes that are neighbours of already Tagged nodes and compute their distance
@@ -10985,11 +10936,11 @@ void SubDomain::computeEMBNodeScalarQuantity_step2(SVec<double,3> &X, SVec<doubl
             Qnty[stNode[0]][2] += Surf;
             Qnty[stNode[1]][2] += Surf;
             Qnty[stNode[2]][2] += Surf;
- 
+
 			Qnty[stNode[0]][3] += Cflocal*Surf;
 			Qnty[stNode[1]][3] += Cflocal*Surf;
 			Qnty[stNode[2]][3] += Cflocal*Surf;
-		} 
+		}
 	}
 
 }
