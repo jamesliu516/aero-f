@@ -5416,73 +5416,6 @@ void Domain::TagInterfaceNodes(int lsdim, DistVec<int> &Tag, DistSVec<double,dim
     subDomain[iSub]->maxRcvData(*levelPat, reinterpret_cast<int (*)[1]>(Tag.subData(iSub)));
 }
 
-//------------------------------Vec<int> &Tag-----------------------------------
-
-template<int dimLS>
-void Domain::pseudoFastMarchingMethodFEM(DistSVec<double,3> &X,	DistSVec<double,dimLS> &d2wall,
-        DistVec<int> &nodeTag, int level, int **tag, int **activeElemList, int **knownNodes,
-        int *nSortedNodes, int *nSortedElems, int *firstCheckedElem,
-        DistVec<int> &isSharedNode, DistLevelSetStructure *distLSS)
-{
-  int iSub, commFlag = 0;
-
-#pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub) {
-    subDomain[iSub]->pseudoFastMarchingMethodFEM<dimLS>(X(iSub),d2wall(iSub),
-      nodeTag(iSub),level,*(tag+iSub),*(activeElemList+iSub),*(knownNodes+iSub),
-      *(nSortedNodes+iSub),*(nSortedElems+iSub),*(firstCheckedElem+iSub),
-      isSharedNode(iSub),commFlag,distLSS?&((*distLSS)(iSub)):NULL);
-  }
-
-  com->globalMax(1, &commFlag);
-  if (commFlag) {
-#pragma omp parallel for
-    for (iSub = 0; iSub < numLocSub; ++iSub)
-      subDomain[iSub]->sndData(*volPat,reinterpret_cast<double (*)[dimLS]>(d2wall.subData(iSub)));
-
-    volPat->exchange();
-
-#pragma omp parallel for
-    for (iSub = 0; iSub < numLocSub; ++iSub) {
-      subDomain[iSub]->minRcvDataAndAddElems(
-        *volPat,reinterpret_cast<double (*)[dimLS]>(d2wall.subData(iSub)),
-        nodeTag(iSub),*(tag+iSub),*(activeElemList+iSub),*(knownNodes+iSub),
-        *(nSortedNodes+iSub),*(nSortedElems+iSub));
-    }
-  }
-  // else com->fprintf(stderr,"Sucessfully skipped a comm (level = %d)!\n",level);
-}
-
-//------------------------------------------------------------------------------
-
-template<int dimLS>
-void Domain::pseudoFastMarchingMethodFinalize(DistSVec<double,3> &X, DistSVec<double,dimLS> &d2wall,
-        int *nSortedNodes, DistVec<int> &isSharedNode)
-{
-  int iSub, commFlag = 0;
-
-#pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub) {
-    subDomain[iSub]->pseudoFastMarchingMethodFinalize<dimLS>(X(iSub),d2wall(iSub),
-      *(nSortedNodes+iSub),isSharedNode(iSub),commFlag);
-  }
-
-  com->globalMax(1, &commFlag);
-  if (commFlag) {
-#pragma omp parallel for
-    for (iSub = 0; iSub < numLocSub; ++iSub)
-      subDomain[iSub]->sndData(*volPat,reinterpret_cast<double (*)[dimLS]>(d2wall.subData(iSub)));
-
-    volPat->exchange();
-
-#pragma omp parallel for
-    for (iSub = 0; iSub < numLocSub; ++iSub) {
-      subDomain[iSub]->minRcvData(
-        *volPat,reinterpret_cast<double (*)[dimLS]>(d2wall.subData(iSub)));
-    }
-  }
-}
-
 // -----------------------------------------------------------------------------
 
 template<int dimLS>
@@ -5597,6 +5530,73 @@ void Domain::pseudoFastMarchingMethodComm(DistVec<int> &Tag, DistSVec<double,dim
       //     nSortedNodes[iSub]++;
       //   }
       // }
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dimLS>
+void Domain::pseudoFastMarchingMethodFEM(DistSVec<double,3> &X, DistSVec<double,dimLS> &d2wall,
+        DistVec<int> &nodeTag, int level, int **tag, int **activeElemList, int **knownNodes,
+        int *nSortedNodes, int *nSortedElems, int *firstCheckedElem,
+        DistVec<int> &isSharedNode, DistLevelSetStructure *distLSS)
+{
+  int iSub, commFlag = 0;
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) {
+    subDomain[iSub]->pseudoFastMarchingMethodFEM<dimLS>(X(iSub),d2wall(iSub),
+      nodeTag(iSub),level,*(tag+iSub),*(activeElemList+iSub),*(knownNodes+iSub),
+      *(nSortedNodes+iSub),*(nSortedElems+iSub),*(firstCheckedElem+iSub),
+      isSharedNode(iSub),commFlag,distLSS?&((*distLSS)(iSub)):NULL);
+  }
+
+  com->globalMax(1, &commFlag);
+  if (commFlag) {
+#pragma omp parallel for
+    for (iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->sndData(*volPat,reinterpret_cast<double (*)[dimLS]>(d2wall.subData(iSub)));
+
+    volPat->exchange();
+
+#pragma omp parallel for
+    for (iSub = 0; iSub < numLocSub; ++iSub) {
+      subDomain[iSub]->minRcvDataAndAddElems(
+        *volPat,reinterpret_cast<double (*)[dimLS]>(d2wall.subData(iSub)),
+        nodeTag(iSub),*(tag+iSub),*(activeElemList+iSub),*(knownNodes+iSub),
+        *(nSortedNodes+iSub),*(nSortedElems+iSub));
+    }
+  }
+  // else com->fprintf(stderr,"Sucessfully skipped a comm (level = %d)!\n",level);
+}
+
+//------------------------------------------------------------------------------
+
+template<int dimLS>
+void Domain::pseudoFastMarchingMethodFinalize(DistSVec<double,3> &X, DistSVec<double,dimLS> &d2wall,
+        int *nSortedNodes, DistVec<int> &isSharedNode)
+{
+  int iSub, commFlag = 0;
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) {
+    subDomain[iSub]->pseudoFastMarchingMethodFinalize<dimLS>(X(iSub),d2wall(iSub),
+      *(nSortedNodes+iSub),isSharedNode(iSub),commFlag);
+  }
+
+  com->globalMax(1, &commFlag);
+  if (commFlag) {
+#pragma omp parallel for
+    for (iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->sndData(*volPat,reinterpret_cast<double (*)[dimLS]>(d2wall.subData(iSub)));
+
+    volPat->exchange();
+
+#pragma omp parallel for
+    for (iSub = 0; iSub < numLocSub; ++iSub) {
+      subDomain[iSub]->minRcvData(
+        *volPat,reinterpret_cast<double (*)[dimLS]>(d2wall.subData(iSub)));
     }
   }
 }

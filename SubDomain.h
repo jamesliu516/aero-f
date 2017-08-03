@@ -1241,23 +1241,21 @@ public:
   void TagInterfaceNodes(int lsdim, SVec<bool,2> &Tag, SVec<double,dimLS> &Phi, LevelSetStructure *LSS);
 
   template<int dimLS>
+  void pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
+        SVec<double,dimLS> &d2wall, int level, int iterativeLevel,
+        Vec<int> &sortedNodes, int &nSortedNodes, int &firstCheckedNode,
+        Vec<int> &isSharedNode, int &commFlag, LevelSetStructure *LSS=0);
+  template<int dimLS>
   void pseudoFastMarchingMethodFEM(SVec<double,3> &X, SVec<double,dimLS> &d2wall,
         Vec<int> &nodeTag, int level, int *tag, int *activeElemList, int *knownNodes,
         int &nSortedNodes, int &nSortedElems, int &firstCheckedElem,
         Vec<int> &isSharedNode, int &commFlag, LevelSetStructure *LSS=0);
-
   template<int dimLS>
   void pseudoFastMarchingMethodFinalize(SVec<double,3> &X, SVec<double,dimLS> &d2wall,
         int &nSortedNodes, Vec<int> &isSharedNode, int &commFlag);
 
-  template<int dimLS>
-  void pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
-				SVec<double,dimLS> &d2wall, int level, int iterativeLevel,
-        Vec<int> &sortedNodes, int &nSortedNodes, int &firstCheckedNode,
-        Vec<int> &isSharedNode, int &commFlag, LevelSetStructure *LSS=0);
-
-  template<int dimLS>
-  void FinishReinitialization(Vec<int> &Tag, SVec<double,dimLS> &Psi, int level);
+  // template<int dimLS>
+  // void FinishReinitialization(Vec<int> &Tag, SVec<double,dimLS> &Psi, int level);
 
   template<int dim>
   void computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights,
@@ -1762,8 +1760,8 @@ public:
 											int numStructElems, int (*stElem)[3],
 											Vec<Vec3D>& Xstruct,  Vec<bool>&is_active, int *strucOrientation);
 	template<int dim,int dimLS>
-	  void computeEMBNodeScalarQuantity_e(SVec<double,3> &X, SVec<double,dim> &V, 
-													  PostFcn *postFcn, VarFcn *varFcn, 
+	  void computeEMBNodeScalarQuantity_e(SVec<double,3> &X, SVec<double,dim> &V,
+													  PostFcn *postFcn, VarFcn *varFcn,
 													  Vec<int> &fluidId, SVec<double,dim> &Wextij, SVec<double,dimLS>* phi,
 													  double (*Qnty)[4], int sizeQnty, int numStructElems, int (*stElem)[3],
 													  Vec<Vec3D>& Xstruct, LevelSetStructure &LSS,
@@ -1780,9 +1778,9 @@ public:
 
 
   template<int dim>
-  void computeEMBNodeScalarQuantity_step2(SVec<double,3> &X, SVec<double,dim> &V, 
-														PostFcn *postFcn, VarFcn *varFcn, 
-														Vec<int> &fluidId, 
+  void computeEMBNodeScalarQuantity_step2(SVec<double,3> &X, SVec<double,dim> &V,
+														PostFcn *postFcn, VarFcn *varFcn,
+														Vec<int> &fluidId,
 														double (*Qnty)[4], int sizeQnty, int numStructElems, int (*stElem)[3],
 														Vec<Vec3D>& Xstruct, LevelSetStructure &LSS,
 														double pInfty,
