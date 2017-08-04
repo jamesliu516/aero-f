@@ -73,16 +73,15 @@ void ElemTet::computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
                     int structureType = resij.structureType;
                     switch (structureType) {
                       case BoundaryData::ACTUATORDISK:{ // Actuator disk: use real node value instead of ghost population value
-                        if(!LSS->isActive(0,l)) v[l] = gp->getPrimitiveState();
+                        if (!LSS->isActive(0,nodeNum(l))) v[l] = gp->getPrimitiveState();
                         break;
                       }
                       case BoundaryData::POROUSWALL:{  // porous wall: use averaged value (1-alpha)*ghost  + alpha*active
-                        // average the temperature and velcity and turbulence unknowns
-                        for(int ghost_i = 1; ghost_i < dim;ghost_i ++)
-                            v_ave[l][ghost_i] = (LSS->isActive(0,l)? (1 - resij.porosity)*gp->getPrimitiveState()[ghost_i]
-                                                                      + resij.porosity*v[l][ghost_i]: gp->getPrimitiveState()[ghost_i]);
-                        // If l is active use its density otherwise use ghost value's density.
-                        v_ave[l][0] = (LSS->isActive(0,l)? v[l][0] : gp->getPrimitiveState()[0]);
+                        // average the fluid state
+                        for (int ghost_i = 0; ghost_i < dim; ghost_i++)
+                          v_ave[l][ghost_i] = (LSS->isActive(0,nodeNum(l))) ?
+                            (1 - resij.porosity)*gp->getPrimitiveState()[ghost_i]
+                            + resij.porosity*v[l][ghost_i] : gp->getPrimitiveState()[ghost_i];
                         v[l] = v_ave[l];
                         break;
                       }
@@ -133,6 +132,38 @@ void ElemTet::computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
         for (int k=1; k<4; ++k)	R[idx][k] += pr[3*j+k-1];
       }
     }
+  }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void ElemTet::computeGalerkinTermSA(FemEquationTerm *fet, SVec<double,3> &X,
+                                    Vec<double> &d2wall, SVec<double,dim> &V,
+                                    Vec<double> &dS, LevelSetStructure *LSS)
+{
+  // In the case of an embedded simulation, check if the tetrahedra is actually active
+  bool isAtTheInterface = false;
+  for(int l=0; l<6; ++l) isAtTheInterface = isAtTheInterface || LSS->edgeIntersectsWall(0,edgeNum(l));
+
+  // No distance sensitivity contribution due to cut elements
+  if (isAtTheInterface) return;
+
+  double dp1dxj[4][3];
+  double vol = computeGradientP1Function(X, dp1dxj);
+
+  double d2w[4] = {d2wall[nodeNum(0)], d2wall[nodeNum(1)],
+                     d2wall[nodeNum(2)], d2wall[nodeNum(3)]};
+  double *v[4]  = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)], V[nodeNum(3)]};
+  double v_ave[4][dim];
+  double r[3], s, ds, pr[12];
+
+  // All the states are updated
+  fet->computeVolumeTermSens(dp1dxj, d2w, v, X, nodeNum(), ds);
+
+  for (int j=0; j<4; ++j) {
+    int idx = nodeNum(j);
+    dS[idx] -= vol * fourth * ds;
   }
 }
 
