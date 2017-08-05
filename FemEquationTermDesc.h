@@ -34,6 +34,13 @@ public:
   bool computeVolumeTerm(double [4][3], double [4], double *[4],
                          double *, double *, double *, double,
                          SVec<double,3> &, int [4], int);
+
+  void computeVolumeTermDistSens(double dp1dxj[4][3], double d2w[4],
+    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS) {
+    fprintf(stderr, "*** Error: computeVolumeTermDistSens should not be called\n");
+    exit(1);
+  }
+
   bool computeJacobianVolumeTerm(double [4][3], double [4], double *[4],
                                  double *, double *, double *, double,
                                  SVec<double,3> &, int [4], int);
@@ -136,6 +143,9 @@ public:
    int nodeNum[4], int material_id
    );
 
+  void computeVolumeTermDistSens(double dp1dxj[4][3], double d2w[4],
+    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS);
+
   bool computeJacobianVolumeTerm(double [4][3], double [4], double *[4], double *, double *, double *, double,
                                  SVec<double,3> &, int [4], int);
   void computeSurfaceTerm(int, Vec3D &, double [3],
@@ -228,6 +238,10 @@ public:
 
   bool computeVolumeTerm(double [4][3], double [4], double *[4],
                          double *, double *, double *, double, SVec<double,3> &, int [4], int);
+
+  void computeVolumeTermDistSens(double dp1dxj[4][3], double d2w[4],
+    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS);
+
   bool computeJacobianVolumeTerm(double [4][3], double [4], double *[4], double *, double *, double *, double,
                                  SVec<double,3> &, int [4], int);
   void computeSurfaceTerm(int, Vec3D &, double [3],
@@ -338,6 +352,11 @@ public:
                          double *r, double *s, double *, double,
                          SVec<double,3> &, int [4], int) {
     fprintf(stderr, "*** Error: computeVolumeTerm should not be called\n");
+    exit(1);
+  }
+  void computeVolumeTermDistSens(double dp1dxj[4][3], double d2w[4],
+    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS) {
+    fprintf(stderr, "*** Error: computeVolumeTermDistSens should not be called\n");
     exit(1);
   }
   void computeSurfaceTerm(int c, Vec3D &n, double d2w[3],
@@ -464,6 +483,11 @@ public:
     fprintf(stderr, "*** Error: computeVolumeTerm should not be called\n");
     exit(1);
   }
+  void computeVolumeTermDistSens(double dp1dxj[4][3], double d2w[4],
+    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS) {
+    fprintf(stderr, "*** Error: computeVolumeTermDistSens should not be called\n");
+    exit(1);
+  }
   void computeSurfaceTerm(int c, Vec3D &n, double d2w[3],
                           double *vw, double *v[3], double *r) {
     fprintf(stderr, "*** Error: computeSurfaceTerm should not be called\n");
@@ -576,6 +600,11 @@ public:
                          double *r, double *s, double *, double,
                          SVec<double,3> &, int [4], int) {
     fprintf(stderr, "*** Error: computeVolumeTerm should not be called\n");
+    exit(1);
+  }
+  void computeVolumeTermDistSens(double dp1dxj[4][3], double d2w[4],
+    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS) {
+    fprintf(stderr, "*** Error: computeVolumeTermDistSens should not be called\n");
     exit(1);
   }
   void computeSurfaceTerm(int c, Vec3D &n, double d2w[3],
@@ -705,6 +734,11 @@ public:
     fprintf(stderr, "*** Error: computeVolumeTerm should not be called\n");
     exit(1);
   }
+  void computeVolumeTermDistSens(double dp1dxj[4][3], double d2w[4],
+    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS) {
+    fprintf(stderr, "*** Error: computeVolumeTermDistSens should not be called\n");
+    exit(1);
+  }
   void computeSurfaceTerm(int c, Vec3D &n, double d2w[3],
                           double *vw, double *v[3], double *r) {
     fprintf(stderr, "*** Error: computeSurfaceTerm should not be called\n");
@@ -832,6 +866,11 @@ public:
   bool computeVolumeTerm(double [4][3], double [4], double *[4],
                          double *, double *, double *, double,
                          SVec<double,3> &, int [4], int);
+  void computeVolumeTermDistSens(double dp1dxj[4][3], double d2w[4],
+    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS) {
+    fprintf(stderr, "*** Error: computeVolumeTermDistSens should not be called\n");
+    exit(1);
+  }
   bool computeJacobianVolumeTerm(double [4][3], double [4], double *[4], double *, double *,
                                  double *, double, SVec<double,3> &, int [4], int);
   void computeSurfaceTerm(int, Vec3D &, double [3],
@@ -945,6 +984,11 @@ public:
                          double *r, double *s, double *, double,
                          SVec<double,3> &, int [4], int) {
     fprintf(stderr, "*** Error: computeVolumeTerm should not be called\n");
+    exit(1);
+  }
+  void computeVolumeTermDistSens(double dp1dxj[4][3], double d2w[4],
+    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS) {
+    fprintf(stderr, "*** Error: computeVolumeTermDistSens should not be called\n");
     exit(1);
   }
   void computeSurfaceTerm(int c, Vec3D &n, double d2w[3],
@@ -1063,6 +1107,11 @@ public:
                          double *r, double *s, double *, double ,
                          SVec<double,3> &, int [4], int) {
     fprintf(stderr, "*** Error: computeVolumeTerm should not be called\n");
+    exit(1);
+  }
+  void computeVolumeTermDistSens(double dp1dxj[4][3], double d2w[4],
+    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS) {
+    fprintf(stderr, "*** Error: computeVolumeTermDistSens should not be called\n");
     exit(1);
   }
   void computeSurfaceTerm(int c, Vec3D &n, double d2w[3],

@@ -15,7 +15,7 @@
 
 // flags determining use of wall distance predictors
   #define USE_PREDICTORS
-//   #define PREDICTOR_DEBUG
+  #define PREDICTOR_DEBUG
 
 template <int dimLS, int dim>
 ReinitializeDistanceToWall<dimLS,dim>::ReinitializeDistanceToWall(IoData &ioData, Domain &domain, SpaceOperator<dim> &spaceOp)
@@ -26,8 +26,8 @@ ReinitializeDistanceToWall<dimLS,dim>::ReinitializeDistanceToWall(IoData &ioData
     // FEM wall distance
     nodeTag(domain.getNodeDistInfo()),
     // predictors
-    d2wnm1(domain.getNodeDistInfo()), d2wnm2(domain.getNodeDistInfo()), countReinits(0), nPredTot(0),
-    spaceOp(spaceOp),SAsensi(domain.getNodeDistInfo()),predictorTag(domain.getNodeDistInfo())
+    d2wnm1(domain.getNodeDistInfo()), d2wnm2(domain.getNodeDistInfo()), countReinits(0),
+    spaceOp(spaceOp),SAsensitiv(domain.getNodeDistInfo()),predictorTag(domain.getNodeDistInfo())
 {
   int nSub = dom.getNumLocSub();
 
@@ -64,7 +64,7 @@ ReinitializeDistanceToWall<dimLS,dim>::ReinitializeDistanceToWall(IoData &ioData
   predictorTime[1] = -1.0;
   predictorTime[2] = -1.0;
 
-  SAsensi = 0.0;
+  SAsensitiv = 0.0;
 
   tolmax = 1.0e-1, tolmin = 1.0e-8; // predictor tolerances, to be read from parser eventually
 }
@@ -159,12 +159,6 @@ void ReinitializeDistanceToWall<dimLS,dim>::ComputeWallFunction(DistLevelSetStru
       exit(1);
     }
 
-#ifdef USE_PREDICTORS
-    // reinitialize predictors
-    if (update < 3)
-      ReinitializePredictors(update, t, &LSS, X);
-#endif
-
     // ComputePercentChange(LSS, distGeoState);
 
 #pragma omp parallel for
@@ -173,6 +167,12 @@ void ReinitializeDistanceToWall<dimLS,dim>::ComputeWallFunction(DistLevelSetStru
         distGeoState(iSub).getDistanceToWall()[i] = d2wall(iSub)[i][0];
       }
     }
+
+#ifdef USE_PREDICTORS
+    // reinitialize predictors
+    if (update < 3)
+      ReinitializePredictors(distGeoState, &LSS, X);
+#endif
   }
 
 #ifdef PREDICTOR_DEBUG
@@ -645,8 +645,8 @@ int ReinitializeDistanceToWall<dimLS,dim>::UpdatePredictorsCheckTol(
         // delta = 2.0*fabs(d2wp-d2wall(iSub)[k][0])/d2wall(iSub)[k][0];
 
         // new delta definition based on SA source error
-        delta = fabs(SAsensi(iSub)[k]*(d2wp-d2wall(iSub)[k][0]));
-        meandelta += delta*delta;
+        delta = fabs(SAsensitiv(iSub)[k]*(d2wp-d2wall(iSub)[k][0]));
+        meandelta += delta*delta; 
 
         // // minimum check -> safety precaution
         // dd = fabs(d2wp-d2wall(iSub)[k][0])/d2wall(iSub)[k][0];
@@ -677,10 +677,18 @@ int ReinitializeDistanceToWall<dimLS,dim>::UpdatePredictorsCheckTol(
     }
   }
 
-  // RMS error
-  if (nPredTot > 0)
-    meandelta = sqrt(meandelta/nPredTot); // mean error is a local quantity
-                                          // and nPredTot is LOCAL as well
+  // // RMS error
+  // if (nPredTot > 0)
+  //   meandelta = sqrt(meandelta/nPredTot); // mean error is a local quantity
+  //                                         // and nPredTot is LOCAL as well
+
+  // L2 error
+  if (SAsensitivScale > 0.0)
+    meandelta = sqrt(meandelta)/SAsensitivScale;
+  else {
+    fprintf(stderr,"SA residual = %e, mean Delta = %e",SAsensitivScale,meandelta);
+    meandelta = 0.0;
+  }
 
   dom.getCommunicator()->globalSum(1,&meandelta); // mean RMS error across all subdomains
   meandelta /= dom.getCommunicator()->size();
@@ -730,11 +738,127 @@ int ReinitializeDistanceToWall<dimLS,dim>::UpdatePredictorsCheckTol(
 
 // create new predictors and populate
 template <int dimLS, int dim>
-void ReinitializeDistanceToWall<dimLS,dim>::ReinitializePredictors(int update,
-                                                               const double t,
-                                                               DistLevelSetStructure *LSS,
-                                                               DistSVec<double, 3> &X)
+void ReinitializeDistanceToWall<dimLS,dim>::ReinitializePredictors(
+  DistGeoState &distGeoState, DistLevelSetStructure *LSS, DistSVec<double, 3> &X)
 {
+
+
+#ifdef PREDICTOR_DEBUG
+  DistVec<double> SAsensitivPrev(dom.getNodeDistInfo());
+  SAsensitivPrev = SAsensitiv;
+#endif
+
+
+
+  // compute scaled sensitivities
+  SAsensitiv = 0.0;
+  DistSVec<double,dim>& V = *spaceOp.getCurrentPrimitiveVector();
+  dom.computeSADistSensitivity(spaceOp.getFemEquationTerm(), distGeoState, X,
+    V, SAsensitiv, LSS);
+
+  // retrieve residual for scaling
+  DistSVec<double,dim>& RR = *spaceOp.getCurrentSpaceResidual();
+  SAsensitivScale = 0.0;
+
+
+  // debug
+  int nSens = 0;
+  for (int iSub = 0; iSub < dom.getNumLocSub(); ++iSub) {
+    for (int k = 0; k < d2wall(iSub).len; k++) {
+      if (fabs(SAsensitiv(iSub)[k]) > 1.0e-12)
+        nSens++;
+    }
+    fprintf(stderr,"Number of nonzero sensitivities = %d (nNodes = %d)\n",
+      nSens,d2wall(iSub).len);
+  }
+
+  dom.getCommunicator()->barrier();
+  // exit(-1);
+
+
+  // reset predictors
+  nPredTot = 0;
+  const double eps = 1.0e-8; // want to disregard scaling with uncertain values in residual
+
+#ifdef PREDICTOR_DEBUG
+  double meandSA = 0.0;
+#endif
+
+
+  // // debug
+  // int nPredScaled = 0;
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < dom.getNumLocSub(); ++iSub) {
+    for (int k = 0; k < d2wall(iSub).len; k++) {
+      if (d2wall(iSub)[k][0] < 1.0e-15) // currently a ghost node (predictorTag = 0)
+        predictorTag(iSub)[k] = 0;
+      else if (d2wnm1(iSub)[k][0] < 1.0e-15 || d2wnm2(iSub)[k][0] < 1.0e-15) // node is active but should not be used for predictors
+        predictorTag(iSub)[k] = 1;
+      else {
+//         if (RR(iSub)[k][5] > eps || RR(iSub)[k][5] < -eps) {
+//           // predictorTag(iSub)[k] = 2; // label node as predictor
+//           // nPredTot++;
+
+//           // if (fabs(RR(iSub)[k][5])<1.0e-12) fprintf(stderr,"About to FPE!\n");
+
+//           // store new sensitivity
+//           SAsensitiv(iSub)[k] = SAsensitiv(iSub)[k]/RR(iSub)[k][5];
+
+//           nPredScaled++;
+
+//           // FLOATING POINT EXCEPTION IN HERE ?????? ------------------
+
+// // #ifdef PREDICTOR_DEBUG
+// //           if (SAsensitivPrev(iSub)[k] > 1.0e-15)
+// //             meandSA += ((SAsensitiv(iSub)[k]-SAsensitivPrev(iSub)[k])/SAsensitivPrev(iSub)[k])
+// //               *((SAsensitiv(iSub)[k]-SAsensitivPrev(iSub)[k])/SAsensitivPrev(iSub)[k]);
+// // #endif
+
+//         }
+//         else // exclude node from predictors
+//           // predictorTag(iSub)[k] = 1;
+//         {
+
+//           if (fabs(SAsensitiv(iSub)[k]) > eps)
+//             fprintf(stderr,"Sensitivity = %e vs. Residual = %e\n",
+//               SAsensitiv(iSub)[k],RR(iSub)[k][5]);
+
+//           // store new sensitivity
+//           SAsensitiv(iSub)[k] = 0.0;
+//         }
+
+        predictorTag(iSub)[k] = 2; // label node as predictor
+        nPredTot++;
+
+
+        // scaling
+        SAsensitivScale += RR(iSub)[k][5]*RR(iSub)[k][5];
+
+// #ifdef PREDICTOR_DEBUG
+//           if (SAsensitivPrev(iSub)[k] > 1.0e-15 || SAsensitivPrev(iSub)[k] < -1.0e-15 )
+//             meandSA += ((SAsensitiv(iSub)[k]-SAsensitivPrev(iSub)[k])/SAsensitivPrev(iSub)[k])
+//               *((SAsensitiv(iSub)[k]-SAsensitivPrev(iSub)[k])/SAsensitivPrev(iSub)[k]);
+// #endif
+
+
+
+      }
+    }
+  }
+
+  
+
+  SAsensitivScale = sqrt(SAsensitivScale);
+
+
+
+  // dom.getCommunicator()->barrier();
+  // fprintf(stderr,"Number scaled predictors = %d out of total %d\n",
+  //   nPredScaled,nPredTot);
+
+/*
+
   // pointers to relevant data
   FemEquationTerm *fet = spaceOp.getFemEquationTerm();
   DistSVec<double,dim>& V = *spaceOp.getCurrentPrimitiveVector();
@@ -890,12 +1014,14 @@ void ReinitializeDistanceToWall<dimLS,dim>::ReinitializePredictors(int update,
     }
   }
 
+  */
+
 #ifdef PREDICTOR_DEBUG
-  meandSA = sqrt(meandSA/nPredTot);
-  dom.getCommunicator()->globalSum(1,&meandSA);
-  meandSA /= dom.getCommunicator()->size();
-  if (meandSA > 0.0)
-    dom.getCommunicator()->fprintf(stderr,"\nRMS delta SA sensitivity (since last init) (CPU avg) = %e.", meandSA);
+  // meandSA = sqrt(meandSA/nPredTot);
+  // dom.getCommunicator()->globalSum(1,&meandSA);
+  // meandSA /= dom.getCommunicator()->size();
+  // if (meandSA > 0.0)
+  //   dom.getCommunicator()->fprintf(stderr,"\nRMS delta SA sensitivity (since last init) (CPU avg) = %e.", meandSA);
 
   int nPredTotGlob = nPredTot;
   dom.getCommunicator()->globalSum(1,&nPredTotGlob);

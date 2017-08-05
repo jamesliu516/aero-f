@@ -706,6 +706,83 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
 
 //------------------------------------------------------------------------------
 
+// Compute SA equation residual distance sensitivity (sjg, 08/2017)
+void FemEquationTermSA::computeVolumeTermDistSens(double dp1dxj[4][3], double d2w[4],
+            double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS)
+{
+
+  double d2wall = 0.25 * (d2w[0] + d2w[1] + d2w[2] + d2w[3]);
+  if (d2wall < 1.e-15) {
+    dS = 0.0;
+    return;
+  }
+
+  const double sixth = 1.0/6.0;
+
+  double u[4][3], ucg[3];
+  computeVelocity(V, u, ucg);
+
+  double T[4], Tcg;
+  computeTemperature(V, T, Tcg);
+
+  double dudxj[3][3];
+  computeVelocityGradient(dp1dxj, u, dudxj);
+
+  double dTdxj[3];
+  computeTemperatureGradient(dp1dxj, T, dTdxj);
+
+  double mul, lambdal, kappal;
+  computeLaminarTransportCoefficients(Tcg, mul, lambdal, kappal);
+
+  double mutilde;
+  double mut, lambdat, kappat;
+  computeTurbulentTransportCoefficients(V, nodeNum, X, mul, lambdal, kappal, mutilde, mut, lambdat, kappat);
+
+  mutilde = max(mutilde, 0.0);
+
+  double chi = max(mutilde/mul, 0.001);
+  double chi3 = chi*chi*chi;
+  double fv1 = chi3 / (chi3 + cv1_pow3);
+  double fv2  = 1.-chi/(1.+chi*fv1);
+  double fv3  = 1.0;
+
+  if(usefv3)
+  {
+    fv2 = 1.0 + oocv2*chi;
+    fv2 = 1.0 / (fv2*fv2*fv2);
+    fv3 = (1.0 + chi*fv1) * (1.0 - fv2) / chi;
+  }
+  double ood2wall = 1.0 / d2wall;
+  double ood2wall2 = ood2wall * ood2wall;
+  double rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
+  double nutilde = mutilde / rho;
+  double zz = ooreynolds_mu * oovkcst2 * nutilde * ood2wall2;
+  double s12 = dudxj[0][1] - dudxj[1][0];
+  double s23 = dudxj[1][2] - dudxj[2][1];
+  double s31 = dudxj[2][0] - dudxj[0][2];
+  double s = sqrt(s12*s12 + s23*s23 + s31*s31);
+  double Stilde = max(s*fv3 + zz*fv2,1.0e-12); // To avoid possible numerical problems, the term \tilde S must never be allowed to reach zero or go negative.
+  double ooStilde = 1.0/Stilde;
+  double rr = min(zz * ooStilde, rlim);
+  double rr2 = rr*rr;
+  double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
+  double gg2 = gg*gg;
+  double fw = opcw3_pow * gg * pow(gg2*gg2*gg2 + cw3_pow6, -sixth);
+
+  double drdStilde = (rr>rlim) ? -zz * ooStilde * ooStilde : 0.0;
+  double dgdr = 1.0 + cw2 * (6.0 * rr * rr2 * rr2 - 1.0);
+  double dfwdg = cw3_pow6 * pow(gg2*gg2*gg2 + cw3_pow6, -7.0*sixth) * opcw3_pow;
+  double dStildedd = -2.0 * fv2 * zz * ood2wall;
+  double Lambda = cb1 * nutilde - cw1 * nutilde * nutilde * ood2wall2
+    * dfwdg * dgdr * drdStilde;
+
+  dS = rho * (2.0 * cw1 * fw * mutilde * nutilde * ood2wall2 * ood2wall
+    + Lambda * dStildedd);
+
+}
+
+//------------------------------------------------------------------------------
+
 /*
 void FemEquationTermSA::computeSourceTerm(double dudxj[3][3],double dnudx[3],
 					  double d2wall,
@@ -1863,6 +1940,83 @@ bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
   computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, R);
 
   return (porousmedia);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Compute SA equation residual distance sensitivity (sjg, 08/2017)
+void FemEquationTermDES::computeVolumeTermDistSens(double dp1dxj[4][3], double d2w[4],
+            double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS)
+{
+
+  double d2wall = 0.25 * (d2w[0] + d2w[1] + d2w[2] + d2w[3]);
+  if (d2wall < 1.e-15) {
+    dS = 0.0;
+    return;
+  }
+
+  const double sixth = 1.0/6.0;
+
+  double u[4][3], ucg[3];
+  computeVelocity(V, u, ucg);
+
+  double T[4], Tcg;
+  computeTemperature(V, T, Tcg);
+
+  double dudxj[3][3];
+  computeVelocityGradient(dp1dxj, u, dudxj);
+
+  double dTdxj[3];
+  computeTemperatureGradient(dp1dxj, T, dTdxj);
+
+  double mul, lambdal, kappal;
+  computeLaminarTransportCoefficients(Tcg, mul, lambdal, kappal);
+
+  double mutilde;
+  double mut, lambdat, kappat;
+  computeTurbulentTransportCoefficients(V, nodeNum, X, mul, lambdal, kappal, mutilde, mut, lambdat, kappat);
+
+  mutilde = max(mutilde, 0.0);
+
+  double chi = max(mutilde/mul, 0.001);
+  double chi3 = chi*chi*chi;
+  double fv1 = chi3 / (chi3 + cv1_pow3);
+  double fv2  = 1.-chi/(1.+chi*fv1);
+  double fv3  = 1.0;
+
+  if(usefv3)
+  {
+    fv2 = 1.0 + oocv2*chi;
+    fv2 = 1.0 / (fv2*fv2*fv2);
+    fv3 = (1.0 + chi*fv1) * (1.0 - fv2) / chi;
+  }
+  double ood2wall = 1.0 / d2wall;
+  double ood2wall2 = ood2wall * ood2wall;
+  double rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
+  double nutilde = mutilde / rho;
+  double zz = ooreynolds_mu * oovkcst2 * nutilde * ood2wall2;
+  double s12 = dudxj[0][1] - dudxj[1][0];
+  double s23 = dudxj[1][2] - dudxj[2][1];
+  double s31 = dudxj[2][0] - dudxj[0][2];
+  double s = sqrt(s12*s12 + s23*s23 + s31*s31);
+  double Stilde = max(s*fv3 + zz*fv2,1.0e-12); // To avoid possible numerical problems, the term \tilde S must never be allowed to reach zero or go negative.
+  double ooStilde = 1.0/Stilde;
+  double rr = min(zz * ooStilde, rlim);
+  double rr2 = rr*rr;
+  double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
+  double gg2 = gg*gg;
+  double fw = opcw3_pow * gg * pow(gg2*gg2*gg2 + cw3_pow6, -sixth);
+
+  double drdStilde = (rr>rlim) ? -zz * ooStilde * ooStilde : 0.0;
+  double dgdr = 1.0 + cw2 * (6.0 * rr * rr2 * rr2 - 1.0);
+  double dfwdg = cw3_pow6 * pow(gg2*gg2*gg2 + cw3_pow6, -7.0*sixth) * opcw3_pow;
+  double dStildedd = -2.0 * fv2 * zz * ood2wall;
+  double Lambda = cb1 * nutilde - cw1 * nutilde * nutilde * ood2wall2
+    * dfwdg * dgdr * drdStilde;
+
+  dS = rho * (2.0 * cw1 * fw * mutilde * nutilde * ood2wall2 * ood2wall
+    + Lambda * dStildedd);
 
 }
 

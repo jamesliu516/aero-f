@@ -2272,7 +2272,6 @@ void SubDomain::computeGalerkinTerm(FemEquationTerm *fet, BcData<dim> &bcData,
 
 }
 
-
 //------------------------------------------------------------------------------
 
 // Included (MB)
@@ -5494,6 +5493,7 @@ void SubDomain::maxRcvData(CommPattern<Scalar> &sp, Scalar (*w)[dim])
 
 //------------------------------------------------------------------------------
 
+/* // sjg, 2017: FMM modified to no longer use this
 // Adam 2011.09: Called from Domain::pseudoFastMarchingMethod.
 // Need to take into account the updated value after communication
 template<class Scalar, int dim>
@@ -5516,7 +5516,7 @@ void SubDomain::maxRcvDataAndCountUpdates(CommPattern<Scalar> &sp, Scalar (*w)[d
       // }
     }
   }
-}
+} */
 
 //------------------------------------------------------------------------------
 
@@ -9214,6 +9214,76 @@ void SubDomain::TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &
 
 //------------------------------------------------------------------------------
 
+template<int dim>
+void SubDomain::computeSADistSensitivity(FemEquationTerm *fet, GeoState &geoState,
+            SVec<double,3> &X, SVec<double,dim> &V,Vec<double> &dS,
+            LevelSetStructure *LSS)
+{
+
+  elems.computeSADistSensitivity(fet, geoState, X, V, dS, LSS);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dimLS>
+void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
+					 SVec<double,dimLS> &d2wall, int level, int iterativeLevel,
+					 Vec<int> &sortedNodes, int &nSortedNodes, int &firstCheckedNode,
+           Vec<int> &isSharedNode, int &commFlag, LevelSetStructure *LSS)
+{
+  if (!NodeToNode)
+     NodeToNode = createEdgeBasedConnectivity();
+  if (!NodeToElem)
+     NodeToElem = createNodeToElementConnectivity();
+
+  if (level == 1) {
+    // Tag is globally set to -1, level 0 are inactive nodes
+    nSortedNodes     = 0;
+    firstCheckedNode = 0;
+
+    for (int i=0; i<Tag.size(); ++i) {
+      if (!LSS->isActive(0.0,i)) {
+        Tag[i] = 0;
+        d2wall[i][0] = 0.0; // inactive nodes should be marked as ghost on all subdomains
+      }
+    }
+
+    edges.pseudoFastMarchingMethodInitialization(Tag,d2wall,sortedNodes,
+      nSortedNodes,isSharedNode,commFlag,LSS);
+  }
+  else {
+    // Tag nodes that are neighbours of already Tagged nodes and compute their distance
+    int nNeighs, nTets, nei, tet, lowerlevel = level-1;
+    int inter = nSortedNodes, fixedNode;
+    for (int i = firstCheckedNode; i < inter; i++) {
+      fixedNode = sortedNodes[i];
+      assert(Tag[fixedNode] == lowerlevel);
+
+      nNeighs = NodeToNode->num(fixedNode);
+      for (int k=0; k < nNeighs; k++) {
+        nei = (*NodeToNode)[fixedNode][k];
+        if (Tag[nei] < 0) {
+          Tag[nei] = level;
+          sortedNodes[nSortedNodes] = nei;
+          nSortedNodes++;
+
+          nTets = NodeToElem->num(nei);
+          for (int j=0; j<nTets; j++) {
+            tet        = (*NodeToElem)[nei][j];
+            elems[tet].FastMarchingDistanceUpdate(nei,Tag,X,d2wall,lowerlevel);
+          }
+
+          if (isSharedNode[nei] && !commFlag) commFlag = 1;
+        }
+      }
+    }
+    firstCheckedNode = inter;
+  }
+}
+
+//------------------------------------------------------------------------------
+
 template<int dimLS>
 void SubDomain::pseudoFastMarchingMethodFEM(SVec<double,3> &X, SVec<double,dimLS> &d2wall,
         Vec<int> &nodeTag, int level, int *tag, int *activeElemList, int *knownNodes,
@@ -9437,64 +9507,6 @@ void SubDomain::pseudoFastMarchingMethodFinalize(SVec<double,3> &X,
   }
 
   delete[] unsortedNodes;
-}
-
-//------------------------------------------------------------------------------
-
-template<int dimLS>
-void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
-					 SVec<double,dimLS> &d2wall, int level, int iterativeLevel,
-					 Vec<int> &sortedNodes, int &nSortedNodes, int &firstCheckedNode,
-           Vec<int> &isSharedNode, int &commFlag, LevelSetStructure *LSS)
-{
-  if (!NodeToNode)
-     NodeToNode = createEdgeBasedConnectivity();
-  if (!NodeToElem)
-     NodeToElem = createNodeToElementConnectivity();
-
-  if (level == 1) {
-    // Tag is globally set to -1, level 0 are inactive nodes
-    nSortedNodes     = 0;
-    firstCheckedNode = 0;
-
-    for (int i=0; i<Tag.size(); ++i) {
-      if (!LSS->isActive(0.0,i)) {
-        Tag[i] = 0;
-        d2wall[i][0] = 0.0; // inactive nodes should be marked as ghost on all subdomains
-      }
-    }
-
-    edges.pseudoFastMarchingMethodInitialization(Tag,d2wall,sortedNodes,
-      nSortedNodes,isSharedNode,commFlag,LSS);
-  }
-  else {
-    // Tag nodes that are neighbours of already Tagged nodes and compute their distance
-    int nNeighs, nTets, nei, tet, lowerlevel = level-1;
-    int inter = nSortedNodes, fixedNode;
-    for (int i = firstCheckedNode; i < inter; i++) {
-      fixedNode = sortedNodes[i];
-      assert(Tag[fixedNode] == lowerlevel);
-
-      nNeighs = NodeToNode->num(fixedNode);
-      for (int k=0; k < nNeighs; k++) {
-        nei = (*NodeToNode)[fixedNode][k];
-        if (Tag[nei] < 0) {
-          Tag[nei] = level;
-          sortedNodes[nSortedNodes] = nei;
-          nSortedNodes++;
-
-          nTets = NodeToElem->num(nei);
-          for (int j=0; j<nTets; j++) {
-            tet        = (*NodeToElem)[nei][j];
-            elems[tet].FastMarchingDistanceUpdate(nei,Tag,X,d2wall,lowerlevel);
-          }
-
-          if (isSharedNode[nei] && !commFlag) commFlag = 1;
-        }
-      }
-    }
-    firstCheckedNode = inter;
-  }
 }
 
 //------------------------------------------------------------------------------

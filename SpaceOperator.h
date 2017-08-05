@@ -53,6 +53,7 @@ protected:
   DistBcData<dim> *bcData;
   DistGeoState *geoState;
   DistSVec<double,dim> *V;
+  DistSVec<double,dim> *RR; // save spatial residual from Domain::computeFiniteVolumeTerm
 
 // Included (MB)
   DistSVec<double,dim> *dU;
@@ -66,6 +67,7 @@ protected:
   RecFcn *recFcnAA;
   FluxFcn **fluxFcnSA;
   RecFcn *recFcnSA;
+
 
 protected:
 
@@ -153,6 +155,8 @@ public:
 
   DistSVec<double,dim>* getCurrentPrimitiveVector() { return V; }
 
+  DistSVec<double,dim>* getCurrentSpaceResidual() { return RR; }  // sjg, 08/2017
+
   FemEquationTerm *getFemEquationTerm() { return fet;}
 
   void conservativeToPrimitive(DistSVec<double,dim> &U, DistVec<int>* fid = 0)
@@ -215,7 +219,6 @@ public:
     fprintf(stderr,"PopulateGhostPoints<%d> not implemented!\n",neq);
     exit(-1);
   }
-
 
   // d2d
   void setSIstencil( DistSVec<double,3> &X, DistLevelSetStructure *distLSS, DistVec<int> &fluidId, DistSVec<double,dim> &U);

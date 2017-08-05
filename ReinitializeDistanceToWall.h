@@ -36,7 +36,8 @@ class ReinitializeDistanceToWall
   double predictorTime[3];
   DistSVec<double, 1> d2wnm1, d2wnm2;
   int countReinits, nPredTot;
-  DistVec<double> SAsensi;
+  DistVec<double> SAsensitiv;
+  double SAsensitivScale;
 
   double tolmin, tolmax; // to be read from parser!
 
@@ -44,12 +45,12 @@ public:
   ReinitializeDistanceToWall(IoData &ioData, Domain &domain, SpaceOperator<dim> &spaceOp);
   ~ReinitializeDistanceToWall();
 
-  void ComputeWallFunction(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState, const double t); //DistSVec<double, dim> &V, double t);
+  void ComputeWallFunction(DistLevelSetStructure &LSS, DistSVec<double, 3> &X, DistGeoState &distGeoState, const double t);
 
 private:
   // wall distance predictor
-  int UpdatePredictorsCheckTol(DistLevelSetStructure &LSS, DistGeoState &distGeoState, const double t); // DistSVec<double, dim> &V,
-  void ReinitializePredictors(int update, const double t, DistLevelSetStructure *LSS, DistSVec<double, 3> &X);
+  int UpdatePredictorsCheckTol(DistLevelSetStructure &LSS, DistGeoState &distGeoState, const double t);
+  void ReinitializePredictors(DistGeoState &distGeoState, DistLevelSetStructure *LSS, DistSVec<double, 3> &X);
 
   // FEM wall distance
   void PseudoFastMarchingMethodFEM(DistLevelSetStructure &LSS, DistSVec<double, 3> &X);

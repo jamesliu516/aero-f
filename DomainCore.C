@@ -205,8 +205,8 @@ Domain::~Domain()
   if (WCsDelSq) delete(WCsDelSq);
   if (WPrT) delete(WPrT);
   if (tagBar) delete(tagBar);
-
   if (tag) delete(tag);
+
 // Included (MB)
   if (weightDerivativePat) delete weightDerivativePat;
 

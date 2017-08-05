@@ -233,6 +233,11 @@ public:
                                  SVec<double,3> &X, SVec<double,1> &Psi, SVec<double,dim> &Phi);
 
   template<int dim>
+  void computeSADistSensitivity(FemEquationTerm *fet, SVec<double,3> &X,
+                    Vec<double> &d2wall, SVec<double,dim> &V,
+                    Vec<double> &dS, LevelSetStructure *LSS=0);
+
+  template<int dim>
   void FastMarchingDistanceUpdate(int node,Vec<int> &Tag,SVec<double,3> &X,
                                   SVec<double,dim> &d2wall, int level);
 

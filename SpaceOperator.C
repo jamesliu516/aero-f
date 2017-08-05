@@ -54,6 +54,8 @@ SpaceOperator<dim>::SpaceOperator(IoData &ioData, VarFcn *vf, DistBcData<dim> *b
   else
     V = new DistSVec<double,dim>(domain->getNodeDistInfo());
 
+  RR = new DistSVec<double,dim>(domain->getNodeDistInfo());
+
 // Included (MB)
   if (ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
       ioData.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
@@ -171,6 +173,8 @@ SpaceOperator<dim>::SpaceOperator(const SpaceOperator<dim> &spo, bool typeAlloc)
   geoState = spo.geoState;
   V = spo.V;
 
+  RR = spo.RR;
+
   bcFcn = spo.bcFcn;
   fluxFcn = spo.fluxFcn;
   recFcn = spo.recFcn;
@@ -212,6 +216,8 @@ SpaceOperator<dim>::~SpaceOperator()
 
   if (locAlloc) {
     if (V) delete V;
+    if (RR) delete RR;
+
     if (bcFcn) delete bcFcn;
     if (fluxFcn) {
         fluxFcn += BC_MIN_CODE;
@@ -578,7 +584,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
   }
 
   domain->computeFiniteVolumeTerm(ctrlVol, *irey, fluxFcn, recFcn, *bcData, *geoState,
-                                  X, *V, *ngrad, egrad, R, failsafe, rshift);
+                                  X, *V, *ngrad, egrad, R, RR, failsafe, rshift);
 
 // Included
   domain->getGradP(*ngrad);
@@ -691,7 +697,7 @@ void SpaceOperator<dim>::computeResidualRestrict(DistSVec<double,3> &X, DistVec<
 
 	// KTC: made efficient
 	domain->computeFiniteVolumeTerm(ctrlVol, *irey, fluxFcn, recFcn,
-			*bcData, *geoState, X, *V, *ngrad, egrad, R, failsafe, rshift);
+			*bcData, *geoState, X, *V, *ngrad, egrad, R, RR, failsafe, rshift);
 
 // Included
 	// KTC: not needed
@@ -803,7 +809,7 @@ void SpaceOperator<dim>::computeResidual(DistExactRiemannSolver<dim> *riemann,
     ngrad->limit(recFcn, X, ctrlVol, *V);
 
   domain->computeFiniteVolumeTerm(*riemann, ctrlVol, *irey, fluxFcn, recFcn, *bcData, *geoState,
-                                  X, *V, *ngrad, egrad, R, failsafe, rshift);
+                                  X, *V, *ngrad, egrad, R, RR, failsafe, rshift);
 
 // Included
   domain->getGradP(*ngrad);
@@ -1348,7 +1354,7 @@ void SpaceOperator<dim>::computeInviscidResidual(DistSVec<double,3> &X, DistVec<
     ngrad->limit(recFcn, X, ctrlVol, *V);
 
   domain->computeFiniteVolumeTerm(ctrlVol, *irey, fluxFcn, recFcn, *bcData, *geoState,
-                                  X, *V, *ngrad, egrad, R, failsafe, rshift);
+                                  X, *V, *ngrad, egrad, R, RR, failsafe, rshift);
 
   domain->getGradP(*ngrad);
 
@@ -1479,13 +1485,13 @@ void SpaceOperator<dim>::computeViscousResidual(DistSVec<double,3> &X, DistVec<d
 //d2d$ Embedded Fluid structure interaction
 template<int dim>
 void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
-                                         DistSVec<double,dim> &U,
-					 DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
-													  DistSVec<double,dim> &Wext, DistLevelSetStructure *distLSS,
-                                         bool linRecAtInterface, bool viscSecOrder, DistVec<int> &fluidId,
-                                         DistSVec<double,dim> &R,
-					 DistExactRiemannSolver<dim> *riemann, int Nriemann,
-													  int it, DistVec<GhostPoint<dim>*> *ghostPoints,  bool compatF3D)
+            DistSVec<double,dim> &U,
+					  DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
+						DistSVec<double,dim> &Wext, DistLevelSetStructure *distLSS,
+            bool linRecAtInterface, bool viscSecOrder, DistVec<int> &fluidId,
+            DistSVec<double,dim> &R,
+					  DistExactRiemannSolver<dim> *riemann, int Nriemann,
+						int it, DistVec<GhostPoint<dim>*> *ghostPoints,  bool compatF3D)
 {
   R = 0.0;
 	Wext = 0.0;
@@ -1535,9 +1541,9 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
 		ngrad->limit(recFcn, X, ctrlVol, distLSS, *V);
 
 	domain->computeFiniteVolumeTerm(ctrlVol, *riemann, fluxFcn, recFcn, *bcData,
-											  *geoState, X, *V, Wstarij, Wstarji, Wext,
+					*geoState, X, *V, Wstarij, Wstarji, Wext,
 				  distLSS, linRecAtInterface, fluidId, Nriemann,
-											  *ngrad, egrad, R, it, failsafe, rshift, externalSI);
+					*ngrad, egrad, R, RR, it, failsafe, rshift, externalSI);
 
   if(compatF3D)
   {
@@ -1585,8 +1591,8 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
 //what is this for?
 template<int dim>
 void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
-                                         DistSVec<double,dim> &U, DistSVec<double,dim> &Wstarij,
-                                         DistSVec<double,dim> &Wstarji,
+           DistSVec<double,dim> &U, DistSVec<double,dim> &Wstarij,
+           DistSVec<double,dim> &Wstarji,
 					 DistVec<int> &countWstarij, DistVec<int> &countWstarji,
 					 DistLevelSetStructure *distLSS, bool linRecAtInterface, bool viscSecOrder,
 					 DistVec<int> &fluidId, DistSVec<double,dim> &R,
@@ -1642,9 +1648,9 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
     ngrad->limit(recFcn, X, ctrlVol, *V);
 
   domain->computeFiniteVolumeTerm(ctrlVol, *riemann, fluxFcn, recFcn, *bcData,
-                                  *geoState, X, *V, Wstarij, Wstarji, countWstarij, countWstarji,
+                  *geoState, X, *V, Wstarij, Wstarji, countWstarij, countWstarji,
 								  distLSS, linRecAtInterface, fluidId, Nriemann, dt, alpha,
-								  *ngrad, egrad, R, it, failsafe,rshift);
+								  *ngrad, egrad, R, RR, it, failsafe,rshift);
   if (descriptorCase != DESCRIPTOR)  {
     int numLocSub = R.numLocSub();
     int iSub;
@@ -1671,7 +1677,6 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
       }
     }
   }
-
 }
 
 //------------------------------------------------------------------------------
@@ -1702,7 +1707,7 @@ void SpaceOperator<dim>::computePostOpDVMS(DistSVec<double,3> &X, DistVec<double
     ngrad->limit(recFcn, X, ctrlVol, *V);
 
   domain->computeFiniteVolumeTerm(ctrlVol, *irey, fluxFcn, recFcn, *bcData, *geoState, X, *V,
-                                  *ngrad, egrad, *R, failsafe, rshift);
+                                  *ngrad, egrad, *R, RR, failsafe, rshift);
   dvms->computeCs(fluxFcn, recFcn, fet, geoState->getConfig(), ctrlVol,
                   *bcData, *geoState, timeState, X, U, *V, *R, Cs, failsafe, rshift);
 
@@ -3165,7 +3170,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
 
   this->domain->computeFiniteVolumeTerm(ctrlVol, *riemann, this->fluxFcn, this->recFcn, *(this->bcData),
 					*(this->geoState), X, *(this->V), fluidSelector, *(this->ngrad), this->egrad,
-					Phi, *ngradLS, egradLS, R, it, this->failsafe,this->rshift);
+					Phi, *ngradLS, egradLS, R, this->RR, it, this->failsafe, this->rshift);
 
   if (this->descriptorCase != this->DESCRIPTOR)  {
     int numLocSub = R.numLocSub();
@@ -3389,7 +3394,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
   this->domain->computeFiniteVolumeTerm(ctrlVol, *riemann, this->fluxFcn, this->recFcn, *(this->bcData),
 					*(this->geoState), X, *(this->V), Wstarij, Wstarji, distLSS, linRecAtInterface, fluidSelector,
 					Nriemann, *(this->ngrad), this->egrad, PhiV,
-					*ngradLS, egradLS, R, it, this->failsafe,this->rshift);
+					*ngradLS, egradLS, R, this->RR, it, this->failsafe,this->rshift);
 
   if (this->descriptorCase != this->DESCRIPTOR)  {
     int iSub;
