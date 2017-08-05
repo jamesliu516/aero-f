@@ -77,7 +77,7 @@ void Domain::computeTimeStep(double cfl, double dualtimecfl, double viscous, Fem
     double (*volume) = ctrlVol.subData(iSub);
 
     for (int i = 0; i < ctrlVol.subSize(iSub); ++i)
-	 {
+	  {
 /*
 		 if( distLSS && !((*distLSS)(iSub).isActive(0.0,i)))
 		 {
@@ -95,9 +95,8 @@ void Domain::computeTimeStep(double cfl, double dualtimecfl, double viscous, Fem
 /*
     }
 */
+    }
   }
-  }
-
 }
 
 //------------------------------------------------------------------------------
@@ -854,7 +853,8 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol, DistVec<double>& 
                                      DistBcData<dim>& bcData, DistGeoState& geoState,
                                      DistSVec<double,3>& X, DistSVec<double,dim>& V,
                                      DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
-                                     DistSVec<double,dim>& R, int failsafe, int rshift)
+                                     DistSVec<double,dim>& R, DistSVec<double,dim>* RR,
+                                     int failsafe, int rshift)
 {
 
   double t0 = timer->getTime();
@@ -865,8 +865,8 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol, DistVec<double>& 
      *tag = 0;
   }
 
-  //KW&AM: TODO: should add RR as a member.
-  DistSVec<double,dim>* RR = new DistSVec<double,dim>(getNodeDistInfo());
+  // KW&AM: TODO: should add RR as a member.
+  // DistSVec<double,dim>* RR = new DistSVec<double,dim>(getNodeDistInfo());  // sjg, 08/2018: made RR a member of SpaceOperator
   *RR = R; // initialize temp residual
 
   int iSub;
@@ -936,7 +936,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol, DistVec<double>& 
 
   timer->addFiniteVolumeTermTime(t0);
 
-  if (RR) delete(RR); // delete temp residual
+  // if (RR) delete(RR); // delete temp residual  // sjg, 08/2018: made RR a member
 
 }
 
@@ -949,7 +949,8 @@ void Domain::computeFiniteVolumeTerm(DistExactRiemannSolver<dim>& riemann,
                                      DistBcData<dim>& bcData, DistGeoState& geoState,
                                      DistSVec<double,3>& X, DistSVec<double,dim>& V,
                                      DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
-                                     DistSVec<double,dim>& R, int failsafe, int rshift)
+                                     DistSVec<double,dim>& R, DistSVec<double,dim>* RR,
+                                     int failsafe, int rshift)
 {
   double t0 = timer->getTime();
   int ierr = 0;
@@ -959,7 +960,7 @@ void Domain::computeFiniteVolumeTerm(DistExactRiemannSolver<dim>& riemann,
      *tag = 0;
   }
 
-  DistSVec<double,dim>* RR = new DistSVec<double,dim>(getNodeDistInfo());
+  // DistSVec<double,dim>* RR = new DistSVec<double,dim>(getNodeDistInfo());
   *RR = R; // initialize temp residual
 
   int iSub;
@@ -1030,7 +1031,7 @@ void Domain::computeFiniteVolumeTerm(DistExactRiemannSolver<dim>& riemann,
 
   timer->addFiniteVolumeTermTime(t0);
 
-  if (RR) delete(RR); // delete temp residual
+  // if (RR) delete(RR); // delete temp residual
 
 }
 
@@ -1288,11 +1289,11 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                      DistSVec<double,3>& X, DistSVec<double,dim>& V,
                                      FluidSelector &fluidSelector,
                                      DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
-				     DistSVec<double,dimLS>& phi,
+				                             DistSVec<double,dimLS>& phi,
                                      DistNodalGrad<dimLS>& ngradLS,
-				     DistEdgeGrad<dimLS>* egradLS,
-                                     DistSVec<double,dim>& R, int it,
-                                     int failsafe, int rshift)
+				                             DistEdgeGrad<dimLS>* egradLS,
+                                     DistSVec<double,dim>& R, DistSVec<double,dim>* RR,
+                                     int it, int failsafe, int rshift)
 {
 
   double t0 = timer->getTime();
@@ -1303,8 +1304,9 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
      *tag = 0;
   }
 
-  DistSVec<double,dim>* RR = new DistSVec<double,dim>(getNodeDistInfo());
+  // DistSVec<double,dim>* RR = new DistSVec<double,dim>(getNodeDistInfo());
   *RR = R; // initialize temp residual
+
   DistVec<int> &FluidId(*(fluidSelector.fluidId));
 
   int iSub;
@@ -1392,7 +1394,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
 
   timer->addFiniteVolumeTermTime(t0);
 
-  if (RR) delete(RR); // delete temp residual
+  // if (RR) delete(RR); // delete temp residual
 
 // subdomain communication for riemann update values (cf ExactRiemannSolver.h)
   if(it == 1){
@@ -1411,19 +1413,17 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
 //d2d embedded with LS????
 template<int dim, int dimLS>
 void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
-				     DistExactRiemannSolver<dim> &riemann,
-                                     FluxFcn** fluxFcn, RecFcn* recFcn,
-				     DistBcData<dim>& bcData,
-				     DistGeoState& geoState,
-                                     DistSVec<double,3>& X,
-				     DistSVec<double,dim>& V,
+				     DistExactRiemannSolver<dim> &riemann, FluxFcn** fluxFcn, RecFcn* recFcn,
+				     DistBcData<dim>& bcData, DistGeoState& geoState,
+             DistSVec<double,3>& X, DistSVec<double,dim>& V,
 				     DistSVec<double,dim>& Wstarij, DistSVec<double,dim>& Wstarji,
-                                     DistLevelSetStructure *distLSS, bool linRecAtInterface,
+             DistLevelSetStructure *distLSS, bool linRecAtInterface,
 				     FluidSelector &fluidSelector, int Nriemann,
 				     DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
 				     DistSVec<double,dimLS>& phi,
-                                     DistNodalGrad<dimLS>& ngradLS, DistEdgeGrad<dimLS>* egradLS,
-				     DistSVec<double,dim>& R, int it, int failsafe, int rshift)
+             DistNodalGrad<dimLS>& ngradLS, DistEdgeGrad<dimLS>* egradLS,
+				     DistSVec<double,dim>& R, DistSVec<double,dim>* RR,
+             int it, int failsafe, int rshift)
 {
 
  double t0 = timer->getTime();
@@ -1434,8 +1434,9 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
      *tag = 0;
   }
 
-  DistSVec<double,dim>* RR = new DistSVec<double,dim>(getNodeDistInfo());
+  // DistSVec<double,dim>* RR = new DistSVec<double,dim>(getNodeDistInfo());
   *RR = R; // initialize temp residual
+
   DistVec<int> &FluidId(*(fluidSelector.fluidId));
 
   int iSub;
@@ -1524,7 +1525,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
     subDomain[iSub]->addRcvData(*vecPat, (*RR).subData(iSub));
 
   R = *RR;
-  if (RR) delete(RR); // delete temp residual
+  // if (RR) delete(RR); // delete temp residual
 
 // subdomain communication for riemann update values (cf ExactRiemannSolver.h)
   if(it == 1){
@@ -1547,16 +1548,14 @@ template<int dim>
 void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                      DistExactRiemannSolver<dim> &riemann,
                                      FluxFcn** fluxFcn, RecFcn* recFcn,
-                                     DistBcData<dim>& bcData,
-				     DistGeoState& geoState,
-                                     DistSVec<double,3>& X,
-				     DistSVec<double,dim>& V,
-                                     DistSVec<double,dim>& Wstarij, DistSVec<double,dim>& Wstarji,
+                                     DistBcData<dim>& bcData, DistGeoState& geoState,
+                                     DistSVec<double,3>& X, DistSVec<double,dim>& V,
+                         DistSVec<double,dim>& Wstarij, DistSVec<double,dim>& Wstarji,
 												 DistSVec<double,dim>& Wext,
-                                     DistLevelSetStructure *LSS, bool linRecAtInterface, DistVec<int> &fluidId,
-                                     int Nriemann,
-				     DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
-                                     DistSVec<double,dim>& R,
+                         DistLevelSetStructure *LSS, bool linRecAtInterface, DistVec<int> &fluidId,
+                         int Nriemann,
+				                 DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
+                         DistSVec<double,dim>& R, DistSVec<double,dim>* RR,
 												 int it, int failsafe, int rshift, bool externalSI)
 {
 
@@ -1568,7 +1567,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
      *tag = 0;
   }
 
-  DistSVec<double,dim>* RR = new DistSVec<double,dim>(getNodeDistInfo());
+  // DistSVec<double,dim>* RR = new DistSVec<double,dim>(getNodeDistInfo());
   *RR = R; // initialize temp residual
 
   int iSub;
@@ -1668,7 +1667,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
 
   timer->addFiniteVolumeTermTime(t0);
 
-  if (RR) delete(RR); // delete temp residual
+  // if (RR) delete(RR); // delete temp residual
 }
 
 //------------------------------------------------------------------------------
@@ -1680,14 +1679,12 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                      DistBcData<dim>& bcData, DistGeoState& geoState,
                                      DistSVec<double,3>& X, DistSVec<double,dim>& V,
                                      DistSVec<double,dim>& Wstarij,
-				     DistSVec<double,dim>& Wstarji,
-				     DistVec<int>& countWstarij,
-				     DistVec<int>& countWstarji,
-                                     DistLevelSetStructure *LSS, bool linRecAtInterface,
-				     DistVec<int> &fluidId, int Nriemann,
-				     double dt, double alpha,
+				     DistSVec<double,dim>& Wstarji, DistVec<int>& countWstarij,
+				     DistVec<int>& countWstarji, DistLevelSetStructure *LSS, bool linRecAtInterface,
+				     DistVec<int> &fluidId, int Nriemann, double dt, double alpha,
 				     DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
-				     DistSVec<double,dim>& R, int it, int failsafe, int rshift)
+				     DistSVec<double,dim>& R, DistSVec<double,dim>* RR,
+             int it, int failsafe, int rshift)
 {
 
   double t0 = timer->getTime();
@@ -1698,7 +1695,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
      *tag = 0;
   }
 
-  DistSVec<double,dim>* RR = new DistSVec<double,dim>(getNodeDistInfo());
+  // DistSVec<double,dim>* RR = new DistSVec<double,dim>(getNodeDistInfo());
   *RR = R; // initialize temp residual
 
   int iSub;
@@ -1777,7 +1774,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
 
   timer->addFiniteVolumeTermTime(t0);
 
-  if (RR) delete(RR); // delete temp residual
+  // if (RR) delete(RR); // delete temp residual
 }
 
 //------------------------------------------------------------------------------
@@ -2505,6 +2502,7 @@ void Domain::computeGalerkinBarTerm(bool doInitialTasks,
 
 //------------------------------------------------------------------------------
 
+/* // no longer used
 template<int dim>
 void Domain::computePointWiseSourceTerm(DistGeoState &geoState, DistVec<double> &ctrlVol,
 					DistNodalGrad<dim> &ngrad, DistSVec<double,dim> &VV,
@@ -2576,7 +2574,7 @@ void Domain::computePointWiseSourceTerm(DistGeoState &geoState, DistVec<double> 
     }
   }
 
-}
+} */
 
 //------------------------------------------------------------------------------
 //----------------- All LES Models start  here
@@ -5417,6 +5415,40 @@ void Domain::TagInterfaceNodes(int lsdim, DistVec<int> &Tag, DistSVec<double,dim
 }
 
 // -----------------------------------------------------------------------------
+
+template<int dim>
+void Domain::computeSADistSensitivity(FemEquationTerm *fet, DistGeoState &geoState,
+            DistSVec<double,3> &X, DistSVec<double,dim> &V, DistVec<double> &dS,
+            DistLevelSetStructure *LSS)
+{
+  int iSub;
+
+  // compute sensitivites
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->computeSADistSensitivity(fet, geoState(iSub), X(iSub),
+                              V(iSub), dS(iSub), LSS?&((*LSS)(iSub)):NULL);
+
+  // add for shared nodes
+#pragma omp parallel for reduction(+: ierr)
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    // subDomain[iSub]->sndData(*volPat,
+    //   reinterpret_cast<double (*)[1]> (dS.subData(iSub)));
+    subDomain[iSub]->sndData(*vecPat,
+      reinterpret_cast<double (*)[1]> (dS.subData(iSub)));
+
+  volPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    // subDomain[iSub]->addRcvData(*volPat,
+    //   reinterpret_cast<double (*)[1]> (dS.subData(iSub)));
+    subDomain[iSub]->addRcvData(*vecPat,
+      reinterpret_cast<double (*)[1]> (dS.subData(iSub)));
+
+}
+
+//------------------------------------------------------------------------------
 
 template<int dimLS>
 void Domain::pseudoFastMarchingMethod(DistVec<int> &Tag, DistSVec<double,3> &X,

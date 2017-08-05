@@ -1128,9 +1128,10 @@ public:
   template<class Scalar, int dim>
   void maxRcvData(CommPattern<Scalar> &, Scalar (*)[dim]);
 
+/* no longer used (sjg, 2017)
   template<class Scalar, int dim>
   void maxRcvDataAndCountUpdates(CommPattern<Scalar> &, Scalar (*)[dim],
-    int &, Vec<int> &);
+    int &, Vec<int> &); */
 
   template<class Scalar1, class Scalar2, int dim1, int dim2>
   void TagPsiExchangeData(CommPattern<Scalar1> &splevel, Scalar1 (*level)[dim1],
@@ -1239,6 +1240,11 @@ public:
   void TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Phi, int level, LevelSetStructure *LSS=0);
   template<int dimLS>
   void TagInterfaceNodes(int lsdim, SVec<bool,2> &Tag, SVec<double,dimLS> &Phi, LevelSetStructure *LSS);
+
+  template<int dim>
+  void computeSADistSensitivity(FemEquationTerm *fet, GeoState &geoState,
+            SVec<double,3> &X, SVec<double,dim> &V,Vec<double> &dS,
+            LevelSetStructure *LSS=0);
 
   template<int dimLS>
   void pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,

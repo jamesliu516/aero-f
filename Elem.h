@@ -122,7 +122,7 @@ public:
   void computeGalerkinTerm_e(FemEquationTerm *, SVec<double,3> &, Vec<double> &,
 									  SVec<double,dim> &, SVec<double,dim> &,
 									  Vec<GhostPoint<dim>*> * ghostPoints=0,
-			   LevelSetStructure *LSS=0) = 0;
+			              LevelSetStructure *LSS=0) = 0;
 
   virtual
   void computeVMSLESTerm(VMSLESTerm *, SVec<double,dim> &, SVec<double,3> &,
@@ -218,6 +218,11 @@ public:
                                  SVec<double,3> &X, SVec<double,1> &Psi, SVec<double,dim> &Phi) = 0;
 
   virtual
+  void computeSADistSensitivity(FemEquationTerm *, SVec<double,3> &,
+                  Vec<double> &, SVec<double,dim> &,
+                  Vec<double> &, LevelSetStructure *LSS=0) = 0;
+
+  virtual
   void FastMarchingDistanceUpdate(int node, Vec<int> &Tag, SVec<double,3> &X,
                                   SVec<double,dim> &d2wall, int level) = 0;
 
@@ -274,7 +279,7 @@ public:
   ElemWrapper_dim(Target *tt) : t(tt) { };
 
   void computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
-			   Vec<double> &d2wall, SVec<double,dim> &V,
+			            Vec<double> &d2wall, SVec<double,dim> &V,
 									SVec<double,dim> &R,
 									Vec<GhostPoint<dim>*> *ghostPoints=0,
 									LevelSetStructure *LSS=0) {
@@ -288,7 +293,6 @@ public:
 									  LevelSetStructure *LSS=0) {
 	  t->computeGalerkinTerm_e(fet, X, d2wall, V, R, ghostPoints, LSS);
   }
-
 
   void computeVMSLESTerm(VMSLESTerm *vmst, SVec<double,dim> &VBar,
 			 SVec<double,3> &X, SVec<double,dim> &V,
@@ -400,6 +404,12 @@ public:
                                  SVec<double,dim> &ddz,
                                  SVec<double,dim> &Phi,SVec<double,1> &Psi){
     t->recomputeDistanceCloseNodes(lsdim,Tag,X,ddx,ddy,ddz,Phi,Psi);
+  }
+
+  void computeSADistSensitivity(FemEquationTerm *fet, SVec<double,3> &X,
+                  Vec<double> &d2wall,SVec<double,dim> &V,
+                  Vec<double> &dS, LevelSetStructure *LSS=0) {
+    t->computeSADistSensitivity(fet, X, d2wall, V, dS, LSS);
   }
 
   void FastMarchingDistanceUpdate(int node, Vec<int> &Tag, SVec<double,3> &X,
@@ -644,14 +654,14 @@ public:
 
   template<int dim>
   void computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
-			   Vec<double> &d2wall, SVec<double,dim> &V,
+			            Vec<double> &d2wall, SVec<double,dim> &V,
 									SVec<double,dim> &R,
 									Vec<GhostPoint<dim>*> *ghostPoints=0,
 									LevelSetStructure *LSS=0) {
     ElemHelper_dim<dim> h;
     char xx[64];
 	  GenElemWrapper_dim<dim> *wrapper = (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
-    wrapper->computeGalerkinTerm(fet, X, d2wall, V, R,ghostPoints,LSS);
+    wrapper->computeGalerkinTerm(fet, X, d2wall, V, R, ghostPoints, LSS);
   }
 
   template<int dim>
@@ -908,6 +918,16 @@ public:
     wrapper->recomputeDistanceCloseNodes(lsdim,Tag,X,ddx,ddy,ddz,Phi,Psi);
   }
 
+  template<int dim>
+  void computeSADistSensitivity(FemEquationTerm *fet, SVec<double,3> &X,
+                  Vec<double> &d2wall, SVec<double,dim> &V,
+                  Vec<double> &dS, LevelSetStructure *LSS=0) {
+    ElemHelper_dim<dim> h;
+    char xx[64];
+    GenElemWrapper_dim<dim> *wrapper = (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+    wrapper->computeSADistSensitivity(fet, X, d2wall, V, dS, LSS);
+  }
+
   template<int dimLS>
   void FastMarchingDistanceUpdate(int node, Vec<int> &Tag, SVec<double,3> &X,
                                   SVec<double,dimLS> &d2wall, int level)
@@ -969,7 +989,7 @@ public:
 
   template<int dim>
   void computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
-			   Vec<double> &d2wall, SVec<double,dim> &V,
+			            Vec<double> &d2wall, SVec<double,dim> &V,
 									SVec<double,dim> &R,
 									Vec<GhostPoint<dim>*> *ghostPoints=0,
 									LevelSetStructure *LSS=0) {
@@ -1156,6 +1176,13 @@ public:
   }
 
   template<int dim>
+  void computeSADistSensitivity(FemEquationTerm *fet, SVec<double,3> &X,
+                  Vec<double> &d2wall, SVec<double,dim> &V,
+                  Vec<double> &dS, LevelSetStructure *LSS=0) {
+    fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
+  }
+
+  template<int dim>
   void FastMarchingDistanceUpdate(int node, Vec<int> &Tag, SVec<double,3> &X,
                                   SVec<double,dim> &d2wall, int level)
   {
@@ -1215,16 +1242,23 @@ public:
 
   template<int dim>
   void computeGalerkinTerm(FemEquationTerm *, GeoState &, SVec<double,3> &,
-			   SVec<double,dim> &, SVec<double,dim> &,
+			            SVec<double,dim> &, SVec<double,dim> &,
 									Vec<GhostPoint<dim>*> *ghostPoints=0,
 									LevelSetStructure *LSS=0, bool externalSI=false);
 
+  template<int dim>
+  void computeSADistSensitivity(FemEquationTerm *, GeoState &,
+                  SVec<double,3> &, SVec<double,dim> &,
+                  Vec<double> &, LevelSetStructure *LSS=0);
+
+/* // NOT USED
   template<int dim>
   void computeGalerkinTermRestrict(FemEquationTerm *, GeoState &,
 											  SVec<double,3> &, SVec<double,dim> &,
 											  SVec<double,dim> &, const std::vector<int> &,
 											  Vec<GhostPoint<dim>*> *ghostPoints=0,
-											  LevelSetStructure *LSS=0);
+											  LevelSetStructure *LSS=0); */
+
   template<int dim>
   void computeVMSLESTerm(VMSLESTerm *, SVec<double,dim> &, SVec<double,3> &,
 			 SVec<double,dim> &, SVec<double,dim> &);

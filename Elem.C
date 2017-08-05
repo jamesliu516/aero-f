@@ -126,8 +126,32 @@ void ElemSet::computeGalerkinTerm(FemEquationTerm *fet, GeoState &geoState,
 
 //------------------------------------------------------------------------------
 
+template<int dim>
+void ElemSet::computeSADistSensitivity(FemEquationTerm *fet, GeoState &geoState,
+									SVec<double,3> &X, SVec<double,dim> &V,
+									Vec<double> &dS, LevelSetStructure *LSS)
+{
+
+  Vec<double> &d2wall = geoState.getDistanceToWall();
+
+	if (sampleMesh)
+	{
+		for (int iElem=0; iElem<numSampledElems; ++iElem)
+		elems[ (elemsConnectedToSampleNode[iElem]) ]->computeSADistSensitivity(fet, X, d2wall, V, dS, LSS);
+	}
+	else
+	{
+		for (int iElem=0; iElem<numSampledElems; ++iElem)
+		elems[ iElem ]->computeSADistSensitivity(fet, X, d2wall, V, dS, LSS);
+	}
+
+}
+
+//------------------------------------------------------------------------------
+
 // Not used? KMW
 
+/*
 template<int dim>
 void ElemSet::computeGalerkinTermRestrict(FemEquationTerm *fet, GeoState &geoState,
 				  SVec<double,3> &X, SVec<double,dim> &V,
@@ -144,6 +168,9 @@ void ElemSet::computeGalerkinTermRestrict(FemEquationTerm *fet, GeoState &geoSta
 	}
 
 }
+
+*/
+
 //------------------------------------------------------------------------------
 
 // Included
