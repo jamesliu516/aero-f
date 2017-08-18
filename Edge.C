@@ -3173,7 +3173,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       Vec3D normalDir;
 
       double length;
-      double alpha = 0.1;
+      double alpha = 1/3.0;
 
       int ierr = 0;
       riemann.reset(it);
@@ -3318,51 +3318,51 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       if (higherOrderFSI) {
         if (iActive) {
 
-          double ri[dim];
-          higherOrderFSI->estimateR(l, 0, i, V, ngrad, X, fluidId, ri); // BUG corrected d2d: i<-j
-
-          for (int k = 0; k < dim; ++k) {
-            betai[k] = betaj[k] = 1.0;
-          }
-
-          if (higherOrderFSI->limitExtrapolation()) {
-            if (V[i][1] * dx[0] + V[i][2] * dx[1] + V[i][3] * dx[2] < 0.0) {
-              for (int k = 0; k < dim; ++k) {
-                betai[k] = std::min<double>(betai[k], ri[k]);
-              }
-            }
-          }
+//          double ri[dim];
+//          higherOrderFSI->estimateR(l, 0, i, V, ngrad, X, fluidId, ri); // BUG corrected d2d: i<-j
+//
+//          for (int k = 0; k < dim; ++k) {
+//            betai[k] = betaj[k] = 1.0;
+//          }
+//
+//          if (higherOrderFSI->limitExtrapolation()) {
+//            if (V[i][1] * dx[0] + V[i][2] * dx[1] + V[i][3] * dx[2] < 0.0) {
+//              for (int k = 0; k < dim; ++k) {
+//                betai[k] = std::min<double>(betai[k], ri[k]);
+//              }
+//            }
+//          }
 
           for (int k = 0; k < dim; k++) {
-            Vi[k] = V[i][k] + (1.0 - resij.alpha) * ddVij[k] * betai[k];
+            Vi[k] = V[i][k] + (1.0 - resij.alpha) * ddVij[k];
           }
 
-          varFcn->getVarFcnBase(fluidId[i])->verification(0, Udummy, Vi);
+//          varFcn->getVarFcnBase(fluidId[i])->verification(0, Udummy, Vi);
 
         }
 
         if (jActive) {
 
-          double rj[dim];
-          higherOrderFSI->estimateR(l, 1, j, V, ngrad, X, fluidId, rj); // Limited fsi i(!active), j(active)
-
-          for (int k = 0; k < dim; ++k) {
-            betai[k] = betaj[k] = 1.0;
-          }
-
-          if (higherOrderFSI->limitExtrapolation()) {
-            if (V[j][1] * dx[0] + V[j][2] * dx[1] + V[j][3] * dx[2] > 0.0) {
-              for (int k = 0; k < dim; ++k) {
-                betaj[k] = std::min<double>(betaj[k], rj[k]);
-              }
-            }
-          }
+//          double rj[dim];
+//          higherOrderFSI->estimateR(l, 1, j, V, ngrad, X, fluidId, rj); // Limited fsi i(!active), j(active)
+//
+//          for (int k = 0; k < dim; ++k) {
+//            betai[k] = betaj[k] = 1.0;
+//          }
+//
+//          if (higherOrderFSI->limitExtrapolation()) {
+//            if (V[j][1] * dx[0] + V[j][2] * dx[1] + V[j][3] * dx[2] > 0.0) {
+//              for (int k = 0; k < dim; ++k) {
+//                betaj[k] = std::min<double>(betaj[k], rj[k]);
+//              }
+//            }
+//          }
 
           for (int k = 0; k < dim; k++) {
-            Vj[k] = V[j][k] - (1.0 - resji.alpha) * ddVji[k] * betaj[k];
+            Vj[k] = V[j][k] - (1.0 - resji.alpha) * ddVji[k];
           }
 
-          varFcn->getVarFcnBase(fluidId[j])->verification(0, Udummy, Vj);
+//          varFcn->getVarFcnBase(fluidId[j])->verification(0, Udummy, Vj);
 
         }
       }
@@ -3439,18 +3439,14 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
                 } else {
 
-                  //*************************************
-                  V6NodeData (*v6data)[2] = higherOrderFSI->getV6Data();
-                  if (v6data == NULL) {
+                    double Vi_Recon[dim];
                     for (int k = 0; k < dim; k++) {
                       Wstar[k] = V[i][k] + (0.5 / max(1.0 - resij.alpha, alpha)) * (Wstar[k] - V[i][k]);
+                      Vi_Recon[k] = V[i][k] + 0.5* ddVij[k];
                     }
-                  } else {
-                    higherOrderFSI->extrapolateV6(l, 0, i, V, Vi, Wstar, X, resij.alpha, length, fluidId, betai);
-                    memcpy(Wstar, Vi, sizeof(double) * dim);
-                  }
+
                   varFcn->getVarFcnBase(fluidId[i])->verification(0, Udummy, Wstar);
-                  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxi, fluidId[i],
+                  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi_Recon, Wstar, fluxi, fluidId[i],
                                                 false);
 
                   if (structureType == BoundaryData::POROUSWALL && jActive) {
@@ -3559,17 +3555,16 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                       fluxj[k] = (1.0 - resji.porosity) * fluxj[k] + resji.porosity * flux[k];
                   }
                 } else {// Alex main's high order FSI
-                  V6NodeData (*v6data)[2] = higherOrderFSI->getV6Data();
-                  if (v6data == NULL) {
+
+                    double Vj_Recon[dim];
+
                     for (int k = 0; k < dim; k++) {
-                      Wstar[k] = V[j][k] + (0.5 / max(1.0 - resji.alpha, alpha)) * (Wstar[k] - V[j][k]);
+                       Wstar[k] = V[j][k] + (0.5 / max(1.0 - resji.alpha, alpha)) * (Wstar[k] - V[j][k]);
+                       Vj_Recon[k] = V[j][k] - 0.5 * ddVji[k];
                     }
-                  } else {
-                    higherOrderFSI->extrapolateV6(l, 1, j, V, Vj, Wstar, X, 1.0 - resji.alpha, length, fluidId, betaj);
-                    memcpy(Wstar, Vj, sizeof(double) * dim);
-                  }
+
                   varFcn->getVarFcnBase(fluidId[j])->verification(0, Udummy, Wstar);
-                  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxj, fluidId[j],
+                  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj_Recon, fluxj, fluidId[j],
                                                 false);
 
                   if (structureType == BoundaryData::POROUSWALL && iActive) {

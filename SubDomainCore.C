@@ -7097,6 +7097,9 @@ bool SubDomain::getFEMstencil2(int Ni, SVec<double,3> &X,
  
 	bool Wmode = (Wmode0_m || Wmode1_m) || (Wmode0_p || Wmode1_p);
 
+    if(!Wmode)
+      std::cout <<"Warning: fail to populate the ghost value at not Ni in SubDomain::getFEMstencil2" << std::endl;
+
 	return Wmode;
 
 }
