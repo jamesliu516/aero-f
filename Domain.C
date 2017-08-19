@@ -5084,7 +5084,7 @@ void Domain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orderOf
                                           DistSVec<double,dim> &V, DistVec<GhostPoint<dim>*> *ghostPoints,
                                           PostFcn *postFcn, DistNodalGrad<dim, double> *ngrad,
                                           VarFcn* vf, DistVec<int> *fid, bool externalSI)
-{
+{//Compute force load: pressure load and shear force
 
   typedef double array3d[3];
   array3d **subFs = new array3d * [numLocSub];
@@ -5153,7 +5153,7 @@ void Domain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orderOf
                                                           StNodeDir, StX1, StX2, rebuildTree);
   }
 
-  if(externalSI) //Dante's version
+  if(externalSI) //Dante's version, StX1[i] and StX2[i] are target position on normal or -normal direction
   {
     tmp1 = new double[numStructElems];
     tmp2 = new double[numStructElems];
@@ -5195,7 +5195,7 @@ void Domain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orderOf
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; iSub++)
   {
-    if(externalSI)
+    if(externalSI) //Dante' sversion
     {
       if(ghostPoints) gp = ghostPoints->operator[](iSub);
 
@@ -5212,7 +5212,7 @@ void Domain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orderOf
   double res = 0.0;
 
   for(int is=0; is<sizeFs; is++)
-  {
+  {//for subdomain 0
     Fs[is][0] = subFs[0][is][0];
     Fs[is][1] = subFs[0][is][1];
     Fs[is][2] = subFs[0][is][2];
