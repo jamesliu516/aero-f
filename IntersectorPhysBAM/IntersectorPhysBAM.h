@@ -305,7 +305,7 @@ class IntersectorPhysBAM : public LevelSetStructure {
     int computeSweptNodes(SVec<double,3>& X, Vec<bool>& tId,Communicator&,const double dt);
 
 	 void reFlagRealNodes(SVec<double,3>& X, Vec<bool> *bk_ISactive = 0); //d2d
-	 void ComputeSIbasedIntersections(int iSub, SVec<double,3>& X, SVec<double,3> &boxMin, SVec<double,3> &boxMax, bool withViscousTerms); //d2d
+	 void ComputeSIbasedIntersections(int iSub, SVec<double,3>& X, SVec<double,3> &boxMin, SVec<double,3> &boxMax, bool withViscousTerms, bool externalSI = true); //d2d
   public:
     IntersectorPhysBAM(SubDomain &, SVec<double, 3> &X, Vec<int> &status0, Vec<ClosestPoint> &closest,
                        Vec<bool>& occluded_node0,DistIntersectorPhysBAM &);
