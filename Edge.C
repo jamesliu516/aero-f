@@ -3406,12 +3406,11 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
         SetupStructureType(jActive,fluidId[i],
         		fluidId[j],resij,&iPorous,&iActuatorDisk,
-				&iMassInflow,&reconstructionMethod,i,j);//Chech for errors
+				&iMassInflow,&reconstructionMethod,i,j);//Check for errors
 
         switch (structureType) {
           case BoundaryData::WALL:
           case BoundaryData::SYMMETRYPLANE:
-          case BoundaryData::POROUSWALL:
             if (structureType == BoundaryData::SYMMETRYPLANE)
               riemann.computeSymmetryPlaneRiemannSolution(Vi, resij.normVel, normalDir, varFcn, Wstar, j, fluidId[i]);
             else
@@ -3429,34 +3428,35 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
                   fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi, fluidId[i],
                                                 false);
-
-                  if (structureType == BoundaryData::POROUSWALL && jActive) {
-                    assert(iPorous);
-                    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[i]);
-                    for (int k = 0; k < dim; k++)
-                      fluxi[k] = (1.0 - resij.porosity) * fluxi[k] + resij.porosity * flux[k];
-                  }
-
                 } else {
-
                     double Vi_Recon[dim];
                     for (int k = 0; k < dim; k++) {
                       Wstar[k] = V[i][k] + (0.5 / max(1.0 - resij.alpha, alpha)) * (Wstar[k] - V[i][k]);
                       Vi_Recon[k] = V[i][k] + 0.5* ddVij[k];
                     }
-
                   varFcn->getVarFcnBase(fluidId[i])->verification(0, Udummy, Wstar);
                   fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi_Recon, Wstar, fluxi, fluidId[i],
                                                 false);
-
-                  if (structureType == BoundaryData::POROUSWALL && jActive) {
-                    assert(iPorous);
-                    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[i]);
-                    for (int k = 0; k < dim; k++)
-                      fluxi[k] = (1.0 - resij.porosity) * fluxi[k] + resij.porosity * flux[k];
-                  }
-
                 }
+                break;
+          case BoundaryData::POROUSWALL:
+              riemann.computeFSIRiemannSolution(Vi, resij.normVel, normalDir, varFcn, Wstar, j, fluidId[i]);
+                if (it > 0) {
+                  //if it>0 (i.e. not called in computeResidualNorm), store Wstarij.
+                  for (int k = 0; k < dim; k++) Wstarij[l][k] = Wstar[k];
+                }
+
+
+                  //compute the flux
+                  //This is a real wall, and we use the value from the solution of the reimann problem
+                  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi, fluidId[i],
+                                                false);
+                    if(jActive) {
+                      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[i]);
+                      for (int k = 0; k < dim; k++)
+                        fluxi[k] = (1.0 - resij.porosity) * fluxi[k] + resij.porosity * flux[k];
+                    }
+
                 break;
           case BoundaryData::ACTUATORDISK:
             assert(iActuatorDisk);
@@ -3537,7 +3537,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         switch (structureType) {
           case BoundaryData::WALL:
           case BoundaryData::SYMMETRYPLANE:
-          case BoundaryData::POROUSWALL:
             if (structureType == BoundaryData::SYMMETRYPLANE)
               riemann.computeSymmetryPlaneRiemannSolution(Vj, resji.normVel, normalDir, varFcn, Wstar, i, fluidId[j]);
             else
@@ -3547,37 +3546,44 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
                 if (!higherOrderFSI) {
                   //Not an actuator Disk
-                  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj, fluidId[j], false);
-                  if (structureType == BoundaryData::POROUSWALL && iActive) {
-                    assert(jPorous);
-                    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[j]);
-                    for (int k = 0; k < dim; k++)
-                      fluxj[k] = (1.0 - resji.porosity) * fluxj[k] + resji.porosity * flux[k];
-                  }
-                } else {// Alex main's high order FSI
-
-                    double Vj_Recon[dim];
-
-                    for (int k = 0; k < dim; k++) {
-                       Wstar[k] = V[j][k] + (0.5 / max(1.0 - resji.alpha, alpha)) * (Wstar[k] - V[j][k]);
-                       Vj_Recon[k] = V[j][k] - 0.5 * ddVji[k];
-                    }
-
-                  varFcn->getVarFcnBase(fluidId[j])->verification(0, Udummy, Wstar);
-                  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj_Recon, fluxj, fluidId[j],
+                  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj, fluidId[j],
                                                 false);
-
-                  if (structureType == BoundaryData::POROUSWALL && iActive) {
-                    assert(jPorous);
-                    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[j]);
-                    for (int k = 0; k < dim; k++) {
-                      fluxj[k] = (1.0 - resji.porosity) * fluxj[k] + resji.porosity * flux[k];
-                    }
+//                  if (structureType == BoundaryData::POROUSWALL && iActive) {
+//                    assert(jPorous);
+//                    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[j]);
+//                    for (int k = 0; k < dim; k++)
+//                      fluxj[k] = (1.0 - resji.porosity) * fluxj[k] + resji.porosity * flux[k];
+//                  }
+                } else {// Alex main's high order FSI
+                  double Vj_Recon[dim];
+                  for (int k = 0; k < dim; k++) {
+                    Wstar[k] = V[j][k] + (0.5 / max(1.0 - resji.alpha, alpha)) * (Wstar[k] - V[j][k]);
+                    Vj_Recon[k] = V[j][k] - 0.5 * ddVji[k];
                   }
-
-
+                  varFcn->getVarFcnBase(fluidId[j])->verification(0, Udummy, Wstar);
+                  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj_Recon, fluxj,
+                                                fluidId[j],
+                                                false);
+//                  if (structureType == BoundaryData::POROUSWALL && iActive) {
+//                    assert(jPorous);
+//                    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[j]);
+//                    for (int k = 0; k < dim; k++) {
+//                      fluxj[k] = (1.0 - resji.porosity) * fluxj[k] + resji.porosity * flux[k];
+//                    }
+//                  }
                 }
-
+                break;
+          case BoundaryData::POROUSWALL:
+            riemann.computeFSIRiemannSolution(Vj, resji.normVel, normalDir, varFcn, Wstar, i, fluidId[j]);
+                if (it > 0) for (int k = 0; k < dim; k++) Wstarji[l][k] = Wstar[k];
+                fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj, fluidId[j],
+                                              false);
+                if (iActive) {
+                  assert(jPorous);
+                  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[j]);
+                  for (int k = 0; k < dim; k++)
+                    fluxj[k] = (1.0 - resji.porosity) * fluxj[k] + resji.porosity * flux[k];
+                }
                 break;
           case BoundaryData::ACTUATORDISK:
             assert(jActuatorDisk);

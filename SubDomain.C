@@ -9488,10 +9488,11 @@ void SubDomain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orde
                     LevelSetResult lsResij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, (T[i]<T[j]));
 
                     norm[i] = (lsResij.gradPhi*(Xstruct[lsResij.trNodes[0]]-Xf[i]) <= 0) ? -1 : 1;
-
+                    //  fluid node i is in -norm[i]*gradPhi direction
                     LevelSetResult lsResji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, (T[i]>=T[j]));
 
                     norm[j] = (lsResji.gradPhi*(Xstruct[lsResji.trNodes[0]]-Xf[j]) <= 0) ? -1 : 1;
+                    //  fluid node j is in -norm[j]*gradPhi  direction
                 }
             }
 
@@ -9515,7 +9516,7 @@ void SubDomain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orde
                     if( (LSS.isActive(0,T[i]) || (cs && !LSS.isOccluded(0,T[i]))) && dist < mindist[0] && normal*(Xp-Xf[i]) <= 0. )
                     {
                         mindist[0] = dist;
-                        node[0] = T[i]; // closest node
+                        node[0] = T[i]; // closest node on -normal side
                     }
                 }
                 else if(norm[i] > 0)
@@ -9523,7 +9524,7 @@ void SubDomain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orde
                     if( (LSS.isActive(0,T[i])|| (cs && !LSS.isOccluded(0,T[i]))) && dist < mindist[1] && normal*(Xp-Xf[i]) > 0. )
                     {
                         mindist[1] = dist;
-                        node[1] = T[i]; // closest node
+                        node[1] = T[i]; // closest node on normal side
                     }
                 }
             }
@@ -10241,6 +10242,8 @@ void SubDomain::computeEMBNodeScalarQuantity_step1(SVec<double,3> &X, SVec<doubl
 	                                                int** stNodeDir, double** stX1, double** stX2,
 																	bool rebuildTree)
 {
+    // stNodeDir[nSt][0] = 1, on the normal direction of the surface element, closest active node or position stX1[nSt]
+    // stNodeDir[nSt][1] = 1, on the -normal direction of the surface element, closest active node or position stX2[nSt]
 
 	if(rebuildTree) myTree->reconstruct<&Elem::computeBoundingBox>(X, elems.getPointer(), elems.size());
 
@@ -10302,6 +10305,7 @@ void SubDomain::computeEMBNodeScalarQuantity_step1(SVec<double,3> &X, SVec<doubl
 		E->computeBarycentricCoordinates(X, Xp, bary); 
 		if(bary[0] < 0.0 || bary[1] < 0.0 || bary[2] < 0.0 || bary[0]+bary[1]+bary[2] > 1.0) 
 		{
+            std::cout << "impossible in SubDomain::computeEMBNodeScalarQuantity_step1" << std::endl;
 			E = 0;
 			continue;
 		}
@@ -10343,7 +10347,7 @@ void SubDomain::computeEMBNodeScalarQuantity_step1(SVec<double,3> &X, SVec<doubl
 		{
 			double dist = dbary[i].norm();
 				
-			if(norm[i] < 0)
+			if(norm[i] < 0)//0: closest node in norm direction
 			{
 				if(!LSS.isOccluded(0.0, T[i]) && dist < mindist[0] && stNormal*(Xp - XO[i]) <= 0.0 ) 
 				{
@@ -10351,7 +10355,7 @@ void SubDomain::computeEMBNodeScalarQuantity_step1(SVec<double,3> &X, SVec<doubl
 					node[0] = T[i];
 				}
 			}
-			else if(norm[i] > 0) 
+			else if(norm[i] > 0) //1: closest node in -norm direction
 			{
 				if(!LSS.isOccluded(0.0, T[i]) && dist < mindist[1] && stNormal*(Xp - XO[i]) > 0.0 ) 
 				{
@@ -10370,11 +10374,11 @@ void SubDomain::computeEMBNodeScalarQuantity_step1(SVec<double,3> &X, SVec<doubl
 			Vec3D Xn;
 			for(int i=0; i<3; ++i) Xn[i] = X[node[dir]][i]; // closest node to gaussian point
 
-			double h = (Xp - Xn)*stNormal; //todo dh changes from (Xn - Xp)*stNormal;
+			double h = (Xn - Xp)*stNormal;  // from XpXn * stNormal
 
 			Vec3D Xe;
 			if(!LSS.isActive(0.0, node[dir]))
-				Xe = Xn + stNormal*h*dtol_plus;
+				Xe = Xn + stNormal*h*dtol_plus; //todo this is questionable
 			else
 				Xe = Xp;
 			 
@@ -10458,7 +10462,8 @@ void SubDomain::computeEMBNodeScalarQuantity_step2(SVec<double,3> &X, SVec<doubl
 		double mindist[2] = {FLT_MAX, FLT_MAX};
 
 		for(int dir=0; dir<2; ++dir)
-		{
+		{   //find the closest active node in a weird way. find a node in step 1, in the dir side, and choose node from
+            //the element that contains the node in the first step.
 			if(stNodeDir[nSt][dir] == 0) continue;
 				
 			Vec3D Xe;
@@ -10500,7 +10505,7 @@ void SubDomain::computeEMBNodeScalarQuantity_step2(SVec<double,3> &X, SVec<doubl
 		double Cplocal = 0.0;
 		double Cflocal = 0.0;
 
-		Vec3D stN[2] = {-stNormal*Surf, stNormal*Surf};
+		Vec3D stN[2] = {-stNormal*Surf, stNormal*Surf}; //normal with length the surface element size
 
 		for(int dir=0; dir<2; ++dir)
 		{	
@@ -10552,7 +10557,7 @@ void SubDomain::computeEMBNodeScalarQuantity_step2(SVec<double,3> &X, SVec<doubl
 						X_db[j] = X[Ni][j] - Xp[j];
 					}
 
-					double dadb = X_da * X_db;
+					double dadb = X_da * X_db; //Make sure Xi and Xk are in the same side
 					double dist_x = sqrt(X_da*X_da);
 
 					if(dist_x < dist_tmp && dadb > 0.0)  
@@ -10563,7 +10568,7 @@ void SubDomain::computeEMBNodeScalarQuantity_step2(SVec<double,3> &X, SVec<doubl
 					}
 
 					if(isNGhost)
-					{						
+					{	//if Nk is ghost,
 						gp = (*ghostPoints)[Nk];						
 
 						Vec3D Xiw, Xkw;
@@ -10592,15 +10597,15 @@ void SubDomain::computeEMBNodeScalarQuantity_step2(SVec<double,3> &X, SVec<doubl
 				//double *Vwall = 0;
 				double *Vface[3] = {0,0,0};
 				
-				d2w[0] = dw; d2w[1] = dw; d2w[2] = dw;
-				Vface[0] = Vtet[ne]; Vface[1] = Vtet[ne]; Vface[2] = Vtet[ne];
+				d2w[0] = dw; d2w[1] = dw; d2w[2] = dw; //d2w is nerver used
+				Vface[0] = Vtet[ne]; Vface[1] = Vtet[ne]; Vface[2] = Vtet[ne];//Vface is never used
 
 				double* Vwall = Vtet[ne];
 				Vwall[1] = Vwall[2] = Vwall[3] = 0.0;
 
 				Vec3D F = postFcn->computeViscousForce(dp1dxj, stN[dir], d2w, Vwall, Vface, Vtet);
 				
-				Vec3D tdir(1.0, 0.0, 0.0);
+				Vec3D tdir(1.0, 0.0, 0.0); //todo Daniel Huang, we need to change the skin friction definition
 					
 				Cflocal += 2.0 * tdir * F / Surf;
 			}
