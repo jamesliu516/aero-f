@@ -144,6 +144,9 @@ public:
   virtual void getV4FromTemperature(double *V, double T) const{
     fprintf(stderr, "*** Error:  getV4FromTemperature Function not defined\n");
     exit(1); }
+  virtual void getdV4FromdTemperature(double *V, double T) const{
+    fprintf(stderr, "*** Error:  getdV4FromdTemperature Function not defined\n");
+    exit(1); }
   virtual double computeRhoEnergy(double *V)   const{
     fprintf(stderr, "*** Error:  computeRhoEnergy Function not defined\n");
     exit(1); }
@@ -178,12 +181,19 @@ public:
   virtual void rV(IoData &iod) { pmin = iod.eqs.fluidModel.pmin; }
   virtual Vec3D getDerivativeOfVelocity(double *dV) const { return Vec3D(dV[1], dV[2], dV[3]); }
   virtual double computeDerivativeOfTemperature(double *V, double *dV) const { return 0.0; }
+  virtual void computeDerivativeOperatorsOfTemperature(double *V, double dTdV[5]) const {
+    fprintf(stderr, "*** Error:  computeDerivativeOperatorsOfTemperature Function not defined\n");
+    exit(-1);  }
   virtual double computeDerivativeOfMachNumber(double *V, double *dV, double dMach) const { return 0.0; }
   virtual double computeDerivativeOfSoundSpeed(double *V, double *dV, double dMach) const { return 0.0; }
   virtual double computeDerivativeOfTotalPressure(double machr, double dmachr, double* V, double* dV, double dmach) const { return 0.0; }
   virtual double getDerivativeOfPressureConstant() const { return 0.0; }
   virtual double getDerivativeOfVelocityNorm(double *V, double *dV) const { 
-    return (V[1]*dV[1]+V[2]*dV[2]+V[3]*dV[3])/sqrt(V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
+    double vnorm=sqrt(V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
+    if (vnorm < 100*std::numeric_limits<float>::min())//TODO this will be incorrect on stationary points and for shape sensitivity
+      return 0.0;
+    else
+      return (V[1]*dV[1]+V[2]*dV[2]+V[3]*dV[3])/vnorm;
   }
 
   virtual double specificHeatCstPressure() const{ 

@@ -503,9 +503,9 @@ public:
 
   template<int dim>
   void populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints, DistSVec<double,3> &X, 
-									DistSVec<double,dim> &U, DistNodalGrad<dim, double> *ngrad, VarFcn *varFcn,
-									DistLevelSetStructure *distLSS,bool linRecAtInterface, DistVec<int> &tag, 
-									bool externalSI=false, FemEquationTerm *fet = 0);
+         DistSVec<double,dim> &U, DistNodalGrad<dim, double> *ngrad, VarFcn *varFcn,
+         DistLevelSetStructure *distLSS,bool linRecAtInterface, DistVec<int> &tag,
+         bool externalSI=false, FemEquationTerm *fet = 0);
 
   template<int dim, class Scalar, int neq>
   void populateGhostJacobian(DistVec<GhostPoint<dim>*> *ghostPoints,DistSVec<double,dim> &U,FluxFcn** fluxFcn, VarFcn *varFcn,DistLevelSetStructure *distLSS,DistVec<int> &tag, DistMat<Scalar,neq>& A);
@@ -998,6 +998,9 @@ public:
 	void writeVectorToFile(const char *, int, double, DistVec<Scalar> &, Scalar* = 0); //<! for non-state vector, Lei Lei, 03 Feb 2016
 
   template<class Scalar, int dim>
+  void writeVectorToFile(const char *, int, double, DistSVec<Scalar,dim> &, DistLevelSetStructure *distLSS, DistVec<GhostPoint<dim>*> *ghostPoints, Scalar* = 0);
+
+  template<class Scalar, int dim>
   void scaleSolution(DistSVec<Scalar,dim> &, RefVal*);
 
   template<int dim>
@@ -1085,6 +1088,7 @@ public:
   void computeDerivativeOperatorsOfNormals(DistSVec<double,3> &, RectangularSparseMat<double,3,3> **, RectangularSparseMat<double,3,3> **); 
 
   void computeDerivativeOfWeightsLeastSquares(DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,6> &);
+  void computeDerivativeOfWeightsLeastSquaresEmb(DistSVec<double,3> &, DistSVec<double,3> &,const DistVec<int> &fluidId, DistSVec<double,6> &,bool,DistLevelSetStructure*,bool);
   void computeDerivativeOfWeightsLeastSquares(RectangularSparseMat<double,3,6> **, RectangularSparseMat<double,6,6> **, DistSVec<double,3> &, DistSVec<double,6> &);
   void computeTransposeDerivativeOfWeightsLeastSquares(RectangularSparseMat<double,3,6> **, RectangularSparseMat<double,6,6> **, DistSVec<double,6> &, DistSVec<double,3> &);
   void computeDerivativeOperatorsOfWeightsLeastSquares(DistSVec<double,3> &, RectangularSparseMat<double,3,6> **, RectangularSparseMat<double,6,6> **);
@@ -1103,6 +1107,25 @@ public:
             DistSVec<double,6> &, DistSVec<double,6> &,
             DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &,
             DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &);
+
+  template<int dim, class Scalar>
+  void computeDerivativeOfGradientsLeastSquaresEmb(
+      DistSVec<double,3> &X,      DistSVec<double,3> &dX,
+      DistSVec<double,6> &R,      DistSVec<double,6> &dR,
+      DistSVec<Scalar,dim> &dddx, DistSVec<Scalar,dim> &dddy, DistSVec<Scalar,dim> &dddz,
+      DistSVec<Scalar,dim> &var,  DistSVec<Scalar,dim> &dvar,
+      bool linFSI,
+      const DistVec<int> &fluidId,
+      DistLevelSetStructure *distLSS,
+      bool includeSweptNodes);
+//            DistSVec<double,3> &, DistSVec<double,3> &,
+//            DistSVec<double,6> &, DistSVec<double,6> &,
+//            DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &,
+//            DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &,
+//            bool linFSI,
+//            const DistVec<int> &fluidId,
+//            DistLevelSetStructure *distLSS,
+//            bool includeSweptNodes);
 
   template<int dim, class Scalar>
   void computeDerivativeOfGradientsLeastSquares(dRdXoperators<dim> &,
@@ -1168,7 +1191,7 @@ public:
                                                       dRdXoperators<dim> &);
 
   template<int dim>
-    void computeDerivativeOfFiniteVolumeTerm(FluxFcn** fluxFcn,  RecFcn* recFcn,
+    void computeDerivativeOfFiniteVolumeTermEmb(FluxFcn** fluxFcn,  RecFcn* recFcn,
 					     DistBcData<dim>& bcData, DistGeoState& geoState,
 					     DistSVec<double,3> &X,
 					     DistLevelSetStructure *distLSS,
@@ -1184,12 +1207,37 @@ public:
 
   template<int dim>
   void computeDerivativeOfGalerkinTerm(FemEquationTerm *, DistBcData<dim> &,
-			   DistGeoState &, DistSVec<double,3> &, DistSVec<double,3> &,
-			   DistSVec<double,dim> &, DistSVec<double,dim> &, double, DistSVec<double,dim> &);
+         DistGeoState &, DistSVec<double,3> &, DistSVec<double,3> &,
+         DistSVec<double,dim> &, DistSVec<double,dim> &, double, DistSVec<double,dim> &);
+
+  template<int dim>
+  void computeDerivativeOfGalerkinTermEmb(FemEquationTerm *, DistBcData<dim> &,
+         DistGeoState &, DistSVec<double,3> &, DistSVec<double,3> &,
+         DistSVec<double,dim> &, DistSVec<double,dim> &, double, DistSVec<double,dim> &,
+         DistVec<GhostPoint<dim>*>*, DistLevelSetStructure*);
+
+  template<int dim>
+  void computeDerivativeOfGalerkinTerm(dRdXoperators<dim> &, FemEquationTerm *, DistBcData<dim> &,
+         DistGeoState &, DistSVec<double,3> &, DistSVec<double,3> &,
+         DistSVec<double,dim> &, DistSVec<double,dim> &, double, DistSVec<double,dim> &);
+
+
+
+  template<int dim>
+  void computeTransposeDerivativeOfGalerkinTerm(dRdXoperators<dim> &, DistSVec<double,dim> &, DistSVec<double,3> &);
+
+  template<int dim>
+  void computeDerivativeOperatorsOfGalerkinTerm(FemEquationTerm *, DistBcData<dim> &,
+			   DistGeoState &, DistSVec<double,3> &,
+			   DistSVec<double,dim> &, RectangularSparseMat<double,3,dim> **);
 
   template<int dim>
   void applyBCsToDerivativeOfResidual(BcFcn *, DistBcData<dim> &,
 			  DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
+
+  template<int dim>
+  void applyHackedBCsToDerivativeOfResidual(BcFcn *, DistBcData<dim> &,
+        DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
 
   template<int dim>
   void computeDerivativeOfSmagorinskyLESTerm(SmagorinskyLESTerm *, DistSVec<double,3> &,

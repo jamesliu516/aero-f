@@ -125,7 +125,8 @@ void DistTimeState<dim>::initialize(IoData &ioData, SpaceOperator<dim> *spo, Var
 // Included (MB)
   if (ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
       ioData.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
-      ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
+	  ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_ ||
+	  ioData.problem.alltype == ProblemData::_SENSITIVITY_ANALYSIS_ ) {
     dIdti = new DistVec<double>(dI);
     dIdtv = new DistVec<double>(dI);
     dIrey = new DistVec<double>(dI);
