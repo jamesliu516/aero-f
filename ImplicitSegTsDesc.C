@@ -29,7 +29,7 @@
 template<int dim, int neq1, int neq2>
 ImplicitSegTsDesc<dim,neq1,neq2>::
 ImplicitSegTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) :
-  ImplicitTsDesc<dim>(ioData, geoSource, dom), b1(this->getVecInfo()), dQ1(this->getVecInfo()), 
+  ImplicitTsDesc<dim>(ioData, geoSource, dom), b1(this->getVecInfo()), dQ1(this->getVecInfo()),
   b2(this->getVecInfo()), dQ2(this->getVecInfo())
 {
 
@@ -64,10 +64,10 @@ ImplicitSegTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) :
       break;
   }
 
-  pc1 = ImplicitTsDesc<dim>::template 
+  pc1 = ImplicitTsDesc<dim>::template
     createPreconditioner<PrecScalar,neq1>(implicitData.newton.ksp.ns.pc, this->domain);
   ksp1 = this->createKrylovSolver(this->getVecInfo(), implicitData.newton.ksp.ns, mvp1, pc1, this->com);
-  pc2 = ImplicitTsDesc<dim>::template 
+  pc2 = ImplicitTsDesc<dim>::template
     createPreconditioner<PrecScalar,neq2>(implicitData.newton.ksp.tm.pc, this->domain);
   ksp2 = this->createKrylovSolver(this->getVecInfo(), implicitData.newton.ksp.tm, mvp2, pc2, this->com);
 
@@ -112,7 +112,7 @@ createSpaceOperator1(IoData &ioData, SpaceOperator<dim> *spo)
 
   double gamma = ioData.schemes.ns.gamma;
 
-  FluxFcn **ff1 = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1]; 
+  FluxFcn **ff1 = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1];
   ff1 -= BC_MIN_CODE;
   if(BC_MAX_CODE-BC_MIN_CODE+1 < 22)
     fprintf(stderr,"Be prepared to see a segmentation fault shortly...\n");
@@ -166,7 +166,7 @@ template<int dim, int neq1, int neq2>
 SpaceOperator<dim> *ImplicitSegTsDesc<dim,neq1,neq2>::
 createSpaceOperator2(IoData &ioData, SpaceOperator<dim> *spo)
 {
-  
+
   SpaceOperator<dim> *spo2 = new SpaceOperator<dim>(*spo, false);
 
   double gamma = ioData.schemes.ns.gamma;
@@ -280,7 +280,7 @@ void ImplicitSegTsDesc<dim,neq1,neq2>::computeJacobian(int it, DistSVec<double,d
 
 template<int dim, int neq1, int neq2>
 template<int neq>
-void ImplicitSegTsDesc<dim,neq1,neq2>::setOperator(MatVecProd<dim,neq> *mvp, KspPrec<neq> *pc, 
+void ImplicitSegTsDesc<dim,neq1,neq2>::setOperator(MatVecProd<dim,neq> *mvp, KspPrec<neq> *pc,
 						   DistSVec<double,dim> &Q, SpaceOperator<dim> *spo)
 {
 
@@ -322,7 +322,7 @@ void ImplicitSegTsDesc<dim,neq1,neq2>::setOperator(MatVecProd<dim,neq> *mvp, Ksp
               pmg->initialize();
             pmg->getData(*_pc2);
           }
- 
+
         }
         else  {
           spaceOp2->computeJacobian(*this->X, *this->A, Q, *_pc2, this->timeState);
@@ -336,14 +336,14 @@ void ImplicitSegTsDesc<dim,neq1,neq2>::setOperator(MatVecProd<dim,neq> *mvp, Ksp
         }
       }
     }
-    else if (mvph1) 
+    else if (mvph1)
     {
       JacobiPrec<PrecScalar,neq> *jac = dynamic_cast<JacobiPrec<PrecScalar,neq> *>(pc);
       IluPrec<PrecScalar,neq> *ilu = dynamic_cast<IluPrec<PrecScalar,neq> *>(pc);
       //MultiGridPrec<PrecScalar,neq> *pmg = dynamic_cast<MultiGridPrec<PrecScalar,neq> *>(pc);
-      if (jac) 
+      if (jac)
         jac->getData(*mvph1);
-      else if (ilu) 
+      else if (ilu)
         ilu->getData(*mvph1);
       else if (pmg) {
         if (!pmg->isInitialized())
@@ -353,7 +353,7 @@ void ImplicitSegTsDesc<dim,neq1,neq2>::setOperator(MatVecProd<dim,neq> *mvp, Ksp
     }
 
   }
-  
+
 }
 
 //------------------------------------------------------------------------------
@@ -366,7 +366,7 @@ void ImplicitSegTsDesc<dim,neq1,neq2>::setOperators(DistSVec<double,dim> &Q)
   setOperator(mvp2, pc2, Q, this->spaceOp);
 
   double t0 = this->timer->getTime();
-        
+
   pc1->setup();
   pc2->setup();
 
@@ -379,7 +379,7 @@ void ImplicitSegTsDesc<dim,neq1,neq2>::setOperators(DistSVec<double,dim> &Q)
 //------------------------------------------------------------------------------
 
 template<int dim, int neq1, int neq2>
-int ImplicitSegTsDesc<dim,neq1,neq2>::solveLinearSystem(int it, DistSVec<double,dim> &b, 
+int ImplicitSegTsDesc<dim,neq1,neq2>::solveLinearSystem(int it, DistSVec<double,dim> &b,
 							DistSVec<double,dim> &dQ)
 {
 
@@ -411,6 +411,14 @@ int ImplicitSegTsDesc<dim,neq1,neq2>::solveLinearSystem(int it, DistSVec<double,
 
   return 0;
 
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, int neq1, int neq2>
+void ImplicitSegTsDesc<dim,neq1,neq2>::rstVarImplicitSegTsDesc(IoData &ioData)
+{
+  std::cout<<"Not implemented yet"<<std::endl; sleep(1); exit(-1);
 }
 
 //------------------------------------------------------------------------------

@@ -385,6 +385,12 @@ public:
     double *v, double *ub, double *dub, double *f, double *df
   );
 
+  virtual void computeDerivativeOperators
+  (
+    double*, double, double*, double*,
+    double [7][3], double[7][1], double [7][7]
+  );
+
 };
 
 //------------------------------------------------------------------------------
@@ -419,6 +425,16 @@ public:
     double ire, double dIre, double *n, double *dn, double nv, double dnv,
     double *v, double *ub, double *dub, double *f, double *df
   );
+
+  virtual void computeDerivativeOperators
+  (
+    double*, double, double*, double*,
+    double [7][3], double[7][1], double [7][7]
+  )
+  {
+    std::cout << "\n !!! FluxFcnSGInternalInflowEuler3D::computeDerivative (14 arg.) is not implemented !!!\n\n";
+    exit(1);
+  }
 
 };
 
@@ -455,6 +471,16 @@ public:
     double *v, double *ub, double *dub, double *f, double *df
   );
 
+  virtual void computeDerivativeOperators
+  (
+    double*, double, double*, double*,
+    double [7][3], double[7][1], double [7][7]
+  )
+  {
+    std::cout << "\n !!! FluxFcnSGDirectStateInflowEuler3D::computeDerivative (14 arg.) is not implemented !!!\n\n";
+    exit(1);
+  }
+
 };
 
 //------------------------------------------------------------------------------
@@ -489,6 +515,16 @@ public:
     double ire, double dIre, double *n, double *dn, double nv, double dnv,
     double *v, double *ub, double *dub, double *f, double *df
   );
+
+  virtual void computeDerivativeOperators
+  (
+    double*, double, double*, double*,
+    double [7][3], double[7][1], double [7][7]
+  )
+  {
+    std::cout << "\n !!! FluxFcnSGMassFlowInflowEuler3D::computeDerivative (14 arg.) is not implemented !!!\n\n";
+    exit(1);
+  }
 
 };
 
@@ -564,6 +600,16 @@ public:
     double ire, double dIre, double *n, double *dn, double nv, double dnv,
     double *v, double *ub, double *dub, double *f, double *df
   );
+
+  virtual void computeDerivativeOperators
+  (
+    double*, double, double*, double*,
+    double [7][3], double[7][1], double [7][7]
+  )
+  {
+    std::cout << "\n !!! FluxFcnSGInternalOutflowEuler3D::computeDerivative (14 arg.) is not implemented !!!\n\n";
+    exit(1);
+  }
 
 };
 

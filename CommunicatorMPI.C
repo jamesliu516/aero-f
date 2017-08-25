@@ -257,6 +257,14 @@ void Communicator::fprintf(FILE *file, const char *format, ...)
 
 //------------------------------------------------------------------------------
 
+void Communicator::system(const char* command)
+{
+  if (thisCPU == 0)
+    std::system(command);
+}
+
+//------------------------------------------------------------------------------
+
 void Communicator::waitForAllReq()
 {
 

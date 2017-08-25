@@ -1374,6 +1374,7 @@ void DistIntersectorPhysBAM::findActiveNodesUsingFloodFill(const DistVec<bool>& 
     		//in that case, we put the color to a non existing one to enforce the nodes to be ghost
     		color = -1;
     	}
+
       if((*is_occluded)(iSub)[i] || globalColorToGlobalStatus.find(color)==globalColorToGlobalStatus.end()){
 #if 0 // Debug output
         fprintf(stderr,"Flagging node %d as OUTSIDE COLOR %d, based on occluded = %d, global_color found = %d\n",

@@ -300,7 +300,7 @@ void MatchNodeSet::getDisplacement(double (*xs)[3], int (*stElem)[3],
 
 //------------------------------------------------------------------------------
 
-void MatchNodeSet::getDisplacementSensitivity(bool *flag, double (*disp)[2][3], 
+void MatchNodeSet::getDisplacementSensitivity(bool *flag, double scale, double (*disp)[2][3],
                                               double (*dx)[3], double *norms)
 {
 
@@ -310,11 +310,11 @@ void MatchNodeSet::getDisplacementSensitivity(bool *flag, double (*disp)[2][3],
   for (int i=0; i<numNodes; ++i) {
     for (int k=0; k<3; ++k) {
       if (flag==0||flag[ index[i][0] ]) {
-        norms[0] += disp[ index[i][2] ][0][k] * disp[ index[i][2] ][0][k];
-        norms[1] += disp[ index[i][2] ][1][k] * disp[ index[i][2] ][1][k];
+    	  norms[0] += scale * scale * disp[ index[i][2] ][0][k] * disp[ index[i][2] ][0][k];
+    	  norms[1] += scale * scale * disp[ index[i][2] ][1][k] * disp[ index[i][2] ][1][k];
       }
 
-      dx[ index[i][0] ][k] = disp[ index[i][2] ][0][k]; 
+      dx[ index[i][0] ][k] = scale * disp[ index[i][2] ][0][k];
     }
   }
 }
