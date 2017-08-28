@@ -1897,10 +1897,11 @@ ghostPoints->deletePointers();
 
 //------------------------------------------------------------------------------
 
+
 template<int dim>
 void SpaceOperator<dim>::setSIstencil(DistSVec<double,3> &X, DistLevelSetStructure *distLSS, DistVec<int> &fluidId, DistSVec<double,dim> &U)
 {
-	if(!externalSI) 
+	if(!externalSI && !((iod->embed).interfaceAlg == EmbeddedFramework::Intersection && (iod->embed).secondOrderEulerFlux == EmbeddedFramework::ClosestPoint))
 	{
 		fprintf(stderr, "setSIstencil : you're not supposed to be here\n");
 		exit(-1);
