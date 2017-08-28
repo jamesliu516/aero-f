@@ -390,7 +390,9 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
 	else 
     distLSS->initialize(this->domain,*this->X, this->geoState->getXn(), ioData, &point_based_id);
 
-   //d2d
+    if(ioData.embed.interfaceAlg == EmbeddedFramework::Intersection && ioData.embed.secondOrderEulerFlux == EmbeddedFramework::ClosestPoint)
+        this->spaceOp->setSIstencil(*this->X, distLSS, this->nodeTag, *U);
+    //d2d
 	if(ioData.embed.surrogateinterface == EmbeddedFramework::EXTERNAL) 
 	{
 		this->spaceOp->setSIstencil(*this->X, distLSS, this->nodeTag, *U); 

@@ -3166,7 +3166,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       SVec<double,dim>& dVdz = ngrad.getZ();
 
       double ddVij[dim], ddVji[dim], Udummy[dim];
-      double Vi[2*dim], Vj[2*dim], Wstar[2*dim];
+      double Vi[2*dim], Vj[2*dim], Wstar[2*dim],V_e[2*dim], V_si[2*dim];
 
       double flux[dim], fluxi[dim], fluxj[dim];
 
@@ -3177,6 +3177,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
       int ierr = 0;
       riemann.reset(it);
+
+  bool Dante = true; //for test the code, delete todo Daniel Huang
 
       VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
       for (int i=0; i<dim; i++) fluxi[i] = fluxj[i] = 0.0;
@@ -3366,6 +3368,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
         }
       }
+
       //////////////////////////////////////////////////////
       /// Start compute interface fluxes
       /// Interface, there are several cases
@@ -3411,32 +3414,77 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         switch (structureType) {
           case BoundaryData::WALL:
           case BoundaryData::SYMMETRYPLANE:
-            if (structureType == BoundaryData::SYMMETRYPLANE)
-              riemann.computeSymmetryPlaneRiemannSolution(Vi, resij.normVel, normalDir, varFcn, Wstar, j, fluidId[i]);
-            else
-              riemann.computeFSIRiemannSolution(Vi, resij.normVel, normalDir, varFcn, Wstar, j, fluidId[i]);
-
-
-                if (it > 0) {
-                  //if it>0 (i.e. not called in computeResidualNorm), store Wstarij.
-                  for (int k = 0; k < dim; k++) Wstarij[l][k] = Wstar[k];
-                }
-
                 if (!higherOrderFSI) {
+                  if (structureType == BoundaryData::SYMMETRYPLANE)
+                    riemann.computeSymmetryPlaneRiemannSolution(Vi, resij.normVel, normalDir, varFcn, Wstar, j, fluidId[i]);
+                  else
+                    riemann.computeFSIRiemannSolution(Vi, resij.normVel, normalDir, varFcn, Wstar, j, fluidId[i]);
+
+                  if (it > 0) {
+                    //if it>0 (i.e. not called in computeResidualNorm), store Wstarij.
+                    for (int k = 0; k < dim; k++) Wstarij[l][k] = Wstar[k];
+                  }
                   //compute the flux
                   //This is a real wall, and we use the value from the solution of the reimann problem
 
                   fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi, fluidId[i],
                                                 false);
                 } else {
+                  if (!Dante) {
+                    if (structureType == BoundaryData::SYMMETRYPLANE)
+                      riemann.computeSymmetryPlaneRiemannSolution(Vi, resij.normVel, normalDir, varFcn, Wstar, j,
+                                                                  fluidId[i]);
+                    else
+                      riemann.computeFSIRiemannSolution(Vi, resij.normVel, normalDir, varFcn, Wstar, j, fluidId[i]);
+
+                    if (it > 0) {
+                      //if it>0 (i.e. not called in computeResidualNorm), store Wstarij.
+                      for (int k = 0; k < dim; k++) Wstarij[l][k] = Wstar[k];
+                    }
+
+                    //This is original way to compute second order Euler Flux
                     double Vi_Recon[dim];
                     for (int k = 0; k < dim; k++) {
                       Wstar[k] = V[i][k] + (0.5 / max(1.0 - resij.alpha, alpha)) * (Wstar[k] - V[i][k]);
-                      Vi_Recon[k] = V[i][k] + 0.5* ddVij[k];
+                      Vi_Recon[k] = V[i][k] + 0.5 * ddVij[k];
                     }
-                  varFcn->getVarFcnBase(fluidId[i])->verification(0, Udummy, Wstar);
-                  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi_Recon, Wstar, fluxi, fluidId[i],
-                                                false);
+                    varFcn->getVarFcnBase(fluidId[i])->verification(0, Udummy, Wstar);
+                    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi_Recon, Wstar, fluxi,
+                                                  fluidId[i],
+                                                  false);
+                  } else {
+                    ///////This Dante's way to compute second order Euler Flux
+                    double Vi_Recon[2*dim];
+                    for (int k = 0; k < dim; k++) {Vi_Recon[k] = V[i][k] + 0.5 * ddVij[k]; Vi_Recon[k+dim] = V[i][k] + 0.5 * ddVij[k];}
+                    Vec3D Xij;
+                    for (int k = 0; k < 3; k++) Xij[k] = 0.5*(X[i][k] + X[j][k]);
+
+                    Vec3D xWall, nWall, vWall;
+                    LSS.xWallWithSI(l, xWall); // position
+                    LSS.nWallWithSI(l, nWall); // normal vec.
+                    LSS.vWallWithSI(l, vWall); // velocity
+                    Vec3D nWall_o = (dx[0]*nWall[0]+dx[1]*nWall[1]+dx[2]*nWall[2]>=0.0) ? -1.0*nWall : nWall;
+
+
+
+                    higherOrderFSI->extrapolateToWall_1(l, i, fluidId[i], varFcn, V, ngrad, Vi_Recon, X, xWall, Xij, V_e);
+                    if (structureType == BoundaryData::SYMMETRYPLANE)
+                      riemann.computeFSIRiemannSolution(V_e, vWall, nWall_o, varFcn, Wstar, j, fluidId[i]);
+                    else
+                    riemann.computeFSIRiemannSolution(V_e, vWall, nWall_o, varFcn, Wstar, j, fluidId[i]);
+
+
+                    if (it > 0) for (int k = 0; k < dim; k++) Wstarij[l][k] = Wstar[k];
+
+                    higherOrderFSI->interpolateToSI(l, i, fluidId[i], varFcn, V, Wstar, ngrad, X, xWall, Xij, V_si);
+
+
+                    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi_Recon, V_si, fluxi, fluidId[i],
+                                                  false);
+
+
+                    /////////////////////////////////////////////
+                  }
                 }
                 break;
           case BoundaryData::POROUSWALL:
@@ -3537,41 +3585,68 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         switch (structureType) {
           case BoundaryData::WALL:
           case BoundaryData::SYMMETRYPLANE:
-            if (structureType == BoundaryData::SYMMETRYPLANE)
-              riemann.computeSymmetryPlaneRiemannSolution(Vj, resji.normVel, normalDir, varFcn, Wstar, i, fluidId[j]);
-            else
-              riemann.computeFSIRiemannSolution(Vj, resji.normVel, normalDir, varFcn, Wstar, i, fluidId[j]);
+              if (!higherOrderFSI) {
+                  if (structureType == BoundaryData::SYMMETRYPLANE)
+                      riemann.computeSymmetryPlaneRiemannSolution(Vj, resji.normVel, normalDir, varFcn, Wstar, i,
+                                                                  fluidId[j]);
+                  else
+                      riemann.computeFSIRiemannSolution(Vj, resji.normVel, normalDir, varFcn, Wstar, i, fluidId[j]);
 
-                if (it > 0) for (int k = 0; k < dim; k++) Wstarji[l][k] = Wstar[k];
+                  if (it > 0) for (int k = 0; k < dim; k++) Wstarji[l][k] = Wstar[k];
 
-                if (!higherOrderFSI) {
-                  //Not an actuator Disk
+
                   fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj, fluidId[j],
                                                 false);
-//                  if (structureType == BoundaryData::POROUSWALL && iActive) {
-//                    assert(jPorous);
-//                    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[j]);
-//                    for (int k = 0; k < dim; k++)
-//                      fluxj[k] = (1.0 - resji.porosity) * fluxj[k] + resji.porosity * flux[k];
-//                  }
-                } else {// Alex main's high order FSI
-                  double Vj_Recon[dim];
-                  for (int k = 0; k < dim; k++) {
-                    Wstar[k] = V[j][k] + (0.5 / max(1.0 - resji.alpha, alpha)) * (Wstar[k] - V[j][k]);
-                    Vj_Recon[k] = V[j][k] - 0.5 * ddVji[k];
+              } else {// Alex main's high order FSI
+                  if (!Dante) {
+                      if (structureType == BoundaryData::SYMMETRYPLANE)
+                          riemann.computeSymmetryPlaneRiemannSolution(Vj, resji.normVel, normalDir, varFcn, Wstar, i,
+                                                                      fluidId[j]);
+                      else
+                          riemann.computeFSIRiemannSolution(Vj, resji.normVel, normalDir, varFcn, Wstar, i, fluidId[j]);
+                      if (it > 0) for (int k = 0; k < dim; k++) Wstarji[l][k] = Wstar[k];
+                      double Vj_Recon[dim];
+                      for (int k = 0; k < dim; k++) {
+                          Wstar[k] = V[j][k] + (0.5 / max(1.0 - resji.alpha, alpha)) * (Wstar[k] - V[j][k]);
+                          Vj_Recon[k] = V[j][k] - 0.5 * ddVji[k];
+                      }
+                      varFcn->getVarFcnBase(fluidId[j])->verification(0, Udummy, Wstar);
+                      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj_Recon, fluxj,
+                                                    fluidId[j],
+                                                    false);
                   }
-                  varFcn->getVarFcnBase(fluidId[j])->verification(0, Udummy, Wstar);
-                  fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj_Recon, fluxj,
-                                                fluidId[j],
-                                                false);
-//                  if (structureType == BoundaryData::POROUSWALL && iActive) {
-//                    assert(jPorous);
-//                    fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[j]);
-//                    for (int k = 0; k < dim; k++) {
-//                      fluxj[k] = (1.0 - resji.porosity) * fluxj[k] + resji.porosity * flux[k];
-//                    }
-//                  }
-                }
+                  else {
+                    //Dante's method
+                      double Vj_Recon[2*dim];
+                      for (int k = 0; k < dim; k++) {Vj_Recon[k] = V[j][k] - 0.5 * ddVji[k];Vj_Recon[k+dim] = V[j][k] - 0.5 * ddVji[k];}
+                      Vec3D Xij;
+                      for (int k = 0; k < 3; k++) Xij[k] = 0.5*(X[i][k] + X[j][k]);
+
+                      Vec3D xWall, nWall, vWall;
+                      LSS.xWallWithSI(l, xWall); // position
+                      LSS.nWallWithSI(l, nWall); // normal vec.
+                      LSS.vWallWithSI(l, vWall); // velocity
+                      Vec3D nWall_o = (dx[0] * nWall[0] + dx[1] * nWall[1] + dx[2] * nWall[2] >= 0.0) ? nWall
+                                                                                                      : -1.0*nWall;
+
+
+                      higherOrderFSI->extrapolateToWall_1(l, j, fluidId[j], varFcn, V, ngrad, Vj_Recon, X, xWall, Xij,
+                                                          V_e);
+
+                      if (structureType == BoundaryData::SYMMETRYPLANE)
+                          riemann.computeSymmetryPlaneRiemannSolution(V_e, vWall, nWall_o, varFcn, Wstar, i, fluidId[j]);
+                      else
+                          riemann.computeFSIRiemannSolution(V_e, vWall, nWall_o, varFcn, Wstar, i, fluidId[j]);
+
+
+                      if (it > 0) for (int k = 0; k < dim; k++) Wstarji[l][k] = Wstar[k];
+
+                      higherOrderFSI->interpolateToSI(l, j, fluidId[j], varFcn, V, Wstar, ngrad, X, xWall, Xij, V_si);
+
+                      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], V_si, Vj_Recon, fluxj, fluidId[j],
+                                                    false);
+                  }
+              }
                 break;
           case BoundaryData::POROUSWALL:
             riemann.computeFSIRiemannSolution(Vj, resji.normVel, normalDir, varFcn, Wstar, i, fluidId[j]);

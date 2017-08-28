@@ -6578,13 +6578,20 @@ bool SubDomain::getSIstencil(int Ni, int Nj, SVec<double,3> &X, LevelSetStructur
 	Vec3D X_si; 
 	for(int k=0; k<3; ++k) X_si[k] = 0.5*(X[Ni][k] + X[Nj][k]);
 
-	Vec3D dir = X_si - xWall;
-	double norm = sqrt(dir * dir);
-	if(norm != 0.0) dir *= 1.0 / norm;
-
-	Vec3D ve = X_si + 1000.0*dir;
+//	Vec3D dir = X_si - xWall;
+//	double norm = sqrt(dir * dir);
+//	if(norm != 0.0) dir *= 1.0 / norm;
+//	Vec3D ve = X_si + 1000.0*dir;
 
 	int N_act = LSS.isActive(0.0, Ni) ? Ni : Nj;
+    int N_inact = LSS.isActive(0.0, Ni) ? Ni : Nj;
+    Vec3D dir =  ( normWall[0]*(X[N_act][0] - X[N_inact][0])+ normWall[1]*(X[N_act][1] - X[N_inact][1])+normWall[2]*(X[N_act][2] - X[N_inact][2]) >= 0 ?  normWall : -normWall);
+ 	double norm = sqrt(dir * dir);
+
+ 	if(norm != 0.0) dir *= 1.0 / norm;
+ 	Vec3D ve = X_si + 1000.0*dir;
+
+
 
 	// Loop over the elements connected to nodes Ni and Nj
 	for(int idN=0; idN<2; ++idN)
