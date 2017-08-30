@@ -81,7 +81,7 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
 	if(interfaceAlg == 1 || ioData.embed.surrogateinterface == EmbeddedFramework::EXTERNAL) 
 	{
-    dom->createHigherOrderFSI();
+    dom->createHigherOrderFSI(ioData);
 
 		if(ioData.embed.surrogateinterface == EmbeddedFramework::HYBRID) 
 		{

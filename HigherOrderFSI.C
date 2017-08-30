@@ -6,8 +6,9 @@
 #include <DenseMatrixOps.h>
 
 inline
-HigherOrderFSI::HigherOrderFSI() 
-{  
+HigherOrderFSI::HigherOrderFSI(const IoData & iod)
+{
+  secondOrderEulerFlux = iod.embed.secondOrderEulerFlux;
   lastPhaseChangeState = NULL;
   limitExtrap = false;
 }

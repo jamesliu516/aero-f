@@ -3430,7 +3430,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                   fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi, fluidId[i],
                                                 false);
                 } else {
-                  if (!Dante) {
+                  if (higherOrderFSI->secondOrderEulerFlux == EmbeddedFramework::INTERSECTPOINT) {
+                      std::cout <<"EmbeddedFramework::INTERSECTPOINT" << std::endl;
                     if (structureType == BoundaryData::SYMMETRYPLANE)
                       riemann.computeSymmetryPlaneRiemannSolution(Vi, resij.normVel, normalDir, varFcn, Wstar, j,
                                                                   fluidId[i]);
@@ -3452,8 +3453,9 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                     fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi_Recon, Wstar, fluxi,
                                                   fluidId[i],
                                                   false);
-                  } else {
+                  } else if(higherOrderFSI->secondOrderEulerFlux == EmbeddedFramework::CLOSESTPOINT){
                     ///////This Dante's way to compute second order Euler Flux
+                      std::cout <<"EmbeddedFramework::CLOSESTPOINT" << std::endl;
                     double Vi_Recon[2*dim];
                     for (int k = 0; k < dim; k++) {Vi_Recon[k] = V[i][k] + 0.5 * ddVij[k]; Vi_Recon[k+dim] = V[i][k] + 0.5 * ddVij[k];}
                     Vec3D Xij;
@@ -3598,7 +3600,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                   fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj, fluidId[j],
                                                 false);
               } else {// Alex main's high order FSI
-                  if (!Dante) {
+                  if (higherOrderFSI->secondOrderEulerFlux == EmbeddedFramework::INTERSECTPOINT) {
+                      std::cout <<"EmbeddedFramework::INTERSECTPOINTj" << std::endl;
                       if (structureType == BoundaryData::SYMMETRYPLANE)
                           riemann.computeSymmetryPlaneRiemannSolution(Vj, resji.normVel, normalDir, varFcn, Wstar, i,
                                                                       fluidId[j]);
@@ -3615,8 +3618,9 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                                                     fluidId[j],
                                                     false);
                   }
-                  else {
+                  else if(higherOrderFSI->secondOrderEulerFlux == EmbeddedFramework::CLOSESTPOINT) {
                     //Dante's method
+                      std::cout <<"EmbeddedFramework::CLOSESTPOINTj" << std::endl;
                       double Vj_Recon[2*dim];
                       for (int k = 0; k < dim; k++) {Vj_Recon[k] = V[j][k] - 0.5 * ddVji[k];Vj_Recon[k+dim] = V[j][k] - 0.5 * ddVji[k];}
                       Vec3D Xij;

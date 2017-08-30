@@ -1315,7 +1315,7 @@ public:
 
   void createHigherOrderMultiFluid();
 
-  void createHigherOrderFSI();
+  void createHigherOrderFSI(const IoData & iod);
 
   // When a cell is omitted when doing higher order multi-fluid calculations, we can grab
   // a value of the state for the cut cell using an extrapolated state

@@ -6222,9 +6222,9 @@ void SubDomain::createHigherOrderMultiFluid() {
   faces.attachHigherOrderMF(higherOrderMF);
 }
 
-void SubDomain::createHigherOrderFSI() {
+void SubDomain::createHigherOrderFSI(const IoData & iod) {
 
-  higherOrderFSI = new HigherOrderFSI();
+  higherOrderFSI = new HigherOrderFSI(iod);
 
   edges.attachHigherOrderFSI(higherOrderFSI);
   //  faces.attachHigherOrderFSI(higherOrderFSI);

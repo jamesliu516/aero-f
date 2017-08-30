@@ -200,6 +200,8 @@ class SubDomain {
 
   double geomTol;
   double bigNum;
+
+
   
 public:
   
@@ -1825,7 +1827,7 @@ public:
                            const std::vector<Vec3D>& locs, double (*sol)[dim],
                            int* status,int* last,int* nid, bool assumeCache = false); 
   void createHigherOrderMultiFluid();
-  void createHigherOrderFSI();
+  void createHigherOrderFSI(const IoData & iod);
 
   void assignErrorHandler(ErrorHandler* in);
 
