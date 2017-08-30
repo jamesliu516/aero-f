@@ -3178,7 +3178,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       int ierr = 0;
       riemann.reset(it);
 
-  bool Dante = true; //for test the code, delete todo Daniel Huang
+      bool Dante = true; //for test the code, delete todo Daniel Huang
 
       VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
       for (int i=0; i<dim; i++) fluxi[i] = fluxj[i] = 0.0;

@@ -2899,7 +2899,7 @@ struct EmbeddedFramework {
   enum RiemannNormal {STRUCTURE = 0, FLUID = 1} riemannNormal;
   enum PhaseChangeAlgorithm {AVERAGE = 0, LEAST_SQUARES = 1, AUTO = 2} phaseChangeAlg;
   enum InterfaceAlgorithm {MID_EDGE = 0, INTERSECTION = 1} interfaceAlg;
-  enum SecondOrderEulerFlux {Intersection = 0, ClosestPoint = 1} secondOrderEulerFlux;
+  enum SecondOrderEulerFlux {INTERSECTPOINT = 0, CLOSESTPOINT = 1} secondOrderEulerFlux;
 
   enum InterfaceLimiter {LIMITERNONE = 0, LIMITERALEX1 = 1} interfaceLimiter;
   // Low mach preconditioning of the exact Riemann problem.
