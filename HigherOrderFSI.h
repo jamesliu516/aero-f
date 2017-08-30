@@ -9,8 +9,10 @@ struct V6NodeData;
 class HigherOrderFSI {
 
   public:
+	int secondOrderEulerFlux;// {INTERSECTPOINT = 0, CLOSESTPOINT = 1} ;
 
-    HigherOrderFSI();
+
+    HigherOrderFSI(const IoData &iod);
 
     ~HigherOrderFSI();
 
