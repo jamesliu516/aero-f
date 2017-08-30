@@ -5210,7 +5210,7 @@ EmbeddedFramework::EmbeddedFramework() {
   riemannNormal = STRUCTURE;
   phaseChangeAlg = AUTO;
   interfaceAlg = MID_EDGE;
-  secondOrderEulerFlux = Intersection;
+  secondOrderEulerFlux = INTERSECTPOINT;
 
   prec = NON_PRECONDITIONED;
   alpha = 0.1;

@@ -1273,10 +1273,13 @@ void DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X,
   } else{
       ////////Daniel Huang, copy Dante's second order FIVER to the original one, we need to initialize
         /// xi_SI, eta_SI, TriID_SI, nWall_SI for these intersected edge center todo
-      if(iod.embed.interfaceAlg == EmbeddedFramework::Intersection && iod.embed.secondOrderEulerFlux == EmbeddedFramework::ClosestPoint)
-    #pragma omp parallel for
-          for(int iSub = 0; iSub < numLocSub; ++iSub)
-              intersector[iSub]->ComputeSIbasedIntersections(iSub, X(iSub), (*boxMin)(iSub), (*boxMax)(iSub), false, false);
+
+      if(iod.embed.interfaceAlg == EmbeddedFramework::INTERSECTION && iod.embed.secondOrderEulerFlux == EmbeddedFramework::CLOSESTPOINT) {
+#pragma omp parallel for
+          for (int iSub = 0; iSub < numLocSub; ++iSub)
+              intersector[iSub]->ComputeSIbasedIntersections(iSub, X(iSub), (*boxMin)(iSub), (*boxMax)(iSub), false,
+                                                             false);
+      }
   }
   ///////////////////////////////////////////////////////
   //a2m : Symmetry plane :
@@ -1752,11 +1755,13 @@ int DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts, bo
         else{
             ////////Daniel Huang, copy Dante's second order FIVER to the original one, we need to initialize
             /// xi_SI, eta_SI, TriID_SI, nWall_SI for these intersected edge center todo
-            if(iod.embed.interfaceAlg == EmbeddedFramework::Intersection && iod.embed.secondOrderEulerFlux == EmbeddedFramework::ClosestPoint)
-            #pragma omp parallel for
+            if(iod.embed.interfaceAlg == EmbeddedFramework::INTERSECTION && iod.embed.secondOrderEulerFlux == EmbeddedFramework::CLOSESTPOINT){
+#pragma omp parallel for
                 for(int iSub = 0; iSub < numLocSub; ++iSub)
                     intersector[iSub]->ComputeSIbasedIntersections(iSub, (*X)(iSub), (*boxMin)(iSub), (*boxMax)(iSub), false, false);
+            }
         }
+
 		///////////////////////////////////////////////////////
 	}
 
