@@ -4775,14 +4775,14 @@ void Domain::populateGhostJacobian(DistVec<GhostPoint<dim>*> *ghostPoints,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Domain::setSIstencil(DistSVec<double,3> &X, DistLevelSetStructure *distLSS, DistVec<int> &fluidId, DistSVec<double,dim> &U)
+void Domain::setSIstencil(DistSVec<double,3> &X, DistLevelSetStructure *distLSS, DistVec<int> &fluidId, DistSVec<double,dim> &U, bool externalSI)
 {
 
 	int iSub;
 
 #pragma omp parallel for
 	for (iSub = 0; iSub < numLocSub; ++iSub) 
-		subDomain[iSub]->setSIstencil(X(iSub), (*distLSS)(iSub), fluidId(iSub), U(iSub));
+		subDomain[iSub]->setSIstencil(X(iSub), (*distLSS)(iSub), fluidId(iSub), U(iSub), externalSI);
 			
 }
 
