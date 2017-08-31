@@ -6584,7 +6584,6 @@ bool SubDomain::getSIstencil(int Ni, int Nj, SVec<double,3> &X, LevelSetStructur
     int N_inact = LSS.isActive(0.0, Ni) ? Nj : Ni;
 
     if(externalSI) {
-      std::cout << "Dante's FIVER" <<std::endl;
       // Dante's ghost node definition
       Vec3D dir = X_si - xWall;
       double norm = sqrt(dir * dir);

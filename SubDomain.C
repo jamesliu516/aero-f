@@ -9801,55 +9801,57 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
         }
 
     }
-    //compute skin friction, use the velocity at Xp + dh*normal
-    for(int nSt = 0; nSt < numStructElems; ++nSt) {//loop all structure surface elements(triangle)
+    if(ghostPoints) {
+        //compute skin friction, use the velocity at Xp + dh*normal
+        for (int nSt = 0; nSt < numStructElems; ++nSt) {//loop all structure surface elements(triangle)
 
-        for (int j=0; j<3; ++j) {
-            stNode[j] = stElem[nSt][j]; // get element node numbers
-            Xst[j] = Xstruct[stNode[j]]; //get node coordinates
-        }
-        Vec3D normal = 0.5*(Xst[1]-Xst[0])^(Xst[2]-Xst[0]); // area weighted normal
-        S = normal.norm();
-
-        for(int nq=0; nq<nqPoint; ++nq) {
-            for (int j = 0; j < 3; ++j) { // get quadrature points
-                Xp[j] = qloc[nq][0] * Xst[0][j] + qloc[nq][1] * Xst[1][j] + qloc[nq][2] * Xst[2][j];
+            for (int j = 0; j < 3; ++j) {
+                stNode[j] = stElem[nSt][j]; // get element node numbers
+                Xst[j] = Xstruct[stNode[j]]; //get node coordinates
             }
+            Vec3D normal = 0.5 * (Xst[1] - Xst[0]) ^(Xst[2] - Xst[0]); // area weighted normal
+            S = normal.norm();
 
-            dh = interfaceFluidMeshSize[nqPoint*nSt + nq];
-
-            //todo assume, only one side works!, it cannot handle thin shell
-
-            //step 1. find the fluid velocity at Xp + dh *normal
-
-            Vec3D unit_nf = normal/S * strucOrientation[nSt];
-            Vec3D Xpp = Xp + dh * unit_nf;
-            Elem *E = myTree->search<&Elem::isPointInside, ElemForceCalcValid,
-                    &ElemForceCalcValid::Valid>(&myObj, X, Xpp);
-            if (!E) {
-                continue;
-            }
-            E->computeBarycentricCoordinates(X, Xpp, bary);
-            for (int i = 0; i < 4; i++) T[i] = (*E)[i];
-            double *vtet_pp[4];
-            for (int i = 0; i < 4; ++i) {
-                vtet_pp[i] = V[T[i]];
-                GhostPoint<dim> *gp = (*ghostPoints)[T[i]];
-                if (gp) {
-                    vtet_pp[i] = gp->getPrimitiveState();
+            for (int nq = 0; nq < nqPoint; ++nq) {
+                for (int j = 0; j < 3; ++j) { // get quadrature points
+                    Xp[j] = qloc[nq][0] * Xst[0][j] + qloc[nq][1] * Xst[1][j] + qloc[nq][2] * Xst[2][j];
                 }
+
+                dh = interfaceFluidMeshSize[nqPoint * nSt + nq];
+
+                //todo assume, only one side works!, it cannot handle thin shell
+
+                //step 1. find the fluid velocity at Xp + dh *normal
+
+                Vec3D unit_nf = normal / S * strucOrientation[nSt];
+                Vec3D Xpp = Xp + dh * unit_nf;
+                Elem *E = myTree->search<&Elem::isPointInside, ElemForceCalcValid,
+                        &ElemForceCalcValid::Valid>(&myObj, X, Xpp);
+                if (!E) {
+                    continue;
+                }
+                E->computeBarycentricCoordinates(X, Xpp, bary);
+                for (int i = 0; i < 4; i++) T[i] = (*E)[i];
+                double *vtet_pp[4];
+                for (int i = 0; i < 4; ++i) {
+                    vtet_pp[i] = V[T[i]];
+                    GhostPoint<dim> *gp = (*ghostPoints)[T[i]];
+                    if (gp) {
+                        vtet_pp[i] = gp->getPrimitiveState();
+                    }
+                }
+                Cflocal = postFcn->computeSkinFriction(unit_nf, dh, Vwall, vtet_pp, bary);
+
+                Qnty[stNode[0]][2] += qweight[nq] * S; //aera of the structure element
+                Qnty[stNode[1]][2] += qweight[nq] * S;
+                Qnty[stNode[2]][2] += qweight[nq] * S;
+
+                Qnty[stNode[0]][3] += qweight[nq] * Cflocal * S;
+                Qnty[stNode[1]][3] += qweight[nq] * Cflocal * S;
+                Qnty[stNode[2]][3] += qweight[nq] * Cflocal * S;
+
+
             }
-            Cflocal = postFcn->computeSkinFriction(unit_nf, dh, Vwall, vtet_pp, bary);
-
-            Qnty[stNode[0]][2] += qweight[nq] * S; //aera of the structure element
-            Qnty[stNode[1]][2] += qweight[nq] * S;
-            Qnty[stNode[2]][2] += qweight[nq] * S;
-
-            Qnty[stNode[0]][3] += qweight[nq] * Cflocal * S;
-            Qnty[stNode[1]][3] += qweight[nq] * Cflocal * S;
-            Qnty[stNode[2]][3] += qweight[nq] * Cflocal * S;
-
-
         }
     }
 
