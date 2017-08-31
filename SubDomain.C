@@ -8338,7 +8338,7 @@ void SubDomain::checkGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<double
 //d2d
 template<int dim>
 void SubDomain::setSIstencil(SVec<double,3> &X, LevelSetStructure &LSS, 
-									  Vec<int> &fluidId, SVec<double,dim> &U)
+									  Vec<int> &fluidId, SVec<double,dim> &U, bool externalSI)
 {
 
 	int i, j;
@@ -8369,7 +8369,7 @@ void SubDomain::setSIstencil(SVec<double,3> &X, LevelSetStructure &LSS,
 	   LSS.xWallWithSI(l, xwall);
 	   LSS.nWallWithSI(l, nwall);
 
-		bool gotIt = getSIstencil(i, j, X, LSS, fluidId, nwall, xwall, SiStencilData[l]);
+		bool gotIt = getSIstencil(i, j, X, LSS, fluidId, nwall, xwall, SiStencilData[l], externalSI);
 	  
 		withSI = withSI || gotIt;
 	}

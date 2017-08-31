@@ -1906,7 +1906,7 @@ void SpaceOperator<dim>::setSIstencil(DistSVec<double,3> &X, DistLevelSetStructu
 		fprintf(stderr, "setSIstencil : you're not supposed to be here\n");
 		exit(-1);
 	}
-	domain->setSIstencil(X, distLSS, fluidId, U);
+	domain->setSIstencil(X, distLSS, fluidId, U,externalSI);
 }
 
 //------------------------------------------------------------------------------

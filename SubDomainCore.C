@@ -6560,7 +6560,7 @@ bool SubDomain::getPiercedPoint(Vec3D va, Vec3D vb, Vec3D vc, Vec3D vd, Vec3D ve
 // ----------------------------------------
 
 bool SubDomain::getSIstencil(int Ni, int Nj, SVec<double,3> &X, LevelSetStructure &LSS, Vec<int> &fluidId,
-									  Vec3D &normWall, Vec3D &xWall, V6NodeData &SiStencilData)
+									  Vec3D &normWall, Vec3D &xWall, V6NodeData &SiStencilData, bool externalSI)
 {
 
 	double min_dist0 = bigNum;
@@ -6578,18 +6578,34 @@ bool SubDomain::getSIstencil(int Ni, int Nj, SVec<double,3> &X, LevelSetStructur
 	Vec3D X_si; 
 	for(int k=0; k<3; ++k) X_si[k] = 0.5*(X[Ni][k] + X[Nj][k]);
 
-//	Vec3D dir = X_si - xWall;
-//	double norm = sqrt(dir * dir);
-//	if(norm != 0.0) dir *= 1.0 / norm;
-//	Vec3D ve = X_si + 1000.0*dir;
+    Vec3D ve; // the vector connecting xWall and X_si, toward the fluid
 
-	int N_act = LSS.isActive(0.0, Ni) ? Ni : Nj;
-    int N_inact = LSS.isActive(0.0, Ni) ? Ni : Nj;
-    Vec3D dir =  ( normWall[0]*(X[N_act][0] - X[N_inact][0])+ normWall[1]*(X[N_act][1] - X[N_inact][1])+normWall[2]*(X[N_act][2] - X[N_inact][2]) >= 0 ?  normWall : -normWall);
- 	double norm = sqrt(dir * dir);
+    int N_act = LSS.isActive(0.0, Ni) ? Ni : Nj;
+    int N_inact = LSS.isActive(0.0, Ni) ? Nj : Ni;
 
- 	if(norm != 0.0) dir *= 1.0 / norm;
- 	Vec3D ve = X_si + 1000.0*dir;
+    if(externalSI) {
+      std::cout << "Dante's FIVER" <<std::endl;
+      // Dante's ghost node definition
+      Vec3D dir = X_si - xWall;
+      double norm = sqrt(dir * dir);
+      if (norm != 0.0) dir *= 1.0 / norm;
+      ve = X_si + 1000.0 * dir;
+    }else {
+      //Original FIVER's ghost node definition
+
+      if (N_act == N_inact) {
+        std::cout << "ERROR in SubDomain::getSIstencil, one node is active and the other is inactive" << std::endl;
+        exit(1);
+      }
+      Vec3D dir = (normWall[0] * (X[N_act][0] - X[N_inact][0]) + normWall[1] * (X[N_act][1] - X[N_inact][1]) +
+                   normWall[2] * (X[N_act][2] - X[N_inact][2]) >= 0 ? normWall : -normWall);
+      double norm = sqrt(dir * dir);
+
+      if (norm != 0.0) dir *= 1.0 / norm;
+      ve = X_si + 1000.0 * dir;
+    }
+
+
 
 
 
