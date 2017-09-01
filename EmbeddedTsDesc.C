@@ -68,51 +68,61 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
       exit(-1);
   }
 
-  linRecAtInterface  = (ioData.embed.reconstruct==EmbeddedFramework::LINEAR) ? true : false;
-  viscSecOrder  = (ioData.embed.viscousinterfaceorder==EmbeddedFramework::SECOND) ? true : false;
-  riemannNormal = (int)ioData.embed.riemannNormal;
+    linRecAtInterface  = (ioData.embed.reconstruct==EmbeddedFramework::LINEAR) ? true : false;
+    viscSecOrder  = (ioData.embed.viscousinterfaceorder==EmbeddedFramework::SECOND) ? true : false;
+    riemannNormal = (int)ioData.embed.riemannNormal;
 
-	//first-order everywhere... //d2d
-	if(orderOfAccuracy == 1) 
-	{
-    linRecAtInterface = false; 
-    viscSecOrder = false; 
-  }
-
-	if(interfaceAlg == 1 || ioData.embed.surrogateinterface == EmbeddedFramework::EXTERNAL) 
-	{
-    dom->createHigherOrderFSI(ioData);
-
-		if(ioData.embed.surrogateinterface == EmbeddedFramework::HYBRID) 
-		{
-#pragma omp parallel for
-			for(int iSub = 0; iSub < dom->getNumLocSub(); ++iSub) 
-			{				
-				V6NodeData (*v6data)[2]; v6data = 0;
-
-      dom->getSubDomain()[iSub]->findEdgeTetrahedra((*this->X)(iSub), v6data);
-			 
-				dom->getSubDomain()[iSub]->getHigherOrderFSI()->initialize<dim>(dom->getNodeDistInfo().subSize(iSub),
-			dom->getSubDomain()[iSub]->getElems(),
-			v6data); 
-
-      if (ioData.embed.interfaceLimiter == EmbeddedFramework::LIMITERALEX1)
-        dom->getSubDomain()[iSub]->getHigherOrderFSI()->setLimitedExtrapolation();
+    //first-order everywhere... //d2d
+    if(orderOfAccuracy == 1)
+    {
+        linRecAtInterface = false;
+        viscSecOrder = false;
     }
-    
-  }
-		else if(ioData.embed.surrogateinterface == EmbeddedFramework::EXTERNAL) 
-		{		 
-			bool hmode = (interfaceAlg == 1) ? true : false;
+
+    if(interfaceAlg == 1 || ioData.embed.surrogateinterface == EmbeddedFramework::EXTERNAL)
+    {
+        dom->createHigherOrderFSI(ioData);
+
+        if(ioData.embed.surrogateinterface == EmbeddedFramework::HYBRID)
+        {
+            if(ioData.embed.secondOrderEulerFlux == EmbeddedFramework::INTERSECTPOINT) {//Original FIVER which might compute second order euler flux at the edge embeddedsurface intersection
+#pragma omp parallel for
+                for (int iSub = 0; iSub < dom->getNumLocSub(); ++iSub) {
+                    V6NodeData (*v6data)[2];
+                    v6data = 0;
+
+                    dom->getSubDomain()[iSub]->findEdgeTetrahedra((*this->X)(iSub), v6data);
+
+                    dom->getSubDomain()[iSub]->getHigherOrderFSI()->initialize<dim>(
+                            dom->getNodeDistInfo().subSize(iSub),
+                            dom->getSubDomain()[iSub]->getElems(),
+                            v6data);
+
+                    if (ioData.embed.interfaceLimiter == EmbeddedFramework::LIMITERALEX1)
+                        dom->getSubDomain()[iSub]->getHigherOrderFSI()->setLimitedExtrapolation();
+                }
+            }else if(ioData.embed.secondOrderEulerFlux == EmbeddedFramework::CLOSESTPOINT){//Original FIVER which might compute second order euler flux at the closest point
+                bool hmode = (interfaceAlg == 1) ? true : false;
+#pragma omp parallel for
+                for (int iSub = 0; iSub < dom->getNumLocSub(); ++iSub)
+                    dom->getSubDomain()[iSub]->getHigherOrderFSI()->initialize<dim>(ioData, this->com, dom->getNodeDistInfo().subSize(iSub),
+                                                                                    dom->getSubDomain()[iSub]->getElems(),
+                                                                                    hmode, viscSecOrder);
+            }
+
+        }
+        else if(ioData.embed.surrogateinterface == EmbeddedFramework::EXTERNAL)
+        {
+            bool hmode = (interfaceAlg == 1) ? true : false;
 
 #pragma omp parallel for
-			for (int iSub = 0; iSub < dom->getNumLocSub(); ++iSub)
-				dom->getSubDomain()[iSub]->getHigherOrderFSI()->initialize<dim>(ioData, this->com, dom->getNodeDistInfo().subSize(iSub),
-																									 dom->getSubDomain()[iSub]->getElems(),
-																									 hmode, viscSecOrder);
-		}
-		
-	}
+            for (int iSub = 0; iSub < dom->getNumLocSub(); ++iSub)
+                dom->getSubDomain()[iSub]->getHigherOrderFSI()->initialize<dim>(ioData, this->com, dom->getNodeDistInfo().subSize(iSub),
+                                                                                dom->getSubDomain()[iSub]->getElems(),
+                                                                                hmode, viscSecOrder);
+        }
+
+    }
 
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
 

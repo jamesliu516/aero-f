@@ -6730,6 +6730,7 @@ bool SubDomain::getSIstencil(int Ni, int Nj, SVec<double,3> &X, LevelSetStructur
 		SiStencilData.face = -1;
 		SiStencilData.r    = -1.0;
 		SiStencilData.t    = -1.0;
+        fprintf(stderr, "*** Error: Edge(Node %d -> Node %d) does not have stencil to compute second order Euler flux based on the closest point\n", Ni,Nj);
 	}
 
 	return Wmode0 || Wmode1;
