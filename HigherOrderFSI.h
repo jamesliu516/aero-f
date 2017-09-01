@@ -132,7 +132,7 @@ private:
    V6NodeData (*FEMData_p);
    V6NodeData (*FEMData_m);
 
-   bool limitExtrap;
+	bool limitExtrap;
 
 	bool HOtreatment;
 	bool viscQuadRcn;

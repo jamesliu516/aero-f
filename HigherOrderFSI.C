@@ -40,15 +40,15 @@ void HigherOrderFSI::initialize(int numNodes, ElemSet& e, V6NodeData (*v)[2])
 }
 
 template <int dim>
-void HigherOrderFSI::initialize(IoData &iod, Communicator *comm, int numNodes, ElemSet& e, 
-										  bool linearReconstruction, bool hoViscReconstruction) 
+void HigherOrderFSI::initialize(IoData &iod, Communicator *comm, int numNodes, ElemSet& e,
+										  bool linearReconstruction, bool hoViscReconstruction)
 {
 
 	SVec<double,dim>* V = new SVec<double,dim>(numNodes);
 	*V = 0.0;
 
 	lastPhaseChangeState = static_cast<void*>(V);
-  
+
 	elems = &e;
 
 	HOtreatment = linearReconstruction;
@@ -665,7 +665,9 @@ void HigherOrderFSI::extrapolateToWall_1(int l, int n, int Fid, VarFcn *varFun,
 
 	if(idxTet < 0) 
 	{
+        fprintf(stderr, "*** Warning: edge %d does not have stencil to compute second order Euler flux based on the closest point\n", l);
 		return;
+
 /*
 		for(int k=0; k<3; ++k) Xf[k] = X[n][k];
 
