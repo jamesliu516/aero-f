@@ -665,7 +665,7 @@ void HigherOrderFSI::extrapolateToWall_1(int l, int n, int Fid, VarFcn *varFun,
 
 	if(idxTet < 0) 
 	{
-        fprintf(stderr, "*** Warning: edge %d does not have stencil to compute second order Euler flux based on the closest point\n", l);
+        //fprintf(stderr, "*** Warning: edge %d does not have stencil to compute second order Euler flux based on the closest point\n", l);
 		return;
 
 /*
@@ -727,11 +727,15 @@ void HigherOrderFSI::extrapolateToWall_1(int l, int n, int Fid, VarFcn *varFun,
 	}
 
 
-	if(V_ext[0] < 0  || V_ext[4] < 0)
+	if(V_ext[0] <= 0  || V_ext[4] <= 0)
 	{
-		fprintf(stderr, "E: negative density/pressure at Xn=[%f,%f,%f], Xf=[%f,%f,%f]\n", X[n][0],X[n][1],X[n][2], Xf[0],Xf[1],Xf[2]);		
-		fprintf(stderr, "rho/P[n] = %f,%f, rho/P_n= %f,%f, rho/P_ext = %f,%f\n", V[n][0],V[n][4], V_n[0],V_n[4], V_ext[0],V_ext[4]);
-		exit(-1);
+//		fprintf(stderr, "E: negative density/pressure at Xn=[%f,%f,%f], Xf=[%f,%f,%f]\n", X[n][0],X[n][1],X[n][2], Xf[0],Xf[1],Xf[2]);
+//		fprintf(stderr, "rho/P[n] = %f,%f, rho/P_n= %f,%f, rho/P_ext = %f,%f\n", V[n][0],V[n][4], V_n[0],V_n[4], V_ext[0],V_ext[4]);
+        for(int k=0; k<dim; ++k)
+        {
+            V_ext[k]     = V_n[k];
+            V_ext[k+dim] = V_n[k];
+        }
 	}
 
 }
@@ -801,12 +805,16 @@ void HigherOrderFSI::extrapolateToWall_2(int l, int n, int Fid, VarFcn *varFun,
 		V_ext[k+dim] = V_ext[k];
 	}	
 
-	if(V_ext[0] < 0 || V_ext[4] < 0)
+	if(V_ext[0] <= 0 || V_ext[4] <= 0) //failsafe
 	{
-		fprintf(stderr, "E: negative density/pressure at Xn=[%f,%f,%f], Xf=[%f,%f,%f]\n", X[n][0],X[n][1],X[n][2], Xf[0],Xf[1],Xf[2]);		
-		fprintf(stderr, "rho/P_f = %f,%f, rho/P_n= %f,%f, rho/P_ext = %f,%f; xi_ijf = %f, xi_wf = %f, idxTet = %d\n", Vf[0],Vf[4], V_n[0],V_n[4], V_ext[0],V_ext[4], 
-				  mod_ijf, mod_wf, idxTet);
-		exit(-1);
+//		fprintf(stderr, "E: negative density/pressure at Xn=[%f,%f,%f], Xf=[%f,%f,%f]\n", X[n][0],X[n][1],X[n][2], Xf[0],Xf[1],Xf[2]);
+//		fprintf(stderr, "rho/P_f = %f,%f, rho/P_n= %f,%f, rho/P_ext = %f,%f; xi_ijf = %f, xi_wf = %f, idxTet = %d\n", Vf[0],Vf[4], V_n[0],V_n[4], V_ext[0],V_ext[4],
+//				  mod_ijf, mod_wf, idxTet);
+        for(int k=0; k<dim; ++k)
+        {
+            V_ext[k]     = V_n[k];
+            V_ext[k+dim] = V_n[k];
+        }
 	}
 
 }
@@ -817,7 +825,7 @@ template <int dim>
 void HigherOrderFSI::interpolateToSI(int l, int n, int Fid, VarFcn *varFun, 
 												 SVec<double,dim>& V, double* Vstar, NodalGrad<dim>& dV,
 												 SVec<double,3>& X, Vec3D &xWall, Vec3D &Xij, 
-												 double* Vsi)
+												 double* Vsi, double limiter)
 {
 
 	if(Vstar[0] < 0 || Vstar[4] < 0)
@@ -871,50 +879,35 @@ void HigherOrderFSI::interpolateToSI(int l, int n, int Fid, VarFcn *varFun,
 			       + face_t*(dV.getZ()[n1][k] - dV.getZ()[n2][k]);
 	}
 
-  	Vec3D Dir_wSI = xWall - Xij;
+  	//Vec3D Dir_wSI = xWall - Xij;
 	Vec3D Dir_wf  = xWall - Xf;
+    Vec3D dx = 2.0*(Xij -Xf);
 
-	double eta = sqrt(Dir_wSI * Dir_wSI) 
-		        / sqrt(Dir_wf  * Dir_wf);
+	//double eta = sqrt(Dir_wSI * Dir_wSI) / sqrt(Dir_wf  * Dir_wf);
 
+    //alpha is XjxWall/XjXi
+    double alpha = sqrt(Dir_wf  * Dir_wf)/sqrt(dx * dx);
 	// Linear interpolation
-	for(int k=0; k<dim; ++k) Vsi[k] = (1.0 - eta)*Vstar[k] + eta*Vf[k];
+	//double Vsi_Test[dim];
+    //for(int k=0; k<dim; ++k) Vsi[k] = (1.0 - eta)*Vstar[k] + eta*Vf[k];
+    for(int k=0; k<dim; ++k) Vsi[k] = Vf[k] + 0.5/max(alpha, limiter) *(Vstar[k] - Vf[k]);
 
-/*
-	double Vstar_cp[dim];
-	for(int k=0; k<dim; ++k) Vstar_cp[k] = Vstar[k];
-	Vstar_cp[0] = V[n][0];
-	Vstar_cp[4] = V[n][4];	
 
-   // Quadratic interpolation
-	Vec3D Dir_wf  = xWall - Xf;
-	double xi_w = sqrt(Dir_wf * Dir_wf);
-   Vec3D n_wf = Dir_wf * (1.0/xi_w);
 
-	Vec3D Dir_fsi = Xij - Xf;
-	double xi_si = sqrt(Dir_fsi*Dir_fsi);
 
-	for(int k=0; k<dim; ++k)
-	{
-		double c = Vf[k];
-		double b = dVf[k][0]*n_wf[0] + dVf[k][1]*n_wf[1] + dVf[k][2]*n_wf[2];
-		double a = (Vstar_cp[k] - b - c)/(xi_w*xi_w);
-	  
-		Vsi[k] = a*xi_si*xi_si + b*xi_si + c;
-	}
+	 if(Vsi[0] <= 0 || Vsi[4] <= 0)//failsafe
+	 {
+//	 	fprintf(stderr, "I: negative density/pressure at Xn=[%f,%f,%f], Xf=[%f,%f,%f]\n", X[n][0],X[n][1],X[n][2], Xf[0],Xf[1],Xf[2]);
+//	 	fprintf(stderr, "%f, %f; %f, %f, --> %f, %f\n", Vf[0], Vf[4], Vstar_cp[0], Vstar_cp[4], Vsi[0], Vsi[4]);
+//	 	fprintf(stderr, "%f, %f, %f \n", dVf[4][0], dVf[4][1],  dVf[4][2]);
+         for(int k=0; k<dim; ++k)
+         {
+             Vsi[k]     = Vstar[k];
+             Vsi[k+dim] = Vstar[k];
+         }
+	 }
 
-*/
-	// if(Vsi[0] < 0 || Vsi[4] < 0)
-	// {
-	// 	fprintf(stderr, "I: negative density/pressure at Xn=[%f,%f,%f], Xf=[%f,%f,%f]\n", X[n][0],X[n][1],X[n][2], Xf[0],Xf[1],Xf[2]);
-	// 	fprintf(stderr, "%f, %f; %f, %f, --> %f, %f\n", Vf[0], Vf[4], Vstar_cp[0], Vstar_cp[4], Vsi[0], Vsi[4]);		
-	// 	fprintf(stderr, "%f, %f, %f \n", dVf[4][0], dVf[4][1],  dVf[4][2]);
-	// 	exit(-1);
-	// }
 
-	// Check the interpolated values
-	// double Udummy[dim];
-	// varFun->getVarFcnBase(Fid)->verification(0, Udummy, Vsi);
 
 }
 

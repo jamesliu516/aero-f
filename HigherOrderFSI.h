@@ -111,7 +111,7 @@ class HigherOrderFSI {
 		void interpolateToSI(int l, int n, int Fid, VarFcn *varFun, 
 									SVec<double,dim>& V, double* Vstar, NodalGrad<dim>& dV,
 									SVec<double,3>& X, Vec3D &xWall, Vec3D &Xij, 
-									double* Vsi);
+									double* Vsi, double limiter = 0.5);
 	template<int dim>
 		bool setFEGhostPoint(int dir, int i, VarFcn *varFun, SVec<double,dim>& U, 
 									 NodalGrad<dim>& dV, SVec<double,3>& X, Vec<int> &fluidId,
