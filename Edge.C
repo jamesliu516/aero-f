@@ -3445,6 +3445,11 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                     ///////This Dante's way to compute second order Euler Flux
                     double Vi_Recon[2*dim];
                     for (int k = 0; k < dim; k++) {Vi_Recon[k] = V[i][k] + 0.5 * ddVij[k]; Vi_Recon[k+dim] = V[i][k] + 0.5 * ddVij[k];}
+                    err = varFcn->getVarFcnBase(fluidId[i])->verification_negative_rho_p(Vi_Recon, 0.0, 0.0);
+                    if(err){//negative pressure or density for Vi_Recon, switch to constant interpolation
+                        for (int k = 0; k < dim; k++) { Vi_Recon[k] = V[i][k];Vi_Recon[k+dim] = V[i][k]; }
+                    }
+
                     Vec3D Xij;
                     for (int k = 0; k < 3; k++) Xij[k] = 0.5*(X[i][k] + X[j][k]);
 
@@ -3457,6 +3462,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
 
                     higherOrderFSI->extrapolateToWall_1(l, i, fluidId[i], varFcn, V, ngrad, Vi_Recon, X, xWall, Xij, V_e);
+
                     if (structureType == BoundaryData::SYMMETRYPLANE)
                       riemann.computeSymmetryPlaneRiemannSolution(V_e, vWall, nWall_o, varFcn, Wstar, j, fluidId[i]);
                     else
@@ -3465,9 +3471,9 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
                     if (it > 0) for (int k = 0; k < dim; k++) Wstarij[l][k] = Wstar[k];
 
-                    higherOrderFSI->interpolateToSI(l, i, fluidId[i], varFcn, V, Wstar, ngrad, X, xWall, Xij, V_si);
-
-
+                    higherOrderFSI->interpolateToSI(l, i, fluidId[i], varFcn, V, Wstar, ngrad, X, xWall, Xij, V_si, alpha);
+                    if(V_si[0] <= 0.0  || V_si[4] <= 0.0)
+                        std::cout <<"**Vi**V_si " << V_si[0] << " " << V_si[4] <<  std::endl;
                     fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi_Recon, V_si, fluxi, fluidId[i],
                                                   false);
 
@@ -3600,13 +3606,13 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                           Vj_Recon[k] = V[j][k] - 0.5 * ddVji[k];
                       }
 
-                      err = varFcn->getVarFcnBase(fluidId[i])->verification_negative_rho_p(Vi_Recon, 0.0, 0.0);
+                      err = varFcn->getVarFcnBase(fluidId[j])->verification_negative_rho_p(Vi_Recon, 0.0, 0.0);
                       if(err){//negative pressure or density for Vi_Recon, switch to constant interpolation
                         for (int k = 0; k < dim; k++) {
                           Vi_Recon[k] = Wstar[k];
                         }
                       }
-                      err = varFcn->getVarFcnBase(fluidId[i])->verification_negative_rho_p(Vj_Recon,0.0,0.0);
+                      err = varFcn->getVarFcnBase(fluidId[j])->verification_negative_rho_p(Vj_Recon,0.0,0.0);
                       if(err){//negative pressure or density for Vi_Recon, switch to constant interpolation
                         for (int k = 0; k < dim; k++) {
                           Vj_Recon[k] = V[j][k];
@@ -3621,6 +3627,10 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                     //Dante's method
                       double Vj_Recon[2*dim];
                       for (int k = 0; k < dim; k++) {Vj_Recon[k] = V[j][k] - 0.5 * ddVji[k];Vj_Recon[k+dim] = V[j][k] - 0.5 * ddVji[k];}
+                      err = varFcn->getVarFcnBase(fluidId[j])->verification_negative_rho_p(Vj_Recon, 0.0, 0.0);
+                      if(err){//negative pressure or density for Vi_Recon, switch to constant interpolation
+                          for (int k = 0; k < dim; k++) { Vj_Recon[k] = V[j][k];Vj_Recon[k+dim] = V[j][k]; }
+                      }
                       Vec3D Xij;
                       for (int k = 0; k < 3; k++) Xij[k] = 0.5*(X[i][k] + X[j][k]);
 
@@ -3632,8 +3642,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                                                                                                       : -1.0*nWall;
 
 
-                      higherOrderFSI->extrapolateToWall_1(l, j, fluidId[j], varFcn, V, ngrad, Vj_Recon, X, xWall, Xij,
-                                                          V_e);
+                      higherOrderFSI->extrapolateToWall_1(l, j, fluidId[j], varFcn, V, ngrad, Vj_Recon, X, xWall, Xij, V_e);
 
                       if (structureType == BoundaryData::SYMMETRYPLANE)
                           riemann.computeSymmetryPlaneRiemannSolution(V_e, vWall, nWall_o, varFcn, Wstar, i, fluidId[j]);
@@ -3643,10 +3652,11 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
                       if (it > 0) for (int k = 0; k < dim; k++) Wstarji[l][k] = Wstar[k];
 
-                      higherOrderFSI->interpolateToSI(l, j, fluidId[j], varFcn, V, Wstar, ngrad, X, xWall, Xij, V_si);
+                      higherOrderFSI->interpolateToSI(l, j, fluidId[j], varFcn, V, Wstar, ngrad, X, xWall, Xij, V_si, alpha);
 
-                      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], V_si, Vj_Recon, fluxj, fluidId[j],
-                                                    false);
+                      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], V_si, Vj_Recon, fluxj, fluidId[j], false);
+
+
                   }
               }
                 break;
