@@ -3458,7 +3458,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
                     higherOrderFSI->extrapolateToWall_1(l, i, fluidId[i], varFcn, V, ngrad, Vi_Recon, X, xWall, Xij, V_e);
                     if (structureType == BoundaryData::SYMMETRYPLANE)
-                      riemann.computeFSIRiemannSolution(V_e, vWall, nWall_o, varFcn, Wstar, j, fluidId[i]);
+                      riemann.computeSymmetryPlaneRiemannSolution(V_e, vWall, nWall_o, varFcn, Wstar, j, fluidId[i]);
                     else
                     riemann.computeFSIRiemannSolution(V_e, vWall, nWall_o, varFcn, Wstar, j, fluidId[i]);
 
