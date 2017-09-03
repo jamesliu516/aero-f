@@ -3472,8 +3472,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                     if (it > 0) for (int k = 0; k < dim; k++) Wstarij[l][k] = Wstar[k];
 
                     higherOrderFSI->interpolateToSI(l, i, fluidId[i], varFcn, V, Wstar, ngrad, X, xWall, Xij, V_si, alpha);
-                    if(V_si[0] <= 0.0  || V_si[4] <= 0.0)
-                        std::cout <<"**Vi**V_si " << V_si[0] << " " << V_si[4] <<  std::endl;
+
                     fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi_Recon, V_si, fluxi, fluidId[i],
                                                   false);
 
