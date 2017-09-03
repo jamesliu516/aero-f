@@ -6222,9 +6222,9 @@ void SubDomain::createHigherOrderMultiFluid() {
   faces.attachHigherOrderMF(higherOrderMF);
 }
 
-void SubDomain::createHigherOrderFSI() {
+void SubDomain::createHigherOrderFSI(const IoData & iod) {
 
-  higherOrderFSI = new HigherOrderFSI();
+  higherOrderFSI = new HigherOrderFSI(iod);
 
   edges.attachHigherOrderFSI(higherOrderFSI);
   //  faces.attachHigherOrderFSI(higherOrderFSI);
@@ -6560,7 +6560,7 @@ bool SubDomain::getPiercedPoint(Vec3D va, Vec3D vb, Vec3D vc, Vec3D vd, Vec3D ve
 // ----------------------------------------
 
 bool SubDomain::getSIstencil(int Ni, int Nj, SVec<double,3> &X, LevelSetStructure &LSS, Vec<int> &fluidId,
-									  Vec3D &normWall, Vec3D &xWall, V6NodeData &SiStencilData)
+									  Vec3D &normWall, Vec3D &xWall, V6NodeData &SiStencilData, bool externalSI)
 {
 
 	double min_dist0 = bigNum;
@@ -6578,13 +6578,35 @@ bool SubDomain::getSIstencil(int Ni, int Nj, SVec<double,3> &X, LevelSetStructur
 	Vec3D X_si; 
 	for(int k=0; k<3; ++k) X_si[k] = 0.5*(X[Ni][k] + X[Nj][k]);
 
-	Vec3D dir = X_si - xWall;
-	double norm = sqrt(dir * dir);
-	if(norm != 0.0) dir *= 1.0 / norm;
+    Vec3D ve; // the vector connecting xWall and X_si, toward the fluid
 
-	Vec3D ve = X_si + 1000.0*dir;
+    int N_act = LSS.isActive(0.0, Ni) ? Ni : Nj;
+    int N_inact = LSS.isActive(0.0, Ni) ? Nj : Ni;
 
-	int N_act = LSS.isActive(0.0, Ni) ? Ni : Nj;
+    if(externalSI) {
+      // Dante's ghost node definition
+      Vec3D dir = X_si - xWall;
+      double norm = sqrt(dir * dir);
+      if (norm != 0.0) dir *= 1.0 / norm;
+      ve = X_si + 1000.0 * dir;
+    }else {
+      //Original FIVER's ghost node definition
+
+      if (N_act == N_inact) {
+        std::cout << "ERROR in SubDomain::getSIstencil, one node is active and the other is inactive" << std::endl;
+        exit(1);
+      }
+      Vec3D dir = (normWall[0] * (X[N_act][0] - X[N_inact][0]) + normWall[1] * (X[N_act][1] - X[N_inact][1]) +
+                   normWall[2] * (X[N_act][2] - X[N_inact][2]) >= 0 ? normWall : -normWall);
+      double norm = sqrt(dir * dir);
+
+      if (norm != 0.0) dir *= 1.0 / norm;
+      ve = X_si + 1000.0 * dir;
+    }
+
+
+
+
 
 	// Loop over the elements connected to nodes Ni and Nj
 	for(int idN=0; idN<2; ++idN)
@@ -6708,6 +6730,7 @@ bool SubDomain::getSIstencil(int Ni, int Nj, SVec<double,3> &X, LevelSetStructur
 		SiStencilData.face = -1;
 		SiStencilData.r    = -1.0;
 		SiStencilData.t    = -1.0;
+        fprintf(stderr, "*** Error: Edge(Node %d -> Node %d) does not have stencil to compute second order Euler flux based on the closest point\n", Ni,Nj);
 	}
 
 	return Wmode0 || Wmode1;
@@ -7096,6 +7119,9 @@ bool SubDomain::getFEMstencil2(int Ni, SVec<double,3> &X,
 	}
  
 	bool Wmode = (Wmode0_m || Wmode1_m) || (Wmode0_p || Wmode1_p);
+
+    if(!Wmode)
+      std::cout <<"Warning: fail to populate the ghost value at not Ni in SubDomain::getFEMstencil2" << std::endl;
 
 	return Wmode;
 
