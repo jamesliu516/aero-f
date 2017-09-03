@@ -8226,6 +8226,7 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
 
                 ghostPoints[j]->addNeighbour(Vj,weights,tagI);
 
+
             }
 //////////////////// Populate node j to ghost node i
 
