@@ -2085,7 +2085,7 @@ void SpaceOperator<dim>::computeViscousResidual(DistSVec<double,3> &X, DistVec<d
                            DistSVec<double,dim> &R,
                            DistExactRiemannSolver<dim> *riemann, int Nriemann,
                            int it, DistVec<GhostPoint<dim>*> *ghostPoints,  bool compatF3D)
-{
+{ std::cout << "Only for debug usage" << std::endl;
   R = 0.0;
   Wext = 0.0;
 

@@ -19,67 +19,59 @@
 // contact Daniel Huang if you have problems
 //------------------------------------------------------------------------------
 template<int dim>
-void ElemTet::computeGalerkinTerm(
-                FemEquationTerm *fet,
-                SVec<double,3> &X,
-                Vec<double> &d2wall,
-                SVec<double,dim> &V,
-                SVec<double,dim> &R,
-                Vec<GhostPoint<dim>*> *ghostPoints,
-                LevelSetStructure *LSS)
+void ElemTet::computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
+                                  Vec<double> &d2wall, SVec<double,dim> &V,
+                                  SVec<double,dim> &R, Vec<GhostPoint<dim>*> *ghostPoints,
+                                  LevelSetStructure *LSS)
 {
+    // In the case of an embedded simulation, check if the tetrahedra is actually active
 
-    double *v[4]  = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)], V[nodeNum(3)]};
+    bool isTetInactive    = true;
+    bool isAtTheInterface = false;
 
-  // In the case of an embedded simulation, check if the tetrahedra is actually active
-  bool isTetInactive    = true;
-  bool isAtTheInterface = false;
+    //only when at least one node is active or one edge is intersected is the tetrahedra actually active
+    if(ghostPoints)
+    {
+        //loop over all nodes
+        for(int i=0;i<4;++i)  isTetInactive = isTetInactive && !LSS->isActive(0,nodeNum(i));
 
-  //only when at least one node is active or one edge is intersected is the tetrahedra actually active
-  if(ghostPoints)
-  {
-    //loop over all nodes
-    for(int i=0;i<4;++i)  isTetInactive = isTetInactive && !LSS->isActive(0,nodeNum(i));
+        //loop over all edges
+        for(int l=0; l<6; ++l) isAtTheInterface = isAtTheInterface || LSS->edgeIntersectsStructure(0,edgeNum(l));
 
-    //loop over all edges
-    for(int l=0; l<6; ++l) isAtTheInterface = isAtTheInterface || LSS->edgeIntersectsStructure(0,edgeNum(l));
-
-    if(isTetInactive) return;//If the tetrahedra is fully inactive do nothing
+        if(isTetInactive) return;//If the tetrahedra is fully inactive do nothing
     }
 
-  // Common Partas
-  // Common Part
+    // Common Part
     double dp1dxj[4][3];
     double vol = computeGradientP1Function(X, dp1dxj);
 
     double d2w[4] = {d2wall[nodeNum(0)], d2wall[nodeNum(1)],
                      d2wall[nodeNum(2)], d2wall[nodeNum(3)]};
-
+    double *v[4]  = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)], V[nodeNum(3)]};
     double v_ave[4][dim];
     double r[3][dim], s[dim], pr[12];
 
-  if(ghostPoints && isAtTheInterface)
-  {
-    // We don't want to update States associated to ghost points
+    if(ghostPoints && isAtTheInterface)
+    {
+        // We don't want to update States associated to ghost points
         GhostPoint<dim> *gp;
 
-    for(int j=0; j<4; ++j)//loop over all tetrahedra nodes
-    {
-      int idx = nodeNum(j);//get the node ID of the current tetrahedra node
-
-      // We add a contribution for active nodes only
-      if(LSS->isActive(0,idx))//execute loop if the current node j is an active node
-      {
-
-        //loop over all edges of the tetrahedra
-        for(int e=0; e<6; e++)
+        for(int j=0; j<4; ++j)
         {
-          //execute statement only if the current node j belongs to that edge and the edge is intersected
-          if((j == edgeEnd(e,0) || j == edgeEnd(e,1)) && LSS->edgeIntersectsStructure(0, edgeNum(e)))
-          {
-            // l is set to the id of the node at the other end of the edge
+            for (int k=0; k<4; ++k) v[k] = V[nodeNum(k)];
+            int idx = nodeNum(j);
+
+            if(LSS->isActive(0,idx))
+            {
+                // We add a contribution for active nodes only
+                for(int e=0; e<6; e++)
+                {
+                    //execute statement only if the current node j belongs to that edge and the edge is intersected
+                    if((j == edgeEnd(e,0) || j == edgeEnd(e,1)) && LSS->edgeIntersectsWall(0.0,edgeNum(e)))
+                    {
+                        // l is set to the id of the node at the other end of the edge
                         int l = (j == edgeEnd(e,0) ? edgeEnd(e,1) : edgeEnd(e,0));
-            gp = (*ghostPoints)[nodeNum(l)];//how can I interpret this line?
+                        gp = (*ghostPoints)[nodeNum(l)];
                         if (gp) {
                             LevelSetResult resij = LSS->getLevelSetDataAtEdgeCenter(0,edgeNum(e),true);
                             int structureType = resij.structureType;
@@ -92,7 +84,7 @@ void ElemTet::computeGalerkinTerm(
                                     // average the temperature and velcity and turbulence unknowns
                                     for(int ghost_i = 0; ghost_i < dim;ghost_i ++)
                                         v_ave[l][ghost_i] = (LSS->isActive(0,nodeNum(l))? (1 - resij.porosity)*gp->getPrimitiveState()[ghost_i]
-                                                                                 + resij.porosity*v[l][ghost_i]: gp->getPrimitiveState()[ghost_i]);
+                                                                                          + resij.porosity*v[l][ghost_i]: gp->getPrimitiveState()[ghost_i]);
                                     // If l is active use its density otherwise use ghost value's density, because v is the primitive
                                     // state vector, T = T(rho,P)
                                     // v_ave[l][0] = (LSS->isActive(0,l)? v[l][0] : gp->getPrimitiveState()[0]);
@@ -110,8 +102,8 @@ void ElemTet::computeGalerkinTerm(
 
                         }
                     }
-        }
-      //}//////////
+                }
+
                 fet->computeVolumeTerm(dp1dxj, d2w, v, reinterpret_cast<double *>(r),
                                        s, pr, vol, X, nodeNum(), volume_id);
 
@@ -119,43 +111,40 @@ void ElemTet::computeGalerkinTerm(
                 {
                     R[idx][k] += vol * ( (r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] +
                                           r[2][k] * dp1dxj[j][2]) - fourth * s[k] );
-                    //According to Vinod - fourth * s[k] might cause stable issues,
-                    //but it comes from theory, comment it out if necessary
                 }
+
             }
         }
     }
-  else//this is the non-embedded version; all the states are updated
-  {
-    // Loop over all tetrahedra nodes
-    //for (int k=0; k<4; ++k) v[k] = V[nodeNum(k)];
-
+    else
+    {
+        // All the states are updated
+        for (int k=0; k<4; ++k) v[k] = V[nodeNum(k)];
         bool porousTermExists =  fet->computeVolumeTerm(dp1dxj, d2w, v, reinterpret_cast<double *>(r),
                                                         s, pr, vol, X, nodeNum(), volume_id);
 
-    //Loop over all other nodes
-    for (int j=0; j<4; ++j)
-    {
+        for (int j=0; j<4; ++j)
+        {
             int idx = nodeNum(j);
 
-      //Loop over all components of the state vector
-      for (int k=0; k<dim; ++k)
-      {
+            for (int k=0; k<dim; ++k)
+            {
                 R[idx][k] += vol * ( (r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] +
                                       r[2][k] * dp1dxj[j][2]) - fourth * s[k] );
-      }
-    }
+            }
 
-    if (porousTermExists)
-    {
-      for (int j=0; j<4; ++j)
-      {
+        }
+
+        if (porousTermExists)
+        {
+            for (int j=0; j<4; ++j)
+            {
                 int idx = nodeNum(j);
 
-        for (int k=1; k<4; ++k)  R[idx][k] += pr[3*j+k-1];
-      }
+                for (int k=1; k<4; ++k)	R[idx][k] += pr[3*j+k-1];
+            }
+        }
     }
-  }
 
 }
 
