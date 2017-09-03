@@ -5210,6 +5210,7 @@ EmbeddedFramework::EmbeddedFramework() {
   riemannNormal = STRUCTURE;
   phaseChangeAlg = AUTO;
   interfaceAlg = MID_EDGE;
+  secondOrderEulerFlux = INTERSECTPOINT;
 
   prec = NON_PRECONDITIONED;
   alpha = 0.1;
@@ -5254,6 +5255,8 @@ void EmbeddedFramework::setup(const char *name) {
                                      "FirstOrder", 0, "SecondOrder", 1);
   new ClassToken<EmbeddedFramework> (ca, "InterfaceAlgorithm", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::interfaceAlg), 2,
                                      "MidEdge", 0, "Intersection", 1);
+  new ClassToken<EmbeddedFramework> (ca, "SecondOrderEulerFlux", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::secondOrderEulerFlux), 2,
+                                     "Intersection", 0, "ClosestPoint", 1);
   embedIC.setup("InitialConditions", ca); 
 
   new ClassDouble<EmbeddedFramework>(ca, "Alpha", this, &EmbeddedFramework::alpha);

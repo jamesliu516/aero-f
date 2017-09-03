@@ -131,7 +131,7 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
   if (interfaceAlg == 1) {
 
-    dom->createHigherOrderFSI();
+    dom->createHigherOrderFSI(ioData);
 
 #pragma omp parallel for
     for (int iSub = 0; iSub < dom->getNumLocSub(); ++iSub) {
