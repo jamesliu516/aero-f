@@ -196,6 +196,7 @@ void TsRestart::readRestartFileNames(const char* fn,
  */
 
   char tmp[7][256];
+  int size[7];
   FILE* fin;
 
   if (com == NULL || com->cpuNum() == 0) {
@@ -211,25 +212,26 @@ void TsRestart::readRestartFileNames(const char* fn,
   for (int i = 0; i < 7; ++i) {
 
     if (com == NULL || com->cpuNum() == 0)
-      fscanf(fin,"%s",tmp[i]); 
+      size[i] = fscanf(fin,"%s",tmp[i]); 
 
-    if (com)
-      com->broadcast(256, tmp[i]);
+    if (com) {
+      com->broadcast(1, &size[i]);
+      if(size[i] > 0) com->broadcast(256, tmp[i]);
+    }
   }
-    
-
 
   if (com == NULL || com->cpuNum() == 0) {
     fclose(fin); 
   }
 
-  strcpy(sols, tmp[0]);
-  strcpy(posit, tmp[1]);
-  strcpy(ls, tmp[2]);
-  strcpy(crk, tmp[3]);
-  strcpy(fid, tmp[4]);
-  strcpy(dat, tmp[5]);
-  strcpy(spos, tmp[6]);
+  if(sols != NULL && size[0] > 0) strcpy(sols, tmp[0]);
+  if(posit != NULL && size[1] > 0) strcpy(posit,tmp[1]);
+  if(ls != NULL && size[2] > 0) strcpy(ls, tmp[2]);
+  if(crk != NULL && size[3] > 0) strcpy(crk, tmp[3]);
+  if(fid != NULL && size[4] > 0) strcpy(fid, tmp[4]);
+  if(dat != NULL && size[5] > 0) strcpy(dat, tmp[5]);
+  if(spos != NULL && size[6] > 0) strcpy(spos, tmp[6]);
+
 }
 
 

@@ -158,6 +158,36 @@ void RectangularSparseMat<Scalar,dim,dim2>::addContrib(int row, int col, double 
 //------------------------------------------------------------------------------
 
 template<class Scalar, int dim, int dim2>
+void RectangularSparseMat<Scalar,dim,dim2>::addContrib(int row, int col, double C)
+{
+
+  int j, k, l;
+
+  int iNode = (nodeRenum) ? nodeRenum->renum[ row ] : row;
+//  fprintf(stderr, "iNode = %d, row = %d\n", iNode, row);
+  if (nodeType && nodeType[ row ] != BC_INTERNAL) {
+    int indx = find(iNode, iNode);
+    for (k = 0; k < dim2; ++k)
+      for (l = 0; l < dim; ++l)
+        a[indx][dim*k+l] = (k == l) ? 1.0 : 0.0;
+    return;
+  }
+
+  if (nodeType && nodeType[ col ] != BC_INTERNAL) return;
+  int jNode = (nodeRenum) ? nodeRenum->renum[ col ] : col;
+//  fprintf(stderr, "jNode = %d, col = %d\n", jNode, col);
+  int indx = find(iNode, jNode);
+  for (k = 0; k < dim2; ++k)
+    for (l = 0; l < dim; ++l) {
+      a[indx][dim*k+l] += (k == l) ? C : 0.0;
+    }
+
+}
+
+//------------------------------------------------------------------------------
+
+
+template<class Scalar, int dim, int dim2>
 void RectangularSparseMat<Scalar,dim,dim2>::printFirstElementIn_a()
 {
   fprintf(stderr, "a[0] = %e\n", a.v[0][0]);

@@ -22,9 +22,12 @@
 //------------------------------------------------------------------------------
 
 template<int dim>
-void ElemSet::computeTimeStep(FemEquationTerm *fet, SVec<double,3> &X, 
-										SVec<double,dim> &V, Vec<double> &idtv, 
-										LevelSetStructure *LSS)
+void ElemSet::computeTimeStep(
+                FemEquationTerm *fet,
+                SVec<double,3> &X,
+                SVec<double,dim> &V,
+                Vec<double> &idtv,
+                LevelSetStructure *LSS)
 {
   int *nodeNumber,numberOfNodes;
   double Vmid[dim],oneOnDofs;
@@ -87,10 +90,10 @@ void ElemSet::computeTimeStep(FemEquationTerm *fet, SVec<double,3> &X,
 
 template<int dim>
 void ElemSet::computeGalerkinTerm(FemEquationTerm *fet, GeoState &geoState, 
-				  SVec<double,3> &X, SVec<double,dim> &V, 
-				  SVec<double,dim> &R,
-											 Vec<GhostPoint<dim>*> *ghostPoints, 
-											 LevelSetStructure *LSS, bool externalSI)
+                SVec<double,3> &X, SVec<double,dim> &V,
+                SVec<double,dim> &R,
+                Vec<GhostPoint<dim>*> *ghostPoints,
+                LevelSetStructure *LSS, bool externalSI)
 {
 
   Vec<double> &d2wall = geoState.getDistanceToWall();
@@ -146,22 +149,64 @@ void ElemSet::computeGalerkinTermRestrict(FemEquationTerm *fet, GeoState &geoSta
 }
 //------------------------------------------------------------------------------
 
-// Included
+/****************************************************************************************
+ * Computes the derivative of the viscous term for non-embedded simulations.            *
+ * This is the non-sparse implementation                                           (MB) *
+ ****************************************************************************************/
 template<int dim>
-void ElemSet::computeDerivativeOfGalerkinTerm(FemEquationTerm *fet, GeoState &geoState,
-				 SVec<double,3> &X, SVec<double,3> &dX, SVec<double,dim> &V, SVec<double,dim> &dV,
-				 double dMach, SVec<double,dim> &dR)
+void ElemSet::computeDerivativeOfGalerkinTerm(FemEquationTerm *fet,
+                GeoState &geoState,
+                SVec<double,3> &X,
+                SVec<double,3> &dX,
+                SVec<double,dim> &V, SVec<double,dim> &dV,
+                double dMach,
+                SVec<double,dim> &dR)
+{
+  Vec<double> &d2wall = geoState.getDistanceToWall();
+
+  for (int i=0; i<numElems; ++i)
+    elems[i]->computeDerivativeOfGalerkinTerm(fet, X, dX, d2wall, V, dV, dMach, dR);
+}
+
+
+/****************************************************************************************
+ * Computes the derivative of the viscous term for non-embedded simulations.            *
+ * This is the non-sparse implementation                                           (MB) *
+ ****************************************************************************************/
+template<int dim>
+void ElemSet::computeDerivativeOfGalerkinTermEmb(
+                FemEquationTerm *fet,
+                GeoState &geoState,
+                SVec<double,3> &X,
+                SVec<double,3> &dX,
+                SVec<double,dim> &V, SVec<double,dim> &dV,
+                double dMach,
+                SVec<double,dim> &dR,
+                Vec<GhostPoint<dim>*> *ghostPoints,LevelSetStructure *LSS)
+{
+  Vec<double> &d2wall = geoState.getDistanceToWall();
+
+  for (int i=0; i<numElems; ++i)
+    elems[i]->computeDerivativeOfGalerkinTermEmb(fet, X, dX, d2wall, V, dV, dMach, dR, ghostPoints,LSS);
+}
+
+
+
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void ElemSet::computeDerivativeOperatorsOfGalerkinTerm(FemEquationTerm *fet, GeoState &geoState,
+				 SVec<double,3> &X, SVec<double,dim> &V, RectangularSparseMat<double,3,dim> &dViscousFluxdX)
 {
 
   Vec<double> &d2wall = geoState.getDistanceToWall();
 
   for (int i=0; i<numElems; ++i)
-    elems[i]->computeDerivativeOfGalerkinTerm(fet, X, dX, d2wall, V, dV, dMach, dR);
-
+    elems[i]->computeDerivativeOperatorsOfGalerkinTerm(fet, X, d2wall, V, dViscousFluxdX);
 }
 
 //------------------------------------------------------------------------------
-
 template<int dim>
 void ElemSet::computeMBarAndM(DynamicVMSTerm *dvmst,
 			      SVec<double,dim> **VBar,

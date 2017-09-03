@@ -54,28 +54,30 @@ public:
   void computeJacobian(int, DistSVec<double,dim> &, DistSVec<double,dim> &);
   void setOperators(DistSVec<double,dim> &);
 
+  void rstVarImplicitSegTsDesc(IoData &);
+
   int solveLinearSystem(int, DistSVec<double,dim> &, DistSVec<double,dim> &);
 
-  DistMat<double,neq1>* GetJacobian1() { 
-    MatVecProdH1<dim,double,neq1>* mvph1 = 
+  DistMat<double,neq1>* GetJacobian1() {
+    MatVecProdH1<dim,double,neq1>* mvph1 =
       dynamic_cast<MatVecProdH1<dim,double,neq1>*>(this->mvp1);
-    if (mvph1) 
+    if (mvph1)
       return dynamic_cast<DistMat<double,neq1>*>(mvph1);
-    MatVecProdH2<dim,double,neq1>* mvph2 = 
+    MatVecProdH2<dim,double,neq1>* mvph2 =
       dynamic_cast<MatVecProdH2<dim,double,neq1>*>(this->mvp1);
-    if (mvph2) 
+    if (mvph2)
       return dynamic_cast<DistMat<double,neq1>*>(mvph2);
     return NULL;
   }
 
-  DistMat<double,neq2>* GetJacobian2() { 
-    MatVecProdH1<dim,double,neq2>* mvph1 = 
+  DistMat<double,neq2>* GetJacobian2() {
+    MatVecProdH1<dim,double,neq2>* mvph1 =
       dynamic_cast<MatVecProdH1<dim,double,neq2>*>(this->mvp2);
-    if (mvph1) 
+    if (mvph1)
       return dynamic_cast<DistMat<double,neq2>*>(mvph1);
-    MatVecProdH2<dim,double,neq2>* mvph2 = 
+    MatVecProdH2<dim,double,neq2>* mvph2 =
       dynamic_cast<MatVecProdH2<dim,double,neq2>*>(this->mvp2);
-    if (mvph2) 
+    if (mvph2)
       return dynamic_cast<DistMat<double,neq2>*>(mvph2);
     return NULL;
   }

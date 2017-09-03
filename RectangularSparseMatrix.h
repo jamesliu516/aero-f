@@ -79,6 +79,7 @@ public:
 
   void addContrib(int, int *, double *);
   void addContrib(int, int, double *);
+  void addContrib(int, int, double);
 
   void createPointers(EdgeSet &);
 

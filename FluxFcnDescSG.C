@@ -1038,6 +1038,19 @@ void FluxFcnSGInflowEuler3D::computeDerivative
 
 //------------------------------------------------------------------------------
 
+// Included (YC)
+inline
+void FluxFcnSGInflowEuler3D::computeDerivativeOperators
+(
+  double *normal, double normalVel, double *V, double *Ub,
+  double dFluxdNormal[7][3], double dFluxdNormalVel[7][1], double dFluxdUb[7][7]
+)
+{
+  F77NAME(computedboundfluxoperator)(0, vf->getGamma(), normal, normalVel, V, Ub, dFluxdNormal, dFluxdNormalVel, dFluxdUb);
+}
+
+//------------------------------------------------------------------------------
+
 void FluxFcnSGOutflowEuler3D::compute(double length, double irey, double *normal, double normalVel,
                                     double *V, double *Ub, double *flux, bool useLimiter)
 {
