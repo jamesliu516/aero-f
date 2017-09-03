@@ -18,114 +18,6 @@
 //--------------functions in ElemTet class
 // contact Daniel Huang if you have problems
 //------------------------------------------------------------------------------
-
-//template<int dim>
-//void ElemTet::computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
-//                Vec<double> &d2wall, SVec<double,dim> &V,
-//                SVec<double,dim> &R, Vec<GhostPoint<dim>*> *ghostPoints,
-//                LevelSetStructure *LSS)
-//{
-//  // In the case of an embedded simulation, check if the tetrahedra is actually active
-//
-//  bool isTetInactive    = true;
-//  bool isAtTheInterface = false;
-//
-//  //only when at least one node is active or one edge is intersected is the tetrahedra actually active
-//  if(ghostPoints)
-//  {
-//    //loop over all nodes
-//    for(int i=0;i<4;++i)	isTetInactive = isTetInactive && !LSS->isActive(0,nodeNum(i));
-//
-//    //loop over all edges
-//    for(int l=0; l<6; ++l) isAtTheInterface = isAtTheInterface || LSS->edgeIntersectsStructure(0,edgeNum(l));
-//
-//    if(isTetInactive) return;//If the tetrahedra is fully inactive do nothing
-//  }
-//
-//  // Common Partas
-//  double dp1dxj[4][3];
-//  double vol = computeGradientP1Function(X, dp1dxj);
-//
-//  double d2w[4] = {d2wall[nodeNum(0)], d2wall[nodeNum(1)],
-//                   d2wall[nodeNum(2)], d2wall[nodeNum(3)]};
-//  double *v[4]  = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)], V[nodeNum(3)]};
-//
-//  double r[3][dim], s[dim], pr[12];
-//
-//  if(ghostPoints && isAtTheInterface)
-//  {
-//    // We don't want to update States associated to ghost points
-//    GhostPoint<dim> *gp;
-//
-//    for(int j=0; j<4; ++j)//loop over all tetrahedra nodes
-//    {
-//      for (int k=0; k<4; ++k) v[k] = V[nodeNum(k)]; //get the fluid state vector of all nodes
-//
-//      int idx = nodeNum(j);//get the node ID of the current tetrahedra node
-//
-//      // We add a contribution for active nodes only
-//      if(LSS->isActive(0,idx))//execute loop if the current node j is an active node
-//      {
-//
-//        //loop over all edges of the tetrahedra
-//        for(int e=0; e<6; e++)
-//        {
-//          //execute statement only if the current node j belongs to that edge and the edge is intersected
-//          if((j == edgeEnd(e,0) || j == edgeEnd(e,1)) && LSS->edgeIntersectsStructure(0, edgeNum(e)))
-//          {
-//            // l is set to the id of the node at the other end of the edge
-//            int l = (j == edgeEnd(e,0) ? edgeEnd(e,1) : edgeEnd(e,0));
-//            gp = (*ghostPoints)[nodeNum(l)];//how can I interpret this line?
-//            if (gp) v[l] = gp->getPrimitiveState();
-//          }
-//        }
-//
-//        fet->computeVolumeTerm(dp1dxj, d2w, v, reinterpret_cast<double *>(r),
-//                               s, pr, vol, X, nodeNum(), volume_id);
-//
-//        for (int k=0; k<dim; ++k)//loop over all state variables
-//        {
-//            R[idx][k] += vol * ( (r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] +
-//                                  r[2][k] * dp1dxj[j][2]));// - fourth * s[k] );
-//        }
-//      }
-//    }
-//  }
-//  else//this is the non-embedded version; all the states are updated
-//  {
-//    // Loop over all tetrahedra nodes
-//    for (int k=0; k<4; ++k) v[k] = V[nodeNum(k)];
-//
-//    bool porousTermExists =  fet->computeVolumeTerm(dp1dxj, d2w, v, reinterpret_cast<double *>(r),
-//                                                    s, pr, vol, X, nodeNum(), volume_id);
-//
-//    //Loop over all other nodes
-//    for (int j=0; j<4; ++j)
-//    {
-//      int idx = nodeNum(j);
-//
-//      //Loop over all components of the state vector
-//      for (int k=0; k<dim; ++k)
-//      {
-//        R[idx][k] += vol * ( (r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] +
-//                              r[2][k] * dp1dxj[j][2]) - fourth * s[k] );
-//      }
-//    }
-//
-//    if (porousTermExists)
-//    {
-//      for (int j=0; j<4; ++j)
-//      {
-//        int idx = nodeNum(j);
-//
-//        for (int k=1; k<4; ++k)  R[idx][k] += pr[3*j+k-1];
-//      }
-//    }
-//  }
-//
-//}
-
-
 template<int dim>
 void ElemTet::computeGalerkinTerm(
                 FemEquationTerm *fet,
@@ -223,19 +115,12 @@ void ElemTet::computeGalerkinTerm(
                 fet->computeVolumeTerm(dp1dxj, d2w, v, reinterpret_cast<double *>(r),
                                        s, pr, vol, X, nodeNum(), volume_id);
 
-<<<<<<< local
                 for (int k=0; k<dim; ++k)
                 {
                     R[idx][k] += vol * ( (r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] +
                                           r[2][k] * dp1dxj[j][2]) - fourth * s[k] );
-=======
-        for (int k=0; k<dim; ++k)//loop over all state variables
-        {
-            R[idx][k] += vol * ( (r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] +
-                                  r[2][k] * dp1dxj[j][2]));// - fourth * s[k] );//old version
-//                    R[idx][k] += vol * ( (r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] +
-//                                  r[2][k] * dp1dxj[j][2]) - fourth * s[k] );//new version
->>>>>>> other
+                    //According to Vinod - fourth * s[k] might cause stable issues,
+                    //but it comes from theory, comment it out if necessary
                 }
             }
         }
@@ -562,309 +447,132 @@ void ElemTet::getPseudoStates(
 //------------------------------------------------------------------------------
 
 template<int dim>
-void ElemTet::computeGalerkinTerm_e(
-                FemEquationTerm *fet,
-                SVec<double,3> &X,
-                Vec<double> &d2wall,
-                SVec<double,dim> &V,
-                SVec<double,dim> &R,
-                Vec<GhostPoint<dim>*> *ghostPoints,
-                LevelSetStructure *LSS)
+void ElemTet::computeGalerkinTerm_e(FemEquationTerm *fet, SVec<double,3> &X,
+                                    Vec<double> &d2wall, SVec<double,dim> &V,
+                                    SVec<double,dim> &R, Vec<GhostPoint<dim>*> *ghostPoints,
+                                    LevelSetStructure *LSS)
 {
 
-<<<<<<< local
-	bool isTetInactive    = true;
-	bool isAtTheInterface = false;
-=======
-  bool isTetInactive    = true;
-  bool isAtTheInterface = false;
->>>>>>> other
+    bool isTetInactive    = true;
+    bool isAtTheInterface = false;
 
-<<<<<<< local
-	if(ghostPoints)
-	{ 
-		for(int i=0; i<4; ++i)
-		{
-			isTetInactive    = isTetInactive    && !LSS->isActive(0, nodeNum(i));
-			isAtTheInterface = isAtTheInterface || !LSS->isActive(0, nodeNum(i));
-		}
-=======
-  if(ghostPoints)//If ghostpoints is a null pointer, then no embedded routines are required
-  {
-    for(int i=0; i<4; ++i)//loop over all tetrahedra nodes
-    { //if at least one node is active, the tetrahedra is regarded as being active
-      isTetInactive    = isTetInactive    && !LSS->isActive(0, nodeNum(i));
-      isAtTheInterface = isAtTheInterface || !LSS->isActive(0, nodeNum(i));
-    }
->>>>>>> other
-
-<<<<<<< local
-		if(isTetInactive) return;
-	}
-=======
-    if(isTetInactive) return;
-  }
->>>>>>> other
-
-<<<<<<< local
-	double dp1dxj[4][3];
-	double Vol = computeGradientP1Function(X, dp1dxj);
-=======
-  double dp1dxj[4][3];
-  double Vol = computeGradientP1Function(X, dp1dxj);
->>>>>>> other
-
-<<<<<<< local
-	double *Ve[4];
-=======
-  double *Ve[4];
->>>>>>> other
-
-<<<<<<< local
-	double ff[3][dim], S[dim], PR[12];
-=======
-  double ff[3][dim], S[dim], PR[12];
->>>>>>> other
-
-<<<<<<< local
-	double dist2wall[4] = {d2wall[nodeNum(0)], d2wall[nodeNum(1)],
-								  d2wall[nodeNum(2)], d2wall[nodeNum(3)]};
-	
-	Vec3D xWall;
-=======
-  double dist2wall[4] = {d2wall[nodeNum(0)], d2wall[nodeNum(1)],d2wall[nodeNum(2)], d2wall[nodeNum(3)]};
->>>>>>> other
-
-<<<<<<< local
-	if(ghostPoints && isAtTheInterface)
-	{
-		/*  ---------------------------------- IB treatment ---------------------------------- */
-=======
-  Vec3D xWall;
->>>>>>> other
-
-<<<<<<< local
-		GhostPoint<dim> *gp;
-=======
-  // enter this routine, if the the current tetrahedra is active and intersected by the interface
-  if(ghostPoints && isAtTheInterface)
-  {
-    /*  ---------------------------------- IB treatment ---------------------------------- */
->>>>>>> other
-
-<<<<<<< local
-		for(int i=0; i<4; ++i)
-		{
-			int Ni = nodeNum(i);
-=======
-    GhostPoint<dim> *gp;
->>>>>>> other
-
-<<<<<<< local
-			if(!LSS->isActive(0, Ni)) continue;//if it is ghost, we do not need to compute viscous flux on it
-						
-			for(int j=0; j<4; ++j)
-			{
-				int Nj = nodeNum(j);
-			
-				bool isJGhost = LSS->xWallNode(Nj, xWall); //return ghost or not
-=======
-    for(int i=0; i<4; ++i)//loop over all tetrahedra nodes
+    if(ghostPoints)
     {
-      int Ni = nodeNum(i);
->>>>>>> other
-
-<<<<<<< local
-				if(isJGhost)
-				{
-					if(!(*ghostPoints)[Nj])
-					{
-						fprintf(stderr, "*** Error: missing ghost point\n");
-						exit(-1);
-					}
-=======
-      if(!LSS->isActive(0, Ni)) continue; //if the current node is inactive, don't go any further
->>>>>>> other
-
-<<<<<<< local
-					gp = (*ghostPoints)[Nj];
-=======
-      for(int j=0; j<4; ++j)//loop over all other nodes
-      {
-        int Nj = nodeNum(j);
->>>>>>> other
-
-<<<<<<< local
-					int e = -1;
-					for(int l=0; l<6; ++l)
-					{
-						if( min(i,j) == min(edgeEnd(l,0), edgeEnd(l,1)) && 
-							 max(i,j) == max(edgeEnd(l,0), edgeEnd(l,1)) ) 
-						{
-							e = l; break;
-						}
-					}
-=======
-        bool isJGhost = LSS->xWallNode(Nj, xWall);
-
-        //If this loop is entered, than (i) is active and (j) is ghost
-        if(isJGhost)
+        for(int i=0; i<4; ++i)
         {
-          if(!(*ghostPoints)[Nj])
-          {
-              fprintf(stderr, "*** Error: missing ghost point\n");
-              exit(-1);
-          }
-
-          gp = (*ghostPoints)[Nj];//set Nj as ghostpoint
-
-          //the following construct finds the edge that connects i and j
-          int e = -1;
-          for(int l=0; l<6; ++l)//loop over all edges
-          {
-            if( min(i,j) == min(edgeEnd(l,0), edgeEnd(l,1)) &&
-                 max(i,j) == max(edgeEnd(l,0), edgeEnd(l,1)) )
-            {
-              e = l; break;
-            }
-          }
->>>>>>> other
-
-					int dir = LSS->edgeIntersectsWall(0.0,edgeNum(e)) ? -1 : 1;
-
-<<<<<<< local
-					Ve[j] = gp->getPrimitiveState(dir);
-=======
->>>>>>> other
-
-<<<<<<< local
-				}				
-				else
-					Ve[j] = V[Nj];
-			}
-=======
-                    //dzh
-                    //std::cout << "X[i] " << X[Ni][0] << " " << X[Ni][1] << " " << X[Ni][2] << " "<<std::endl;
-                    //std::cout << "X[j] " << X[Nj][0] << " " << X[Nj][1] << " " << X[Nj][2] << " "<<std::endl;
-                    //std::cout << "Nj " << Nj << std::endl;
-          Ve[j] = gp->getPrimitiveState(dir);
-                    //std::cout << "Nj " << Nj << std::endl;
+            isTetInactive    = isTetInactive    && !LSS->isActive(0, nodeNum(i));
+            isAtTheInterface = isAtTheInterface || !LSS->isActive(0, nodeNum(i));
         }
-        else
-          Ve[j] = V[Nj];
-      }
->>>>>>> other
 
-<<<<<<< local
-			bool withPorousTerm = fet->computeVolumeTerm(dp1dxj, dist2wall, Ve, 
-																		reinterpret_cast<double *>(ff),
-																		S, PR, Vol, X, nodeNum(), volume_id);
-=======
-      bool withPorousTerm = fet->computeVolumeTerm(dp1dxj, dist2wall, Ve,
-                                    reinterpret_cast<double *>(ff),
-                                    S, PR, Vol, X, nodeNum(), volume_id);
->>>>>>> other
-
-<<<<<<< local
-			for(int k=0; k<dim; ++k)
-			{
-				R[Ni][k] += Vol*( ff[0][k]*dp1dxj[i][0] 
-									 + ff[1][k]*dp1dxj[i][1]
-									 + ff[2][k]*dp1dxj[i][2] - fourth*S[k] );
-			}
-=======
-      for(int k=0; k<dim; ++k)
-      {
-        R[Ni][k] += Vol*( ff[0][k]*dp1dxj[i][0]
-                   + ff[1][k]*dp1dxj[i][1]
-                   + ff[2][k]*dp1dxj[i][2] - fourth*S[k] );
-      }
->>>>>>> other
-
-<<<<<<< local
-			if(withPorousTerm) for(int k=1; k<4; ++k) R[Ni][k] += PR[3*i+k-1];
-		}
-	}
-	else
-	{
-		/*  ---------------------------------- Same Phase ---------------------------------- */
-=======
-      if(withPorousTerm) for(int k=1; k<4; ++k) R[Ni][k] += PR[3*i+k-1];
+        if(isTetInactive) return;
     }
-  }
-  else
-  {
-    /*  ---------------------------------- Same Phase ---------------------------------- */
-    for(int i=0; i<4; ++i) Ve[i] = V[nodeNum(i)];
->>>>>>> other
 
-<<<<<<< local
-		for(int i=0; i<4; ++i) Ve[i] = V[nodeNum(i)];
-=======
-    bool withPorousTerm = fet->computeVolumeTerm(dp1dxj, dist2wall, Ve,
-                                  reinterpret_cast<double *>(ff),
-                                  S, PR, Vol, X, nodeNum(), volume_id);
->>>>>>> other
+    double dp1dxj[4][3];
+    double Vol = computeGradientP1Function(X, dp1dxj);
 
-<<<<<<< local
-		bool withPorousTerm = fet->computeVolumeTerm(dp1dxj, dist2wall, Ve, 
-																	reinterpret_cast<double *>(ff),
-																	S, PR, Vol, X, nodeNum(), volume_id);
-		
-		for(int i=0; i<4; ++i) 
-		{
-			int Ni = nodeNum(i);
-=======
-    for(int i=0; i<4; ++i)
+    double *Ve[4];
+
+    double ff[3][dim], S[dim], PR[12];
+
+    double dist2wall[4] = {d2wall[nodeNum(0)], d2wall[nodeNum(1)],
+                           d2wall[nodeNum(2)], d2wall[nodeNum(3)]};
+
+    Vec3D xWall;
+
+    if(ghostPoints && isAtTheInterface)
     {
-      int Ni = nodeNum(i);
->>>>>>> other
+        /*  ---------------------------------- IB treatment ---------------------------------- */
 
-<<<<<<< local
-			for (int k=0; k<dim; ++k)
-			{
-				R[Ni][k] += Vol*(  ff[0][k]*dp1dxj[i][0] 
-									  + ff[1][k]*dp1dxj[i][1]
-									  + ff[2][k]*dp1dxj[i][2] - fourth*S[k] );
-			}
-		}
-=======
-      for (int k=0; k<dim; ++k)
-      {
-        R[Ni][k] += Vol*(  ff[0][k]*dp1dxj[i][0]
-                    + ff[1][k]*dp1dxj[i][1]
-                    + ff[2][k]*dp1dxj[i][2] - fourth*S[k] );
-      }
+        GhostPoint<dim> *gp;
+
+        for(int i=0; i<4; ++i)
+        {
+            int Ni = nodeNum(i);
+
+            if(!LSS->isActive(0, Ni)) continue;//if it is ghost, we do not need to compute viscous flux on it
+
+            for(int j=0; j<4; ++j)
+            {
+                int Nj = nodeNum(j);
+
+                bool isJGhost = LSS->xWallNode(Nj, xWall); //return ghost or not
+
+                if(isJGhost)
+                {
+                    if(!(*ghostPoints)[Nj])
+                    {
+                        fprintf(stderr, "*** Error: missing ghost point\n");
+                        exit(-1);
+                    }
+
+                    gp = (*ghostPoints)[Nj];
+
+                    int e = -1;
+                    for(int l=0; l<6; ++l)
+                    {
+                        if( min(i,j) == min(edgeEnd(l,0), edgeEnd(l,1)) &&
+                            max(i,j) == max(edgeEnd(l,0), edgeEnd(l,1)) )
+                        {
+                            e = l; break;
+                        }
+                    }
+
+                    int dir = LSS->edgeIntersectsWall(0.0,edgeNum(e)) ? -1 : 1;
+
+                    Ve[j] = gp->getPrimitiveState(dir);
+
+                }
+                else
+                    Ve[j] = V[Nj];
+            }
+
+            bool withPorousTerm = fet->computeVolumeTerm(dp1dxj, dist2wall, Ve,
+                                                         reinterpret_cast<double *>(ff),
+                                                         S, PR, Vol, X, nodeNum(), volume_id);
+
+            for(int k=0; k<dim; ++k)
+            {
+                R[Ni][k] += Vol*( ff[0][k]*dp1dxj[i][0]
+                                  + ff[1][k]*dp1dxj[i][1]
+                                  + ff[2][k]*dp1dxj[i][2] - fourth*S[k] );
+            }
+
+            if(withPorousTerm) for(int k=1; k<4; ++k) R[Ni][k] += PR[3*i+k-1];
+        }
     }
->>>>>>> other
+    else
+    {
+        /*  ---------------------------------- Same Phase ---------------------------------- */
 
-<<<<<<< local
-		if(withPorousTerm) 
-		{
-			for(int i=0; i<4; ++i) 
-			{
-				int Ni = nodeNum(i);
-=======
-      if(withPorousTerm)
-      {
-      for(int i=0; i<4; ++i)
-      {
-      int Ni = nodeNum(i);
->>>>>>> other
+        for(int i=0; i<4; ++i) Ve[i] = V[nodeNum(i)];
 
-<<<<<<< local
-				for(int k=1; k<4; ++k) R[Ni][k] += PR[3*i+k-1];
-			}
-		}
-	}
-	
-=======
-      for(int k=1; k<4; ++k) R[Ni][k] += PR[3*i+k-1];
-      }
+        bool withPorousTerm = fet->computeVolumeTerm(dp1dxj, dist2wall, Ve,
+                                                     reinterpret_cast<double *>(ff),
+                                                     S, PR, Vol, X, nodeNum(), volume_id);
+
+        for(int i=0; i<4; ++i)
+        {
+            int Ni = nodeNum(i);
+
+            for (int k=0; k<dim; ++k)
+            {
+                R[Ni][k] += Vol*(  ff[0][k]*dp1dxj[i][0]
+                                   + ff[1][k]*dp1dxj[i][1]
+                                   + ff[2][k]*dp1dxj[i][2] - fourth*S[k] );
+            }
+        }
+
+        if(withPorousTerm)
+        {
+            for(int i=0; i<4; ++i)
+            {
+                int Ni = nodeNum(i);
+
+                for(int k=1; k<4; ++k) R[Ni][k] += PR[3*i+k-1];
+            }
+        }
     }
-  }
 
->>>>>>> other
 }
 
 //------------------------------------------------------------------------------
