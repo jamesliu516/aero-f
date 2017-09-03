@@ -30,10 +30,17 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
   domain.createVecPat(dim, &ioData);
   domain.createRhsPat(dim, ioData);
 
+  //Combined calculations of Steady state and Sensitivities
   if (ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) { // YC
       FluidShapeOptimizationHandler<dim> fsoh(ioData, geoSource, &domain);
       TsSolver<FluidShapeOptimizationHandler<dim> > tsSolver(&fsoh);
       tsSolver.fsoSolve(ioData);
+  }
+  //Sensitivity analysis on a provided steady state solution
+  else if (ioData.problem.alltype == ProblemData::_SENSITIVITY_ANALYSIS_) {
+      FluidShapeOptimizationHandler<dim> fsoh(ioData, geoSource, &domain);
+      TsSolver<FluidShapeOptimizationHandler<dim> > tsSolver(&fsoh);
+      tsSolver.fsaSolve(ioData);
   }
   else if (ioData.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_) { // YC
       FluidShapeOptimizationHandler<dim> fsisoh(ioData, geoSource, &domain);
@@ -62,11 +69,11 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
       exit(-1);
     }
   }
-  else if ((ioData.problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_) || 
+  else if ((ioData.problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_) ||
            (ioData.problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_) ||
            (ioData.problem.alltype == ProblemData::_ACC_UNSTEADY_NONLINEAR_ROM_) ||
            (ioData.problem.alltype == ProblemData::_FORCED_NONLINEAR_ROM_)) {
-    if (ioData.romOnline.projection == 0 && ioData.romOnline.systemApproximation == NonlinearRomOnlineData::SYSTEM_APPROXIMATION_NONE) { 
+    if (ioData.romOnline.projection == 0 && ioData.romOnline.systemApproximation == NonlinearRomOnlineData::SYSTEM_APPROXIMATION_NONE) {
         ImplicitPGTsDesc<dim> tsDesc(ioData, geoSource, &domain);
         TsSolver<ImplicitPGTsDesc<dim> > tsSolver(&tsDesc);
         tsSolver.solve(ioData);
@@ -119,13 +126,14 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
     }
   }
   else if (ioData.ts.type == TsData::EXPLICIT) {
+      std::cout<<__FILE__<<":"<<__LINE__<<std::endl;
     ExplicitTsDesc<dim> tsDesc(ioData, geoSource, &domain);
     TsSolver<ExplicitTsDesc<dim> > tsSolver(&tsDesc);
     tsSolver.solve(ioData);
   }
   else
     com->fprintf(stderr, "*** Error: wrong time-integrator\n");
-      
+
 }
 
 #endif

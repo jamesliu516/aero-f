@@ -44,6 +44,10 @@ struct Vec3D {
 
   double norm() { return(sqrt(v[0]*v[0]+v[1]*v[1]+v[2]*v[2])); }
   double normsq() { return(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]); }
+
+  void crossProductSensitivityOperator(double dReturndv2[3][3]);
+  void crossProductSensitivityOperator(const Vec3D &v2, double dReturndv1[3][3]);
+
 };
 
 //------------------------------------------------------------------------------
@@ -127,6 +131,44 @@ Vec3D &Vec3D::operator-=(const double &c)
   v[2] -= c;
 
   return *this;
+
+}
+
+//------------------------------------------------------------------------------
+// define vector cross product sensitivity operator with respect to v2
+
+inline
+void Vec3D::crossProductSensitivityOperator(double dReturndv2[3][3])
+{
+
+  dReturndv2[0][0] = 0.0;
+  dReturndv2[0][1] = -v[2];
+  dReturndv2[0][2] = v[1];
+  dReturndv2[1][0] = v[2];
+  dReturndv2[1][1] = 0.0;
+  dReturndv2[1][2] = -v[0];
+  dReturndv2[2][0] = -v[1];
+  dReturndv2[2][1] = v[0];
+  dReturndv2[2][2] = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+// define vector cross product sensitivity operator with respect to v1
+
+inline
+void Vec3D::crossProductSensitivityOperator(const Vec3D &v2, double dReturndv1[3][3])
+{
+
+  dReturndv1[0][0] = 0.0;
+  dReturndv1[0][1] = v2.v[2];
+  dReturndv1[0][2] = -v2.v[1];
+  dReturndv1[1][0] = -v2.v[2];
+  dReturndv1[1][1] = 0.0;
+  dReturndv1[1][2] = v2.v[0];
+  dReturndv1[2][0] = v2.v[1];
+  dReturndv1[2][1] = -v2.v[0];
+  dReturndv1[2][2] = 0.0;
 
 }
 

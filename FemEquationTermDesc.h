@@ -46,6 +46,10 @@ public:
   void computeJacobianSurfaceTerm(int, Vec3D &, double [3], double *, double *[3], double *);
   void computeSurfaceTerm(double [4][3], int, Vec3D &, double [4], 
                           double *, double *[4], double *);
+
+  void computeDerivativeOperatorsOfVolumeTerm // YC
+  (double [4][3], double *[4], double (*)[5][4][3], double (*)[5][4][5], double (*)[5]);
+
   void computeJacobianSurfaceTerm(double [4][3], int, Vec3D &, double [4], 
                                   double *, double *[4], double *);
   
@@ -138,6 +142,12 @@ public:
   
   bool computeJacobianVolumeTerm(double [4][3], double [4], double *[4], double *, double *, double *, double,
                                  SVec<double,3> &, int [4], int);
+  void computeDerivativeOperatorsOfVolumeTerm // YC
+  (
+    double [4][3], double *[4], double (*)[5][4][3], double (*)[5][4][5], double (*)[5]) {
+    fprintf(stderr, "*** Error: FemEquationTermSA::computeDerivativeOperatorsOfVolumeTerm is not implemented yet\n");
+    exit(-1);
+  }
   void computeSurfaceTerm(int, Vec3D &, double [3], 
                           double *, double *[3], double *);
   void computeJacobianSurfaceTerm(int, Vec3D &, double [3], double *, double *[3], double *);
@@ -250,6 +260,12 @@ public:
    double, double *, double *, double *, double, SVec<double,3> &, int [4], int
    );
   
+   void computeDerivativeOperatorsOfVolumeTerm // YC
+   (double [4][3], double *[4], double (*)[5][4][3], double (*)[5][4][5], double (*)[5]) {
+     fprintf(stderr, "*** Error: FemEquationTermDES::computeDerivativeOperatorsOfVolumeTerm is not implemented yet\n");
+     exit(-1);
+   }
+
   
   /// UH (08/10) The following function results in exit (Not Implemented).
   void computeDerivativeOfSurfaceTerm
@@ -370,6 +386,11 @@ public:
     exit(1);
   }
   
+  void computeDerivativeOperatorsOfVolumeTerm // YC
+  (double [4][3], double *[4], double (*)[5][4][3], double (*)[5][4][5], double (*)[5]) {
+    fprintf(stderr, "*** Error: FemEquationTermSAmean::computeDerivativeOperatorsOfVolumeTerm is not implemented yet\n");
+    exit(-1);
+  }
   
   void computeDerivativeOfSurfaceTerm
   (
@@ -494,6 +515,14 @@ public:
     exit(1);
   }
   
+  void computeDerivativeOperatorsOfVolumeTerm // YC
+  (
+   double [4][3], double *[4],
+   double (*)[5][4][3], double (*)[5][4][5], double (*)[5]) {
+    fprintf(stderr, "*** Error: FemEquationTermDESmean::computeDerivativeOperatorsOfVolumeTerm is not implemented yet\n");
+   exit(-1);
+  }
+
   
   void computeDerivativeOfSurfaceTerm
   (
@@ -619,6 +648,13 @@ public:
     exit(1);
   }
   
+  void computeDerivativeOperatorsOfVolumeTerm // YC
+  (
+    double [4][3], double *[4], double (*)[5][4][3], double (*)[5][4][5], double (*)[5]) {
+    fprintf(stderr, "*** Error: FemEquationTermSAturb::computeDerivativeOperatorsOfVolumeTerm is not implemented yet\n");
+    exit(-1);
+  }
+
   void computeDerivativeOfSurfaceTerm
   (
    int c, Vec3D &n, Vec3D &dn, double d2w[3],
@@ -744,7 +780,13 @@ public:
     fprintf(stderr, "*** Error: FemEquationTermDESturb::computeDerivativeOfVolumeTerm should not be called\n");
     exit(1);
   }
-  
+
+  void computeDerivativeOperatorsOfVolumeTerm // YC
+  (
+   double [4][3], double *[4], double (*)[5][4][3], double (*)[5][4][5], double (*)[5]) {
+   fprintf(stderr, "*** Error: FemEquationTermDESturb::computeDerivativeOperatorsOfVolumeTerm is not implemented yet\n");
+   exit(-1);
+  }
   
   void computeDerivativeOfSurfaceTerm
   (
@@ -859,6 +901,13 @@ public:
    double, double *, double *, double *, double, SVec<double,3> &, int [4], int
    );
   
+  void computeDerivativeOperatorsOfVolumeTerm // YC WTF is this code style?
+  (
+   double [4][3], double *[4], double (*)[5][4][3], double (*)[5][4][5], double (*)[5]) {
+    fprintf(stderr, "*** Error: FemEquationTermKE::computeDerivativeOperatorsOfVolumeTerm is not implemented yet\n");
+    exit(-1);
+  }
+
   
   void computeDerivativeOfSurfaceTerm
   (
@@ -975,6 +1024,13 @@ public:
     exit(1);
   }
   
+  void computeDerivativeOperatorsOfVolumeTerm // YC
+   (
+    double [4][3], double *[4], double (*)[5][4][3], double (*)[5][4][5], double (*)[5]) {
+    fprintf(stderr, "*** Error: FemEquationTermKEmean::computeDerivativeOperatorsOfVolumeTerm is not implemented yet\n");
+    exit(-1);
+  }
+
   void computeDerivativeOfSurfaceTerm
   (
    int c, Vec3D &n, Vec3D &dn, double d2w[3],
@@ -1098,6 +1154,13 @@ public:
     exit(1);
   }
   
+  void computeDerivativeOperatorsOfVolumeTerm // YC
+  (
+   double [4][3], double *[4], double (*)[5][4][3], double (*)[5][4][5], double (*)[5]) {
+    fprintf(stderr, "*** Error: FemEquationTermKEturb::computeDerivativeOperatorsOfVolumeTerm is not implemented yet\n");
+    exit(-1);
+  }
+
   
   void computeDerivativeOfSurfaceTerm
   (

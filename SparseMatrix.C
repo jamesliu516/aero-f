@@ -534,9 +534,10 @@ void SparseMat<Scalar,dim>::lusolTR(SVec<Scalar2,dim> &y, SVec<Scalar2,dim> &x)
     k2 = ku[i];
 
 #pragma ivdep
-    for (k=k1; k<k2; ++k)
+    for (k=k1; k<k2; ++k){
       DenseMatrixOp<Scalar,dim,dim*dim>::applyTransAndSubToVector(a.v, kk[k], x.v, kr[k], x.v, i);
       //subDenseMatrixTransTimesVector(a.v, kk[k], x.v, ja[k], x.v, i);
+    }
 
     //denseMatrixTransTimesVector(a.v, ju[i], x.v, i, tmp, 0);
     DenseMatrixOp<Scalar,dim,dim*dim>::applyTransToVector(a.v, ju[i], x.v, i, tmp, 0);
@@ -553,8 +554,10 @@ void SparseMat<Scalar,dim>::lusolTR(SVec<Scalar2,dim> &y, SVec<Scalar2,dim> &x)
     k2 = kc[i+1];
 #pragma ivdep
     for (k=k1; k<k2; ++k)
-      DenseMatrixOp<Scalar,dim,dim*dim>::applyTransAndSubToVector(a.v, kk[k], x.v, kr[k], x.v,
-i);
+    	for (k=k1; k<k2; ++k) {
+    	  DenseMatrixOp<Scalar,dim,dim*dim>::applyTransAndSubToVector(a.v, kk[k], x.v, kr[k], x.v, i);
+    	  //subDenseMatrixTransTimesVector(a.v, kk[k], x.v, kr[k], x.v, i);
+    	}
       //subDenseMatrixTransTimesVector(a.v, kk[k], x.v, kr[k], x.v, i);
 
   }

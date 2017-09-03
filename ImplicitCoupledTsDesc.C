@@ -225,12 +225,12 @@ int ImplicitCoupledTsDesc<dim>::solveLinearSystem(int it, DistSVec<double,dim> &
 
   double t0 = this->timer->getTime();
 
-////////////////////////////////////////
+//*****************    Verification of Adjointness of Jacobian dF/dW     ******************************
 /*
   DistSVec<double,dim> w(this->domain->getNodeDistInfo()),p(this->domain->getNodeDistInfo()),q(this->domain->getNodeDistInfo()),z(this->domain->getNodeDistInfo());
   DistSVec<double,dim> one(this->domain->getNodeDistInfo());
   DistSVec<double,dim> bp(this->domain->getNodeDistInfo());
-  one = 1.0;
+  one = b;
   bp = b;
 
   double direcTime(0), adjoinTime(0);

@@ -1388,6 +1388,7 @@ void DistIntersectorPhysBAM::findActiveNodesUsingFloodFill(const DistVec<bool>& 
     		//in that case, we put the color to a non existing one to enforce the nodes to be ghost
     		color = -1;
     	}
+
       if((*is_occluded)(iSub)[i] || globalColorToGlobalStatus.find(color)==globalColorToGlobalStatus.end()){
 #if 0 // Debug output
         fprintf(stderr,"Flagging node %d as OUTSIDE COLOR %d, based on occluded = %d, global_color found = %d\n",
@@ -2184,8 +2185,8 @@ void IntersectorPhysBAM::setInactiveNodesSymmetry(SVec<double,3>& X,std::map<int
 			int p = ptr[l][0], q = ptr[l][1];//p is the iD of node 1, and q is the Id of node 2
 			double* position1 = X[p];
 			double* position2 = X[q];
-			double* vector1= new double[3];
-			double* vector2= new double[3];
+			double vector1[3];
+			double vector2[3];
 			vector1[0] = position1[0]-planeInfo.xCoordinate;
 			vector2[0] = position2[0]-planeInfo.xCoordinate;
 			vector1[1] = position1[1]-planeInfo.yCoordinate;

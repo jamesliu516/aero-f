@@ -371,6 +371,104 @@ Connectivity *SubDomain::createNodeToConstantConnectivity()
 
 }
 
+
+Connectivity *SubDomain::createConstantToNodeConnectivity()
+{
+
+  int numNodes = nodes.size();
+
+  int *numNeigh = reinterpret_cast<int *>(alloca(sizeof(int) * 1));
+
+  int i;
+  numNeigh[0] = numNodes;
+
+
+  int l;
+  int nnz = numNodes;
+
+  if (nnz != numNodes) {
+    fprintf(stderr,"*** Error: wrong number of nonzero blocks\n");
+    exit(1);
+  }
+
+  // construction of ia
+
+  int *ia = new int[2];
+
+  ia[0] = 0;
+  ia[1] = numNeigh[0];
+
+  // construction of ja
+
+  int *ja = new int[nnz];
+
+  for (l=0; l<numNodes; ++l) {
+    ja[l] = l;
+  }
+
+  for (i=0; i<1; ++i)
+#ifdef OLD_STL
+    sort(ja+ia[i], ja+ia[i+1]);
+#else
+    stable_sort(ja+ia[i], ja+ia[i+1]);
+#endif
+
+  Connectivity *constantToNode = new Connectivity(1, ia, ja);
+
+  return constantToNode;
+
+}
+
+//------------------------------------------------------------------------------
+
+Connectivity *SubDomain::createConstantToConstantConnectivity()
+{
+
+  int *numNeigh = reinterpret_cast<int *>(alloca(sizeof(int) * 1));
+
+  int i;
+  numNeigh[0] = 1;
+
+
+  int l;
+  int nnz = 1;
+
+  if (nnz != 1) {
+    fprintf(stderr,"*** Error: wrong number of nonzero blocks\n");
+    exit(1);
+  }
+
+  // construction of ia
+
+  int *ia = new int[2];
+
+  ia[0] = 0;
+  ia[1] = numNeigh[0];
+
+  // construction of ja
+
+  int *ja = new int[nnz];
+
+  for (l=0; l<1; ++l) {
+    ja[l] = l;
+  }
+
+  for (i=0; i<1; ++i)
+#ifdef OLD_STL
+    sort(ja+ia[i], ja+ia[i+1]);
+#else
+    stable_sort(ja+ia[i], ja+ia[i+1]);
+#endif
+
+  Connectivity *constantToconstant = new Connectivity(1, ia, ja);
+
+  return constantToconstant;
+
+}
+
+//------------------------------------------------------------------------------
+
+
 //------------------------------------------------------------------------------
 
 Connectivity *SubDomain::createElementBasedEdgeToNodeConnectivity()
@@ -928,22 +1026,11 @@ int SubDomain::computeDerivativeOfControlVolumes(int numInvElem, double lscale,
 {
 
   dCtrlVol = 0.0;
-//  Vec<double> dctrlvol(dCtrlVol);
-  
-//  if(isSparse) {
-//    dCtrlVoldX.apply(dX, dctrlvol);
-//    return 0;
-//  }
 
   for (int i=0; i<elems.size(); ++i) {
     double dVolume = elems[i].computeDerivativeOfControlVolumes(X, dX, dCtrlVol);
   }
-/*
-  Vec<double> diff = dctrlvol - dCtrlVol;
-  double dCtrlVolnorm = dCtrlVol.norm();
-  if(dCtrlVolnorm != 0) fprintf(stderr, " ... rel diff for dCtrlVol is %e\n",diff.norm()/dCtrlVolnorm);
-  else fprintf(stderr, " ... abs diff for dCtrlVol is %e\n",diff.norm());
-*/
+
   return 0;
 
 }
@@ -958,7 +1045,7 @@ int SubDomain::computeDerivativeOfControlVolumes(RectangularSparseMat<double,3,1
   dCtrlVol = 0.0;
   
   dCtrlVoldX.apply(dX, dCtrlVol);
-//  fprintf(stderr, " ... norm of dCtrlVol is %e\n", dCtrlVol.norm());
+
   return 0;
 
 }
@@ -972,7 +1059,6 @@ int SubDomain::computeTransposeDerivativeOfControlVolumes(RectangularSparseMat<d
  
   SVec<double,3> dummy(dX);
   dummy = 0.0; 
-//TODO: uncomment below
   dCtrlVoldX.applyTranspose(dCtrlVol, dummy);
   dX += dummy;
   return 0;
@@ -1152,15 +1238,8 @@ void SubDomain::computeDerivativeOfNormals(SVec<double,3> &X, SVec<double,3> &dX
                                            Vec<Vec3D> &edgeNorm, Vec<Vec3D> &dEdgeNorm, Vec<double> &edgeNormVel, Vec<double> &dEdgeNormVel,
                                            Vec<Vec3D> &faceNorm, Vec<Vec3D> &dFaceNorm, Vec<double> &faceNormVel, Vec<double> &dFaceNormVel)
 {
-
   dEdgeNorm = 0.0;
   dEdgeNormVel = 0.0;
-
-//  if(isSparse) {
-//    dEdgeNormdX.apply(dX, dEdgeNorm);
-//    dFaceNormdX.apply(dX, dFaceNorm);
-//    return;
-//  }
 
   int i;
   for (i=0; i<elems.size(); ++i)
@@ -1169,12 +1248,6 @@ void SubDomain::computeDerivativeOfNormals(SVec<double,3> &X, SVec<double,3> &dX
 
   for (i=0; i<faces.size(); ++i)
     faces[i].computeDerivativeOfNormal(X, dX, faceNorm[i], dFaceNorm[i], faceNormVel[i], dFaceNormVel[i]);
-/*
-  Vec<Vec3D> diff = dfacenorm - dFaceNorm;
-  fprintf(stderr, " ... dfacenorm = %e, dFaceNorm = %e\n", dfacenorm.norm(), dFaceNorm.norm());
-  if(dEdgeNorm.norm() !=0 ) fprintf(stderr, " ... rel diff of dFaceNorm is %e\n", diff.norm()/dFaceNorm.norm()); 
-  else fprintf(stderr, " ... abs diff of dEdgeNorm is %e\n", diff.norm()); 
-*/
 }
 
 //------------------------------------------------------------------------------
@@ -1513,21 +1586,11 @@ void SubDomain::computeTransposeDerivativeOfWeightsLeastSquaresEdgePart(Rectangu
 
 //------------------------------------------------------------------------------
 // Included (MB)
-// YC: if you intend to modified this routine, 
+// YC: if you intend to modified this routine,
 // you should also modify SubDomain::computeDerivativeTransposeOfWeightsLeastSquaresEdgePart accordingly
 // and                    SubDomain::compute_dRdX
 void SubDomain::computeDerivativeOfWeightsLeastSquaresEdgePart(SVec<double,3> &X, SVec<double,3> &dX, SVec<double,6> &R, SVec<double,6> &dR)
 {
-
-//  SVec<double,6> dr(dR), ur(dR);
-//  ur = 0.0; 
-/*
-  if(isSparse) {
-    dR = 0.0;
-    dRdX.apply(dX, dR, 0);
-    return;
-  }
-*/
   R = 0.0;
   dR = 0.0;
 
@@ -1600,34 +1663,129 @@ void SubDomain::computeDerivativeOfWeightsLeastSquaresEdgePart(SVec<double,3> &X
 
     dR[i][5] += ddzdz;
     dR[j][5] += ddzdz;
+  }
+}
+
+
+//------------------------------------------------------------------------------
+// Included (MB)
+// YC: if you intend to modified this routine,
+// you should also modify SubDomain::computeDerivativeTransposeOfWeightsLeastSquaresEdgePart accordingly
+// and                    SubDomain::compute_dRdX
+// This is the embedded Version; see function below for reference
+void SubDomain::computeDerivativeOfWeightsLeastSquaresEdgePartEmb(
+                  SVec<double,3> &X, SVec<double,3> &dX,
+                  const Vec<int> &fluidId, SVec<int,1> &count,
+                  SVec<double,6> &R, SVec<double,6> &dR,
+                  LevelSetStructure *LSS, bool includeSweptNodes)
+{
+  R = 0.0;
+  dR = 0.0;
+
+  count = 0;
+
+  bool *edgeFlag = edges.getMasterFlag();
+  int (*edgePtr)[2] = edges.getPtr();
+
+  for (int l=0; l<edges.size(); ++l) {//loop over all edges
+
+    if (!edgeFlag[l]) continue;//If this is not a master-edge, let another subdomain do the job
+
+    int i = edgePtr[l][0];//ID of first  node corresponding to edge l
+    int j = edgePtr[l][1];//ID of second node corresponding to edge l
+
+
+//    bool validEdge = true;
+//
+//    //There are 3 cases where an edge is considered invalid and no gradients are computed:
+//    // 1) The nodes of that edge correspond to two different fluid IDs
+//    // 2) The edge intersects a structure
+//    // 3) One of the nodes is swept, and it is chosen not to include swept nodes
+//    if(fluidId[i] != fluidId[j]) validEdge = false;
+//
+//    if(LSS)
+//    {
+//      if(LSS->edgeWithSI(l) || LSS->edgeIntersectsStructure(0.0, l)) validEdge = false;
+//      if(!LSS->isActive(0.0, i) || !LSS->isActive(0.0, j))           validEdge = false;
+//      if(!includeSweptNodes && (LSS->isSwept(0.0, i) || LSS->isSwept(0.0, j))) validEdge = false;
+//    }
+//
+//    if(!validEdge) continue;
+    count[i][0]++;
+    count[j][0]++;
+
+    double dx[3];
+    dx[0] = X[j][0] - X[i][0];
+    dx[1] = X[j][1] - X[i][1];
+    dx[2] = X[j][2] - X[i][2];
+
+    double ddx[3];
+    ddx[0] = dX[j][0] - dX[i][0];
+    ddx[1] = dX[j][1] - dX[i][1];
+    ddx[2] = dX[j][2] - dX[i][2];
+
+    double dxdx = dx[0] * dx[0];
+    double dydy = dx[1] * dx[1];
+    double dzdz = dx[2] * dx[2];
+    double dxdy = dx[0] * dx[1];
+    double dxdz = dx[0] * dx[2];
+    double dydz = dx[1] * dx[2];
+
+    double ddxdx = ddx[0] * dx[0] + dx[0] * ddx[0];
+    double ddydy = ddx[1] * dx[1] + dx[1] * ddx[1];
+    double ddzdz = ddx[2] * dx[2] + dx[2] * ddx[2];
+    double ddxdy = ddx[0] * dx[1] + dx[0] * ddx[1];
+    double ddxdz = ddx[0] * dx[2] + dx[0] * ddx[2];
+    double ddydz = ddx[1] * dx[2] + dx[1] * ddx[2];
+
+    //node i
+    if(LSS->isActive(0.0, i)){
+
+      R[i][0] += dxdx;
+      R[i][1] += dxdy;
+      R[i][2] += dxdz;
+      R[i][3] += dydy;
+      R[i][4] += dydz;
+      R[i][5] += dzdz;
+
+      dR[i][0] += ddxdx;
+      dR[i][1] += ddxdy;
+      dR[i][2] += ddxdz;
+      dR[i][3] += ddydy;
+      dR[i][4] += ddydz;
+      dR[i][5] += ddzdz;
+    }
+
+    if(LSS->isActive(0.0, j)){
+
+      R[j][0] += dxdx;
+      R[j][1] += dxdy;
+      R[j][2] += dxdz;
+      R[j][3] += dydy;
+      R[j][4] += dydz;
+      R[j][5] += dzdz;
+
+      dR[j][0] += ddxdx;
+      dR[j][1] += ddxdy;
+      dR[j][2] += ddxdz;
+      dR[j][3] += ddydy;
+      dR[j][4] += ddydz;
+      dR[j][5] += ddzdz;
+   }
 
   }
-/*
-  ur = dR - dr;
-  double urnorm = ur.norm();
-  double dRnorm = dR.norm();
-  if(dRnorm != 0) fprintf(stderr," ... norm(dR-dR2)/norm(dR2) = %e\n", urnorm/dRnorm);
-  else fprintf(stderr," ... norm(dR-dR2) = %e\n", urnorm);
-*/
 }
 
 //------------------------------------------------------------------------------
 // least square gradient involving only nodes of same fluid (multiphase flow)
 //d2d$
-// count[i][0] : number of edges node i has, which are master and valid and in this subdomain
-// R[i][0]: for node i, for all its master and valid edge sum,  dx*dx
-// R[i][1]: for node i, for all its master and valid edge sum,  dx*dy
-// R[i][2]: for node i, for all its master and valid edge sum,  dx*dz
-// R[i][3]: for node i, for all its master and valid edge sum,  dy*dy
-// R[i][4]: for node i, for all its master and valid edge sum,  dy*dz
-// R[i][5]: for node i, for all its master and valid edge sum,  dz*dz
-// dX * gradientU = dU
-// R = dX^T dX
-// solve R gradientU dX^T dU
-
-void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const Vec<int> &fluidId,
-                                                   SVec<int,1> &count, SVec<double,6> &R, 
-						   LevelSetStructure *LSS, bool includeSweptNodes)
+void SubDomain::computeWeightsLeastSquaresEdgePart(
+                  SVec<double,3> &X,
+                  const Vec<int> &fluidId,
+                  SVec<int,1> &count,
+                  SVec<double,6> &R,
+                  LevelSetStructure *LSS,
+                  bool includeSweptNodes)
 {
 
   R = 0.0;
@@ -1690,10 +1848,14 @@ void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const Vec<
 //------------------------------------------------------------------------------
 // least square gradient involving only nodes of same fluid (FSI)
 // with option to take into account of Riemann solution at interface
-void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const Vec<int> &fluidId,
-                                                   SVec<int,1> &count, SVec<double,6> &R, 
-												   Vec<int> &countWstarij, Vec<int> &countWstarji,
-												   LevelSetStructure *LSS)
+void SubDomain::computeWeightsLeastSquaresEdgePart(
+                  SVec<double,3> &X,
+                  const Vec<int> &fluidId,
+                  SVec<int,1> &count,
+                  SVec<double,6> &R,
+									Vec<int> &countWstarij,
+									Vec<int> &countWstarji,
+									LevelSetStructure *LSS)
 {
 
   R = 0.0;
@@ -2189,15 +2351,6 @@ void SubDomain::computeTransposeDerivativeOfWeightsLeastSquaresNodePart(Rectangu
 // Included (MB)
 void SubDomain::computeDerivativeOfWeightsLeastSquaresNodePart(SVec<double,6> &R, SVec<double,6> &dR)
 {
-/*
-  SVec<double,6> dr(dR); //, dr2(dR), ur(dR);
-  if(isSparse) {
-    dRdR.apply(dr, dR, 0);
-//    fprintf(stderr," ... norm of dr is %e\n", dr2.norm());
-//    fprintf(stderr," ... norm of dR is %e\n", dR.norm());
-    return;
-  }
-*/
   for (int i=0; i<dR.size(); ++i) {
     double r11  = sqrt(R[i][0]);
     double dr11  = 1.0/(2.0*r11)*dR[i][0];
@@ -2220,12 +2373,79 @@ void SubDomain::computeDerivativeOfWeightsLeastSquaresNodePart(SVec<double,6> &R
     dR[i][3] = dr22;
     dR[i][4] = dr23;
     dR[i][5] = dr33;
-
   }
-//  ur = dR - dr2;
-//  fprintf(stderr," ... norm(dR-dR2)/norm(dR2) = %e\n", ur.norm()/dR.norm());
-
 }
+
+
+// Included (MB)
+//Embedded Version of the above function. Not sure if I really need this //TODO seems to be just redundant code
+void SubDomain::computeDerivativeOfWeightsLeastSquaresNodePartEmb(
+                  SVec<double,6> &R, SVec<double,6> &dR,
+                  LevelSetStructure* LSS,bool includeSweptNodes)
+{
+//  fprintf(stderr," *** computeDerivativeOfWeightsLeastSquaresNodePartEmb needs to be implemented");
+//  exit(-1);
+
+
+//  for (int i=0; i<dR.size(); ++i) {
+//    double r11  = sqrt(R[i][0]);
+//    double dr11  = 1.0/(2.0*r11)*dR[i][0];
+//    double or11 = 1.0 / r11;
+//    double dor11 = -1.0 /(r11* r11)*dr11;
+//    double r12  = R[i][1] * or11;
+//    double dr12  = dR[i][1] * or11 + R[i][1] * dor11;
+//    double r13  = R[i][2] * or11;
+//    double dr13  = dR[i][2] * or11 + R[i][2] * dor11;
+//    double r22  = sqrt(R[i][3] - r12*r12);
+//    double dr22  = 1.0/(2.0*r22)*(dR[i][3] - 2.0*r12*dr12);
+//    double r23  = (R[i][4] - r12*r13) / r22;
+//    double dr23  = ( (dR[i][4] - dr12*r13 - r12*dr13)*r22 - (R[i][4] - r12*r13)*dr22 ) / (r22*r22);
+//    double r33  = sqrt(R[i][5] - (r13*r13 + r23*r23));
+//    double dr33  = 1.0/(2.0*r33)*(dR[i][5] - 2.0*(r13*dr13 + r23*dr23));
+//
+//    dR[i][0] = dr11;
+//    dR[i][1] = dr12;
+//    dR[i][2] = dr13;
+//    dR[i][3] = dr22;
+//    dR[i][4] = dr23;
+//    dR[i][5] = dr33;
+//  }
+  ////////////////////////////////////////////////OLD implementation ends here
+  //  fprintf(stderr," *** ERROR: Implementation required, see non-derivative function below for reference");
+  //  exit(-1);
+
+
+    //compute Derivatives only for active nodes
+    for (int i=0; i<nodes.size(); ++i) {//loop over all nodes
+
+      if(!LSS->isActive(0.0, i))
+          continue;
+
+      double r11  = sqrt(R[i][0]);
+      double dr11  = 1.0/(2.0*r11)*dR[i][0];
+      double or11 = 1.0 / r11;
+      double dor11 = -1.0 /(r11* r11)*dr11;
+      double r12  = R[i][1] * or11;
+      double dr12  = dR[i][1] * or11 + R[i][1] * dor11;
+      double r13  = R[i][2] * or11;
+      double dr13  = dR[i][2] * or11 + R[i][2] * dor11;
+      double r22  = sqrt(R[i][3] - r12*r12);
+      double dr22  = 1.0/(2.0*r22)*(dR[i][3] - 2.0*r12*dr12);
+      double r23  = (R[i][4] - r12*r13) / r22;
+      double dr23  = ( (dR[i][4] - dr12*r13 - r12*dr13)*r22 - (R[i][4] - r12*r13)*dr22 ) / (r22*r22);
+      double r33  = sqrt(R[i][5] - (r13*r13 + r23*r23));
+      double dr33  = 1.0/(2.0*r33)*(dR[i][5] - 2.0*(r13*dr13 + r23*dr23));
+
+      dR[i][0] = dr11;
+      dR[i][1] = dr12;
+      dR[i][2] = dr13;
+      dR[i][3] = dr22;
+      dR[i][4] = dr23;
+      dR[i][5] = dr33;
+
+    }
+}
+
 
 //------------------------------------------------------------------------------
 //d2d$
@@ -6943,7 +7163,6 @@ bool SubDomain::getFEMstencil2(int Ni, SVec<double,3> &X,
 		dir = normWall * (1.0/norm);
 	}
   //dzh
-  //std::cout << "Ni " << Ni << "xx "<<" " << X_i[0]<<" " <<X_i[1] <<" xx "  <<  xWall[0] << " " <<xWall[1] << " dir " << dir[0] <<" "<< dir[1]<<" " << dir[2] << std::endl;
 
 
   Vec3D ve_p = X_i + 1000.0*dir;
