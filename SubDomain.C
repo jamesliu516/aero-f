@@ -7830,6 +7830,7 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                     weights[k] = (1.0 -  alpha)*(1.0 -  alpha);
                 }
 
+
 // Update temperature, Replace fourth variable with temperature, constant extrapolation or wall temperature
                 if((resij.heatFluxType==SurfaceData::ADIABATIC)||(resij.structureType!=BoundaryData::WALL)){
                     double T = varFcn->computeTemperature(Vi,tagI);
