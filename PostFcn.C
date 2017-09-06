@@ -1785,10 +1785,8 @@ double PostFcnNS::computeSkinFriction(Vec3D& n, double dist, double* Vwall,  dou
 
     T_pp = bary[0] * T[0] + bary[1] *T[1] +
                   bary[2] *T[2] + (1 - bary[0] - bary[1] - bary[2]) * T[3];
-    std::cout << "v_pp " << v_pp[0] <<" " <<v_pp[1] << " " << v_pp[2] << " T_pp " << T_pp <<std::endl;
     double mu     = viscoFcn->compute_mu(T_pp);
     mu     *= ooreynolds_mu;
-    std::cout << " mu is " << mu << std::endl;
      v_pp = v_pp - (v_pp*n)*n; //tangential component
     sk = 2*mu*v_pp.norm()/dist; //sk is the skin fraction coefficient
 

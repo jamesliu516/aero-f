@@ -110,7 +110,7 @@ void ElemSet::computeGalerkinTerm(FemEquationTerm *fet, GeoState &geoState,
 	}
 	else
 	{
-		if (sampleMesh)
+		if (sampleMesh) //todo Daniel Huang What is sampleMesh
 		{
 			for (int iElem=0; iElem<numSampledElems; ++iElem)
 				elems[ (elemsConnectedToSampleNode[iElem]) ]->computeGalerkinTerm_e(fet, X, d2wall, V, R, ghostPoints, LSS);

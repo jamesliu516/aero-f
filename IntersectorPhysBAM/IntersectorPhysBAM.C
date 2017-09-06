@@ -1272,7 +1272,17 @@ void DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X,
 #pragma omp parallel for
 	  for(int iSub = 0; iSub < numLocSub; ++iSub)
 		  intersector[iSub]->ComputeSIbasedIntersections(iSub, X(iSub), (*boxMin)(iSub), (*boxMax)(iSub), withViscousTerms);
+	  
+  } else{
+      ////////Daniel Huang, copy Dante's second order FIVER to the original one, we need to initialize
+        /// xi_SI, eta_SI, TriID_SI, nWall_SI for these intersected edge center todo
 
+      if(iod.embed.interfaceAlg == EmbeddedFramework::INTERSECTION && iod.embed.secondOrderEulerFlux == EmbeddedFramework::CLOSESTPOINT) {
+#pragma omp parallel for
+          for (int iSub = 0; iSub < numLocSub; ++iSub)
+              intersector[iSub]->ComputeSIbasedIntersections(iSub, X(iSub), (*boxMin)(iSub), (*boxMax)(iSub), false,
+                                                             false);
+      }
   }
   ///////////////////////////////////////////////////////
   //a2m : Symmetry plane :
@@ -1285,11 +1295,15 @@ if(SymmetryPlaneList.size()!=0){
 }
 
 
-    //Daniel Huang, initialize structure information
+////////Daniel Huang, initialize structure information
     for(int i = 0 ; i < numStElems; i++) strucOrientation[i] = -1;
     domain->computeStrucOrientation(X,numStElems,stElem,*solidX,*is_active, strucOrientation);
 
     com->globalMax(numStElems, strucOrientation);
+
+
+
+
 }
 
 
@@ -1741,6 +1755,16 @@ int DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts, bo
 			for(int iSub = 0; iSub < numLocSub; ++iSub)
 				intersector[iSub]->ComputeSIbasedIntersections(iSub, (*X)(iSub), (*boxMin)(iSub), (*boxMax)(iSub), withViscousTerms);
 		}
+        else{
+            ////////Daniel Huang, copy Dante's second order FIVER to the original one, we need to initialize
+            /// xi_SI, eta_SI, TriID_SI, nWall_SI for these intersected edge center todo
+            if(iod.embed.interfaceAlg == EmbeddedFramework::INTERSECTION && iod.embed.secondOrderEulerFlux == EmbeddedFramework::CLOSESTPOINT){
+#pragma omp parallel for
+                for(int iSub = 0; iSub < numLocSub; ++iSub)
+                    intersector[iSub]->ComputeSIbasedIntersections(iSub, (*X)(iSub), (*boxMin)(iSub), (*boxMax)(iSub), false, false);
+            }
+        }
+
 		///////////////////////////////////////////////////////
 	}
 
@@ -1816,9 +1840,9 @@ void IntersectorPhysBAM::reFlagRealNodes(SVec<double,3>& X, Vec<bool> *bk_isActi
 
 //----------------------------------------------------------------------------
 //Arthur Morlot : This function was created by Dante De Santis. It computes the Intersections for The new version of the ghost points
-void IntersectorPhysBAM::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X,
-																	  SVec<double,3> &boxMin, SVec<double,3> &boxMax,
-																	  bool withViscousTerms)
+void IntersectorPhysBAM::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X,  
+																	  SVec<double,3> &boxMin, SVec<double,3> &boxMax, 
+																	  bool withViscousTerms, bool externalSI)
 {
 	int shrunk_index;
 
@@ -1838,16 +1862,19 @@ void IntersectorPhysBAM::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X
 		int i = ptr[l][0];
 		int j = ptr[l][1];
 
-		edge_SI[l] = false;
-
-		if(!is_active[i] || !is_active[j])
+        if(externalSI) //Dante's method
+        {
+            edge_SI[l] = ((!is_active[i] && is_active[j]) || (!is_active[j] && is_active[i]));
+        }
+        else{
+            edge_SI[l] = edge_intersects[l];
+        }
+	  
+		if(edge_SI[l])
 		{
-			if(is_active[i] == is_active[j]) continue;
 
 			Vec3D X_ij;
 			for(int k=0; k<3; ++k) X_ij[k] = 0.5*(X[j][k] + X[i][k]);
-
-			edge_SI[l] = true;
 
 			PhysBAMInterface<double>& physbam_interface=*distIntersector.physInterface;
 
@@ -2037,6 +2064,9 @@ void IntersectorPhysBAM::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X
 #endif
 }
 
+
+
+
 //----------------------------------------------------------------------------
 
 void IntersectorPhysBAM::printFirstLayer(SubDomain& sub, SVec<double,3>&X, int TYPE) {
@@ -2157,8 +2187,8 @@ void IntersectorPhysBAM::setInactiveNodesSymmetry(SVec<double,3>& X,std::map<int
 			int p = ptr[l][0], q = ptr[l][1];//p is the iD of node 1, and q is the Id of node 2
 			double* position1 = X[p];
 			double* position2 = X[q];
-			double* vector1= new double[3];
-			double* vector2= new double[3];
+			double vector1[3];
+			double vector2[3];
 			vector1[0] = position1[0]-planeInfo.xCoordinate;
 			vector2[0] = position2[0]-planeInfo.xCoordinate;
 			vector1[1] = position1[1]-planeInfo.yCoordinate;

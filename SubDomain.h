@@ -342,7 +342,7 @@ public:
   //d2d
   bool getPiercedPoint(Vec3D va, Vec3D vb, Vec3D vc, Vec3D vd, Vec3D ve, double &r, double &t);
   bool getSIstencil(int Ni, int Nj, SVec<double,3> &X, LevelSetStructure &LSS, Vec<int> &fluidId,
-						  Vec3D &normWall, Vec3D &xWall, V6NodeData &SiStencilData);
+						  Vec3D &normWall, Vec3D &xWall, V6NodeData &SiStencilData,bool externalSI);
   bool getFEMstencil(int Ni, SVec<double,3> &X, LevelSetStructure &LSS, Vec<int> &fluidId,
 							Vec3D &normWall, Vec3D &xWall, V6NodeData &NodeStencilData);
 
@@ -1309,7 +1309,7 @@ public:
     void populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<double,dim> &U,FluxFcn** fluxFcn,VarFcn *varFcn,LevelSetStructure &LSS,Vec<int> &tag,GenMat<Scalar,neq>& A);
 
   template<int dim>
-	  void setSIstencil(SVec<double,3> &X, LevelSetStructure &LSS, Vec<int> &fluidId, SVec<double,dim> &U);
+	  void setSIstencil(SVec<double,3> &X, LevelSetStructure &LSS, Vec<int> &fluidId, SVec<double,dim> &U, bool externalSI);
 
   template<int dim>
 	  void setFEMstencil(SVec<double,3> &X, LevelSetStructure &LSS, Vec<int> &fluidId, SVec<double,dim> &U);
@@ -1844,7 +1844,7 @@ public:
                            const std::vector<Vec3D>& locs, double (*sol)[dim],
                            int* status,int* last,int* nid, bool assumeCache = false);
   void createHigherOrderMultiFluid();
-  void createHigherOrderFSI();
+  void createHigherOrderFSI(const IoData & iod);
 
   void assignErrorHandler(ErrorHandler* in);
 

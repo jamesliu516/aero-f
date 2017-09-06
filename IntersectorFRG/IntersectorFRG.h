@@ -258,7 +258,7 @@ class IntersectorFRG : public LevelSetStructure {
     void addToPackage(int node, int trID);
 
 	 void reFlagRealNodes(SVec<double,3>& X, Vec<bool> &ISactive_bk); //d2d
-	 void ComputeSIbasedIntersections(int iSub, SVec<double,3>& X, SVec<double,3> &boxMin, SVec<double,3> &boxMax, bool withViscousTerms); //d2d
+	 void ComputeSIbasedIntersections(int iSub, SVec<double,3>& X, SVec<double,3> &boxMin, SVec<double,3> &boxMax, bool withViscousTerms, bool externalSI = true); //d2d
 
     // for debug 
     int nFirstLayer;
