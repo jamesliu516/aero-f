@@ -2424,12 +2424,12 @@ void Domain::createHigherOrderMultiFluid() {
 
 }
 
-void Domain::createHigherOrderFSI() {
+void Domain::createHigherOrderFSI(const IoData & iod) {
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
 
-    subDomain[iSub]->createHigherOrderFSI();
+    subDomain[iSub]->createHigherOrderFSI(iod);
   }
 
 }
