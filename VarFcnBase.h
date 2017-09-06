@@ -56,6 +56,7 @@ public:
     return verification(glob, U, V);
   }
   virtual int  verification(int glob, double *U, double *V) { return 0; }
+  int verification_negative_rho_p(double*V, double rho_min, double p_min) {return (V[0] <= rho_min || V[4] <= p_min); }
   virtual void computedVdU(double *V, double *dVdU) = 0;
   virtual void computedUdV(double *V, double *dUdV) = 0;
 

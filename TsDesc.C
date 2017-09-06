@@ -915,7 +915,7 @@ bool TsDesc<dim>::checkForLastIteration(IoData &ioData, int it, double t, double
       return true;
   }
 
-  if (!problemType[ProblemData::AERO] && !problemType[ProblemData::THERMO] && it >= data->maxIts) return true;
+  if ((!problemType[ProblemData::AERO] || (mmh && mmh->getAlgNum() == 10)) && !problemType[ProblemData::THERMO] && it >= data->maxIts) return true;
 
   if (problemType[ProblemData::UNSTEADY] )
     if(t >= data->maxTime - 0.01 * dt)
@@ -1267,7 +1267,7 @@ bool TsDesc<dim>::monitorConvergence(int it, DistSVec<double,dim> &U)
   if (!isMultigridTsDesc || it == 0)
     data->residual = computeResidualNorm(U);
 
-  if ((problemType[ProblemData::AERO] || problemType[ProblemData::THERMO]) && (it == 1 || it == 2))
+  if ((problemType[ProblemData::AERO] || problemType[ProblemData::THERMO]) && (it == 1 || it == 2) && (!mmh || mmh->getAlgNum() != 10))
     restart->residual = data->residual;
 
   if (data->residual == 0.0 || data->residual < data->eps * restart->residual || data->residual < data->epsabs) 
