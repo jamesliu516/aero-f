@@ -226,13 +226,6 @@ public:
   void FastMarchingDistanceUpdate(int node, Vec<int> &Tag, SVec<double,3> &X,
                                   SVec<double,dim> &d2wall, int level) = 0;
 
-  virtual
-  void FEMMarchingDistanceUpdate(SVec<double,3> &X,SVec<double,dim> &d2wall,Vec<int> &tag,double &dist,int &node) = 0;
-
-  virtual
-  void FEMMarchingDistanceUpdateUpw(SVec<double,3> &X,SVec<double,dim> &d2wall,Vec<int> &tag,double &dist,int &node) = 0;
-
-
   // X is the deformed nodal location vector
   virtual
   int interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const Vec3D& loc, double sol[dim], LevelSetStructure* LSS,
@@ -415,14 +408,6 @@ public:
   void FastMarchingDistanceUpdate(int node, Vec<int> &Tag, SVec<double,3> &X,
                                   SVec<double,dim> &d2wall, int level) {
     t->FastMarchingDistanceUpdate(node,Tag,X,d2wall,level);
-  }
-
-  void FEMMarchingDistanceUpdate(SVec<double,3> &X,SVec<double,dim> &d2wall,Vec<int> &tag,double &dist,int &node){
-    t->FEMMarchingDistanceUpdate(X,d2wall,tag,dist,node);
-  }
-
-  void FEMMarchingDistanceUpdateUpw(SVec<double,3> &X,SVec<double,dim> &d2wall,Vec<int> &tag,double &dist,int &node){
-    t->FEMMarchingDistanceUpdateUpw(X,d2wall,tag,dist,node);
   }
 
   void computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
@@ -940,26 +925,6 @@ public:
   }
 
   template<int dimLS>
-  void FEMMarchingDistanceUpdate(SVec<double,3> &X, SVec<double,dimLS> &d2wall, Vec<int> &tag, double &dist, int &node)
-  {
-    ElemHelper_dim<dimLS> h;
-    char xx[64];
-    GenElemWrapper_dim<dimLS> *wrapper=
-      (GenElemWrapper_dim<dimLS> *)getWrapper_dim(&h, 64, xx);
-    wrapper->FEMMarchingDistanceUpdate(X,d2wall,tag,dist,node);
-  }
-
-  template<int dimLS>
-  void FEMMarchingDistanceUpdateUpw(SVec<double,3> &X, SVec<double,dimLS> &d2wall, Vec<int> &tag, double &dist, int &node)
-  {
-    ElemHelper_dim<dimLS> h;
-    char xx[64];
-    GenElemWrapper_dim<dimLS> *wrapper=
-      (GenElemWrapper_dim<dimLS> *)getWrapper_dim(&h, 64, xx);
-    wrapper->FEMMarchingDistanceUpdateUpw(X,d2wall,tag,dist,node);
-  }
-
-  template<int dimLS>
   void computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
                                  SVec<double,3> &X, SVec<double,1> &Psi, SVec<double,dimLS> &Phi){
     ElemHelper_dim<dimLS> h;
@@ -1187,18 +1152,6 @@ public:
                                   SVec<double,dim> &d2wall, int level)
   {
 	fprintf(stderr, "Error: undefined function (FastMarchingDistanceUpdate) for this elem type\n"); exit(1);
-  }
-
-  template<int dim>
-  void FEMMarchingDistanceUpdate(SVec<double,3> &X,SVec<double,dim> &d2wall,Vec<int> &tag,double &dist,int &node)
-  {
-  fprintf(stderr, "Error: undefined function (FEMMarchingDistanceUpdate) for this elem type\n"); exit(1);
-  }
-
-  template<int dim>
-  void FEMMarchingDistanceUpdateUpw(SVec<double,3> &X,SVec<double,dim> &d2wall,Vec<int> &tag,double &dist,int &node)
-  {
-  fprintf(stderr, "Error: undefined function (FEMMarchingDistanceUpdateUpw) for this elem type\n"); exit(1);
   }
 
 };

@@ -136,6 +136,7 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iodata,
     double XScale = (iod.problem.mode==ProblemData::NON_DIMENSIONAL) ? 1.0 : iod.ref.rv.length;
     init(struct_mesh, struct_restart_pos, XScale);
   }
+
   //Set type of all intersections
   checkInputFileCorecnessEmbeddedContraint();
   setStructureType();
@@ -702,6 +703,7 @@ void DistIntersectorPhysBAM::setWallInformation() {
 	}
 }
 //----------------------------------------------------------------------------
+
 //Arthur Morlot : Created as a demonstrator. Currently not in use.
 void DistIntersectorPhysBAM::setMassInflow(){
 	  map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
@@ -730,6 +732,7 @@ void DistIntersectorPhysBAM::setMassInflow(){
 	    }
 	  }
 	}
+
 //----------------------------------------------------------------------------
 void DistIntersectorPhysBAM::setActuatorDisk() {
   map<int,SurfaceData *> &surfaceMap = iod.surfaces.surfaceMap.dataMap;
@@ -2308,36 +2311,35 @@ int IntersectorPhysBAM::findIntersections(SVec<double,3>&X,Vec<bool>& tId,Commun
 			    edgeRes(i).z.triangleID,edgeRes(i).z.alpha,edgeRes(i).z.zeta[0],edgeRes(i).z.zeta[1],edgeRes(i).z.zeta[2],tr1[0],tr1[1],tr1[2]);
 	  }
 #endif
-          int l=edgeRes(i).x.z;
-          edge_intersects[l] = true;
-          CrossingEdgeRes[l] = edgeRes(i).y;
-          ReverseCrossingEdgeRes[l] = edgeRes(i).z;
-	  if(true){//If actuator disk : set edge_intersect as false so that distance computations and ghost node computations do not involve it
-		  	   //instead, put edge_intersects_constraint as true
-    	    if(fabs(distIntersector.actuatorDiskPressureJump[CrossingEdgeRes[l].triangleID-1])>0){//this edge itesects an actuator disk
-    		  edge_intersects_constraint[l]=true;
-    		  edge_intersects[l] = false;
-    		  int p = ptr[l][0], q = ptr[l][1];
-    		  is_occluded[p] = false;
-    		  is_occluded[q] = false;
+      int l=edgeRes(i).x.z;
+      edge_intersects[l] = true;
+      CrossingEdgeRes[l] = edgeRes(i).y;
+      ReverseCrossingEdgeRes[l] = edgeRes(i).z;
+      //If actuator disk : set edge_intersect as false so that distance computations and ghost node computations do not involve it
+  	  //instead, put edge_intersects_constraint as true
+	    if(fabs(distIntersector.actuatorDiskPressureJump[CrossingEdgeRes[l].triangleID-1])>0){//this edge itesects an actuator disk
+  		  edge_intersects_constraint[l]=true;
+  		  edge_intersects[l] = false;
+  		  int p = ptr[l][0], q = ptr[l][1];
+  		  is_occluded[p] = false;
+  		  is_occluded[q] = false;
+	    }
+	    if(fabs(distIntersector.massJump[CrossingEdgeRes[l].triangleID-1])>0){
+	    	edge_intersects_constraint[l]=true;
+        edge_intersects[l] = false;
+	    }
 
-    	   }
-    	    if(fabs(distIntersector.massJump[CrossingEdgeRes[l].triangleID-1])>0){
-    	    	edge_intersects_constraint[l]=true;
-    	    }
-          }
+  	  if (distIntersector.cracking) {
 
-	  if (distIntersector.cracking) {
+  	    CrossingEdgeRes[l].triangleID  =
+  	      distIntersector.cracking->mapTriangleID(CrossingEdgeRes[l].triangleID-1) + 1;
 
-	    CrossingEdgeRes[l].triangleID  =
-	      distIntersector.cracking->mapTriangleID(CrossingEdgeRes[l].triangleID-1) + 1;
+  	    ReverseCrossingEdgeRes[l].triangleID =
+  	      distIntersector.cracking->mapTriangleID(ReverseCrossingEdgeRes[l].triangleID-1) + 1;
 
-	    ReverseCrossingEdgeRes[l].triangleID =
-	      distIntersector.cracking->mapTriangleID(ReverseCrossingEdgeRes[l].triangleID-1) + 1;
+  	  }
 
-	  }
-
-          ++intersectedEdgeCount;
+      ++intersectedEdgeCount;
 
 		}
 	}

@@ -241,14 +241,6 @@ public:
   void FastMarchingDistanceUpdate(int node,Vec<int> &Tag,SVec<double,3> &X,
                                   SVec<double,dim> &d2wall, int level);
 
-  template<int dim>
-  void FEMMarchingDistanceUpdate(SVec<double,3> &X, SVec<double,dim> &d2wall,
-                                 Vec<int> &tag, double &dist, int &node);
-
-  template<int dim>
-  void FEMMarchingDistanceUpdateUpw(SVec<double,3> &X, SVec<double,dim> &d2wall,
-                                 Vec<int> &tag, double &dist, int &node);
-
   template<int dim, class Obj>
     void integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),int npt);
 

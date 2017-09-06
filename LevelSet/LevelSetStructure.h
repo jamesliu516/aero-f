@@ -183,8 +183,9 @@ LevelSetStructure(Vec<int>& status,
     bool isOccluded(double t, int n) const                { return is_occluded[n]; }
     //edgeIntersectsStructure : True for all kind of structures
     bool edgeIntersectsStructure(double t, int eij) const { return (edge_intersects[eij])||edge_intersects_constraint[eij];}
-    //edgeIntersectsWall : True for Structure Type Wall and Symmetry Plane
+    //edgeIntersectsWall : True for Structure Type Wall (and Porous Wall) and Symmetry Plane
     bool edgeIntersectsWall(double t,int eij) const {return (edge_intersects[eij]);}
+    //edgeIntersectsConstraint : True for Structure Type Actuator Disk and Mass Inflow
     bool edgeIntersectsConstraint(double t, int eij) const { return edge_intersects_constraint[eij]; }
     void computeSwept(Vec<int> &swept){
         for(int i = 0; i < swept.size(); ++i)

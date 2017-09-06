@@ -1236,10 +1236,11 @@ void EmbeddedTsDesc<dim>::computeDistanceToWall(IoData &ioData, double t)
 		{
       double t0 = this->timer->getTime();
 
-      // wall_computer->ComputeWallFunction(*this->distLSS,*this->X,*this->geoState,*this->spaceOp,t);
-      wall_computer->ComputeWallFunction(*this->distLSS,*this->X,*this->geoState,t);
+      int update = wall_computer->ComputeWallFunction(*this->distLSS,*this->X,*this->geoState,t);
 
       this->timer->addWallDistanceTime(t0);
+      if (update > 0)
+        this->timer->addWallDistanceCount(t0);
 
       this->domain->computeOffWallNode(this->distLSS);
     }

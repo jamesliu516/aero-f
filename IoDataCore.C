@@ -1492,6 +1492,8 @@ WallDistanceMethodData::WallDistanceMethodData()
   maxIts = 10;
   eps = 1.e-4;
   iterativelvl = -1;
+
+  predictoreps = 1.0e-2;  // added by sjg, 07/2017 for wall distance predictor algorithm
 }
 
 //------------------------------------------------------------------------------
@@ -1510,6 +1512,8 @@ void WallDistanceMethodData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<WallDistanceMethodData>(ca, "Eps", this, &WallDistanceMethodData::eps);
 
   new ClassInt<WallDistanceMethodData>(ca, "IterativeLevel", this, &WallDistanceMethodData::iterativelvl);
+
+  new ClassDouble<WallDistanceMethodData>(ca, "PredictorEps", this, &WallDistanceMethodData::predictoreps);
 
 }
 
