@@ -1873,7 +1873,7 @@ void IntersectorFRG::reFlagRealNodes(SVec<double,3>& X, Vec<bool> &ISactive_bk)
 //----------------------------------------------------------------------------
 void IntersectorFRG::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X,  
 																 SVec<double,3> &boxMin, SVec<double,3> &boxMax, 
-																 bool withViscousTerms)
+																 bool withViscousTerms, bool externalSI)
 {	
 
 	double l1, l2, l1_i, l1_j, l2_i, l2_j, lambda[3];
@@ -1907,16 +1907,22 @@ void IntersectorFRG::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X,
 		int i = ptr[l][0];
 		int j = ptr[l][1];
 
-		edge_SI[l] = false;
+      if(externalSI) //Dante's method
+      {
+        edge_SI[l] = ((!is_active[i] && is_active[j]) || (!is_active[j] && is_active[i]));
+      }
+      else{
+        edge_SI[l] = edge_intersects[l];
+      }
 	  
-		if(!is_active[i] || !is_active[j])
+		if(edge_SI[l])
 		{
-			if(is_active[i] == is_active[j]) continue;
+
 
 			Vec3D X_ij;
 			for(int k=0; k<3; ++k) X_ij[k] = 0.5*(X[j][k] + X[i][k]);
 
-			edge_SI[l] = true;
+
 
 			int nFound_i = structureTree.findCandidatesInBox(boxMin[i], boxMax[i], candidates_i, nMaxCand_i);
 

@@ -2814,7 +2814,7 @@ void TsOutput<dim>::writeDisplacementVectorToDisk(int step, double tag,
   if(vectors[PostFcn:: DISPLACEMENT]){
     if (!Qv) Qv = new DistSVec<double,3>(domain->getNodeDistInfo());
     postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(PostFcn::DISPLACEMENT), X, U, *Qv);
-    domain->writeVectorToFile(vectors[PostFcn::DISPLACEMENT], 1, 1.0, *Qv, &(vscale[PostFcn::DISPLACEMENT]));
+    domain->writeVectorToFile(vectors[PostFcn::DISPLACEMENT], (frequency <= 0 ? 0 : 1), 1.0, *Qv, &(vscale[PostFcn::DISPLACEMENT]));
   }
 
 

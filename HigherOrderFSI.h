@@ -9,8 +9,10 @@ struct V6NodeData;
 class HigherOrderFSI {
 
   public:
+	int secondOrderEulerFlux;// {INTERSECTPOINT = 0, CLOSESTPOINT = 1} ;
 
-    HigherOrderFSI();
+
+    HigherOrderFSI(const IoData &iod);
 
     ~HigherOrderFSI();
 
@@ -109,7 +111,7 @@ class HigherOrderFSI {
 		void interpolateToSI(int l, int n, int Fid, VarFcn *varFun, 
 									SVec<double,dim>& V, double* Vstar, NodalGrad<dim>& dV,
 									SVec<double,3>& X, Vec3D &xWall, Vec3D &Xij, 
-									double* Vsi);
+									double* Vsi, double limiter = 0.5);
 	template<int dim>
 		bool setFEGhostPoint(int dir, int i, VarFcn *varFun, SVec<double,dim>& U, 
 									 NodalGrad<dim>& dV, SVec<double,3>& X, Vec<int> &fluidId,
@@ -130,7 +132,7 @@ private:
    V6NodeData (*FEMData_p);
    V6NodeData (*FEMData_m);
 
-   bool limitExtrap;
+	bool limitExtrap;
 
 	bool HOtreatment;
 	bool viscQuadRcn;
