@@ -458,14 +458,6 @@ public:
   template<int dimLS>
   void pseudoFastMarchingMethodComm(DistVec<int> &Tag, DistSVec<double,dimLS> &d2wall,
           DistVec<int> &sortedNodes, int *nSortedNodes, int it, DistSVec<double,dimLS> *d2wnm1=0);
-  template<int dimLS>
-  void pseudoFastMarchingMethodFEM(DistSVec<double,3> &X, DistSVec<double,dimLS> &d2wall,
-        DistVec<int> &nodeTag, int level, int **tag, int **activeElemList, int **knownNodes,
-        int *nSortedNodes, int *nSortedElems, int *firstCheckedElem,
-        DistVec<int> &isSharedNode, DistLevelSetStructure *distLSS=0);
-  template<int dimLS>
-  void pseudoFastMarchingMethodFinalize(DistSVec<double,3> &X, DistSVec<double,dimLS> &d2wall,
-        int *nSortedNodes, DistVec<int> &isSharedNode);
 
   //template<int dimLS>
   //void FinishReinitialization(DistVec<int> &Tag, DistSVec<double,dimLS> &Psi, int level);

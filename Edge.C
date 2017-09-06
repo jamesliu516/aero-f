@@ -6160,8 +6160,7 @@ void EdgeSet::pseudoFastMarchingMethodInitialization(Vec<int> &Tag,
   for (int l=0; l<numEdges; l++) {
     if (LSS->edgeIntersectsWall(0,l)) {
       resij = LSS->getLevelSetDataAtEdgeCenter(0.0, l, true);
-      if (resij.structureType==BoundaryData::WALL ||
-          resij.structureType==BoundaryData::POROUSWALL) {
+      if (!(resij.structureType==BoundaryData::SYMMETRYPLANE)) {
 
         i = ptr[l][0];
         j = ptr[l][1];

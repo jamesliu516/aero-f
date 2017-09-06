@@ -19,7 +19,7 @@ class Timer {
 		binread, binwrite, levelSet, lsNodalWeightsAndGrad, lsFvTerm,
 		lsKsp,lsPrecSetup,lsJac, waitrec, timeStep, intersect, embedPhaseChange,
 		eulerFSI, embedforce, walldistance, lsreinitialization, readSnapshotFile,
-		clustering, pod, distCalcsPrepro, exactUpdatesPrepro, projError, mds, 	
+		clustering, pod, distCalcsPrepro, exactUpdatesPrepro, projError, mds,
 		approxMetricPrepro, surfaceMeshConstruction, surfaceOutput, sampledMeshConstruction, sampledOutput, pseudoInv,
                 gappyOffline, romOffline, icInterp, NUMTIMINGS
   };
@@ -30,9 +30,9 @@ class Timer {
 
   int *counter;
   double *data;
-  
+
   IoData *ioData;
-  
+
   Communicator *com;
 
 public:
@@ -111,6 +111,7 @@ public:
   double addEmbedPhaseChangeTime(double);
   double removeIntersAndPhaseChange(double);
   double addWallDistanceTime(double);
+  void addWallDistanceCount(double);
 
   // Nonlinear ROM Offline Timer Functions
   double addReadSnapshotFileTime(double);
