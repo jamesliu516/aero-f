@@ -171,7 +171,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     sprintf(scalars[PostFcn::HYDRODYNAMICPRESSURE], "%s%s",
             iod.output.transient.prefix, iod.output.transient.hydrodynamicpressure);
   }
-  if (iod.output.transient.pressurecoefficient[0] != 0) {
+  if ((iod.output.transient.pressurecoefficient[0] != 0) && (iod.problem.framework==ProblemData::BODYFITTED)) {
     sscale[PostFcn::PRESSURECOEFFICIENT] = 1.0;
     scalars[PostFcn::PRESSURECOEFFICIENT] = new char[sp + strlen(iod.output.transient.pressurecoefficient)];
     sprintf(scalars[PostFcn::PRESSURECOEFFICIENT], "%s%s",
@@ -262,12 +262,12 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     sprintf(scalars[PostFcn::DELTA_PLUS], "%s%s", 
             iod.output.transient.prefix, iod.output.transient.dplus);
   }
-  if (iod.output.transient.sfric[0] != 0) {
+  if ((iod.output.transient.sfric[0] != 0) && (iod.problem.framework==ProblemData::BODYFITTED)) {
     scalars[PostFcn::SKIN_FRICTION] = new char[sp + strlen(iod.output.transient.sfric)];
     sprintf(scalars[PostFcn::SKIN_FRICTION], "%s%s",
             iod.output.transient.prefix, iod.output.transient.sfric);
   }
-  if (iod.output.transient.tavsfric[0] != 0) {
+  if ((iod.output.transient.tavsfric[0] != 0)&& (iod.problem.framework==ProblemData::BODYFITTED)) {
     avscalars[PostFcn::SKIN_FRICTIONAVG] = new char[sp + strlen(iod.output.transient.tavsfric)];
     sprintf(avscalars[PostFcn::SKIN_FRICTIONAVG], "%s%s",
             iod.output.transient.prefix, iod.output.transient.tavsfric);
