@@ -970,8 +970,8 @@ void FaceTria::computeScalarQuantity(PostFcn::ScalarType stype, ElemSet& elems,
     double *Vface[3] = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)]};
     double *Vtet[4] = {V[elem[0]], V[elem[1]],
 		       V[elem[2]], V[elem[3]]};
-
-    double q = postFcn->computeFaceScalarQuantity(stype, dp1dxj, n, d2w, Vwall, Vface, Vtet);
+    double dist = computeHeight(X,elems);
+    double q = postFcn->computeFaceScalarQuantity(stype, dp1dxj, n, d2w, Vwall, Vface, Vtet, dist);
 
     for (int j=0; j<3; ++j) {
       Q[ nodeNum(j) ][0] += S;
