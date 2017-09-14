@@ -53,7 +53,7 @@ public:
 
   virtual double computeNodeScalarQuantity(ScalarType, double *, double *, int = 0,double* = NULL);
   virtual double computeFaceScalarQuantity(ScalarType, double [4][3], Vec3D&, double [3], 
-					   double*, double* [3], double* [4]);
+					   double*, double* [3], double* [4], double dist);
   virtual void computeForce(double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
 		double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0, int fid = 0) = 0;
 
@@ -220,7 +220,7 @@ public:
   virtual ~PostFcnNS();
 
   double computeFaceScalarQuantity(ScalarType, double [4][3], Vec3D&, double [3], 
-				   double*, double* [3], double* [4]);
+				   double*, double* [3], double* [4], double dist);
   virtual void computeForce(double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
                 double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0, int fid = 0);
 
