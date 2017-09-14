@@ -1684,7 +1684,7 @@ void PostFcnNS::rstVar(IoData &iod, Communicator *com)
  * This is for ALE compute y+ and Cf
  * type: enum DELTA_PLUS or SKIN_FRICTION
  * dp1dxj: the derivatives of 4 hat functions
- * n: the unit vector from wall point Xp to point Xpp,  Xpp - Xp
+ * n: the unit vector toward the wall from the fluid
  * d2w: distance to wall of the 3 face nodes
  * Vwall: wall velocity
  * Vface: the faces nodes'primitive variables
@@ -1717,7 +1717,8 @@ double PostFcnNS::computeFaceScalarQuantity(ScalarType type, double dp1dxj[4][3]
       //Skin Friction is computed as mu*d u_parallel(y=0)/ dy.
       // u_parallel is evaluated at the tetrahedron center, barcentric  of the
       double bary[3] = {0.25,0.25,0.25};
-      q = computeSkinFriction(n, dist/4.0,  Vwall,   Vtet,  bary);
+      Vec3D unit_n = -n/n.norm();//becasue n is the outward fluid norm, we need the structure normal
+      q = computeSkinFriction(unit_n, dist/4.0,  Vwall,   Vtet,  bary);
 
   }
 
@@ -1790,7 +1791,6 @@ Vec3D PostFcnNS::computeViscousForce(double dp1dxj[4][3], Vec3D& n, double d2w[3
  */
 double PostFcnNS::computeSkinFriction(Vec3D& n, double dist, double* Vwall,  double* Vtet[4], double* bary)
 {
-
     double Cf = 0.0; //skin friction
     double T[4], T_pp;
     Vec3D v_pp;

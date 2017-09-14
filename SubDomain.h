@@ -1711,7 +1711,7 @@ public:
                          	    PostFcn *postFcn, VarFcn *varFcn,
 				    Vec<int> &fluidId, SVec<double,dimLS>* phi,
 				    int sizeQnty, int numStructElems, int (*stElem)[3],
-				    Vec<Vec3D>& Xstruct, LevelSetStructure &LSS,
+				    Vec<Vec3D>& Xstruct, Vec3D* Xdotstruct, LevelSetStructure &LSS,
 				    double pInfty,
 				    Vec<GhostPoint<dim>*> *ghostPoints,
 				    NodalGrad<dim, double> &ngrad,double* interfaceFluidMeshSize,
