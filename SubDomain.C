@@ -7869,7 +7869,7 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                                      Vi[3] + dVdx[i][3]*dX_i_jj[0] + dVdy[i][3]*dX_i_jj[1] + dVdz[i][3]*dX_i_jj[2]);
                     Vec3D v_s = resij.normVel;
                     Vec3D v_j = v_jj - 2*(v_jj*normal)*normal + 2*(v_s*normal)*normal;//keep tangential velocity, reverse normal velocity
-                    for (int k=1; k<3; k++) {
+                    for (int k=1; k<4; k++) {
                         Vj[k] = v_j[k-1];
                     }
 
@@ -7998,7 +7998,7 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                                      Vj[3] + dVdx[j][3]*dX_j_ii[0] + dVdy[j][3]*dX_j_ii[1] + dVdz[j][3]*dX_j_ii[2]);
                     Vec3D v_s = resji.normVel;
                     Vec3D v_i = v_ii - 2*(v_ii*normal)*normal + 2*(v_s*normal)*normal;//keep tangential velocity, reverse tangential velocity
-                    for (int k=1; k<3; k++) {
+                    for (int k=1; k<4; k++) {
                         Vi[k] = v_i[k-1];
 
                     }

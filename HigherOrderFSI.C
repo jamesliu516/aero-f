@@ -1395,7 +1395,7 @@ double HigherOrderFSI::vanAlbada(double a, double b)
     //a = Vj -vi
     //b = dVi
 
-    double beta = 1/3.0, eps = 1.0e-16;
+    double beta = 0.5, eps = 1.0e-16;
 
     b = (1 - 2*beta)*a + 2*beta*b;
 
@@ -1434,8 +1434,8 @@ bool HigherOrderFSI::safeExtrapolation(int dim, const double* Vi, const double* 
         for (int k = 0; k < dim; k++)
             Ve[k] = Vi[k] + (1.0 - alpha) * dVij[k];
     }else{
-        for (int k = 0; k < dim; k++)
-            Ve[k] = Vi[k] + (1.0 - alpha) * vanAlbada(Vghost[k] - Vi[k],dVij[k]);
+        for (int k = 0; k < dim; k++) 
+            Ve[k] = Vi[k] + (1.0 - alpha) * vanAlbada(Vghost[k] - Vi[k], dVij[k]);
     }
 
 //Fail Safe, if negative pressure or density, revert back to constant extrapolation
