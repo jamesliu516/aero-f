@@ -18,12 +18,12 @@ using std::pair;
 
 // Included (MB)
 #include <cstdio>
-
 //#include <ProgrammedBurn.h>
 //#include <HigherOrderMultiFluid.h>
 //#include <HigherOrderFSI.h>
 //#include <ErrorHandler.h>
 //#include <LevelSet/LevelSetStructure.h>
+#include <GhostPoint.h>
 
 class FluidSelector;
 class VarFcn;
@@ -39,6 +39,7 @@ class ProgrammedBurn;
 class HigherOrderMultiFluid;
 class HigherOrderFSI;
 class ErrorHandler;
+
 
 struct V6NodeData;
 struct Vec3D;
@@ -186,14 +187,14 @@ public:
                               SVec<double,dim>&, int,
                               SVec<int,2>&, int, int);
 
-
+//d2d embedded boundary fluid-structure problem
   template<int dim>
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&, int*,
                               FluxFcn**, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&,
                               SVec<double,dim>&, SVec<double,dim>&, SVec<double,dim>&, LevelSetStructure &,
                               bool, Vec<int>&, int, NodalGrad<dim>&, EdgeGrad<dim>*,
                               SVec<double,dim>&, int,
-                              SVec<int,2>&, int, int);
+                              SVec<int,2>&, int, int, const Vec<GhostPoint<dim>*>* = NULL);
   /** compute flux for Riemann based FSI*/
   template<int dim>
 	  int computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locToGlobNodeMap,

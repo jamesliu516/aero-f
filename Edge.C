@@ -30,6 +30,7 @@ using std::min;
 #include <HigherOrderFSI.h>
 #include <ErrorHandler.h>
 
+
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -3153,7 +3154,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                                      Vec<int> &fluidId, int Nriemann,
                                      NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
                                      SVec<double,dim>& fluxes, int it,
-                                     SVec<int,2>& tag, int failsafe, int rshift)
+                                     SVec<int,2>& tag, int failsafe, int rshift, const Vec<GhostPoint<dim>*> *ghostPoints)
 {
 
     int farfieldFluid = 0;
@@ -3181,6 +3182,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       riemann.reset(it);
 
       VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
+      double *Vghost = NULL;
       for (int i=0; i<dim; i++) fluxi[i] = fluxj[i] = 0.0;
 
       for (int l=0; l<numEdges; ++l) {
@@ -3319,12 +3321,13 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
       if (higherOrderFSI) {
         if (iActive) {
-
-          higherOrderFSI->SafeExtrapolation(dim, V[i], Vghost, ddVij, true, resij.alpha, Vi);
+          Vghost = (ghostPoints? ((*ghostPoints)[j])->getPrimitiveState(): NULL);
+          higherOrderFSI->safeExtrapolation(dim, V[i], Vghost, ddVij, true, resij.alpha, Vi);
         }
 
         if (jActive) {
-          higherOrderFSI->SafeExtrapolation(dim, V[j], Vghost, ddVji, false, resji.alpha, Vj);
+          Vghost = (ghostPoints? ((*ghostPoints)[i])->getPrimitiveState(): NULL);
+          higherOrderFSI->safeExtrapolation(dim, V[j], Vghost, ddVji, false, resji.alpha, Vj);
         }
       }
 
@@ -3405,18 +3408,15 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
                     for (int k = 0; k < dim; k++) {
                       Vj_Recon[k] = V[i][k] + (0.5 / max(1.0 - resij.alpha, alpha)) * (Wstar[k] - V[i][k]);
-                      Vi_Recon[k] = V[i][k] + 0.5 * ddVij[k];
                     }
+
+                    Vghost = (ghostPoints? ((*ghostPoints)[j])->getPrimitiveState(): NULL);
+                    higherOrderFSI->safeExtrapolation(dim, V[i], Vghost, ddVij, true, resij.alpha, Vi_Recon);
+
                     err = varFcn->getVarFcnBase(fluidId[i])->verification_negative_rho_p(Vj_Recon, 0.0, 0.0);
                     if(err){//negative pressure or density for Vi_Recon, switch to constant interpolation
                       for (int k = 0; k < dim; k++) {
                         Vj_Recon[k] = Wstar[k];
-                      }
-                    }
-                    err = varFcn->getVarFcnBase(fluidId[i])->verification_negative_rho_p(Vi_Recon, 0.0, 0.0);
-                    if(err){//negative pressure or density for Vi_Recon, switch to constant interpolation
-                      for (int k = 0; k < dim; k++) {
-                        Vi_Recon[k] = V[i][k];
                       }
                     }
 
@@ -3587,18 +3587,16 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                           Vj_Recon[k] = V[j][k] - 0.5 * ddVji[k];
                       }
 
+                      Vghost = (ghostPoints? ((*ghostPoints)[i])->getPrimitiveState(): NULL);
+                      higherOrderFSI->safeExtrapolation(dim, V[j], Vghost, ddVji, false, resji.alpha, Vj_Recon);
+
                       err = varFcn->getVarFcnBase(fluidId[j])->verification_negative_rho_p(Vi_Recon, 0.0, 0.0);
                       if(err){//negative pressure or density for Vi_Recon, switch to constant interpolation
                         for (int k = 0; k < dim; k++) {
                           Vi_Recon[k] = Wstar[k];
                         }
                       }
-                      err = varFcn->getVarFcnBase(fluidId[j])->verification_negative_rho_p(Vj_Recon,0.0,0.0);
-                      if(err){//negative pressure or density for Vi_Recon, switch to constant interpolation
-                        for (int k = 0; k < dim; k++) {
-                          Vj_Recon[k] = V[j][k];
-                        }
-                      }
+
                       varFcn->getVarFcnBase(fluidId[j])->verification(0, Udummy, Wstar);
                       fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi_Recon, Vj_Recon, fluxj,
                                                     fluidId[j],

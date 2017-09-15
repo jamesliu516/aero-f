@@ -1557,11 +1557,12 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                      int Nriemann, 
 				     DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
                                      DistSVec<double,dim>& R, 
-												 int it, int failsafe, int rshift, bool externalSI)
+												 int it, int failsafe, int rshift, bool externalSI, const DistVec<GhostPoint<dim>*> *ghostPoints)
 {
  
   double t0 = timer->getTime();
   int ierr = 0;
+  Vec<GhostPoint<dim>*> *gp=0;
 
   if (!tag) {
      tag = new DistSVec<int,2>(getNodeDistInfo());
@@ -1576,6 +1577,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
   for (iSub = 0; iSub < numLocSub; ++iSub) 
   {
     EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
+    if (ghostPoints) gp = ghostPoints->operator[](iSub);
     ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub),
 						    fluxFcn, recFcn, 
 						    bcData(iSub), geoState(iSub),
@@ -1585,7 +1587,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
 						    linRecAtInterface, fluidId(iSub), Nriemann, 
 						    ngrad(iSub), legrad, 
 						    (*RR)(iSub), 
-																	  it, (*tag)(iSub), failsafe, rshift, externalSI);
+																	  it, (*tag)(iSub), failsafe, rshift, externalSI, gp);
   }
 
   com->globalSum(1, &ierr);
@@ -1630,6 +1632,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
 		  {
 
         EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
+        if (ghostPoints) gp = ghostPoints->operator[](iSub);
         ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub),
 							fluxFcn, recFcn, 
 							bcData(iSub), geoState(iSub),
@@ -1638,7 +1641,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
 							(*LSS)(iSub), 
 							linRecAtInterface, fluidId(iSub), Nriemann, 
 							ngrad(iSub), legrad, (*RR)(iSub), 
-																			  it, (*tag)(iSub), 0, rshift, externalSI);
+																			  it, (*tag)(iSub), 0, rshift, externalSI, gp);
 		  }
       if (failsafe == 1) *tag = 0;
     }
