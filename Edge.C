@@ -3319,30 +3319,12 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
       if (higherOrderFSI) {
         if (iActive) {
-          for (int k = 0; k < dim; k++) {
-            Vi[k] = V[i][k] + (1.0 - resij.alpha) * ddVij[k];
-          }
 
-//          if(Vi[0] <= 0.0 || Vi[4] <= 0.0)
-//            std::cout << "*****Vi "  <<Vi[0] << " " << Vi[4]<<  std::endl;
-
-          err = varFcn->getVarFcnBase(fluidId[i])->verification_negative_rho_p(Vi, 0.0, 0.0);
-          if(err)// if negative pressure or density, switch to constant interpolation
-            for (int k = 0; k < dim; k++) Vi[k] = V[i][k];
-
-
-
+          higherOrderFSI->SafeExtrapolation(dim, V[i], Vghost, ddVij, true, resij.alpha, Vi);
         }
 
         if (jActive) {
-
-          for (int k = 0; k < dim; k++) {
-            Vj[k] = V[j][k] - (1.0 - resji.alpha) * ddVji[k];
-          }
-          err = varFcn->getVarFcnBase(fluidId[j])->verification_negative_rho_p(Vj, 0.0, 0.0);;
-          if(err)// if negative pressure or density, switch to constant interpolation
-            for (int k = 0; k < dim; k++) Vj[k] = V[j][k];
-
+          higherOrderFSI->SafeExtrapolation(dim, V[j], Vghost, ddVji, false, resji.alpha, Vj);
         }
       }
 
