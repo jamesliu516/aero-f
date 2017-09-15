@@ -1845,7 +1845,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 													NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
                                        SVec<double,dim>& fluxes, 
 													int it, SVec<int,2>& tag, 
-													int failsafe, int rshift, bool externalSI)
+													int failsafe, int rshift, bool externalSI, const Vec<GhostPoint<dim>*> *ghostPoints)
 {
 
 	int ierr;
@@ -1861,7 +1861,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 		ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn,
                                            recFcn, elems, geoState, X, V, Wstarij, Wstarji, LSS, 
                                            linRecAtInterface, fluidId, Nriemann, ngrad, egrad, fluxes, it,
-                                          tag, failsafe, rshift);
+                                          tag, failsafe, rshift, ghostPoints);
 
   faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluidId, fluxes, &LSS);
 

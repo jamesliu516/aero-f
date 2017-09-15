@@ -531,7 +531,7 @@ public:
                               NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
                               SVec<double,dim>& fluxes, 
 										int it, SVec<int,2>& tag, 
-										int failsafe, int rshift, bool externalSI=false);
+										int failsafe, int rshift, bool externalSI=false, const Vec<GhostPoint<dim>*> *ghostPoints = NULL);
 
   template<int dim>
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&,

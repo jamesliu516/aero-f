@@ -1537,7 +1537,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
 	domain->computeFiniteVolumeTerm(ctrlVol, *riemann, fluxFcn, recFcn, *bcData,
 											  *geoState, X, *V, Wstarij, Wstarji, Wext,
 				  distLSS, linRecAtInterface, fluidId, Nriemann,
-											  *ngrad, egrad, R, it, failsafe, rshift, externalSI);
+											  *ngrad, egrad, R, it, failsafe, rshift, externalSI, ghostPoints);
 
   if(compatF3D) 
   {

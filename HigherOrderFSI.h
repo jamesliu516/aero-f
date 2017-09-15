@@ -118,6 +118,11 @@ class HigherOrderFSI {
 									 Vec3D &xWall, Vec3D &vWall, Vec3D &nWall, 
 									 bool isIsoTherm, double TWall, 
 									FemEquationTerm *fet, double* Vg, int &fId);
+
+	double vanAlbada(double a, double b);
+
+
+	bool safeExtrapolation(int dim, const double* Vi, const double* Vghost, const double *dV, bool ij, double alpha, double* Ve);
 	/* --------------------------- */
 
 private:
@@ -164,6 +169,7 @@ public:
 							 Vec3D &tgW1, Vec3D &tgW2,
 							 FemEquationTerm *fet, 
 							 double &dudn, double &dTdn);
+
 
 };
 

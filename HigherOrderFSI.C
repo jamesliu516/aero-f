@@ -1389,8 +1389,8 @@ bool HigherOrderFSI::computeDuDTwf(double *V1, VarFcn *vf, double d2w,
 	return withWF;
 
 }
-
-bool HigherOrderFSI::VanAlbada(double a, double b)
+inline
+double HigherOrderFSI::vanAlbada(double a, double b)
 {
     //a = Vj -vi
     //b = dVi
@@ -1422,19 +1422,20 @@ bool HigherOrderFSI::VanAlbada(double a, double b)
 // extrapolation to Ve
 // if the limiter is on, use Van Albada average
 // if the limiter is off, use pure extrapolation
-bool HigherOrderFSI::SafeExtrapolation(int dim, const double* Vi, const double* Vghost, const double *dV, bool ij, double alpha, double* Ve)
+inline
+bool HigherOrderFSI::safeExtrapolation(int dim, const double* Vi, const double* Vghost, const double *dV, bool ij, double alpha, double* Ve)
 {
     double* dVij = new double[dim];
     for (int k = 0; k < dim; k++)
         dVij[k] = (ij ? dV[k]: -dV[k]);
 
 
-    if(!limitExtrap) {
+    if(!limitExtrap || !Vghost) {
         for (int k = 0; k < dim; k++)
             Ve[k] = Vi[k] + (1.0 - alpha) * dVij[k];
     }else{
         for (int k = 0; k < dim; k++)
-            Ve[k] = Vi[k] + (1.0 - alpha) * VanAlbada(Vghost[k] - Vi[k],dVij[k]);
+            Ve[k] = Vi[k] + (1.0 - alpha) * vanAlbada(Vghost[k] - Vi[k],dVij[k]);
     }
 
 //Fail Safe, if negative pressure or density, revert back to constant extrapolation

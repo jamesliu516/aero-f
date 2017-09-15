@@ -618,7 +618,7 @@ public:
 										 int Nriemann,
                                DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
                                DistSVec<double,dim>& R,
-										 int it, int failsafe, int rshift, bool externalSI=false);
+										 int it, int failsafe, int rshift, bool externalSI=false, const DistVec<GhostPoint<dim>*> *ghostPoints = NULL);
 
   template<int dim>
   void computeFiniteVolumeTerm(DistVec<double> &, DistExactRiemannSolver<dim>&,
