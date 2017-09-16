@@ -88,6 +88,8 @@ public:
 // Included (MB)
   virtual bool computeDerivativeOfVolumeTerm(double dp1dxj[4][3], double ddp1dxj[4][3], double d2w[4], double *v[4],
 				 double *dv[4], double dMach, double *dr, double *ds, double *dpr, double dtetvol, SVec<double,3> &x, int nodenum[4], int volid) = 0;
+  virtual void computeDerivativeOperatorsOfVolumeTerm(double dp1dxj[4][3], double *v[4],
+  			 double (*drddp1dxj)[5][4][3], double (*drdV)[5][4][5], double (*drdMach)[5]) = 0;
   virtual void computeDerivativeOfSurfaceTerm(int c, Vec3D &n, Vec3D &dn, double d2w[3],
 				  double *vw, double *dvw, double *v[3], double *dv[3], double dMach, double *dr) = 0;
   virtual void computeDerivativeOfSurfaceTerm(double dp1dxj[4][3], double ddp1dxj[4][3], int c, Vec3D &n, Vec3D &dn, double d2w[4],

@@ -4,10 +4,10 @@
 #include <VarFcnBase.h>
 
 //--------------------------------------------------------------------------
-// This class is the VarFcn class for the Stiffened Gas EOS in Spalat-Allmaras 
+// This class is the VarFcn class for the Stiffened Gas EOS in Spalat-Allmaras
 // turbulent model. Only elementary functions are declared and/or defined here.
 // All arguments must be pertinent to only a single grid node or a single
-// state. 
+// state.
 //
 // lay-out of the base class is:
 //  - 1 -  Transformation Operators
@@ -54,8 +54,8 @@ public:
   void postMultiplyBydUdV(double *, bcomp *, bcomp *) {fprintf(stderr,"ERROR: postMultiplyBydUdV needs to be implemented...\n");}
 
   //----- General Functions -----//
-  double checkPressure(double *V) const { 
-    return V[4]+Pstiff; 
+  double checkPressure(double *V) const {
+    return V[4]+Pstiff;
   }
   bool checkReconstructedValues(double *V, int nodeNum, int otherNodeNum, int phi, int otherPhi, int failsafe) const{
     bool error = false;
@@ -94,7 +94,7 @@ public:
     }
     Tg[0] =  -invgam1 * (V[4]+Pstiff) / (V[0]*V[0]);
     Tg[1] = Tg[2] = Tg[3] = 0.0;
-    Tg[4] = invgam1 / V[0]; 
+    Tg[4] = invgam1 / V[0];
     Tg[5] = 0.0;
   }
   void getV4FromTemperature(double *V, double T) const {
@@ -103,22 +103,22 @@ public:
   double computeRhoEnergy(double *V) const {
     return invgam1 * (V[4]+gam*Pstiff) + 0.5 * V[0] * (V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
   }
-  double computeRhoEpsilon(double *V) const { 
-    return invgam1 * (V[4]+gam*Pstiff); 
+  double computeRhoEpsilon(double *V) const {
+    return invgam1 * (V[4]+gam*Pstiff);
   }
-  double computeSoundSpeed(double *V) const { 
-    return sqrt(gam * (V[4]+Pstiff) / V[0]); 
+  double computeSoundSpeed(double *V) const {
+    return sqrt(gam * (V[4]+Pstiff) / V[0]);
   }
   double computeSoundSpeed(double density, double entropy) const {
     double c2 = gam * entropy*pow(density,gam-1.0);
     if(c2>0) return sqrt(c2);
-    return 0.0; 
+    return 0.0;
   }
   double computeEntropy(double density, double pressure) const {
-    return (pressure+Pstiff)/pow(density,gam); 
+    return (pressure+Pstiff)/pow(density,gam);
   }
   double computeIsentropicPressure(double entropy, double density) const {
-    return entropy*pow(density,gam)-Pstiff; 
+    return entropy*pow(density,gam)-Pstiff;
   }
   double computePressureCoefficient(double *V, double pinfty, double mach, bool dimFlag) const {
     if (dimFlag)
@@ -140,11 +140,11 @@ public:
     return ( invgam1 * dV[4] - computeTemperature(V) * dV[0] ) /V[0];
   }
 
-  double computeDerivativeOfMachNumber(double *V, double *dV, double dMach) const 
+  double computeDerivativeOfMachNumber(double *V, double *dV, double dMach) const
   {
     // Fix when the speed is 0
     double MyMach = computeMachNumber(V);
-    if (MyMach == 0.0)
+    if (MyMach < 100*std::numeric_limits<float>::min())
       return 0.0;
     //----
     return 1/(2.0*sqrt((V[1]*V[1] + V[2]*V[2] + V[3]*V[3]) * V[0] / (gam * (V[4]+Pstiff)))) * ( ( (2.0*(V[1]*dV[1] + V[2]*dV[2] + V[3]*dV[3]) * V[0] + (V[1]*V[1] + V[2]*V[2] + V[3]*V[3]) * dV[0]) * (V[4]+Pstiff) - (V[1]*V[1] + V[2]*V[2] + V[3]*V[3]) * V[0] * (dV[4] + dPstiff*dMach) ) / ( (V[4]+Pstiff) * (V[4]+Pstiff) ) );

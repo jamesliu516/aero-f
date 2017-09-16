@@ -139,8 +139,11 @@ inline
 void computeLocalWeightsLeastSquares(double dx[3], double *R, double *W)
 {
 
-  if(R[0]*R[3]*R[5] == 0.0) fprintf(stderr, "Going to divide by 0 %e %e %e\n", 
-         R[0], R[3], R[5]);
+  if(R[0]*R[3]*R[5] == 0.0){
+    fprintf(stderr, "1 Going to divide by 0 %e %e %e\n",R[0], R[3], R[5]);
+    exit(-1);
+  }
+
   double or11 = 1.0 / R[0];
   double or22 = 1.0 / R[3];
   double or33 = 1.0 / R[5];
@@ -164,8 +167,11 @@ void computeLocalWeightsLeastSquares(double dx[3], double *R, double *W)
 inline
 void computeLocalWeightsLeastSquaresForEmbeddedStruct(double dx[3], double *R, double *W)
 {
-  if (R[0]*R[4]*R[7]*R[9]==0.0) 
-	fprintf(stderr, "Going to be divided by 0 %e %e %e %e\n",R[0],R[4],R[7],R[9]);
+  if(R[0]*R[4]*R[7]*R[9]==0.0){
+    fprintf(stderr,"!!! ERROR: All diagonals of R matrix are zero");
+    exit(-1);
+  }
+
   double or11 = 1.0/R[0];
   double or22 = 1.0/R[4];
   double or33 = 1.0/R[7];
@@ -195,7 +201,8 @@ void computeLocalWeightsLeastSquaresForEmbeddedStruct(double dx[3], double *R, d
 inline 
 void compute_dWdXAnddWdR(int pm, double dx[3], double *R, double *W, double dWdX[][6], double dWdR[][6])
 {
-  if(R[0]*R[3]*R[5] == 0.0) fprintf(stderr, "Going to divide by 0 %e %e %e\n", R[0], R[3], R[5]);
+  if(R[0]*R[3]*R[5] == 0.0)
+    fprintf(stderr, "3 Going to divide by 0 %e %e %e\n", R[0], R[3], R[5]);
 
   double or11 = 1.0 / R[0];
   double or22 = 1.0 / R[3];
@@ -245,57 +252,12 @@ void compute_dWdXAnddWdR(int pm, double dx[3], double *R, double *W, double dWdX
   dWdX[0][0] =-pm*co11;  dWdX[0][1] =-pm*co12;  dWdX[0][2] =-pm*co13;  dWdX[0][3] = pm*co11;  dWdX[0][4] = pm*co12;  dWdX[0][5] = pm*co13;
   dWdX[1][0] =-pm*co21;  dWdX[1][1] =-pm*co22;  dWdX[1][2] =-pm*co23;  dWdX[1][3] = pm*co21;  dWdX[1][4] = pm*co22;  dWdX[1][5] = pm*co23;
   dWdX[2][0] =-pm*co31;  dWdX[2][1] =-pm*co32;  dWdX[2][2] =-pm*co33;  dWdX[2][3] = pm*co31;  dWdX[2][4] = pm*co32;  dWdX[2][5] = pm*co33;
-/*
-  dWdX = [-co11 -co12 -co13  co11  co12  co13 ] [dX[i][0]]
-         [-co21 -co22 -co23  co21  co22  co23 ] [dX[i][1]]
-         [-co31 -co32 -co33  co31  co32  co33 ] [dX[i][2]]
-                                                [dX[j][0]]
-                                                [dX[j][1]]
-                                                [dX[j][2]]
-*/
 
 // size of dWdR is 3x6
   dWdR[0][0] = ro11;  dWdR[0][1] = ro12;  dWdR[0][2] = ro13;  dWdR[0][3] = ro14;  dWdR[0][4] = ro15;  dWdR[0][5] = ro16; 
   dWdR[1][0] = ro21;  dWdR[1][1] = ro22;  dWdR[1][2] = ro23;  dWdR[1][3] = ro24;  dWdR[1][4] = ro25;  dWdR[1][5] = ro26; 
   dWdR[2][0] = ro31;  dWdR[2][1] = ro32;  dWdR[2][2] = ro33;  dWdR[2][3] = ro34;  dWdR[2][4] = ro35;  dWdR[2][5] = ro36; 
-/*
-  dWdR = [ cl04 cl05 cl06 cl07 cl08 cl09 ] [dR[0]]
-         [ dl04 dl05 dl06 dl07 dl08 dl09 ] [dR[1]]
-         [ bl03 bl04 bl05 bl06 bl07 bl08 ] [dR[2]]
-                                           [dR[3]]
-                                           [dR[4]]
-                                           [dR[5]]
-*/
 
-/*
-  dW[0] = cl01*ddx[0]
-        + cl02*ddx[1]
-        + cl03*ddx[2]
-        + cl04*dR[0]
-        + cl05*dR[1]
-        + cl06*dR[2]
-        + cl07*dR[3]
-        + cl08*dR[4]
-        + cl09*dR[5];
-  dW[1] = dl01*ddx[0]
-        + dl02*ddx[1]
-        + dl03*ddx[2]
-        + dl04*dR[0]
-        + dl05*dR[1]
-        + dl06*dR[2]
-        + dl07*dR[3]
-        + dl08*dR[4]
-        + dl09*dR[5];
-  dW[2] = bl01*ddx[0]
-        + bl02*ddx[1]
-        + bl00*ddx[2]
-        + bl03*dR[0]
-        + bl04*dR[1]
-        + bl05*dR[2]
-        + bl06*dR[3]
-        + bl07*dR[4]
-        + bl08*dR[5];
-*/
 }
 
 //------------------------------------------------------------------------------
@@ -304,8 +266,16 @@ inline
 void computeDerivativeOfLocalWeightsLeastSquares(double dx[3], double ddx[3], double *R, double *dR, double *W, double *dW)
 {
 
-  if(R[0]*R[3]*R[5] == 0.0) fprintf(stderr, "Going to divide by 0 %e %e %e\n",
+  if(R[0]*R[3]*R[5] == 0.0) fprintf(stderr, "!!! 4 ERROR Going to divide by 0 %e %e %e\n",
          R[0], R[3], R[5]);
+
+  if(R[0]*R[3]*R[5] == 0.0){
+    std::cout<<"R[0]: "<<R[0]<<std::endl;
+    std::cout<<"R[3]: "<<R[3]<<std::endl;
+    std::cout<<"R[5]: "<<R[5]<<std::endl;
+    exit(-1);
+  }
+
   double or11 = 1.0 / R[0];
   double dor11 = -1.0 / ( R[0]*R[0] )*dR[0];
   double or22 = 1.0 / R[3];
@@ -335,30 +305,7 @@ void computeDerivativeOfLocalWeightsLeastSquares(double dx[3], double ddx[3], do
   dW[0] = dalpha1 - dr12or11*alpha2 - r12or11*dalpha2 + dpsi*alpha3  + psi*dalpha3;
   dW[1] = dalpha2 - dr23or22*alpha3 - r23or22*dalpha3;
   dW[2] = dalpha3;
-/*
-  double dWdX[3][6];
-  double dWdR[3][6];
-  compute_dWdXAnddWdR(dx, R, W, dWdX, dWdR);
 
-  double dW2[3] = {0};
-  for (int i=0; i<3; ++i) 
-    for (int j=0; j<6; ++j) 
-      dW2[i] += dWdX[i][j]*dX[j]; 
-
-  for (int i=0; i<3; ++i) 
-    for (int j=0; j<6; ++j) 
-      dW2[i] += dWdR[i][j]*dR[j]; 
-
-  double relativeDiff = sqrt((dW[0]-dW2[0])*(dW[0]-dW2[0]) + (dW[1]-dW2[1])*(dW[1]-dW2[1]) + (dW[2]-dW2[2])*(dW[2]-dW2[2]));
-  double normOfdW = sqrt(dW[0]*dW[0] + dW[1]*dW[1] + dW[2]*dW[2]);
-  if(normOfdW != 0.0) {
-    double reldiffsquare = relativeDiff/normOfdW;
-    if(reldiffsquare > 1.0e-12)
-      fprintf(stderr," .... relativeDiff = %e\n", reldiffsquare);
-  } else
-    if(relativeDiff > 1.0e-10)
-      fprintf(stderr," ... relativeDiff = %e\n", relativeDiff);
-*/  
 }
 
 //------------------------------------------------------------------------------
@@ -858,35 +805,14 @@ void SubDomain::computeDerivativeOfGradientsLeastSquares(
   SVec<Scalar,dim> xxx(dddx), dddx2(dddx), uux(dddx);
   SVec<Scalar,dim> yyy(dddy), dddy2(dddy), uuy(dddy);
   SVec<Scalar,dim> zzz(dddz), dddz2(dddz), uuz(dddz);
-/*
-  if(isSparse) { 
- 
-    xxx = (Scalar) 0;    yyy = (Scalar) 0;   zzz = (Scalar) 0;
-    dddx2 = (Scalar) 0;  dddy2 = (Scalar) 0; dddz2 = (Scalar) 0;
-
-    dddxdX->apply(dX, xxx, 0);
-    dddydX->apply(dX, yyy, 0);
-    dddzdX->apply(dX, zzz, 0);
-
-    dddxdR->apply(dR, dddx, 0);
-    dddydR->apply(dR, dddy, 0);
-    dddzdR->apply(dR, dddz, 0);
-
-    dddx += xxx;    dddy += yyy;    dddz += zzz;
-    return;
-
-  }
-*/
 
   dddx = (Scalar) 0.0;
   dddy = (Scalar) 0.0;
   dddz = (Scalar) 0.0;
-//  fprintf(stderr, " ... SubDomain::computeDerivativeOfGradientsLeastSquares 02 \n");
 
   bool *edgeFlag = edges.getMasterFlag();
   int (*edgePtr)[2] = edges.getPtr();
 
-//  fprintf(stderr, " ... SubDomain::computeDerivativeOfGradientsLeastSquares 03 \n");
   for (int l=0; l<edges.size(); ++l) {
 
     if (!edgeFlag[l]) continue;
@@ -901,51 +827,14 @@ void SubDomain::computeDerivativeOfGradientsLeastSquares(
 
     double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
     double ddx[3] = {dX[j][0] - dX[i][0], dX[j][1] - dX[i][1], dX[j][2] - dX[i][2]};
-//    fprintf(stderr, " ... SubDomain::computeDerivativeOfGradientsLeastSquares 04 \n");
+
     computeDerivativeOfLocalWeightsLeastSquares(dx, ddx, R[i], dR[i], Wi, dWi);
-/*    compute_dWdXAnddWdR( 1, dx, R[i], Wi, dWidX, dWidR);
-    for (int k=0; k<3; ++k) {
-      for (int q=0; q<6; ++q)
-        dWi2[k] += dWidR[k][q]*dR[i][q];
-      dWi2[k] += dWidX[k][0]*dX[i][0] + dWidX[k][1]*dX[i][1] + dWidX[k][2]*dX[i][2] + dWidX[k][3]*dX[j][0] + dWidX[k][4]*dX[j][1] + dWidX[k][5]*dX[j][2];
-    }
 
-    double difference(0.0), dWinorm(0.0);
-    for(int k=0; k<3; ++k) {
-      difference += (dWi[k] - dWi2[k])*(dWi[k] - dWi2[k]);
-      dWinorm += dWi[k]*dWi[k];
-    }
-    difference = sqrt(difference);
-    dWinorm = sqrt(dWinorm); 
-    if(dWinorm != 0 ) fprintf(stderr," ... rel. difference is %e\n", difference/dWinorm);
-    else fprintf(stderr," ... abs. difference is %e\n", difference);
-
-
-    double dWjdX[3][6] = {0}, dWjdR[3][6] = {0};
-*/
     dx[0] = -dx[0]; dx[1] = -dx[1]; dx[2] = -dx[2];
     ddx[0] = -ddx[0]; ddx[1] = -ddx[1]; ddx[2] = -ddx[2];
-//    fprintf(stderr, " ... SubDomain::computeDerivativeOfGradientsLeastSquares 05 \n");
+
     computeDerivativeOfLocalWeightsLeastSquares(dx, ddx, R[j], dR[j], Wj, dWj);
-/*    compute_dWdXAnddWdR(-1, dx, R[j], Wj, dWjdX, dWjdR);
-    for (int k=0; k<3; ++k) {
-      for (int q=0; q<6; ++q)
-        dWj2[k] += dWjdR[k][q]*dR[j][q];
-      dWj2[k] += dWjdX[k][0]*dX[i][0] + dWjdX[k][1]*dX[i][1] + dWjdX[k][2]*dX[i][2] + dWjdX[k][3]*dX[j][0] + dWjdX[k][4]*dX[j][1] + dWjdX[k][5]*dX[j][2];
-    }
 
-    double difference2(0.0), dWjnorm(0.0);
-    for(int k=0; k<3; ++k) {
-      difference2 += (dWj[k] - dWj2[k])*(dWj[k] - dWj2[k]);
-      dWjnorm += dWj[k]*dWj[k];
-    }
-    difference2 = sqrt(difference2);
-    dWjnorm = sqrt(dWjnorm);
-    if(dWjnorm) fprintf(stderr," ... rel. difference2 is %e\n", difference2/dWjnorm);
-    else fprintf(stderr," ... abs. difference2 is %e\n", difference2);
-*/
-
-//    fprintf(stderr, " ... SubDomain::computeDerivativeOfGradientsLeastSquares 06 \n");
     for (int k=0; k<dim; ++k) {
       deltaVar = var[j][k] - var[i][k];
       dDeltaVar = dvar[j][k] - dvar[i][k];
@@ -956,29 +845,94 @@ void SubDomain::computeDerivativeOfGradientsLeastSquares(
       dddy[j][k] -= (dWj[1] * deltaVar + Wj[1] * dDeltaVar);
       dddz[j][k] -= (dWj[2] * deltaVar + Wj[2] * dDeltaVar);
     }
-//    fprintf(stderr, " ... SubDomain::computeDerivativeOfGradientsLeastSquares 07 \n");
 
   }
-//  fprintf(stderr, " ... SubDomain::computeDerivativeOfGradientsLeastSquares 08 \n");
-/*
-  uux = dddx - dddx2;
-  uuy = dddy - dddy2;
-  uuz = dddz - dddz2;
+}
 
-  double uuxnorm = uux.norm();
-  double uuynorm = uuy.norm();
-  double uuznorm = uuz.norm();
-  double dddxnorm = dddx.norm();
-  double dddynorm = dddy.norm();
-  double dddznorm = dddz.norm();
 
-  if(dddxnorm != 0 ) fprintf(stderr," ... (dddx2-dddx).norm()/dddx.norm() is %e\n", uuxnorm/dddxnorm );
-  else fprintf(stderr," ... (dddx2-dddx).norm() is %e\n", uuxnorm );
-  if(dddynorm != 0 ) fprintf(stderr," ... (dddy2-dddy).norm()/dddy.norm() is %e\n", uuynorm/dddynorm );
-  else fprintf(stderr," ... (dddy2-dddy).norm() is %e\n", uuynorm );
-  if(dddznorm != 0 ) fprintf(stderr," ... (dddz2-dddz).norm()/dddz.norm() is %e\n", uuznorm/dddznorm );
-  else fprintf(stderr," ... (dddz2-dddz).norm() is %e\n", uuznorm );
-*/
+// Included (MB)
+// This is the embedded version of the above. The two can probably be merged
+template<int dim, class Scalar>
+void SubDomain::computeDerivativeOfGradientsLeastSquaresEmb(
+               SVec<double,3> &X, SVec<double,3> &dX,
+               SVec<double,6> &R, SVec<double,6> &dR,
+               SVec<Scalar,dim> &var, SVec<Scalar,dim> &dvar, SVec<Scalar,dim> &dddx,
+               SVec<Scalar,dim> &dddy, SVec<Scalar,dim> &dddz,
+               const Vec<int> &fluidId,
+               LevelSetStructure* LSS,bool includeSweptNodes)
+{
+
+//  fprintf(stderr," *** ERROR: computeDerivativeOfGradientsLeastSquaresEmb needs to be implemented");
+//  exit(-1);
+
+  dddx = (Scalar) 0.0;
+  dddy = (Scalar) 0.0;
+  dddz = (Scalar) 0.0;
+
+  SVec<Scalar,dim> xxx(dddx), dddx2(dddx), uux(dddx);
+  SVec<Scalar,dim> yyy(dddy), dddy2(dddy), uuy(dddy);
+  SVec<Scalar,dim> zzz(dddz), dddz2(dddz), uuz(dddz);
+
+  dddx = (Scalar) 0.0;
+  dddy = (Scalar) 0.0;
+  dddz = (Scalar) 0.0;
+
+  bool *edgeFlag = edges.getMasterFlag();
+  int (*edgePtr)[2] = edges.getPtr();
+
+  for (int l=0; l<edges.size(); ++l) {
+
+    if (!edgeFlag[l]) continue;
+
+    int i = edgePtr[l][0];
+    int j = edgePtr[l][1];
+
+
+    ///////////////////////////////////////////// Begin additional part
+    bool validEdge = true;
+
+    if(fluidId[i] != fluidId[j]) validEdge = false;
+
+    if(LSS)
+    {
+      if(LSS->edgeWithSI(l) || LSS->edgeIntersectsStructure(0.0, l)) validEdge = false;
+      if(!LSS->isActive(0.0, i) || !LSS->isActive(0.0, j)) validEdge = false;
+      if(!includeSweptNodes && (LSS->isSwept(0.0, i) || LSS->isSwept(0.0, j))) validEdge = false;
+    }
+
+    if(!validEdge) continue;
+    ///////////////////////////////////////////// End additional part
+
+
+    //TODO DEBUG
+
+    double Wi[3], Wj[3], deltaVar;
+    double dWi[3]={0}, dWj[3]={0}, dDeltaVar;
+    double dWi2[3]={0}, dWj2[3]={0};
+    double dWidX[3][6] = {0}, dWidR[3][6] = {0};
+
+    double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+    double ddx[3] = {dX[j][0] - dX[i][0], dX[j][1] - dX[i][1], dX[j][2] - dX[i][2]};
+
+    computeDerivativeOfLocalWeightsLeastSquares(dx, ddx, R[i], dR[i], Wi, dWi);//TODO
+
+    dx[0] = -dx[0]; dx[1] = -dx[1]; dx[2] = -dx[2];
+    ddx[0] = -ddx[0]; ddx[1] = -ddx[1]; ddx[2] = -ddx[2];
+
+    computeDerivativeOfLocalWeightsLeastSquares(dx, ddx, R[j], dR[j], Wj, dWj);//TODOD
+
+    for (int k=0; k<dim; ++k) {
+      deltaVar = var[j][k] - var[i][k];
+      dDeltaVar = dvar[j][k] - dvar[i][k];
+      dddx[i][k] += (dWi[0] * deltaVar + Wi[0] * dDeltaVar);
+      dddy[i][k] += (dWi[1] * deltaVar + Wi[1] * dDeltaVar);
+      dddz[i][k] += (dWi[2] * deltaVar + Wi[2] * dDeltaVar);
+      dddx[j][k] -= (dWj[0] * deltaVar + Wj[0] * dDeltaVar);
+      dddy[j][k] -= (dWj[1] * deltaVar + Wj[1] * dDeltaVar);
+      dddz[j][k] -= (dWj[2] * deltaVar + Wj[2] * dDeltaVar);
+    }
+
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -1020,37 +974,12 @@ void SubDomain::computeDerivativeOperatorsOfGradientsLeastSquares(SVec<double,3>
     double dWidX[3][6] = {0}, dWidR[3][6] = {0};
     compute_dWdXAnddWdR( 1, dx, R[i], Wi, dWidX, dWidR);
     dx[0] = -dx[0]; dx[1] = -dx[1]; dx[2] = -dx[2];
-//    ddx[0] = -ddx[0]; ddx[1] = -ddx[1]; ddx[2]  = -ddx[2];
     double dWjdX[3][6] = {0}, dWjdR[3][6] = {0};
     compute_dWdXAnddWdR(-1, dx, R[j], Wj, dWjdX, dWjdR);
-/*    computeDerivativeOfLocalWeightsLeastSquares(dx,ddx,R[j],R[j],Wj,dWj2);
-    for (int k=0; k<3; ++k) {
-      for (int q=0; q<6; ++q)
-        dWj[k] += dWjdR[k][q]*R[j][q];
-      dWj[k] += dWjdX[k][0]*X[i][0] + dWjdX[k][1]*X[i][1] + dWjdX[k][2]*X[i][2] + dWjdX[k][3]*X[j][0] + dWjdX[k][4]*X[j][1] + dWjdX[k][5]*X[j][2];
-    }
 
-    double difference2(0.0), dWjnorm(0.0);
-    for(int k=0; k<3; ++k) {
-      difference2 += (dWj[k] - dWj2[k])*(dWj[k] - dWj2[k]);
-      dWjnorm += dWj[k]*dWj[k];
-    }
-    difference2 = sqrt(difference2);
-    fprintf(stderr," ... rel. difference2 is %e\n", difference2/sqrt(dWjnorm));
-*/
     double dddxdVarray[2*dim][2*dim] = {0}, dddydVarray[2*dim][2*dim] = {0}, dddzdVarray[2*dim][2*dim] = {0};
 
     for (int k=0; k<dim; ++k) {
-/*
-      deltaVar = var[j][k] - var[i][k];
-      dDeltaVar = dvar[j][k] - dvar[i][k];
-      dddx[i][k] += Wi[0] * dvar[j][k] - Wi[0] * dvar[i][k];
-      dddy[i][k] += Wi[1] * dvar[j][k] - Wi[1] * dvar[i][k];
-      dddz[i][k] += Wi[2] * dvar[j][k] - Wi[2] * dvar[i][k];
-      dddx[j][k] -= Wj[0] * dvar[j][k] - Wj[0] * dvar[i][k];
-      dddy[j][k] -= Wj[1] * dvar[j][k] - Wj[1] * dvar[i][k];
-      dddz[j][k] -= Wj[2] * dvar[j][k] - Wj[2] * dvar[i][k];
-*/      
       dddxdVarray[k][k] = -Wi[0];      dddxdVarray[k][dim+k] = Wi[0];
       dddydVarray[k][k] = -Wi[1];      dddydVarray[k][dim+k] = Wi[1];
       dddzdVarray[k][k] = -Wi[2];      dddzdVarray[k][dim+k] = Wi[2];
@@ -1603,44 +1532,8 @@ void SubDomain::computeDerivativeOfFiniteVolumeTerm(Vec<double> &irey, Vec<doubl
                                                     NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad, double dMach,
                                                     SVec<double,dim>& dFluxes)
 {
-
-//  if(isSparse) {  
-/*
-    SVec<double,3> dX2(dX); 
-    SVec<double,dim> dFluxes2(dFluxes), dFluxes3(dFluxes);
-    dX2 = 0.0;    
-    dFluxes3 = 0.0;
-
-    Eigen::MatrixXd r(dFluxes3.size(), dim);  r.setRandom();
-    for(int i=0; i<dFluxes2.size(); ++i) for(int j=0; j<dim; ++j) dFluxes2[i][j] = r(i,j); 
-    edges.computeDerivativeOfFiniteVolumeTerm(dFluxdddx, dFluxdddy, dFluxdddz, dFluxdX, dFluxdEdgeNorm,
-                                              elems, geoState, dX, ngrad, egrad, dFluxes3);
-    double aa = dFluxes3*dFluxes2;
-
-    edges.computeTransposeDerivativeOfFiniteVolumeTerm(dFluxdddx, dFluxdddy, dFluxdddz, dFluxdX, dFluxdEdgeNorm,
-                                                       dFluxes2, ngrad, egrad, elems, geoState, dX2);
-    double bb = dX2*dX;
-    double diff = sqrt((aa-bb)*(aa-bb));
-    if(aa != 0) fprintf(stderr, " ... rel.diff = %e, aa = %e, bb = %e\n", diff/aa, aa, bb);
-    else fprintf(stderr, " ... abs.diff = %e, aa = %e, bb = %e\n", diff, aa, bb);
-*/
-//    SVec<double,dim> dFluxes2(dFluxes), diff(dFluxes);
-//    edges.computeDerivativeOfFiniteVolumeTerm(dFluxdddx, dFluxdddy, dFluxdddz, dFluxdX, dFluxdEdgeNorm,
-//                                              elems, geoState, dX, ngrad, egrad, dFluxes);
-/*    edges.computeDerivativeOfFiniteVolumeTerm(irey, dIrey, fluxFcn, recFcn, elems, geoState, X, dX, V, dV, ngrad, egrad, dMach, dFluxes2);
-    diff = dFluxes2 - dFluxes;
-    double diffnorm = diff.norm();
-    double dFluxesnorm = dFluxes.norm();
-    double dFluxes2norm = dFluxes2.norm();
-    if(dFluxesnorm != 0) fprintf(stderr, " ... rel. diff = %e\n", diffnorm/dFluxesnorm);
-    else fprintf(stderr, " ... abs. diff = %e\n", diffnorm);
-
-*/
-
-//  } else 
   edges.computeDerivativeOfFiniteVolumeTerm(irey, dIrey, fluxFcn, recFcn, elems, geoState, X, dX, V, dV, ngrad, egrad, dMach, dFluxes);
   faces.computeDerivativeOfFiniteVolumeTerm(fluxFcn, bcData, geoState, V, dFluxes);
-
 }
 
 //------------------------------------------------------------------------------
@@ -1669,23 +1562,6 @@ void SubDomain::computeDerivativeOfFiniteVolumeTerm(
 {
   edges.computeDerivativeOfFiniteVolumeTerm(dFluxdddx, dFluxdddy, dFluxdddz, dFluxdX, dFluxdEdgeNorm,
                                             elems, geoState, dX, ngrad, egrad, dddx, dddy, dddz, dNormal, dFluxes);
-/*  SVec<double,3> dX2(dX);  
-  SVec<double,dim> dFluxes2(dFluxes);
-    dX2 = 0.0;    dFluxes = 0.0;
-    // fprintf(stderr, " ... norm of dFluxes is %e\n", dFluxes.norm());
-    // fprintf(stderr, " ... norm of dFluxes2 is %e\n", dFluxes2.norm());
-    edges.computeDerivativeOfFiniteVolumeTerm(dFluxdddx, dFluxdddy, dFluxdddz, dFluxdX, dFluxdEdgeNorm,
-                                              elems, geoState, dX, ngrad, egrad, dFluxes);
-    double aa = dFluxes2*dFluxes;
-    // fprintf(stderr, " ... norm of dFluxes is %e\n", dFluxes.norm());
-
-    edges.computeTransposeDerivativeOfFiniteVolumeTerm(dFluxdddx, dFluxdddy, dFluxdddz, dFluxdX, dFluxdEdgeNorm,
-                                                       dFluxes2, ngrad, egrad, elems, geoState, dX2);
-    double bb = dX2*dX;
-    double diff = sqrt((aa-bb)*(aa-bb));
-    if(aa != 0) fprintf(stderr, " ... relative error = %e, aa = %e, bb = %e\n", diff/abs(aa), aa, bb);
-    else fprintf(stderr, " ... absolute error = %e, aa = %e, bb = %e\n", diff, aa, bb);
-*/
   faces.computeDerivativeOfFiniteVolumeTerm(dFluxdFaceNormal, dFluxdFaceNormalVel, dFluxdUb, 
                                             bcData, geoState, dn, dndot, dFluxes);
 }
@@ -1751,22 +1627,22 @@ void SubDomain::computeDerivativeOperatorsOfFiniteVolumeTerm(Vec<double> &irey, 
 
 template<int dim>
 void SubDomain::computeDerivativeOfFiniteVolumeTerm(FluxFcn** fluxFcn, RecFcn* recFcn,
-						    BcData<dim>& bcData, GeoState& geoState,
-						    SVec<double,3>& X, LevelSetStructure &LSS,
-						    bool linRecAtInterface, bool viscSecOrder,
-						    Vec<int> &fluidId,
-						    ExactRiemannSolver<dim>& riemann,
-						    int Nriemann,
-						    NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
-						    double dMach,
-						    SVec<double,dim>& V,
-						    SVec<double,dim>& dFluxes)
+                  BcData<dim>& bcData, GeoState& geoState,
+                  SVec<double,3>& X, LevelSetStructure &LSS,
+                  bool linRecAtInterface, bool viscSecOrder,
+                  Vec<int> &fluidId,
+                  ExactRiemannSolver<dim>& riemann,
+                  int Nriemann,
+                  NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
+                  double dMach,
+                  SVec<double,dim>& V,
+                  SVec<double,dim>& dFluxes)
 {
 
 
   edges.computeDerivativeOfFiniteVolumeTerm(fluxFcn, recFcn, geoState, X, LSS, 
-					    linRecAtInterface, fluidId, riemann,
-					    Nriemann, ngrad, egrad, dMach, V, dFluxes);
+          linRecAtInterface, fluidId, riemann,
+          Nriemann, ngrad, egrad, dMach, V, dFluxes);
 
   faces.computeDerivativeOfFiniteVolumeTerm(fluxFcn, bcData, geoState, V, dFluxes);
 
@@ -2259,36 +2135,105 @@ void SubDomain::computeDerivativeOfVolumicForceTerm(VolumicForceTerm *volForce, 
 */
 template<int dim>
 void SubDomain::computeGalerkinTerm(FemEquationTerm *fet, BcData<dim> &bcData,
-				    GeoState &geoState, SVec<double,3> &X,
-				    SVec<double,dim> &V, SVec<double,dim> &R,
-												Vec<GhostPoint<dim>*> *ghostPoints,
-												LevelSetStructure *LSS, 
-												bool externalSI)
+                  GeoState &geoState, SVec<double,3> &X,
+                  SVec<double,dim> &V, SVec<double,dim> &R,
+                  Vec<GhostPoint<dim>*> *ghostPoints,
+                  LevelSetStructure *LSS,
+                  bool externalSI)
 {
 
-	elems.computeGalerkinTerm(fet, geoState, X, V, R,ghostPoints, LSS, externalSI);
+  elems.computeGalerkinTerm(fet, geoState, X, V, R,ghostPoints, LSS, externalSI);
 
   faces.computeGalerkinTerm(elems, fet, bcData, geoState, X, V, R,LSS);
 
 }
 
+//------------------------------------------------------------------------------
+
+/****************************************************************************************
+ * Computes the derivative of the viscous term for non-embedded simulations.            *
+ * This is the non-sparse implementation                                           (MB) *
+ ****************************************************************************************/
+template<int dim>
+void SubDomain::computeDerivativeOfGalerkinTerm(
+                  FemEquationTerm *fet, BcData<dim> &bcData,
+                  GeoState &geoState,
+                  SVec<double,3> &X,   SVec<double,3> &dX,
+                  SVec<double,dim> &V, SVec<double,dim> &dV,
+                  double dMach,
+                  SVec<double,dim> &dR)
+{
+  elems.computeDerivativeOfGalerkinTerm(fet, geoState, X, dX, V, dV, dMach, dR);
+  faces.computeDerivativeOfGalerkinTerm(elems, fet, bcData, geoState, X, dX, V, dV, dMach, dR);//based on the embedded Version of computeGalerkinTerms, ghost points are not needed here
+}
+
+
+/****************************************************************************************
+ * Computes the derivative of the viscous term for embedded simulations.                *
+ * This is the non-sparse implementation                                     (lscheuch) *
+ ****************************************************************************************/
+template<int dim>
+void SubDomain::computeDerivativeOfGalerkinTermEmb(
+                  FemEquationTerm *fet, BcData<dim> &bcData,
+                  GeoState &geoState,
+                  SVec<double,3> &X,   SVec<double,3> &dX,
+                  SVec<double,dim> &V, SVec<double,dim> &dV,
+                  double dMach,
+                  SVec<double,dim> &dR,
+                  Vec<GhostPoint<dim>*> *ghostPoints,
+                  LevelSetStructure *LSS)
+{
+  elems.computeDerivativeOfGalerkinTermEmb(fet, geoState, X, dX, V, dV, dMach, dR, ghostPoints, LSS);
+  faces.computeDerivativeOfGalerkinTermEmb(elems, fet, bcData, geoState, X, dX, V, dV, dMach, dR, LSS);
+}
+
+
+/****************************************************************************************
+ * Computes the derivative of the viscous term for non-embedded simulations.            *
+ * This is the sparse implementation                                                    *
+ ****************************************************************************************/
+template<int dim>
+void SubDomain::computeDerivativeOfGalerkinTerm(
+                  RectangularSparseMat<double,3,dim> *dViscousFluxdX,
+                  FemEquationTerm *fet, BcData<dim> &bcData,
+                  GeoState &geoState,
+                  SVec<double,3> &X,   SVec<double,3> &dX,
+                  SVec<double,dim> &V, SVec<double,dim> &dV,
+                  double dMach,
+                  SVec<double,dim> &dR)
+{
+  std::cout<<"*** ERROR: Make sure the commenting out below is correct"<<std::endl; exit(-1);
+  dViscousFluxdX->apply(dX,dR);
+//  faces.computeDerivativeOfGalerkinTerm(elems, fet, bcData, geoState, X, dX, V, dV, dMach, dR2); // for Turbulent flow
+}
 
 //------------------------------------------------------------------------------
 
-// Included (MB)
 template<int dim>
-void SubDomain::computeDerivativeOfGalerkinTerm(FemEquationTerm *fet, BcData<dim> &bcData,
-				    GeoState &geoState, SVec<double,3> &X, SVec<double,3> &dX,
-				    SVec<double,dim> &V, SVec<double,dim> &dV, double dMach, SVec<double,dim> &dR)
-{
+void SubDomain::computeTransposeDerivativeOfGalerkinTerm(RectangularSparseMat<double,3,dim> *dViscousFluxdX,
+				                                                 SVec<double,dim> &dR, SVec<double,3> &dX)
+{ //YC
 
-  elems.computeDerivativeOfGalerkinTerm(fet, geoState, X, dX, V, dV, dMach, dR);
-
-  faces.computeDerivativeOfGalerkinTerm(elems, fet, bcData, geoState, X, dX, V, dV, dMach, dR);
+  SVec<double,3> dummy(dX);
+  dViscousFluxdX->applyTranspose(dR,dummy);
+  dX += dummy;
 
 }
 
 //------------------------------------------------------------------------------
+
+// Included (YC)
+template<int dim>
+void SubDomain::computeDerivativeOperatorsOfGalerkinTerm(FemEquationTerm *fet, BcData<dim> &bcData,
+            GeoState &geoState, SVec<double,3> &X, SVec<double,dim> &V, RectangularSparseMat<double,3,dim> &dViscousFluxdX)
+{
+
+  elems.computeDerivativeOperatorsOfGalerkinTerm(fet, geoState, X, V, dViscousFluxdX);
+
+}
+
+//------------------------------------------------------------------------------
+
 
 template<int dim>
 void SubDomain::computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, SVec<double,3> &X,
@@ -3003,6 +2948,7 @@ void SubDomain::applyBCsToTurbSolutionVector(BcFcn *bcFcn, BcData<dim> &bcData,
   }
 }
 
+
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -3037,11 +2983,11 @@ void SubDomain::applyBCsToResidual(BcFcn *bcFcn, BcData<dim> &bcData,
 
 		if(offWallNode && dim>5) 
 		{
-			for(int i=0; i<nodes.size(); ++i) 
+			for(int i=0; i<nodes.size(); ++i)
 			{
-		    if (offWallNode[i]) 
-			bcFcn->applyToTurbResidualTerm(nodeType[i], Vwall[i], U[i], F[i]);
-		  }
+		    if (offWallNode[i])
+			    bcFcn->applyToTurbResidualTerm(nodeType[i], Vwall[i], U[i], F[i]);
+      }
 		}
 	}
 }
@@ -3062,6 +3008,29 @@ void SubDomain::applyBCsToDerivativeOfResidual(BcFcn *bcFcn, BcData<dim> &bcData
       bcFcn->applyToDerivativeOfResidualTerm(nodeType[i], Vwall[i], dVwall[i], U[i], dU[i], dF[i]);
 
 }
+
+
+/*******************************************************************************
+ * This is a temporary solution to make the RANS derivative computations       *
+ * consistent with the steady states.                                          *
+ * We are doing this because the turbulence component of the state vector is   *
+ * hard coded to 0 in the steady state computations.                           *
+ *******************************************************************************/
+template<int dim>
+void SubDomain::applyHackedBCsToDerivativeOfResidual(BcFcn *bcFcn, BcData<dim> &bcData,
+           SVec<double,dim> &U, SVec<double,dim> &dU, SVec<double,dim> &dF)
+{
+
+  for (int i=0; i<nodes.size(); ++i)
+    if (nodeType[i] != BC_INTERNAL){
+      if (offWallNode[i]){
+         dF[i][5]=0.0;
+         //std::cout<<"Set 0 to node "<<i<<std::endl;
+      }
+    }
+      //bcFcn->applyToDerivativeOfResidualTerm(nodeType[i], Vwall[i], dVwall[i], U[i], dU[i], dF[i]);
+}
+
 
 //------------------------------------------------------------------------------
 
@@ -3217,6 +3186,7 @@ template<int dim, class Scalar, int neq>
 void SubDomain::applyBCsToJacobian(BcFcn *bcFcn, BcData<dim> &bcs,
                                    SVec<double,dim> &U, GenMat<Scalar,neq> &A, LevelSetStructure *LSS)
 {
+
   SVec<double,dim> &Vwall = bcs.getNodeStateVector();
 
   int (*edgePtr)[2] = edges.getPtr();
@@ -3381,10 +3351,6 @@ MvpMat<Scalar,dim> *SubDomain::createMaskMatVecProd(bool nsFlag)
 
     return A;
   }
-// Original
-//  MvpMat<Scalar,dim> *A = new MvpMat<Scalar,dim>(nodes.size(), edges.size(), numOffDiagEntries);
-//
-//  return A;
 
 }
 
@@ -3406,7 +3372,7 @@ RectangularSparseMat<double,dim,dim2> *SubDomain::create_NodeBaseddRdXoperators(
 //------------------------------------------------------------------------------
 
 template<int dim, int dim2>
-RectangularSparseMat<double,dim,dim2> *SubDomain::create_ConstantBaseddRdXoperators()
+RectangularSparseMat<double,dim,dim2> *SubDomain::create_NodeToConstantBaseddRdXoperators()
 {
   Connectivity *nodeToConstant = createNodeToConstantConnectivity();
   int numNodes = nodes.size();
@@ -3419,6 +3385,37 @@ RectangularSparseMat<double,dim,dim2> *SubDomain::create_ConstantBaseddRdXoperat
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim, int dim2>
+RectangularSparseMat<double,dim,dim2> *SubDomain::create_ConstantToNodeBaseddRdXoperators()
+{
+  Connectivity *constantToNode = createConstantToNodeConnectivity();
+  int numNodes = nodes.size();
+  int *ia = (*constantToNode).ptr();
+  int *ja = (*constantToNode)[0];
+  double (*a)[dim*dim2] = 0;
+
+  RectangularSparseMat<double, dim, dim2> *A = new RectangularSparseMat<double, dim, dim2>(1, ia[1], ia, ja, a, 0, 0);
+  return A;
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, int dim2>
+RectangularSparseMat<double,dim,dim2> *SubDomain::create_ConstantToConstantBaseddRdXoperators()
+{
+  Connectivity *constantToConstant = createConstantToConstantConnectivity();
+  int numNodes = nodes.size();
+  int *ia = (*constantToConstant).ptr();
+  int *ja = (*constantToConstant)[0];
+  double (*a)[dim*dim2] = 0;
+
+  RectangularSparseMat<double, dim, dim2> *A = new RectangularSparseMat<double, dim, dim2>(1, ia[1], ia, ja, a, 0, 0);
+  return A;
+}
+
+//------------------------------------------------------------------------------
+
 
 template<int dim, int dim2>
 RectangularSparseMat<double,dim,dim2> *SubDomain::create_EdgeBaseddRdXoperators()
@@ -4061,7 +4058,7 @@ void SubDomain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn, BcData<dim> &bcData
  #pragma ivdep
    for (i=0; i<numNodes; ++i)
      if (nodeFlag[i])
-       DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(a, i, p.v, i, prod.v, i);
+       DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(a, i, p.v, i, prod.v, i);//diagonal part
 
  #pragma ivdep
    for (l=0; l<numEdges; ++l) {
@@ -4071,8 +4068,8 @@ void SubDomain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn, BcData<dim> &bcData
        i = edgePtr[l][0];
        j = edgePtr[l][1];
 
-       DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(a, numNodes + 2*l, p.v, j, prod.v, i);
-       DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(a, numNodes + 2*l + 1, p.v, i, prod.v, j);
+       DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(a, numNodes + 2*l, p.v, j, prod.v, i); //pRipUj
+       DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(a, numNodes + 2*l + 1, p.v, i, prod.v, j);// pRjpUi
 
      }
 
@@ -4112,8 +4109,8 @@ void SubDomain::computeMatVecProdH1transpose(bool *nodeFlag, GenMat<Scalar,dim> 
       i = edgePtr[l][0];
       j = edgePtr[l][1];
 
-      DenseMatrixOp<Scalar,dim,dim*dim>::applyTransAndAddToVector(a, numNodes + 2*l, p.v, j, prod.v, i);
-      DenseMatrixOp<Scalar,dim,dim*dim>::applyTransAndAddToVector(a, numNodes + 2*l + 1, p.v, i, prod.v, j);
+      DenseMatrixOp<Scalar,dim,dim*dim>::applyTransAndAddToVector(a, numNodes + 2*l, p.v, i, prod.v, j);
+      DenseMatrixOp<Scalar,dim,dim*dim>::applyTransAndAddToVector(a, numNodes + 2*l + 1, p.v, j, prod.v, i);
 
     }
 
@@ -4588,8 +4585,8 @@ void SubDomain::addDiagonalInMatVecProdH2transpose(Vec<double> &ctrlVol, GenMat<
    VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
 
    if (bcMap.size() > 0)  {
-     std::cout << "****Not sure about what to do *****\n";
-     exit(-1);
+     //std::cout << "****Not sure about what to do *****\n";//TODO commented this out, check what it is about
+     //exit(-1);
    }
 
    for (l=0; l<numEdges; ++l) {
@@ -4740,9 +4737,7 @@ void SubDomain::addDiagonalInMatVecProdH2transpose(Vec<double> &ctrlVol, GenMat<
 	 VectorOp<Scalar2,dim>::sub(tmp, 0, prod.v, j);
  
       }
-
     }
-
   }
 
   // contribution from diagonal entries of A
@@ -4778,7 +4773,6 @@ void SubDomain::computeMatVecProdH2T(RecFcn *recFcn, SVec<double,3> &X,
   Scalar2 tmp1[1][dim];
   Scalar1 (*a)[dim*dim] = A.data();
 
-
   zu = (Scalar2)0.0;
   zgx = (Scalar2)0.0;
   zgy = (Scalar2)0.0;
@@ -4803,13 +4797,9 @@ void SubDomain::computeMatVecProdH2T(RecFcn *recFcn, SVec<double,3> &X,
 
     DenseMatrixOp<Scalar1,dim, dim*dim>::applyTransToVector(a, numNodes + 2*l, tmp1, 0, tmpi, 0);
     DenseMatrixOp<Scalar1,dim, dim*dim>::applyTransToVector(a, numNodes + 2*l + 1, tmp1, 0, tmpj, 0);
-    // These routines do not exist anymore
-    //denseMatrixTransTimesVector(a, numNodes + 2*l, tmp1, 0, tmpi, 0);
-    //denseMatrixTransTimesVector(a, numNodes + 2*l + 1, tmp1, 0, tmpj, 0);
 
     recFcn->template computeT<Scalar2, dim> (dx, tmpi[0], tmpj[0], aij[l], aji[l], bij[l], bji[l], i,
                 j, zu_is1[0], zu_is2[0], zgx_is1[0], zgx_is2[0], zgy_is1[0], zgy_is2[0], zgz_is1[0], zgz_is2[0]);
-
 
     VectorOp<Scalar2,dim>::add(zu_is1, 0, zu.v, i);
     VectorOp<Scalar2,dim>::add(zu_is2, 0, zu.v, j);
@@ -4819,7 +4809,6 @@ void SubDomain::computeMatVecProdH2T(RecFcn *recFcn, SVec<double,3> &X,
     VectorOp<Scalar2,dim>::add(zgy_is2, 0, zgy.v, j);
     VectorOp<Scalar2,dim>::add(zgz_is1, 0, zgz.v, i);
     VectorOp<Scalar2,dim>::add(zgz_is2, 0, zgz.v, j);
-
 
 /*
     // These routines do not exist anymore
@@ -6010,6 +5999,118 @@ void SubDomain::writeVectorToFile(const char *prefix, int no,
 
 }
 
+
+//write vector to file
+template<class Scalar,int dim>
+void SubDomain::writeVectorToFile(
+                  const char *prefix, int no,
+                  SVec<Scalar,dim> &U,
+                  LevelSetStructure *LSS,
+                  Vec<GhostPoint<dim>*> *ghostPoints,
+                  Scalar* scale)
+{
+
+  std::set<int> relevantGhosts;
+  bool* edgeFlag = edges.getMasterFlag();
+  int (*edgePtr)[2] = edges.getPtr();
+  int i;
+  int j;
+  for (int l=0; l<edges.size(); l++) {//loop over all edges
+      if(!edgeFlag[l]) continue; //not a master edge
+      i = edgePtr[l][0];//node i
+      j = edgePtr[l][1];//node j
+      if(LSS->edgeIntersectsStructure(0.0,l)) { // case where (i)-(j) intersects the structure
+        bool iIsActive = LSS->isActive(0.0,i);
+        bool jIsActive = LSS->isActive(0.0,j);
+
+        if(iIsActive) {//case where (i) is an active node
+
+          if(!(*ghostPoints)[j]) // GP has not been created
+          {std::cout<<"GHOST POINT MISSING!"<<std::endl; exit(-1);}
+
+        }
+        if(jIsActive) { //case where j is an active node
+
+          if(!(*ghostPoints)[i]) // GP has not been created
+          {std::cout<<"GHOST POINT MISSING!"<<std::endl; exit(-1);}
+
+        }
+      }
+    }
+  std::set<int>::iterator iter;
+  for(iter=relevantGhosts.begin(); iter!=relevantGhosts.end();++iter){std::cout<<*iter<<" -"<<std::endl;};
+
+
+  char name[MAXLINE];
+  sprintf(name, "%s%s", prefix, suffix);
+#ifdef SYNCHRO_WRITE
+  BinFileHandler file(name, "ws+");
+#else
+  BinFileHandler file(name, "w+");
+#endif
+
+  BinFileHandler::OffType unit = dim * sizeof(Scalar);
+  BinFileHandler::OffType pos = 3*sizeof(int) +
+    no*(sizeof(double) + numClusNodes*unit) + sizeof(double);
+
+  Scalar (*data)[dim];
+  if (scale) {
+    data = new Scalar[U.size()][dim];
+    Scalar* v = reinterpret_cast<Scalar*>(data);
+    Scalar* u = reinterpret_cast<Scalar*>(U.data());
+
+    for(int nodeID = 0; nodeID<U.size(); nodeID++){
+      GhostPoint<dim> *gp = (*ghostPoints)[64];
+
+      if(LSS->isActive(0,nodeID)==false ) {u=gp->getState();};
+
+      for (int varID=0; varID<dim; varID++){
+         int vecID=nodeID*dim+varID;
+         v[vecID] = (*scale) * u[vecID];
+      }
+    }
+  }else {
+    data = new Scalar[U.size()][dim];//2D vector
+    Scalar* v = reinterpret_cast<Scalar*>(data);//empty 1D vector of appropiate size
+    Scalar* u = reinterpret_cast<Scalar*>(U.data());
+
+    for(int nodeID = 0; nodeID<this->nodes.size(); nodeID++){
+
+      if(relevantGhosts.count(nodeID)!=0){
+        GhostPoint<dim> *gp = (*ghostPoints)[nodeID];
+        double *ghoststate=gp->getState();
+        for (int varID=0; varID<dim; varID++){
+           int vecID=nodeID*dim+varID;
+           v[vecID] = 1.0 * ghoststate[varID];
+        }
+      }
+      else {
+        for (int varID=0; varID<dim; varID++){
+           int vecID=nodeID*dim+varID;
+           v[vecID] = 1.0 * u[vecID];
+        }
+
+      }
+
+
+    }
+
+  }
+
+  int count = 0;
+  for (int i=0; i<numNodeRanges; ++i) {
+    if (nodeRanges[i][2]) {
+      file.seek(pos + nodeRanges[i][1]*unit);
+      file.write(reinterpret_cast<Scalar *>(data + count), nodeRanges[i][0]*dim);
+    }
+    count += nodeRanges[i][0];
+  }
+
+  if (true)
+    delete [] data;
+
+}
+
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -6130,8 +6231,10 @@ void SubDomain::computeNodeBcValue(SVec<double,3> &X, SVec<double,dim1> &Uface,
 
 // Included (MB)
 template<int dim1, int dim2>
-void SubDomain::computeDerivativeOfNodeBcValue(SVec<double,3> &X, SVec<double,3> &dX, SVec<double,dim1> &Uface, SVec<double,dim1> &dUface,
-				   SVec<double,dim2> &dUnode)
+void SubDomain::computeDerivativeOfNodeBcValue(
+                  SVec<double,3> &X, SVec<double,3> &dX,
+                  SVec<double,dim1> &Uface, SVec<double,dim1> &dUface,
+                  SVec<double,dim2> &dUnode)
 {
 
   dUnode = 0.0;
@@ -6277,7 +6380,7 @@ void SubDomain::computeDerivativeOperatorsOfNodalForce(PostFcn *postFcn, SVec<do
 {
 
   for (int i=0; i<faces.size(); ++i)
-    faces[i].computeDerivativeOperatorsOfNodalForce(postFcn, X, V, Pin[i], gradP, dForcedX, dForcedGradP, dForcedV, dForcedS);
+	  faces[i].computeDerivativeOperatorsOfNodalForce(elems, postFcn, X, V, Pin[i], gradP, dForcedX, dForcedGradP, dForcedV, dForcedS);
 
 }
 
@@ -6481,9 +6584,9 @@ void SubDomain::computeHeatFluxes(map<int,int> & surfOutMapHF, PostFcn* postFcn,
 // Included (MB)
 template<int dim>
 void SubDomain::computeDerivativeOfForceAndMoment(map<int,int> & surfOutMap, PostFcn *postFcn, BcData<dim> &bcData,
-				                  GeoState &geoState, SVec<double,3> &X, SVec<double,3> &dX,
-			                          SVec<double,dim> &V, SVec<double,dim> &dV, double dS[3],
-				                  Vec3D &x0, Vec3D *dFi, Vec3D *dMi, Vec3D *dFv, Vec3D *dMv, int hydro)
+		                                          GeoState &geoState, SVec<double,3> &X, SVec<double,3> &dX,
+		                                          SVec<double,dim> &V, SVec<double,dim> &dV, double dS[3],
+		                                          Vec3D &x0, Vec3D *dFi, Vec3D *dMi, Vec3D *dFv, Vec3D *dMv, int hydro)
 {
 
   Vec<double> &d2wall = geoState.getDistanceToWall();
@@ -6505,9 +6608,194 @@ void SubDomain::computeDerivativeOfForceAndMoment(map<int,int> & surfOutMap, Pos
         idx = -1;
     }
 
-    if(idx >= 0)
+    if(idx >= 0){
       faces[i].computeDerivativeOfForceAndMoment(elems, postFcn, X, dX, d2wall, Vwall[i], dVwall[i], V, dV, dS, x0, dFi[idx], dMi[idx], dFv[idx], dMv[idx], gradP, dGradP, hydro);
+    }
+  }
 
+}
+
+
+// Included (YC)
+template<int dim>
+void SubDomain::computeDerivativeOfForceAndMoment(RectangularSparseMat<double,3,3> *dFidGradP,
+                                                  RectangularSparseMat<double,3,3> *dFidX,
+                                                  RectangularSparseMat<double,dim,3> *dFidV,
+                                                  RectangularSparseMat<double,3,3> *dFvdX,
+                                                  RectangularSparseMat<double,dim,3> *dFvdV,
+                                                  RectangularSparseMat<double,3,3> *dFidS,
+                                                  RectangularSparseMat<double,3,3> *dMidGradP,
+                                                  RectangularSparseMat<double,3,3> *dMidX,
+                                                  RectangularSparseMat<double,dim,3> *dMidV,
+                                                  RectangularSparseMat<double,3,3> *dMidS,
+                                                  RectangularSparseMat<double,3,3> *dMvdX,
+                                                  RectangularSparseMat<double,dim,3> *dMvdV,
+                                                  SVec<double,3> &dX,
+                                                  SVec<double,dim> &dV, double dS[3], SVec<double,3> &dGradPSVec,
+                                                  Vec3D *dFi, Vec3D *dMi, Vec3D *dFv, Vec3D *dMv, int hydro)
+{
+
+  if(hydro != 0) { fprintf(stderr, " *** Error: hydro must be zero for sparse format\n");  exit(-1); }
+
+  SVec<double,3> dFiSVec(1), dummy(1), dSSVec(1), dFvSVec(1);
+  dFiSVec[0][0] = dFi[0][0];
+  dFiSVec[0][1] = dFi[0][1];
+  dFiSVec[0][2] = dFi[0][2];
+  dFvSVec[0][0] = dFv[0][0];
+  dFvSVec[0][1] = dFv[0][1];
+  dFvSVec[0][2] = dFv[0][2];
+  dSSVec[0][0]  = dS[0];
+  dSSVec[0][1]  = dS[1];
+  dSSVec[0][2]  = dS[2];
+
+  dFidV->apply(dV, dummy);
+  dFiSVec += dummy;
+  dFidGradP->apply(dGradPSVec, dummy);
+  dFiSVec += dummy;
+  dFidX->apply(dX, dummy);
+  dFiSVec += dummy;
+  dFidS->apply(dSSVec, dummy);
+  dFiSVec += dummy;
+  dFvdV->apply(dV, dummy);
+  dFvSVec += dummy;
+  dFvdX->apply(dX, dummy);
+  dFvSVec += dummy;
+
+  dFi[0][0] = dFiSVec[0][0];
+  dFi[0][1] = dFiSVec[0][1];
+  dFi[0][2] = dFiSVec[0][2];
+  dFv[0][0] = dFvSVec[0][0];
+  dFv[0][1] = dFvSVec[0][1];
+  dFv[0][2] = dFvSVec[0][2];
+
+  SVec<double,3> dMiSVec(1);
+  dMiSVec[0][0] = dMi[0][0];
+  dMiSVec[0][1] = dMi[0][1];
+  dMiSVec[0][2] = dMi[0][2];
+  dMidV->apply(dV, dummy);
+  dMiSVec += dummy;
+  dMidGradP->apply(dGradPSVec, dummy);
+  dMiSVec += dummy;
+  dMidX->apply(dX, dummy);
+  dMiSVec += dummy;
+  dMidS->apply(dSSVec, dummy);
+  dMiSVec += dummy;
+
+  dMi[0][0] = dMiSVec[0][0];
+  dMi[0][1] = dMiSVec[0][1];
+  dMi[0][2] = dMiSVec[0][2];
+
+  SVec<double,3> dMvSVec(1);
+  dMvSVec[0][0] = dMv[0][0];
+  dMvSVec[0][1] = dMv[0][1];
+  dMvSVec[0][2] = dMv[0][2];
+  dMvdX->apply(dX, dummy);
+  dMvSVec += dummy;
+  dMvdV->apply(dV, dummy);
+  dMvSVec += dummy;
+  dMv[0][0] = dMvSVec[0][0];
+  dMv[0][1] = dMvSVec[0][1];
+  dMv[0][2] = dMvSVec[0][2];
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+template<int dim>
+void SubDomain::computeTransposeDerivativeOfForceAndMoment(RectangularSparseMat<double,3,3> *dFidGradP,
+                                                           RectangularSparseMat<double,3,3> *dFidX,
+                                                           RectangularSparseMat<double,dim,3> *dFidV,
+                                                           RectangularSparseMat<double,3,3> *dFvdX,
+                                                           RectangularSparseMat<double,dim,3> *dFvdV,
+                                                           RectangularSparseMat<double,3,3> *dFidS,
+                                                           RectangularSparseMat<double,3,3> *dMidGradP,
+                                                           RectangularSparseMat<double,3,3> *dMidX,
+                                                           RectangularSparseMat<double,dim,3> *dMidV,
+                                                           RectangularSparseMat<double,3,3> *dMidS,
+                                                           RectangularSparseMat<double,3,3> *dMvdX,
+                                                           RectangularSparseMat<double,dim,3> *dMvdV,
+                                                           SVec<double,3> &dFiSVec, SVec<double,3> &dFvSVec,
+                                                           SVec<double,3> &dMiSVec, SVec<double,3> &dMvSVec, SVec<double,3> &dX,
+                                                           SVec<double,dim> &dV, SVec<double,3> &dSSVec,
+                                                           SVec<double,3> &dGradPSVec, int hydro)
+{
+
+  if(hydro != 0) { fprintf(stderr, " *** Error: hydro must be zero for sparse format\n");  exit(-1); }
+
+
+  SVec<double,3> dummy3(dGradPSVec);
+  SVec<double,dim> dVdummy(dV);
+  dFidV->applyTranspose(dFiSVec, dVdummy);
+  dV += dVdummy;
+  dFvdV->applyTranspose(dFvSVec, dVdummy);
+  dV += dVdummy;
+  dFidGradP->applyTranspose(dFiSVec, dummy3);
+  dGradPSVec += dummy3;
+  dFidX->applyTranspose(dFiSVec, dummy3);
+  dX += dummy3;
+  dFvdX->applyTranspose(dFvSVec, dummy3);
+  dX += dummy3;
+  dFidS->applyTranspose(dFiSVec, dummy3);
+  dSSVec += dummy3;
+
+  dMidV->applyTranspose(dMiSVec, dVdummy);
+  dV += dVdummy;
+  dMvdV->applyTranspose(dMvSVec, dVdummy);
+  dV += dVdummy;
+  dMidGradP->applyTranspose(dMiSVec, dummy3);
+  dGradPSVec += dummy3;
+  dMidX->applyTranspose(dMiSVec, dummy3);
+  dX += dummy3;
+  dMidS->applyTranspose(dMiSVec, dummy3);
+  dSSVec += dummy3;
+
+  dMvdX->applyTranspose(dMvSVec, dummy3);
+  dX += dummy3;
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::computeDerivativeOperatorsOfForceAndMoment(map<int,int> & surfOutMap, PostFcn *postFcn, BcData<dim> &bcData,
+                                                           GeoState &geoState, SVec<double,3> &X,
+                                                           SVec<double,dim> &V, Vec3D &x0, int hydro,
+                                                           RectangularSparseMat<double,3,3> &dFidGradP,
+                                                           RectangularSparseMat<double,3,3> &dFidX,
+                                                           RectangularSparseMat<double,dim,3> &dFidV,
+                                                           RectangularSparseMat<double,3,3> &dFvdX,
+                                                           RectangularSparseMat<double,dim,3> &dFvdV,
+                                                           RectangularSparseMat<double,3,3> &dFidS,
+                                                           RectangularSparseMat<double,3,3> &dMidGradP,
+                                                           RectangularSparseMat<double,3,3> &dMidX,
+                                                           RectangularSparseMat<double,dim,3> &dMidV,
+                                                           RectangularSparseMat<double,3,3> &dMidS,
+                                                           RectangularSparseMat<double,3,3> &dMvdX,
+                                                           RectangularSparseMat<double,dim,3> &dMvdV)
+{
+
+  Vec<double> &d2wall = geoState.getDistanceToWall();
+  SVec<double,dim> &Vwall = bcData.getFaceStateVector();
+
+  for (int i=0; i<faces.size(); ++i) {
+    int idx;
+    map<int,int>::iterator it = surfOutMap.find(faces[i].getSurfaceID());
+    if(it != surfOutMap.end() && it->second != -2)
+      idx = it->second;
+    else {
+      if(faces[i].getCode() == BC_ISOTHERMAL_WALL_MOVING ||
+         faces[i].getCode() == BC_ADIABATIC_WALL_MOVING  ||
+         faces[i].getCode() == BC_SLIP_WALL_MOVING ||
+         faces[i].getCode() == BC_POROUS_WALL_MOVING)
+        idx = 0;
+      else
+        idx = -1;
+    }
+
+    if(idx >= 0)
+      faces[i].computeDerivativeOperatorsOfForceAndMoment(elems, postFcn, X, d2wall, Vwall[i], V, x0, gradP, hydro,
+                                                          dFidGradP, dFidX, dFidV, dFvdX, dFvdV, dFidS, dMidGradP, dMidX, dMidV, dMidS, dMvdX, dMvdV);
   }
 
 }
@@ -7796,22 +8084,22 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
     bool* edgeFlag = edges.getMasterFlag();
     int (*edgePtr)[2] = edges.getPtr();
 
-    double *Vi,*Vj,*weights;
-    Vi = new double[dim];
-    Vj = new double[dim];
-    weights = new double[dim];
+  double *Vi,*Vj,*weights;
+  Vi = new double[dim];
+  Vj = new double[dim];
+  weights = new double[dim];
 
-    for (int l=0; l<edges.size(); l++) {
+  for (int l=0; l<edges.size(); l++) {//loop over all edges
         if(!edgeFlag[l]) continue; //not a master edge
-        i = edgePtr[l][0];
-        j = edgePtr[l][1];
+    i = edgePtr[l][0];//node i
+    j = edgePtr[l][1];//node j
         if(LSS.edgeIntersectsWall(0.0,l)) { // at interface
             int tagI = tag[i];
             int tagJ = tag[j];
             bool iIsActive = LSS.isActive(0.0,i);
             bool jIsActive = LSS.isActive(0.0,j);
 
-            if(iIsActive) { //populate i value to ghost j.
+      if(iIsActive) {//case where (i) is an active node
                 LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
                 varFcn->conservativeToPrimitive(U[i],Vi,tagI); // Vi has state at node i, V_j is populated from i
 
@@ -7824,7 +8112,7 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                     if (alpha > THRESHOLD) alpha = THRESHOLD ; // Set limit for stability
                 }
 
-// Initialize all variables and weights
+         // Initialize all variables and weights
                 for (int k=0; k<dim; ++k) {
                     Vj[k] = Vi[k];
                     weights[k] = (1.0 -  alpha)*(1.0 -  alpha);
@@ -7847,7 +8135,7 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                 double T = Vj[4];
 
 
-// Update velocity
+        // Update velocity
 
                 if(resij.structureType==BoundaryData::SYMMETRYPLANE){
                     //It is a symmetry plane
@@ -7916,8 +8204,10 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                 }
 //update turbulence viscosity
                 if (dim==6) {  // One Equation Turbulent Model
-                    Vj[5] = 0.0;//-alpha*Vi[5]/(1.0-alpha);
-                    weights[5] = 1.0;//(1.0-alpha)*(1.0-alpha);
+          Vj[5] = 0.0;//solution to prevent negative values
+          weights[5] = 1.0;//solution to prevent negative values
+//          Vj[5] = -alpha*Vi[5]/(1.0-alpha);//mathematically correct solution
+//          weights[5] =(1.0-alpha)*(1.0-alpha);//mathematically correct solution
                 }
 //update turbulence kinetic energy , epsilon
                 else if (dim==7) { // Two Equations Turbulent Model
@@ -7955,7 +8245,7 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                     if (alpha > THRESHOLD) alpha = THRESHOLD; // Set limit for stability
                 }
 
-// Initialize all variables and weights
+        // Initialize all variables and weights
                 for (int k=0; k<dim; ++k) {
                     Vi[k] = Vj[k];
                     weights[k] = (1.0 - alpha) * (1.0 -  alpha);
@@ -7978,7 +8268,7 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                 double T = Vi[4];
 
 
-// Update velocity
+        // Update velocity
                 if(resji.structureType==BoundaryData::SYMMETRYPLANE){//It is a symmetry plane
                     //It is a symmetry plane
                     //0)Find ghost node i's , mirroring point ii
@@ -8036,8 +8326,10 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
 
 
                 if (dim==6) {  // One Equation Turbulent Model
-                    Vi[5] = 0.0;//-alpha*Vj[5]/(1.0-alpha);
-                    weights[5] = 1.0;//(1.0-alpha)*(1.0-alpha);
+          Vi[5] = 0.0;//-alpha*Vj[5]/(1.0-alpha);//fix for RANS
+          weights[5] = 1.0;//(1.0-alpha)*(1.0-alpha);//fix for RANS
+//          Vi[5] = -alpha*Vj[5]/(1.0-alpha);//original
+//          weights[5] = (1.0-alpha)*(1.0-alpha);//original
                 }
                 else if (dim==7) { // Two Equations Turbulent Model
                     if(resji.structureType==BoundaryData::SYMMETRYPLANE) { // turbulence energy mirroring
@@ -8068,13 +8360,12 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
 
 template<int dim>
 void SubDomain::reduceGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<double,3> &X)
-{	
-	bool isOK;
+{
+  bool isOK;
   for (int i=0; i<nodes.size(); i++)
       if(ghostPoints[i]) {
-			//std::cout << X[i][0] << " "<< X[i][1] << " "<< X[i][2] << " ";
-	  ghostPoints[i]->reduce();
-	}
+          ghostPoints[i]->reduce();
+      }
     } 
 
 //------------------------------------------------------------------------------
@@ -8211,7 +8502,9 @@ void SubDomain::populateGhostPoints_e(Vec<GhostPoint<dim>*> &ghostPoints, SVec<d
 
         if(wRcn)
         {
-            if(!ghostPoints[i]) ghostPoints[i] = new GhostPoint<dim>(varFcn);
+			if(!ghostPoints[i]){
+			  ghostPoints[i] = new GhostPoint<dim>(varFcn);
+			}
 
             bool dummy = LSS.vWallNode(i, vWall);
 

@@ -312,6 +312,7 @@ public:
                                            SVec<double,dim>&, SVec<double,dim>&, NodalGrad<dim>&, EdgeGrad<dim>*, double,
                                            SVec<double,dim>&);
   
+  //Direct senstitivity contribution of the viscous term in ALE simulation
   template<int dim>
   void computeDerivativeOfFiniteVolumeTerm(RectangularSparseMat<double,dim,dim> *,
                                            RectangularSparseMat<double,dim,dim> *dFluxdddy,
@@ -326,6 +327,7 @@ public:
                                            Vec<Vec3D>& dNormal,
                                            SVec<double,dim>&);
   
+  // For Adjoint sensitivity contibution of the viscous term
   template<int dim>
   void computeTransposeDerivativeOfFiniteVolumeTerm(RectangularSparseMat<double,dim,dim> *,
                                            RectangularSparseMat<double,dim,dim> *dFluxdddy,
@@ -343,6 +345,7 @@ public:
                                            SVec<double,dim>& dddz,
                                            Vec<Vec3D>& dNormal);                          
   
+  //Direct sensitivity contribution of the viscous term in Embedded simulation
   template<int dim>
   void computeDerivativeOfFiniteVolumeTerm(FluxFcn** fluxFcn, RecFcn* recFcn,
 					   GeoState& geoState, SVec<double,3>& X, LevelSetStructure &LSS,
