@@ -32,6 +32,8 @@ template<int dim> class SpaceOperator;
 template<int dim> class DistTimeState;
 template<int dim> class DistExactRiemannSolver;
 
+template<int dim> struct dRdXoperators;
+
 
 template<int dim>
 class ForceGenerator {
@@ -91,8 +93,11 @@ private:
   DistVec<double> *Cs;
   DistVec<double> *CsDvms;
   DistVec<double> *CsDles;
+  bool built_dVdU;
 
 public:
+
+  //map<int,int> surfOutMap;//temporarily deleted
 
   PostOperator(IoData &, VarFcn *, DistBcData<dim> *, DistGeoState *, 
 	       Domain *, DistSVec<double,dim> * = 0);
@@ -202,7 +207,7 @@ public:
                                                                            DistSVec<double,dim> &, DistSVec<double,dim> &, double [3],
                                                                            Vec3D *, Vec3D *, Vec3D *, Vec3D *, int = 0);
 
-  void computeDerivativeOfForceAndMoment(Vec3D &x0, DistSVec<double,3> &X, 
+  void computeDerivativeOfForceAndMomentEmb(Vec3D &x0, DistSVec<double,3> &X,
 					 DistSVec<double,dim> &U, 
 					 DistSVec<double,dim> &dU, 
 					 DistVec<int> *fluidId,
@@ -210,6 +215,19 @@ public:
 					 Vec3D *dFi, Vec3D *dMi, 
 					 Vec3D *dFv, Vec3D *dMv, 
 					 int hydro=0, VecSet< DistSVec<double,3> > *mX=0, Vec<double> *genCF=0);
+
+  void computeDerivativeOfForceAndMoment(dRdXoperators<dim> *, DistSVec<double,3> &,
+                                         DistSVec<double,dim> &, double [3], DistSVec<double,3> &,
+                                         Vec3D *, Vec3D *, Vec3D *, Vec3D *, int = 0);
+  void computeTransposeDerivativeOfForceAndMoment(dRdXoperators<dim> *p, SVec<double,3> &,
+                                                SVec<double,3> &, SVec<double,3> &, SVec<double,3> &,
+                                                DistSVec<double,3> &, DistSVec<double,dim> &,
+                                                SVec<double,3> &, DistSVec<double,3> &, int = 0);
+
+  void computeDerivativeOperatorsOfForceAndMoment(dRdXoperators<dim> &dRdXop,
+                                                  Vec3D &x0, DistSVec<double,3> &X,
+                                                  DistSVec<double,dim> &U, int hydro);
+
 
   void computeDerivativeOfNodalForce(DistSVec<double,3> &, DistSVec<double,3> &,
                                      DistSVec<double,dim> &, DistSVec<double,dim> &,
@@ -240,9 +258,9 @@ public:
                                               RectangularSparseMat<double,dim,dim> **dVdU,
                                               RectangularSparseMat<double,1,dim> **dVdPstiff);
 								
-  void rstVar(IoData &iod) {pressInfty = iod.aero.pressure;}								
+  void rstVar(IoData &iod) {pressInfty = iod.aero.pressure;}
 
-  void rstVarPostFcn(IoData &ioData) {postFcn->rstVar(ioData, com);}								
+  void rstVarPostFcn(IoData &ioData) {postFcn->rstVar(ioData, com);}
 
   void computeDerivativeOfNodalHeatPower(DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &, double [3], DistVec<double> &);
 

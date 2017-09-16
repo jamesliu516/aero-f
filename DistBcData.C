@@ -9,6 +9,8 @@
 #include <cmath>
 #include <cassert>
 
+
+
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -28,7 +30,8 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain,
 // Included (MB)
   if (ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
       ioData.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
-      ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
+	  ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_ ||
+	  ioData.problem.alltype == ProblemData::_SENSITIVITY_ANALYSIS_) {
     this->dXdot = new DistSVec<double,3>(nodeDistInfo);
     this->dTemp = new DistVec<double>(nodeDistInfo);
     this->dUface = new DistSVec<double,dim>(faceDistInfo);
@@ -79,7 +82,8 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain,
 // Included (MB)
     if (ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
         ioData.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
-        ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
+		ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_ ||
+		ioData.problem.alltype == ProblemData::_SENSITIVITY_ANALYSIS_) {
       if ((ioData.eqs.type == EquationsData::NAVIER_STOKES) && (ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY)) {
         if ((ioData.bc.wall.integration == BcsWallData::WALL_FUNCTION) && (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS)) {
           subBcData[iSub] = new BcData<dim>(this->Uface(iSub), this->Unode(iSub), this->Uinletnode(iSub), this->Ufarin(iSub), this->Ufarout(iSub), this->Uporouswall(iSub), (*dUface)(iSub), (*dUnode)(iSub), (*dUinletnode)(iSub), (*dUfarin)(iSub), (*dUfarout)(iSub), (*dUporouswall)(iSub), (*dUfaceSA)(iSub), (*dUnodeSA)(iSub));
@@ -179,7 +183,8 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain,
 // Included (MB)
   if (ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
       ioData.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
-      ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
+	  ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_ ||
+	  ioData.problem.alltype == ProblemData::_SENSITIVITY_ANALYSIS_) {
     (*dXdot) = 0.0;
     (*dTemp) = 0.0;
     (*dUface) = 0.0;
@@ -808,6 +813,7 @@ void DistBcDataEuler<dim>::setBoundaryConditionsGas(IoData &iod,
 
 //------------------------------------------------------------------------------
 
+
 // Included (MB)
 template<int dim>
 void DistBcDataEuler<dim>::setDerivativeOfBoundaryConditionsGas(IoData &iod,
@@ -817,28 +823,37 @@ void DistBcDataEuler<dim>::setDerivativeOfBoundaryConditionsGas(IoData &iod,
  // flow properties
   double gam = iod.eqs.fluidModel.gasModel.specificHeatRatio;
   double Pstiff = iod.eqs.fluidModel.gasModel.pressureConstant;
+
   double dPstiff = -iod.eqs.fluidModel.gasModel.pressureConstant*(-2.0 / (gam * iod.bc.inlet.mach * iod.bc.inlet.mach * iod.bc.inlet.mach)) * dM;
-//double dPstiff = iod.eqs.fluidModel.gasModel.pressureConstant*(-2.0 / (iod.bc.inlet.mach)) * dM;
+
   double rhoin = iod.bc.inlet.density;
   double rhoout = iod.bc.outlet.density;
   double pressurein  = iod.bc.inlet.pressure + rhoin*this->gravity*this->depth;
-//double dpressurein = iod.bc.inlet.pressure * (-2.0 / (iod.bc.inlet.mach)) * dM;
+
   double dpressurein = -2.0 / (gam * iod.bc.inlet.mach * iod.bc.inlet.mach * iod.bc.inlet.mach) * dM;
+
   double pressureout = iod.bc.outlet.pressure + rhoout*this->gravity*this->depth;
-//double dpressureout = iod.bc.outlet.pressure * (-2.0 / (iod.bc.outlet.mach)) * dM;
+
   double dpressureout = -2.0 / (gam * iod.bc.outlet.mach * iod.bc.outlet.mach * iod.bc.outlet.mach) * dM;
 
   double velin2 = gam * (pressurein + Pstiff) * iod.bc.inlet.mach*iod.bc.inlet.mach / rhoin;
+
   double dvelin2 = (gam * dPstiff * iod.bc.inlet.mach*iod.bc.inlet.mach / rhoin + 2.0 * gam * pressurein * iod.bc.inlet.mach / rhoin - 2.0 / (rhoin*iod.bc.inlet.mach)) * dM;
-//double dvelin2 = (gam * (dpressurein + dPstiff) * iod.bc.inlet.mach*iod.bc.inlet.mach / rhoin + 2.0 * gam * (pressurein+Pstiff) * iod.bc.inlet.mach / rhoin) * dM;
 
   double velout2 = gam * (pressureout + Pstiff) * iod.bc.outlet.mach*iod.bc.outlet.mach / rhoout;
+
   double dvelout2 = (gam * dPstiff * iod.bc.outlet.mach*iod.bc.outlet.mach / rhoout + 2.0 * gam * pressureout * iod.bc.outlet.mach / rhoout  - 2.0 / (rhoout*iod.bc.outlet.mach)) * dM;
-//  double dvelout2 = (gam * (dpressureout + dPstiff) * iod.bc.outlet.mach*iod.bc.outlet.mach / rhoout + 2.0 * gam * (pressureout+Pstiff) * iod.bc.outlet.mach / rhoout) * dM;
+
   double velin = sqrt(velin2);
   double dvelin = dvelin2/(2*velin);
   double velout = sqrt(velout2);
   double dvelout = dvelout2/(2.0*velout);
+
+  double alpha_in  = iod.bc.inlet.alpha;
+  double alpha_out = iod.bc.outlet.alpha;
+  double beta_in   = iod.bc.inlet.beta;
+  double beta_out  = iod.bc.outlet.beta;
+
   this->dUin[0] = 0.0;
   this->dUin[1] = rhoin * dvelin * cos(iod.bc.inlet.alpha) * cos(iod.bc.inlet.beta);
   this->dUin[2] = rhoin * dvelin * cos(iod.bc.inlet.alpha)  * sin(iod.bc.inlet.beta);
@@ -876,7 +891,7 @@ void DistBcDataEuler<dim>::setDerivativeOfBoundaryConditionsGas(IoData &iod,
   this->dUout[4] += 0.0;
 
 // computation for each node according to its depth
-// this will be passed in DistTimeState to initialize simulation 
+// this will be passed in DistTimeState to initialize simulation
 #pragma omp parallel for
   for(int iSub = 0; iSub<this->numLocSub; ++iSub) {
     double (*x)[3]       = X.subData(iSub);
@@ -897,7 +912,7 @@ void DistBcDataEuler<dim>::setDerivativeOfBoundaryConditionsGas(IoData &iod,
       duin[inode][1] = this->dUin[1];
       duin[inode][2] = this->dUin[2];
       duin[inode][3] = this->dUin[3];
-      duin[inode][4] = 0.5*rhoin*dvelin2 + (dptempin+gam*dPstiff)/(gam-1.0); 
+      duin[inode][4] = 0.5*rhoin*dvelin2 + (dptempin+gam*dPstiff)/(gam-1.0);
 
       duout[inode][0] = this->dUout[0];
       duout[inode][1] = this->dUout[1];
@@ -1259,7 +1274,7 @@ void DistBcDataEuler<dim>::setBoundaryConditionsLiquidLiquid(IoData &iod,
 
 template<int dim>
 void DistBcDataEuler<dim>::setBoundaryConditionsGasLiquid(IoData &iod,
-				DistSVec<double,3> &X)
+                                                          DistSVec<double,3> &X)
 {
   int gas = 1, liq = 0;
 
@@ -1640,7 +1655,9 @@ void DistBcDataEuler<dim>::initialize(IoData &iod, DistSVec<double,3> &X)
 
 // Included (MB)
 template<int dim>
-void DistBcDataEuler<dim>::initializeSA(IoData &iod, DistSVec<double,3> &X, DistSVec<double,3> &dX, double & dM, double & dA, double & dB)
+void DistBcDataEuler<dim>::initializeSA(IoData &iod, DistSVec<double,3> &X,
+                                        DistSVec<double,3> &dX,
+                                        double & dM, double & dA, double & dB)//indicators for mach, alpha and beta sensitivity
 {
 
   if (iod.eqs.numPhase == 1){
@@ -1682,6 +1699,15 @@ void DistBcDataEuler<dim>::initializeSA(IoData &iod, DistSVec<double,3> &X, Dist
 //  if(dUfacenorm != 0) fprintf(stderr, " *********** norm of dUface is %e\n", dUfacenorm);
 
 }
+
+
+//------------------------------------------------------------------------------
+// unode[i][5] contains k and unode[i][6] contains eps
+// this function is empty becaus there is no nutilde term here.
+// Also the name EULER is misleading, since it is actually a laminar simulation
+template<int dim>
+void DistBcDataEuler<dim>::computeDerivativeOfNodeValue(DistSVec<double,3> &X, DistSVec<double,3> &dX)
+{ }
 
 //------------------------------------------------------------------------------
 
@@ -1727,8 +1753,9 @@ DistBcDataSA<dim>::DistBcDataSA(IoData &iod, VarFcn *vf, Domain *dom, DistSVec<d
 // Included (MB)
     if (iod.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
         iod.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
-        iod.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
-      dtmp = new DistSVec<double,2>(dom->getNodeDistInfo());
+        iod.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_ ||
+        iod.problem.alltype == ProblemData::_SENSITIVITY_ANALYSIS_) {
+        dtmp = new DistSVec<double,2>(dom->getNodeDistInfo());
     }
     else {
       dtmp = 0;
@@ -1858,10 +1885,10 @@ void DistBcDataSA<dim>::computeNodeValue(DistSVec<double,3> &X)
       double (*t)[2] = tmp->subData(iSub);
       double (*unode)[dim] = this->Unode.subData(iSub);
       for (int i=0; i<this->Unode.subSize(iSub); ++i) {
-	if (t[i][0] != 0.0) {
-	  double w = 1.0 / t[i][0];
-	  unode[i][5] = w * t[i][1];
-	}
+        if (t[i][0] != 0.0) {
+          double w = 1.0 / t[i][0];
+          unode[i][5] = w * t[i][1];
+        }
       }
     }
   }
@@ -1877,8 +1904,7 @@ void DistBcDataSA<dim>::computeDerivativeOfNodeValue(DistSVec<double,3> &X, Dist
 
 //Remark: Error mesage for pointers
   if (dtmp == 0) {
-    fprintf(stderr, "*** Warning: Variable dtmp does not exist!\n");
-    //exit(1);
+    fprintf(stderr, "\033[91m*** Warning: Variable dtmp does not exist!\n\033[00m");
   }
 
   if (dtmp) {
@@ -1898,11 +1924,11 @@ void DistBcDataSA<dim>::computeDerivativeOfNodeValue(DistSVec<double,3> &X, Dist
       double (*dt)[2] = dtmp->subData(iSub);
       double (*dunode)[dim] = this->dUnode->subData(iSub);
       for (int i=0; i<this->dUnode->subSize(iSub); ++i) {
-	if (t[i][0] != 0.0) {
-	  double w = 1.0 / t[i][0];
-	  double dw = -1.0 / ( t[i][0] * t[i][0] ) * dt[i][0];
-	  dunode[i][5] = dw * t[i][1] + w * dt[i][1];
-	}
+  	    if (t[i][0] != 0.0) {
+	      double w = 1.0 / t[i][0];
+	      double dw = -1.0 / ( t[i][0] * t[i][0] ) * dt[i][0];
+	      dunode[i][5] = dw * t[i][1] + w * dt[i][1];
+	    }
       }
     }
   }
@@ -1959,7 +1985,8 @@ DistBcDataKE<dim>::DistBcDataKE(IoData &iod, VarFcn *vf, Domain *dom, DistSVec<d
 // Included (MB)
   if (iod.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
       iod.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
-      iod.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
+	  iod.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_ ||
+	  iod.problem.alltype == ProblemData::_SENSITIVITY_ANALYSIS_) {
     dtmp = new DistSVec<double,3>(dom->getNodeDistInfo());
   }
   else {
@@ -2041,7 +2068,6 @@ void DistBcDataKE<dim>::computeDerivativeOfNodeValue(DistSVec<double,3> &X, Dist
 //Remark: Error mesage for pointers
   if (dtmp == 0) {
     fprintf(stderr, "*** Warning: Variable dtmp does not exist!\n");
-    //fprintf(stderr, "*** Error: Variable dtmp does not exist!\n");
     //exit(1);
   }
 

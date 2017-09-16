@@ -206,9 +206,10 @@ public:
   double getTurbulentKineticEnergy(double *V, int tag=0)   const{check(tag); return varFcn[tag]->getTurbulentKineticEnergy(V); }
   double getTurbulentDissipationRate(double *V, int tag=0) const{check(tag); return varFcn[tag]->getTurbulentDissipationRate(V); }
 
-  void rstVar(IoData &iod) { assert(numPhases==1); varFcn[0]->rstVar(iod); }
+  void rstVar(IoData &iod) { /*assert(numPhases==1);*/ varFcn[0]->rstVar(iod); }
   Vec3D getDerivativeOfVelocity(double *dV, int tag=0) { check(tag); return varFcn[tag]->getDerivativeOfVelocity(dV); }
   double computeDerivativeOfTemperature(double *V, double *dV, int tag=0) { check(tag); return varFcn[tag]->computeDerivativeOfTemperature(V,dV); }
+  void computeDerivativeOperatorsOfTemperature(double *V, double *dTdV, int tag=0) { check(tag); varFcn[tag]->computeDerivativeOperatorsOfTemperature(V,dTdV); }
   double computeDerivativeOfMachNumber(double *V, double *dV, double dMach, int tag=0) { check(tag); return varFcn[tag]->computeDerivativeOfMachNumber(V,dV,dMach); }
   double computeDerivativeOfSoundSpeed(double *V, double *dV, double dMach, int tag=0) { check(tag); return varFcn[tag]->computeDerivativeOfSoundSpeed(V,dV,dMach); }
   double computeDerivativeOfTotalPressure(double machr, double dmachr, double* V, double* dV, double dmach, int tag=0) { check(tag); return varFcn[tag]->computeDerivativeOfTotalPressure(machr,dmachr,V,dV,dmach); }
@@ -671,8 +672,11 @@ void VarFcn::conservativeToPrimitiveTransposeDerivative(RectangularSparseMat<dou
 //------------------------------------------------------------------------------
 
 template<int dim>
-void VarFcn::computeConservativeToPrimitiveDerivativeOperators(DistSVec<double,dim> &U, DistSVec<double,dim> &V, 
-                            RectangularSparseMat<double,dim,dim> &dVdU, RectangularSparseMat<double,1,dim> &dVdPstiff, DistVec<int> *tag)
+void VarFcn::computeConservativeToPrimitiveDerivativeOperators(DistSVec<double,dim> &U,
+		                                                       DistSVec<double,dim> &V,
+		                                                       RectangularSparseMat<double,dim,dim> &dVdU,
+															   RectangularSparseMat<double,1,dim> &dVdPstiff,
+															   DistVec<int> *tag)
 {
 
   int numLocSub = U.numLocSub();
@@ -683,10 +687,8 @@ void VarFcn::computeConservativeToPrimitiveDerivativeOperators(DistSVec<double,d
     double (*v)[dim] = V.subData(iSub);
     if(tag){
       int *loctag = tag->subData(iSub);
-      fprintf(stderr, " ... subSize is %d\n", U.subSize(iSub));
       for (int i=0; i<U.subSize(iSub); ++i) {
         varFcn[loctag[i]]->computeConservativeToPrimitiveDerivativeOperators(i, u[i], v[i], dVdU, dVdPstiff);
-        fprintf(stderr, " ... loctag[i] is %d\n", loctag[i]);
       }
     }else{
       for (int i=0; i<U.subSize(iSub); ++i)

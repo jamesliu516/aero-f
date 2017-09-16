@@ -318,7 +318,8 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
   dFs = 0;
   if(ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
-     ioData.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_)
+     ioData.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
+	 ioData.problem.alltype == ProblemData::_SENSITIVITY_ANALYSIS_)
     dFs = new (*this->com) double[totStructNodes][3];
 
 //-------------------------------------------------------------
@@ -883,7 +884,6 @@ void EmbeddedTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int
       }
       this->domain->getCommunicator()->fprintf(stdout,"Linf error (total): %e\n", tot_error);
 
-  
     }
 
   }
@@ -930,6 +930,8 @@ double EmbeddedTsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
   this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, *Wextij, distLSS, 
 											linRecAtInterface,  viscSecOrder, nodeTag, *this->R, 
 											this->riemann, riemannNormal, 0, ghostPoints);
+  //the norm of the residual is computed; good poitn to write it do file for debugging
+
 
   this->spaceOp->applyBCsToResidual(U, *this->R, distLSS);
 
@@ -971,7 +973,9 @@ void EmbeddedTsDesc<dim>::monitorInitialState(int it, DistSVec<double,dim> &U)
 //------------------------------------------------------------------------------
 
 template<int dim>
-void EmbeddedTsDesc<dim>::computeForceLoad(DistSVec<double,dim> *Wij, DistSVec<double,dim> *Wji)
+void EmbeddedTsDesc<dim>::computeForceLoad(
+                            DistSVec<double,dim> *Wij,
+                            DistSVec<double,dim> *Wji)
 {
 	
 	if(!Fs)
@@ -1037,8 +1041,11 @@ void EmbeddedTsDesc<dim>::computederivativeOfForceLoad(DistSVec<double,dim> *Wij
 //-------------------------------------------------------------------------------
 
 template <int dim>
-void EmbeddedTsDesc<dim>::getForcesAndMoments(map<int,int> & surfOutMap, DistSVec<double,dim> &U, DistSVec<double,3> &X,
-					      Vec3D *Fi, Vec3D *Mi) 
+void EmbeddedTsDesc<dim>::getForcesAndMoments(
+                             map<int,int> & surfOutMap,
+                             DistSVec<double,dim> &U,
+                             DistSVec<double,3> &X,
+                             Vec3D *Fi, Vec3D *Mi)
 {
 
   int idx;
@@ -1072,10 +1079,11 @@ void EmbeddedTsDesc<dim>::getForcesAndMoments(map<int,int> & surfOutMap, DistSVe
 //-------------------------------------------------------------------------------
 
 template <int dim>
-void EmbeddedTsDesc<dim>::getderivativeOfForcesAndMoments(map<int,int> & surfOutMap, 
-							  DistSVec<double,dim> &V, DistSVec<double,dim> &dV, 
-							  DistSVec<double,3> &X, double dS[3],
-							  Vec3D *dFi, Vec3D *dMi) 
+void EmbeddedTsDesc<dim>::getderivativeOfForcesAndMoments(
+                            map<int,int> & surfOutMap,
+                            DistSVec<double,dim> &V, DistSVec<double,dim> &dV,
+                            DistSVec<double,3> &X, double dS[3],
+                            Vec3D *dFi, Vec3D *dMi)
 {
 
   int idx;
