@@ -35,6 +35,8 @@ class DistNodalGrad {
   
   int iteration;
 
+  bool includeIntersection;
+
   IoData* myIoData;
 
   DistVec<bool> *tag;
@@ -106,7 +108,7 @@ public:
   template<class Scalar2>
   void compute(int, DistSVec<double,3> &, DistVec<double> &,
                DistVec<int> &, DistSVec<Scalar2,dim> &, bool linFSI = true, DistLevelSetStructure* =0,
-               bool includeSweptNodes = true);
+               bool includeSweptNodes = true, bool includeIntersection = false);
 
   template<class Scalar2>
   void computeTemperatureGradient(int, DistSVec<double,3> &, DistVec<double> &,

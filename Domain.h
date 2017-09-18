@@ -307,11 +307,11 @@ public:
 
   void computeWeightsLeastSquares(DistSVec<double,3> &, DistSVec<double,6> &);
   void computeWeightsLeastSquares(DistSVec<double,3> &, const DistVec<int>&, DistSVec<double,6> &, 
-				  DistLevelSetStructure* =0, bool includeSweptNodes = true);
+				  DistLevelSetStructure* =0, bool includeSweptNodes = true, bool includeIntersection = false);
   void computeWeightsLeastSquares(DistSVec<double,3> &, const DistVec<int>&, DistSVec<double,6> &,
 				  DistVec<int> &, DistVec<int> &, DistLevelSetStructure* =0);
 
-  void computeWeightsGalerkin(DistSVec<double,3> &, 
+  void computeWeightsGalerkin(DistSVec<double,3> &,
 			      DistSVec<double,3> &,
 			      DistSVec<double,3> &, 
 			      DistSVec<double,3> &);
@@ -362,7 +362,7 @@ public:
                                     DistSVec<double,6> &,
                                     DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &,
                                     DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &, bool linFSI = true,
-                                    DistLevelSetStructure* =0,bool includeSweptNodes = true);
+                                    DistLevelSetStructure* =0,bool includeSweptNodes = true,bool includeIntersection = false);
 
   template<class Scalar>
   void computeGradientLeastSquares(DistSVec<double,3> &, DistVec<int> &,

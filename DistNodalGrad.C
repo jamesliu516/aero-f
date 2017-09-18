@@ -951,15 +951,14 @@ void DistNodalGrad<dim, Scalar>::compute(int config, DistSVec<double,3> &X,
 					 DistVec<double> &ctrlVol, DistVec<int> &fluidId,
 					 DistSVec<Scalar2, dim> &V, bool linFSI,
 					 DistLevelSetStructure *distLSS,
-					 bool includeSweptNodes)
+					 bool includeSweptNodes,bool includeIntersection)
 {
-
 	if(typeGradient == SchemeData::LEAST_SQUARES)
-	{    
-		domain->computeWeightsLeastSquares(X, fluidId, *R, distLSS, includeSweptNodes);
+	{
+		domain->computeWeightsLeastSquares(X, fluidId, *R, distLSS, includeSweptNodes,includeIntersection);
     
     domain->computeGradientsLeastSquares(X, fluidId, *R, V, *ddx, *ddy, *ddz, linFSI, 
-					 distLSS, includeSweptNodes);
+					 distLSS, includeSweptNodes, includeIntersection);
 	}
 	else if(typeGradient == SchemeData::GALERKIN || typeGradient == SchemeData::NON_NODAL)
 	{    

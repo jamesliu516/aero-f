@@ -452,7 +452,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
                                              SVec<Scalar,dim> &var, SVec<Scalar,dim> &ddx,
                                              SVec<Scalar,dim> &ddy, SVec<Scalar,dim> &ddz,
                                              bool linRecFSI, LevelSetStructure *LSS,
-                                             bool includeSweptNodes)  {
+                                             bool includeSweptNodes,bool includeIntersection)  {
 
     ddx = (Scalar) 0.0;
     ddy = (Scalar) 0.0;
@@ -460,6 +460,10 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
 
     bool *edgeFlag = edges.getMasterFlag();
     int (*edgePtr)[2] = edges.getPtr();
+
+    double Wi[3], Wj[3], dx[3];
+    double* var_c = new double[dim];
+    Scalar deltaVar;
 
     for(int l=0; l<edges.size(); ++l)
     {
@@ -479,12 +483,56 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
             if(!includeSweptNodes && (LSS->isSwept(0.0, i) || LSS->isSwept(0.0, j))) validEdge = false;
         }
 
-        if(!validEdge) continue;
+        //if(!validEdge) continue;
+        //Daniel Huang comments it out, if the edge intersects the interface, we have the state at the interface point
+        //the fluid state is rho_i, v_i, p_i the state at the no slip wall: can be approximate as rho_i, v_wall, p_i
+        if(!validEdge){
+            /*new method*/
+            for(int ij = 0; ij < 2; ij++) {
+                int nodeId = ((ij == 0)? i:j), nodeId_o = ((ij == 0)? j:i);
+                if(!LSS->isActive(0.0, nodeId)) continue;
+                LevelSetResult res  = LSS->getLevelSetDataAtEdgeCenter(0.0, l, (ij==0));
+                if (res.structureType == BoundaryData::WALL && /* viscous simulation and turn on the choice*/includeIntersection) {
+                    /* dx = x_intersection - x_n
+                     * deltaVar = v_intersetion - v_n
+                     */
+                    dx[0] = (X[nodeId_o][0] - X[nodeId][0])*(1.0 - res.alpha);
+                    dx[1] = (X[nodeId_o][1] - X[nodeId][1])*(1.0 - res.alpha);
+                    dx[2] = (X[nodeId_o][2] - X[nodeId][2])*(1.0 - res.alpha);
 
-        double Wi[3], Wj[3];
-        Scalar deltaVar;
+                    if(R[nodeId][0] > 0.0 && fabs(R[nodeId][0]*R[nodeId][3]*R[nodeId][5]) > 1.0e-10)
+                        computeLocalWeightsLeastSquares(dx, R[nodeId], Wi);
 
-        double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+                    var_c[0] = var[nodeId][0];//density
+                    for(int vId = 0; vId < 3; vId++ ){//velocity
+                        var_c[vId + 1] = res.normVel[vId];
+                    }
+                    var_c[4] = var[nodeId][4];//pressure
+                    if(dim == 6)
+                        var_c[5] = 0.0; //turbulence viscosity
+                    if(dim == 7){//K-eps model
+                        var_c[5] = var[nodeId][5];
+                        var_c[6] = var[nodeId][6];
+                    }
+
+                    for(int k=0; k<dim; ++k)
+                    {
+                        deltaVar = var_c[k] - var[nodeId][k];
+
+                        ddx[nodeId][k] += Wi[0] * deltaVar;
+                        ddy[nodeId][k] += Wi[1] * deltaVar;
+                        ddz[nodeId][k] += Wi[2] * deltaVar;
+                    }
+                }
+
+            }
+            continue;
+        }
+
+
+
+
+        dx[0] = X[j][0] - X[i][0]; dx[1] = X[j][1] - X[i][1]; dx[2] = X[j][2] - X[i][2];
 
         // should be positive for a well posed least square problem
         if(R[i][0] > 0.0 && fabs(R[i][0]*R[i][3]*R[i][5]) > 1.0e-10)
@@ -536,6 +584,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
             }
         }
     }
+    delete [] var_c;
 
 }
 
@@ -611,7 +660,7 @@ void SubDomain::computeGradientLeastSquares(SVec<double,3> &X,
 }
 
 //------------------------------------------------------------------------------
-// least square gradient involving only nodes of fluid (FSI)
+// least square gradient involving only nodes of fluid (FSI), This version is never used
 // if Wstar is available, they are also involved in gradient computation
 template<int dim, class Scalar>
 void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,

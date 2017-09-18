@@ -294,7 +294,7 @@ public:
   void computeWeightsLeastSquaresNodePart(SVec<double,6> &);
   void computeWeightsLeastSquaresEdgePart(SVec<double,3> &, const Vec<int> &,
 					  SVec<int,1> &, SVec<double,6> &, LevelSetStructure* =0,
-					  bool includeSweptNodes = true);
+					  bool includeSweptNodes = true, bool includeIntersection = false);
   void computeWeightsLeastSquaresEdgePart(SVec<double,3> &, const Vec<int> &,
 					  SVec<int,1> &, SVec<double,6> &, Vec<int> &, Vec<int> &, 
 					  LevelSetStructure* =0);
@@ -428,7 +428,7 @@ public:
                                     SVec<Scalar,dim> &, SVec<Scalar,dim> &,
                                     SVec<Scalar,dim> &, SVec<Scalar,dim> &,
                                     bool linRecFSI = true, LevelSetStructure* =0,
-                                    bool includeSweptNodes = true);
+                                    bool includeSweptNodes = true,bool includeIntersection = false);
 
   template<class Scalar>
   void computeGradientLeastSquares(SVec<double,3> &, const Vec<int> &,
