@@ -1627,11 +1627,12 @@ void SubDomain::computeDerivativeOfWeightsLeastSquaresEdgePart(SVec<double,3> &X
 
 void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const Vec<int> &fluidId,
                                                    SVec<int,1> &count, SVec<double,6> &R, 
-						   LevelSetStructure *LSS, bool includeSweptNodes)
+						   LevelSetStructure *LSS, bool includeSweptNodes,bool includeIntersection)
 {
 
   R = 0.0;
   count = 0;
+    double dx[3], dxdx, dydy, dzdz, dxdy, dxdz, dydz;
 
   bool *edgeFlag = edges.getMasterFlag();
   int (*edgePtr)[2] = edges.getPtr();
@@ -1654,22 +1655,55 @@ void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const Vec<
 			if(!includeSweptNodes && (LSS->isSwept(0.0, i) || LSS->isSwept(0.0, j))) validEdge = false;
 		}
 
-		if(!validEdge) continue;
+		//if(!validEdge) continue;
+        //Daniel Huang comments it out, if the edge intersects the interface, we have the state at the interface point
+        //the fluid state is rho_i, v_i, p_i the state at the no slip wall: can be approximate as rho_i, v_wall, p_i
+        if(!validEdge){
+            /*new method*/
+            for(int ij = 0; ij < 2; ij++) {
+                int nodeId = ((ij == 0)? i:j);
+                if(!LSS->isActive(0.0, nodeId)) continue;
+                LevelSetResult res  = LSS->getLevelSetDataAtEdgeCenter(0.0, l, (ij==0));
+                if (res.structureType == BoundaryData::WALL && /* viscous simulation */ includeIntersection) {
+                    dx[0] = (X[j][0] - X[i][0])*(1.0 - res.alpha);
+                    dx[1] = (X[j][1] - X[i][1])*(1.0 - res.alpha);
+                    dx[2] = (X[j][2] - X[i][2])*(1.0 - res.alpha);
+
+                    count[nodeId][0]++;
+                    dxdx = dx[0] * dx[0];
+                    dydy = dx[1] * dx[1];
+                    dzdz = dx[2] * dx[2];
+                    dxdy = dx[0] * dx[1];
+                    dxdz = dx[0] * dx[2];
+                    dydz = dx[1] * dx[2];
+
+                    R[nodeId][0] += dxdx;
+                    R[nodeId][1] += dxdy;
+                    R[nodeId][2] += dxdz;
+                    R[nodeId][3] += dydy;
+                    R[nodeId][4] += dydz;
+                    R[nodeId][5] += dzdz;
+                }
+
+            }
+            continue;
+        }
+
 
     count[i][0]++;
     count[j][0]++;
 
-    double dx[3];
+
     dx[0] = X[j][0] - X[i][0];
     dx[1] = X[j][1] - X[i][1];
     dx[2] = X[j][2] - X[i][2];
 
-    double dxdx = dx[0] * dx[0];
-    double dydy = dx[1] * dx[1];
-    double dzdz = dx[2] * dx[2];
-    double dxdy = dx[0] * dx[1];
-    double dxdz = dx[0] * dx[2];
-    double dydz = dx[1] * dx[2];
+    dxdx = dx[0] * dx[0];
+    dydy = dx[1] * dx[1];
+    dzdz = dx[2] * dx[2];
+    dxdy = dx[0] * dx[1];
+    dxdz = dx[0] * dx[2];
+    dydz = dx[1] * dx[2];
 
     R[i][0] += dxdx;
 		R[i][1] += dxdy;

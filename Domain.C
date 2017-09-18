@@ -348,14 +348,14 @@ void Domain::computeGradientsLeastSquares(DistSVec<double,3> &X,
                                           DistSVec<Scalar,dim> &ddy,
                                           DistSVec<Scalar,dim> &ddz,
                                           bool linFSI, DistLevelSetStructure *distLSS,
-                                          bool includeSweptNodes)
+                                          bool includeSweptNodes,bool includeIntersection)
 {
 
   if(distLSS) {
 #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub)
       subDomain[iSub]->computeGradientsLeastSquares(X(iSub), fluidId(iSub), R(iSub), var(iSub),
-                                                    ddx(iSub), ddy(iSub), ddz(iSub), linFSI, &((*distLSS)(iSub)),includeSweptNodes);
+                                                    ddx(iSub), ddy(iSub), ddz(iSub), linFSI, &((*distLSS)(iSub)),includeSweptNodes, includeIntersection);
   } else {
 #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub)
