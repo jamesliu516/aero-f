@@ -180,11 +180,11 @@ double* getPrimitiveState(int dir)
 	{
 		if(Ws[0] <= 0)
 		{
-			fprintf(stderr, " *** Warning: in GhostPoint.h getPrimitiveState: no ghost value for dir = %d, its weight = %f\n", dir, Ws[0]);
+			//fprintf(stderr, " *** Warning: in GhostPoint.h getPrimitiveState: no ghost value for dir = %d, its weight = %f\n", dir, Ws[0]);
 			if(Ws[dim] <= 0)
 				exit(-1);
 			else{
-				fprintf(stderr, " *** Warning: using the ghost value in the other direction dir = %d\n", -dir);
+				//fprintf(stderr, " *** Warning: using the ghost value in the other direction dir = %d\n", -dir);
 				for(int k=0; k<dim; k++) V_tmp[k] = V[k+dim];
 			}
 		}
@@ -195,11 +195,11 @@ double* getPrimitiveState(int dir)
 	{
 		if(Ws[dim] <= 0)
 		{
-			fprintf(stderr, "*** Warning: in GhostPoint.h getPrimitiveState: no ghost value for dir = %d, its weight = %f\n", dir, Ws[dim]);
-			if(Ws[dim] <= 0)
+			//fprintf(stderr, "*** Warning: in GhostPoint.h getPrimitiveState: no ghost value for dir = %d, its weight = %f\n", dir, Ws[dim]);
+			if(Ws[0] <= 0)
 				exit(-1);
 			else{
-				fprintf(stderr, " *** Warning: using the ghost value in the other direction dir = %d\n", -dir);
+				//fprintf(stderr, " *** Warning: using the ghost value in the other direction dir = %d\n", -dir);
 				for(int k=0; k<dim; k++) V_tmp[k] = V[k];
 			}
 		}

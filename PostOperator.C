@@ -1374,7 +1374,7 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
                                                  DistLevelSetStructure *distLSS,
                                                  DistVec<GhostPoint<dim>*> *ghostPoints, bool externalSI)
 {
-
+  externalSI = false;
   int iSub;
 
   varFcn->conservativeToPrimitive(U, *V, &fluidId);

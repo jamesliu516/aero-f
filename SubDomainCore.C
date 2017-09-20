@@ -1659,6 +1659,7 @@ void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const Vec<
         //Daniel Huang comments it out, if the edge intersects the interface, we have the state at the interface point
         //the fluid state is rho_i, v_i, p_i the state at the no slip wall: can be approximate as rho_i, v_wall, p_i
         if(!validEdge){
+            if(!LSS->edgeIntersectsStructure(0.0, l)) continue;
             /*new method*/
             for(int ij = 0; ij < 2; ij++) {
                 int nodeId = ((ij == 0)? i:j);
@@ -7155,7 +7156,7 @@ bool SubDomain::getFEMstencil2(int Ni, SVec<double,3> &X,
 	bool Wmode = (Wmode0_m || Wmode1_m) || (Wmode0_p || Wmode1_p);
 
     if(!Wmode)
-      std::cout <<"Warning: fail to populate the ghost value at not Ni in SubDomain::getFEMstencil2" << std::endl;
+      std::cout <<"Warning: fail to find edge center stencil in SubDomain::getFEMstencil2" << std::endl;
 
 	return Wmode;
 
