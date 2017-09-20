@@ -122,7 +122,9 @@ class HigherOrderFSI {
 	double vanAlbada(double a, double b);
 
 
-	bool safeExtrapolation(int dim, const double* Vi, const double* Vghost, const double *dV, bool ij, double alpha, double* Ve);
+	void safeExtrapolation(int dim, const double* Vi, const double* Vghost, const double *dV, bool ij, double alpha, double* Ve);
+
+	void safeExtrapolation(int dim, const double* V, const double* dV, double beta, double* Ve);
 	/* --------------------------- */
 
 private:

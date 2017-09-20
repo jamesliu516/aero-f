@@ -106,7 +106,7 @@ void ElemTet::computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
                 for (int k=0; k<dim; ++k)
                 {
                     R[idx][k] += vol * ( (r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] +
-                                          r[2][k] * dp1dxj[j][2]) - fourth * s[k] );
+                                          r[2][k] * dp1dxj[j][2]));// - fourth * s[k] );
                 }
             }
         }
@@ -261,7 +261,6 @@ void ElemTet::computeGalerkinTerm_e(FemEquationTerm *fet, SVec<double,3> &X,
 					}
 
 					int dir = LSS->edgeIntersectsWall(0.0,edgeNum(e)) ? -1 : 1;
-
 					Ve[j] = gp->getPrimitiveState(dir);
 
 				}				

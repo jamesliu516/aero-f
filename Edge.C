@@ -3876,10 +3876,10 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 			/* ---------- Node i ---------- */
 			if(iActive)
 			{
-				// TODO: add porosity and actuator disk
 
-				for(int k=0; k<dim; k++) Vi_[k]     = V[i][k] + 0.5*ddVij[k];
-				for(int k=0; k<dim; k++) Vi_[k+dim] = V[i][k] + 0.5*ddVij[k];
+//				for(int k=0; k<dim; k++) Vi_[k]     = V[i][k] + 0.5*ddVij[k];
+//				for(int k=0; k<dim; k++) Vi_[k+dim] = V[i][k] + 0.5*ddVij[k];
+                higherOrderFSI->safeExtrapolation(2*dim, V[i],ddVij, 0.5, Vi_);
 
 				higherOrderFSI->extrapolateToWall_1(l, i, fluidId[i], varFcn, V, ngrad, Vi_, X, xWall, Xij, V_e);
 
@@ -3902,10 +3902,10 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 			/* ---------- Node j ---------- */
 			if(jActive)
 			{
-				// TODO: add porosity and actuator disk
 
-				for(int k=0; k<dim; k++) Vj_[k]     = V[j][k] - 0.5*ddVji[k];
-				for(int k=0; k<dim; k++) Vj_[k+dim] = V[j][k] - 0.5*ddVji[k];
+//				for(int k=0; k<dim; k++) Vj_[k]     = V[j][k] - 0.5*ddVji[k];
+//				for(int k=0; k<dim; k++) Vj_[k+dim] = V[j][k] - 0.5*ddVji[k];
+                higherOrderFSI->safeExtrapolation(2*dim, V[j],ddVji,-0.5, Vj_);
 
 				higherOrderFSI->extrapolateToWall_1(l, j, fluidId[j], varFcn, V, ngrad, Vj_, X, xWall, Xij, V_e);
 

@@ -1423,7 +1423,7 @@ double HigherOrderFSI::vanAlbada(double a, double b)
 // if the limiter is on, use Van Albada average
 // if the limiter is off, use pure extrapolation
 inline
-bool HigherOrderFSI::safeExtrapolation(int dim, const double* Vi, const double* Vghost, const double *dV, bool ij, double alpha, double* Ve)
+void HigherOrderFSI::safeExtrapolation(int dim, const double* Vi, const double* Vghost, const double *dV, bool ij, double alpha, double* Ve)
 {
     double* dVij = new double[dim];
     for (int k = 0; k < dim; k++)
@@ -1445,5 +1445,22 @@ bool HigherOrderFSI::safeExtrapolation(int dim, const double* Vi, const double* 
 
 
     delete []dVij;
+
+}
+
+
+//----------------------------------------------------------------------------------------
+// Ve = V + beta*dV if no negative pressure or density, and HOtreatment is on
+// else Ve = V
+inline
+void HigherOrderFSI::safeExtrapolation(int dim, const double* V, const double* dV, double beta, double* Ve)
+{
+    for (int k = 0; k < dim; k++)
+        Ve[k] = V[k] + beta * dV[k];
+
+//Fail Safe, if negative pressure or density, revert back to constant extrapolation
+    if(Ve[0] <= 0.0 || Ve[4] <= 0.0 || !HOtreatment)
+        for (int k = 0; k < dim; k++)
+            Ve[k] = V[k];
 
 }

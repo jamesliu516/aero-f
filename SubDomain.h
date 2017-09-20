@@ -1717,16 +1717,7 @@ public:
 				    NodalGrad<dim, double> &ngrad,double* interfaceFluidMeshSize,
 									int* strucOrientation, double (*Qnty)[4]);
 
-	template<int dim,int dimLS>
-	void computeEMBSkinFriction(IoData &iod,SVec<double,3> &X, SVec<double,dim> &V,
-										   PostFcn *postFcn, VarFcn *varFcn,
-										   Vec<int> &fluidId, SVec<double,dimLS>* phi,
-										   int sizeQnty, int numStructElems, int (*stElem)[3],
-										   Vec<Vec3D>& Xstruct, LevelSetStructure &LSS,
-										   double pInfty,
-										   Vec<GhostPoint<dim>*> *ghostPoints,
-										   NodalGrad<dim, double> &ngrad, double* interfaceFluidMeshSize,
-										   int* strucOrientation, double (*Qnty)[3]);
+
     void computeInterfaceFluidMeshSize(IoData &iod,SVec<double,3> &X,
                                                   int numStructElems, int (*stElem)[3],
                                                   Vec<Vec3D>& Xstruct,
