@@ -193,7 +193,6 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
       exit(-1);
   }
   wall_computer=new ReinitializeDistanceToWall<1,dim>(ioData, *this->domain, *this->spaceOp); //sjg, 07/2017: fet for wall distance predictors
-  // wall_computer=new ReinitializeDistanceToWall<1,dim>(ioData, *this->domain);
 
 #else
   this->com->fprintf(stderr,"ERROR: Embedded framework is NOT compiled! Check your makefile.\n");
@@ -403,7 +402,7 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
 
 
     //d2d
-	if(ioData.embed.surrogateinterface == EmbeddedFramework::EXTERNAL) 
+	if(ioData.embed.surrogateinterface == EmbeddedFramework::EXTERNAL)
 	{
 		this->spaceOp->setSIstencil(*this->X, distLSS, this->nodeTag, *U);
 
