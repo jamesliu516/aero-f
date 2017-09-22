@@ -756,13 +756,10 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp,ScalarT>::solveT(VecType &b, VecTyp
 
   int typePrec = 2;//WTF
 
-  double beta, l2res, target, res0;//TODO res0 is new
-  res0 = b.norm();
+  double beta, l2res, target;
 
   int iter = 0;
   int exitLoop = 0;
-
-  int numOutputVecs = 0;//TODO new
 
   do {
 
@@ -775,9 +772,7 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp,ScalarT>::solveT(VecType &b, VecTyp
     beta = r.norm();
 
     if (iter == 0) {
-      //target = this->eps * b.norm(); // TODO original
       target = this->eps * beta;
-      //target = this->eps * (res0 = b.norm());//TODO modified
       if (this->output) this->ioOp->fprintf(this->output, "GmRES iterations:\n");
       if (this->output) this->ioOp->fprintf(this->output, "  %d %e %e\n", 0, beta, target);
     }
@@ -843,8 +838,6 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp,ScalarT>::solveT(VecType &b, VecTyp
     if (typePrec == 2) { this->pcOp->applyT(w, r); w = r; }
 
     x += w;
-
-    numOutputVecs = j+1;
 
   } while (exitLoop == 0);
 

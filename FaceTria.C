@@ -167,98 +167,8 @@ void FaceTria::computeDerivativeOfForce(ElemSet &elems, PostFcn *postFcn, SVec<d
   }
   //  Vec3D dFi00(dFi0), dFi11(dFi1), dFi22(dFi2), dFvv(dFv);
   postFcn->computeDerivativeOfForce(dp1dxj, ddp1dxj, Xface, dXface, n, dn, d2w, Vwall, dVwall, Vface, dVface, Vtet, dVtet, dS, pin, dFi0, dFi1, dFi2, dFv, dPdx, ddPdx, hydro);
-  //  postFcn->computeDerivativeOfForce2(dp1dxj, ddp1dxj, Xface, dXface, n, dn, d2w, Vwall, dVwall, Vface, dVface, Vtet, dVtet, dS, pin, dFi00, dFi11, dFi22, dFvv, dPdx, ddPdx, hydro);
-  /*
-    double dFi0dn[3] ={0};          double dFi1dn[3] = {0};         double dFi2dn[3] ={0};
-    double dFi0dGradP[3][3] = {0};   double dFi1dGradP[3][3] ={0};    double dFi2dGradP[3][3] ={0};
-    double dFi0dX0[3][3] = {0}; double dFi0dX1[3][3] = {0}; double dFi0dX2[3][3] = {0};
-    double dFi1dX0[3][3] = {0}; double dFi1dX1[3][3] = {0}; double dFi1dX2[3][3] = {0};
-    double dFi2dX0[3][3] = {0}; double dFi2dX1[3][3] = {0}; double dFi2dX2[3][3] = {0};
-    double dFidS[3][3] = {0};
-    double dFi0dV[3][5] = {0};  double dFi1dV[3][5] = {0};  double dFi2dV[3][5] = {0};
-    double dFvdX[3][3][3] = {0}, dFvdXtet[3][4][3] = {0}, dFvdV[3][4][dim] = {0};
-  //  postFcn->computeDerivativeOperatorsOfForce(Xface, n, Vface, pin, dPdx, hydro,
-  //                                     dFi0dn, dFi1dn, dFi2dn, dFi0dGradP, dFi1dGradP, dFi2dGradP,
-  //                                     dFi0dX0, dFi0dX1, dFi0dX2,
-  //                                     dFi1dX0, dFi1dX1, dFi1dX2,
-  //                                     dFi2dX0, dFi2dX1, dFi2dX2,
-  //                                     dFi0dS, dFi1dS, dFi2dS, dFi0dV, dFi1dV, dFi2dV);
 
-    computeDerivativeOperatorsOfForce(elems, postFcn, X, V, pin, gradP, hydro,
-                                      dFi0dGradP, dFi1dGradP, dFi2dGradP,
-                                      dFi0dX0, dFi0dX1, dFi0dX2,
-                                      dFi1dX0, dFi1dX1, dFi1dX2,
-                                      dFi2dX0, dFi2dX1, dFi2dX2,
-                                      dFidS,
-                                      dFi0dV, dFi1dV, dFi2dV, dFvdX, dFvdXtet, dFvdV);
-
-    double dndX[3][3][3] = {0};
-    compute_dndX(X, dndX);
-
-    for(int i=0; i<3; ++i) {
-
-      for(int l=0; l<5; ++l) {
-        dFi00[i] += dFi0dV[i][l]*dV[nodeNum(0)][l];
-        dFi11[i] += dFi1dV[i][l]*dV[nodeNum(1)][l];
-        dFi22[i] += dFi2dV[i][l]*dV[nodeNum(2)][l];
-      }
-      for(int j=0; j<3; ++j) {
-  //      dFi0dX0[i][j] += dFi0dn[i]*dndX[0][i][j];      dFi0dX1[i][j] += dFi0dn[i]*dndX[1][i][j];      dFi0dX2[i][j] += dFi0dn[i]*dndX[2][i][j];
-  //      dFi1dX0[i][j] += dFi1dn[i]*dndX[0][i][j];      dFi1dX1[i][j] += dFi1dn[i]*dndX[1][i][j];      dFi1dX2[i][j] += dFi1dn[i]*dndX[2][i][j];
-  //      dFi2dX0[i][j] += dFi2dn[i]*dndX[0][i][j];      dFi2dX1[i][j] += dFi2dn[i]*dndX[1][i][j];      dFi2dX2[i][j] += dFi2dn[i]*dndX[2][i][j];
-        dFi00[i] += dFi0dGradP[i][j]*dGradP[j][nodeNum(0)]
-                 + dFi0dX0[i][j]*dX[nodeNum(0)][j] + dFi0dX1[i][j]*dX[nodeNum(1)][j] + dFi0dX2[i][j]*dX[nodeNum(2)][j]
-                 + dFidS[i][j];
-        dFi11[i] += dFi1dGradP[i][j]*dGradP[j][nodeNum(1)]
-                 + dFi1dX0[i][j]*dX[nodeNum(0)][j] + dFi1dX1[i][j]*dX[nodeNum(1)][j] + dFi1dX2[i][j]*dX[nodeNum(2)][j];
-        dFi22[i] += dFi2dGradP[i][j]*dGradP[j][nodeNum(2)]
-                 + dFi2dX0[i][j]*dX[nodeNum(0)][j] + dFi2dX1[i][j]*dX[nodeNum(1)][j] + dFi2dX2[i][j]*dX[nodeNum(2)][j];
-      }
-    }
-
-  //  Vec3D diffdFi0 = dFi00 - dFi0;
-  //  Vec3D diffdFi1 = dFi11 - dFi1;
-  //  Vec3D diffdFi2 = dFi22 - dFi2;
-
-  //  double diffdFi0norm = diffdFi0.norm();
-  //  double diffdFi1norm = diffdFi1.norm();
-  //  double diffdFi2norm = diffdFi2.norm();
-  //  double dFi0norm = dFi0.norm();
-  //  double dFi1norm = dFi1.norm();
-  //  double dFi2norm = dFi2.norm();
-
-  //  if(dFi0norm != 0) if(diffdFi0norm/dFi0norm > 1.0e-10) fprintf(stderr, " ... rel. diff = %e\n", diffdFi0norm/dFi0norm);
-  //  else if(diffdFi0norm > 1.0e-10) fprintf(stderr, " ... abs. diff = %e\n", diffdFi0norm);
-  //  if(dFi1norm != 0) if(diffdFi1norm/dFi1norm > 1.0e-10) fprintf(stderr, " ... rel. diff = %e\n", diffdFi1norm/dFi1norm);
-  //  else if(diffdFi1norm > 1.0e-10) fprintf(stderr, " ... abs. diff = %e\n", diffdFi1norm);
-  //  if(dFi2norm != 0) if(diffdFi2norm/dFi2norm > 1.0e-10) fprintf(stderr, " ... rel. diff = %e\n", diffdFi2norm/dFi2norm);
-  //  else if(diffdFi2norm > 1.0e-10) fprintf(stderr, " ... abs. diff = %e\n", diffdFi2norm);
-
-    dFvv = 0.0;
-    for(int l=0; l<3; ++l) {
-      for(int j=0; j<3; ++j)
-        for(int k=0; k<3; ++k)
-          dFvv[l] += dFvdX[l][j][k]*dX[nodeNum(j)][k];
-      for(int j=0; j<4; ++j) {
-        for(int k=0; k<3; ++k)
-          dFvv[l] += dFvdXtet[l][j][k]*dX[nodeNumTet[j]][k];
-        for(int k=0; k<5; ++k)
-          dFvv[l] += dFvdV[l][j][k]*dV[elem[j]][k];
-      }
-    }
-
-    Vec3D diffv = dFv - dFvv;
-    double diffvnorm = diffv.norm();
-    double dFvnorm = dFv.norm();
-
-    if(dFvnorm != 0) {
-      double reldiff = diffvnorm/dFvnorm;
-      if(reldiff > 1.0e-10) { fprintf(stderr, " ... 3. rel. diff for dFv is %e\n", diffvnorm/dFvnorm); exit(-1); }
-    } else {
-      if(diffvnorm > 1.0e-10) { fprintf(stderr, " ... 3. abs. diff for dFv is %e\n", diffvnorm); exit(-1); }
-    }
-  */
-  }
+}
 
   //------------------------------------------------------------------------------
 
@@ -1646,8 +1556,8 @@ void FaceTria::computeScalarQuantity(PostFcn::ScalarType stype, ElemSet& elems,
     double *Vface[3] = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)]};
     double *Vtet[4] = {V[elem[0]], V[elem[1]],
 		       V[elem[2]], V[elem[3]]};
-
-    double q = postFcn->computeFaceScalarQuantity(stype, dp1dxj, n, d2w, Vwall, Vface, Vtet);
+    double dist = computeHeight(X,elems);
+    double q = postFcn->computeFaceScalarQuantity(stype, dp1dxj, n, d2w, Vwall, Vface, Vtet, dist);
 
     for (int j=0; j<3; ++j) {
       Q[ nodeNum(j) ][0] += S;

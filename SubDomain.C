@@ -8118,6 +8118,7 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                     weights[k] = (1.0 -  alpha)*(1.0 -  alpha);
                 }
 
+
 // Update temperature, Replace fourth variable with temperature, constant extrapolation or wall temperature
                 if((resij.heatFluxType==SurfaceData::ADIABATIC)||(resij.structureType!=BoundaryData::WALL)){
                     double T = varFcn->computeTemperature(Vi,tagI);
@@ -8191,6 +8192,7 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                         //std::cout << "Wall " << "dudn"  <<dudn <<" d2wi+d2wj " << d2wi + d2wj << "ug_n " << ug_n << "ug_tg1 " << ug_tg1 << "ug_tg_2 " << ug_tg2 << std::endl;
                         for (int k = 1; k < 4; ++k) {
                             Vj[k] = ug_n * normal[k - 1] + ug_tg1 * tgW1[k - 1] + ug_tg2 * tgW2[k - 1];
+                            //todo debug
                         }
                     }
                     else {
@@ -8225,7 +8227,6 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                 {ghostPoints[j]=new GhostPoint<dim>(varFcn);}
 
                 ghostPoints[j]->addNeighbour(Vj,weights,tagI);
-
 
             }
 //////////////////// Populate node j to ghost node i
@@ -9928,7 +9929,7 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
                                              PostFcn *postFcn, VarFcn *varFcn,
                                              Vec<int> &fluidId, SVec<double,dimLS>* phi,
                                               int sizeQnty, int numStructElems, int (*stElem)[3],
-                                             Vec<Vec3D>& Xstruct, LevelSetStructure &LSS,
+                                             Vec<Vec3D>& Xstruct, Vec3D* Xdotstruct, LevelSetStructure &LSS,
                                              double pInfty,
                                              Vec<GhostPoint<dim>*> *ghostPoints,
                                              NodalGrad<dim, double> &ngrad, double* interfaceFluidMeshSize,
@@ -9962,13 +9963,12 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
 
 
     int stNode[3];
-    Vec3D Xst[3], Xp, bary;
-    double *Vwall = 0;
+    Vec3D Xst[3], Xdotst[3], Xp, bary;
+    double Vwall[3];
 
 
     //compute pressure coeffient
     for(int nSt = 0; nSt < numStructElems; ++nSt) {//loop all structure surface elements(triangle)
-
         for (int j=0; j<3; ++j) {
             stNode[j] = stElem[nSt][j]; // get element node numbers
             Xst[j] = Xstruct[stNode[j]]; //get node coordinates
@@ -10092,15 +10092,14 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
 
             }
         }
-
     }
     if(ghostPoints) {
         //compute skin friction, use the velocity at Xp + dh*normal
         for (int nSt = 0; nSt < numStructElems; ++nSt) {//loop all structure surface elements(triangle)
-
             for (int j = 0; j < 3; ++j) {
                 stNode[j] = stElem[nSt][j]; // get element node numbers
                 Xst[j] = Xstruct[stNode[j]]; //get node coordinates
+                Xdotst[j] = Xdotstruct[stNode[j]];//get node velocity
             }
             Vec3D normal = 0.5 * (Xst[1] - Xst[0]) ^(Xst[2] - Xst[0]); // area weighted normal
             S = normal.norm();
@@ -10108,6 +10107,7 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
             for (int nq = 0; nq < nqPoint; ++nq) {
                 for (int j = 0; j < 3; ++j) { // get quadrature points
                     Xp[j] = qloc[nq][0] * Xst[0][j] + qloc[nq][1] * Xst[1][j] + qloc[nq][2] * Xst[2][j];
+                    Vwall[j] = qloc[nq][0] * Xdotst[0][j] + qloc[nq][1] * Xdotst[1][j] + qloc[nq][2] * Xdotst[2][j];
                 }
 
                 dh = interfaceFluidMeshSize[nqPoint * nSt + nq];

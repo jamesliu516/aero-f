@@ -1530,7 +1530,7 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
   int numStructElems  = distLSS->getNumStructElems();
   int   (*stElem)[3]  = distLSS->getStructElems();
   Vec<Vec3D>& Xstruct = distLSS->getStructPosition();
-
+  Vec3D* Xdotstruct = distLSS->getStructVelocity();
   typedef double subArray[4];
   subArray **subEmbQ = new subArray * [numLocSub];
   for(int i=0; i<numLocSub; ++i) subEmbQ[i] = new subArray[numStructNodes];
@@ -1630,6 +1630,7 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
       StNodeDir[i][1] = (int) tmp2[i];
     }
 
+
     for(int k=0; k<3; ++k)
     {
       for(int i=0; i<numStructElems; ++i)
@@ -1706,7 +1707,7 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
       if (ghostPoints) gp = ghostPoints->operator[](iSub);
       subDomain[iSub]->computeEMBNodeScalarQuantity(*(spaceOp->iod), X(iSub), (*V)(iSub), postFcn, varFcn,
                                                     fluidId(iSub), Phi ? &((*Phi)(iSub)) : (SVec<double, 1> *) 0,
-                                                    numStructNodes, numStructElems, stElem, Xstruct, (*distLSS)(iSub),
+                                                    numStructNodes, numStructElems, stElem, Xstruct, Xdotstruct, (*distLSS)(iSub),
                                                     1.0, gp, (*ngrad)(iSub), interfaceFluidMeshSize, strucOrientation,
                                                     subEmbQ[iSub]);
 

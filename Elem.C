@@ -90,10 +90,10 @@ void ElemSet::computeTimeStep(
 
 template<int dim>
 void ElemSet::computeGalerkinTerm(FemEquationTerm *fet, GeoState &geoState, 
-                SVec<double,3> &X, SVec<double,dim> &V,
-                SVec<double,dim> &R,
-                Vec<GhostPoint<dim>*> *ghostPoints,
-                LevelSetStructure *LSS, bool externalSI)
+				  SVec<double,3> &X, SVec<double,dim> &V, 
+				  SVec<double,dim> &R,
+											 Vec<GhostPoint<dim>*> *ghostPoints, 
+											 LevelSetStructure *LSS, bool externalSI)
 {
 
   Vec<double> &d2wall = geoState.getDistanceToWall();

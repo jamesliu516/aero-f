@@ -46,6 +46,21 @@ void FaceTria::computeNormal(SVec<double,3> &X, Vec3D &faceNorm)
   faceNorm = 0.5 * ((x[2] - x[0]) ^ (x[1] - x[0]));
 
 }
+//-----------------------------------------------------------------------------
+//compute the height of the element corresponding to the face
+double FaceTria::computeHeight(SVec<double,3> &X, ElemSet& elems)
+{
+  Vec3D x_face[3] = {X[ nodeNum(0) ], X[ nodeNum(1) ], X[ nodeNum(2) ]};
+  Elem& elem = elems[elemNum];
+  Vec3D x;
+  for(int i = 0; i < 4; i++)
+    if((elem[i] != nodeNum(0)) && (elem[i] != nodeNum(1)) && (elem[i] != nodeNum(2)))
+      x = X[elem[i]];
+
+  Vec3D faceNorm = ((x_face[2] - x_face[0]) ^ (x_face[1] - x_face[0]));
+  faceNorm = faceNorm/faceNorm.norm();
+  return std::fabs(faceNorm*(x-x_face[0]));
+}
 
 //------------------------------------------------------------------------------
 

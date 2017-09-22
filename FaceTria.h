@@ -264,6 +264,8 @@ public:
   void computeDerivativeOperatorsOfNormal(int, SVec<double,3> &, RectangularSparseMat<double,3,3> &);
   void compute_dndX(SVec<double,3> &, double dndX[3][3][3]);
 
+  double computeHeight(SVec<double,3> &X, ElemSet& elems);
+
 };
 
 //------------------------------------------------------------------------------
