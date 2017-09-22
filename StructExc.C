@@ -555,7 +555,6 @@ void StructExc::sendForce(DistSVec<double,3> &F, bool applyScale)
 
     double (*forces)[3] = reinterpret_cast<double (*)[3]>(buffer);
 
-    if(true) {
 #pragma omp parallel for reduction (+: norm)
       for (int iSub = 0; iSub < numLocSub; ++iSub) {
         SVec<double,3> &f = F(iSub);
@@ -577,7 +576,7 @@ void StructExc::sendForce(DistSVec<double,3> &F, bool applyScale)
           exit(-1);
         }
       }
-    }
+
 
     for (int iCpu=0; iCpu<numStrCPU; ++iCpu) {
       if (numStrNodes[iCpu][0] > 0) {

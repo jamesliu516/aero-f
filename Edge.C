@@ -30,6 +30,8 @@ using std::min;
 #include <HigherOrderFSI.h>
 #include <ErrorHandler.h>
 
+
+
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -3738,7 +3740,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     } // interface
 
   } //edges
-    int j=2432;
 
   return ierr;
 
@@ -5555,8 +5556,6 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                 dUdU[k] = 0.;
               }
             }
-  
-        fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Wstar,Vj, dfdUi, dfdUj, fluidId[j],false); 
             //dfdUi = df/dWstar dfdUj = df/dVj
             fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Wstar, Vj, dfdUi,
                                                    dfdUj, fluidId[j], false);

@@ -164,6 +164,7 @@ class DistIntersectorFRG : public DistLevelSetStructure {
     Vec<Vec3D> &getStructPosition_0() { return *solidX0; }
     Vec<Vec3D> &getStructPosition_n() { return *solidXn; }
     Vec<Vec3D> &getStructPosition_np1() { return *solidXnp1; }
+	Vec3D* getStructVelocity(){return Xsdot; }
     Vec<Vec3D> &getStructDerivative() { return *solidXdS; }
     int (*getNodesType()) { return NULL; }
 

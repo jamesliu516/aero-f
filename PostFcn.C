@@ -43,7 +43,7 @@ double PostFcn::computeDerivativeOfNodeScalarQuantity(ScalarDerivativeType type,
 
 double PostFcn::computeFaceScalarQuantity(ScalarType type, double dp1dxj[4][3], 
 					  Vec3D& n, double d2w[3], double* Vwall, 
-					  double* Vface[3], double* Vtet[4])
+					  double* Vface[3], double* Vtet[4], double dist)
 {
 
   fprintf(stderr, "*** Warning: computeFaceScalarQuantity not defined\n");
@@ -1528,10 +1528,20 @@ void PostFcnNS::rstVar(IoData &iod, Communicator *com)
 }
 
 //------------------------------------------------------------------------------
-
+/***************
+ * This is for ALE compute y+ and Cf
+ * type: enum DELTA_PLUS or SKIN_FRICTION
+ * dp1dxj: the derivatives of 4 hat functions
+ * n: the unit vector toward the wall from the fluid
+ * d2w: distance to wall of the 3 face nodes
+ * Vwall: wall velocity
+ * Vface: the faces nodes'primitive variables
+ * Vtet: the Tetrahedron that constains the face, its primitive variables
+ * dist: the tetrahedron's height corresponding to the face
+ */
 double PostFcnNS::computeFaceScalarQuantity(ScalarType type, double dp1dxj[4][3], 
 					    Vec3D& n, double d2w[3], double* Vwall, 
-					    double* Vface[3], double* Vtet[4])
+					    double* Vface[3], double* Vtet[4], double dist)
 {
 
   double q = 0.0;
@@ -1547,9 +1557,17 @@ double PostFcnNS::computeFaceScalarQuantity(ScalarType type, double dp1dxj[4][3]
 #endif
   }
   else if (type == SKIN_FRICTION) {
-    Vec3D t(1.0, 0.0, 0.0);
-    Vec3D F = computeViscousForce(dp1dxj, n, d2w, Vwall, Vface, Vtet);
-    q = 2.0 * t * F / sqrt(n*n);
+//    This is the old way to compute skin friction, t is ot
+//    Vec3D t(1.0, 0.0, 0.0);
+//    Vec3D F = computeViscousForce(dp1dxj, n, d2w, Vwall, Vface, Vtet);
+//    q = 2.0 * t * F / sqrt(n*n);
+
+      //Skin Friction is computed as mu*d u_parallel(y=0)/ dy.
+      // u_parallel is evaluated at the tetrahedron center, barcentric  of the
+      double bary[3] = {0.25,0.25,0.25};
+      Vec3D unit_n = -n/n.norm();//becasue n is the outward fluid norm, we need the structure normal
+      q = computeSkinFriction(unit_n, dist/4.0,  Vwall,   Vtet,  bary);
+
   }
 
   return q;
@@ -1613,22 +1631,22 @@ Vec3D PostFcnNS::computeViscousForce(double dp1dxj[4][3], Vec3D& n, double d2w[3
 
 //------------------------------------------------------------------------------
 /***************
- * n: the vector from wall point Xp to point Xpp,  Xpp - Xp
+ * This is for EMB
+ * n: the unit vector from wall point Xp to point Xpp,  Xpp - Xp
  * Vwall: wall velocity
  * Vtet: the Tetrahedron that contains Xpp, its primitive variables
  * bary: double[3] Xp's Barycentric Coordinates
  */
 double PostFcnNS::computeSkinFriction(Vec3D& n, double dist, double* Vwall,  double* Vtet[4], double* bary)
 {
-
-    double sk = 0.0; //skin friction
+    double Cf = 0.0; //skin friction
     double T[4], T_pp;
     Vec3D v_pp;
     for (int i = 0; i < 4;  i ++)
         T[i] = NavierStokesTerm::varFcn->computeTemperature(Vtet[i]);
     for (int i = 0; i < 3; i++) {
         v_pp[i] = bary[0] * Vtet[0][i + 1] + bary[1] * Vtet[1][i + 1] +
-                    bary[2] * Vtet[2][i + 1] + (1 - bary[0] - bary[1] - bary[2]) * Vtet[3][i + 1];
+                    bary[2] * Vtet[2][i + 1] + (1 - bary[0] - bary[1] - bary[2]) * Vtet[3][i + 1] - Vwall[i];
     }
 
     T_pp = bary[0] * T[0] + bary[1] *T[1] +
@@ -1636,17 +1654,29 @@ double PostFcnNS::computeSkinFriction(Vec3D& n, double dist, double* Vwall,  dou
     double mu     = viscoFcn->compute_mu(T_pp);
     mu     *= ooreynolds_mu;
      v_pp = v_pp - (v_pp*n)*n; //tangential component
-    sk = 2*mu*v_pp.norm()/dist; //sk is the skin fraction coefficient
+    /**************
+     * Cf = 2tau_w/(rho_oo*U_oo^2) let u be the parallel velocity
+     *    = 2mu du/dy/rho_oo*U_oo^2 because we use nondimensional parameters
+     *    = 2 mu~ du~/dy~ *(mu_ref/rho_oo*U_oo*L_ref) tilde are nondimensional parameters
+     *    = 2 mu~ du~/dy~ /Re_oo
+     * ooreynolds_mu is   1/Re_oo
+     *******/
+    Cf = 2*mu*v_pp.norm()/dist; //sk is the skin fraction coefficient
 
     Vec3D orientation = v_pp^n;
-    if (orientation[2] < 0) sk = -sk;
+    /**************
+     * Consistently give Cf signs
+     * orientation is the cross product of parallel velocity and normal vector
+     * if its z dimensional is < 0 we have Cf is negative
+     *******/
+    if (orientation[2] < 0) Cf = -Cf;
 
-    return sk;
+    return Cf;
 
 
 
 }
-//------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------
 
 Vec3D PostFcnNS::computeViscousForceCVBoundary(Vec3D& n,  double* Vi, double dudxj[3][3])
 {

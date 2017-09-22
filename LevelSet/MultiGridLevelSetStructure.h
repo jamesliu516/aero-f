@@ -128,6 +128,7 @@ class DistMultiGridLevelSetStructure : public DistLevelSetStructure {
     Vec<Vec3D> &getStructPosition_0()  { return parent->getStructPosition_0(); }
     Vec<Vec3D> &getStructPosition_n() { return parent->getStructPosition_n(); }
     Vec<Vec3D> &getStructPosition_np1() { return parent->getStructPosition_np1(); }
+	Vec3D* getStructVelocity(){return parent->getStructVelocity(); }
     Vec<Vec3D> &getStructDerivative() { return parent->getStructDerivative(); }
 
 

@@ -5311,7 +5311,7 @@ void EmbeddedFramework::setup(const char *name) {
                                      "MidEdge", 0, "Intersection", 1);
   new ClassToken<EmbeddedFramework> (ca, "SecondOrderEulerFlux", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::secondOrderEulerFlux), 2,
                                      "Intersection", 0, "ClosestPoint", 1);
-  embedIC.setup("InitialConditions", ca);
+  embedIC.setup("InitialConditions", ca); 
 
   new ClassDouble<EmbeddedFramework>(ca, "Alpha", this, &EmbeddedFramework::alpha);
   new ClassDouble<EmbeddedFramework>(ca, "InterfaceThickness", this, &EmbeddedFramework::interfaceThickness);

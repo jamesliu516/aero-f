@@ -1268,7 +1268,7 @@ bool FemEquationTermSA::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2
     else
       dmutilde[k][5] = 0.0;
 
-    for(int i=0; i<5; ++i)
+    for(int i=0; i<6; ++i)
       dmut[k][i] = computeDerivativeOfTurbulentViscosity(V, mul, dmul[k][i], dmutilde[k][i]);
 
     dkappa[k][0] = ooreynolds_mu * (thermalCondFcn->computeDerivative(Tcg, dTcgdu0, dMach) + turbThermalCondFcn.turbulentConductivityDerivative(dmut[k][0]));
@@ -1278,7 +1278,7 @@ bool FemEquationTermSA::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2
     dkappa[k][4] = ooreynolds_mu * (thermalCondFcn->computeDerivative(Tcg, dTcgdu4, dMach) + turbThermalCondFcn.turbulentConductivityDerivative(dmut[k][4]));
     dkappa[k][5] = ooreynolds_mu * (thermalCondFcn->computeDerivative(Tcg, dTcgdu5, dMach) + turbThermalCondFcn.turbulentConductivityDerivative(dmut[k][5]));
 
-    for(int i=0; i<5; ++i){
+    for(int i=0; i<6; ++i){
       dmu[k][i] = ooreynolds_mu * (dmul[k][i] + dmut[k][i]);
       double dlambdal = viscoFcn->compute_lambdaDerivative(mu, dmu[k][i], dMach);
       double dlambdat = computeDerivativeOfSecondTurbulentViscosity(lambdal, dlambdal, mul, dmul[k][i], mut, dmut[k][i]);
