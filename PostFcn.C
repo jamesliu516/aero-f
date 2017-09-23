@@ -1791,8 +1791,9 @@ Vec3D PostFcnNS::computeViscousForce(double dp1dxj[4][3], Vec3D& n, double d2w[3
  */
 double PostFcnNS::computeSkinFriction(Vec3D& n, double dist, double* Vwall,  double* Vtet[4], double* bary)
 {
+
     double Cf = 0.0; //skin friction
-    double T[4], T_pp;
+    double T[4], T_pp, rho_pp;
     Vec3D v_pp;
     for (int i = 0; i < 4;  i ++)
         T[i] = NavierStokesTerm::varFcn->computeTemperature(Vtet[i]);
@@ -1803,17 +1804,27 @@ double PostFcnNS::computeSkinFriction(Vec3D& n, double dist, double* Vwall,  dou
 
     T_pp = bary[0] * T[0] + bary[1] *T[1] +
                   bary[2] *T[2] + (1 - bary[0] - bary[1] - bary[2]) * T[3];
+    rho_pp = bary[0] * Vtet[0][0] + bary[1] * Vtet[1][0] +
+             bary[2] * Vtet[2][0] + (1 - bary[0] - bary[1] - bary[2]) * Vtet[3][0];
     double mu     = viscoFcn->compute_mu(T_pp);
     mu     *= ooreynolds_mu;
      v_pp = v_pp - (v_pp*n)*n; //tangential component
-    /**************
-     * Cf = 2tau_w/(rho_oo*U_oo^2) let u be the parallel velocity
-     *    = 2mu du/dy/rho_oo*U_oo^2 because we use nondimensional parameters
-     *    = 2 mu~ du~/dy~ *(mu_ref/rho_oo*U_oo*L_ref) tilde are nondimensional parameters
-     *    = 2 mu~ du~/dy~ /Re_oo
-     * ooreynolds_mu is   1/Re_oo
-     *******/
-    Cf = 2*mu*v_pp.norm()/dist; //sk is the skin fraction coefficient
+
+    if(wallFcn) {
+        double dudn, dTdn, dT = 0.0/*todo it should be T -T_wall but never use in wall function*/;
+        double utau = wallFcn->computedudT( rho_pp,  T_pp, v_pp.norm(), dT, dist, dudn, dTdn);
+        Cf = 2.0 * rho_pp * utau * utau;
+    }
+    else{
+        /**************
+         * Cf = 2tau_w/(rho_oo*U_oo^2) let u be the parallel velocity
+         *    = 2mu du/dy/rho_oo*U_oo^2 because we use nondimensional parameters
+         *    = 2 mu~ du~/dy~ *(mu_ref/rho_oo*U_oo*L_ref) tilde are nondimensional parameters
+         *    = 2 mu~ du~/dy~ /Re_oo
+         * ooreynolds_mu is   1/Re_oo
+         *******/
+        Cf = 2 * mu * v_pp.norm() / dist; //sk is the skin fraction coefficient
+    }
 
     Vec3D orientation = v_pp^n;
     /**************

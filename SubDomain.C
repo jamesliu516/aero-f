@@ -7951,7 +7951,8 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                         double ug_n = (v_s - alpha * uf) * normal / (1 - alpha);
                         double ug_tg2 = (v_s - alpha * uf) * tgW2 / (1 - alpha);
                         double ug_tg1 = uf * tgW1 - dudn * (d2wi + d2wj);
-                        //std::cout << "Wall " << "dudn"  <<dudn <<" d2wi+d2wj " << d2wi + d2wj << "ug_n " << ug_n << "ug_tg1 " << ug_tg1 << "ug_tg_2 " << ug_tg2 << std::endl;
+
+                        std::cout << "Wall uf * tgW1 " << uf * tgW1 << "dudn"  <<dudn <<" d2wi+d2wj " << d2wi + d2wj << "ug_n " << ug_n << "ug_tg1 " << ug_tg1 << "ug_tg_2 " << ug_tg2 << std::endl;
                         for (int k = 1; k < 4; ++k) {
                             Vj[k] = ug_n * normal[k - 1] + ug_tg1 * tgW1[k - 1] + ug_tg2 * tgW2[k - 1];
                             //todo debug
@@ -10049,6 +10050,8 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
                         vtet_pp[i] = gp->getPrimitiveState();
                     }
                 }
+
+
 
                 Cflocal = postFcn->computeSkinFriction(unit_nf, dh, Vwall, vtet_pp, bary);
 

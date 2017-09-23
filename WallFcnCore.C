@@ -162,15 +162,19 @@ void WallFcn::computeDerivativeOfFaceValues(double d2wall[3], double *Vwall, dou
 
 double WallFcn::computeFrictionVelocity(double ut, double delta, double rho, double mu)
 {
-  //dzh
-  //std::cout  << "In computeFrictionVelocity "  << std::endl;
+  /*****
+   * ut : tangential velocity
+   * delta: distance to wall
+   * rho: density
+   * mu: viscosity
+   *
+   * find utau:
+   *
+   */
 
   int maxits = 20;
   double eps = 1.e-6;
 
-  //double ut = u * t;
-  //dzh
-  //std::cout  << "ut is " << ut  << std::endl;
 
   if (ut < 0.0) ut = 0.0; 
 
@@ -179,11 +183,9 @@ double WallFcn::computeFrictionVelocity(double ut, double delta, double rho, dou
   double res;
   double target, dplus;
   int it;
-  for (it=0; it<maxits; ++it) {//solve for u_tau
+  for (it=0; it<maxits; ++it) {//solve for u_tau y_plus = f(u/u_t) = f(u_tau)
 
     dplus = reynolds * utau * delta * rho / mu;
-    //dzh
-    //std::cout  << "utau is " << utau << " dplus is " << dplus << std::endl;
 
     /* Daniel Huang comments these lines, because it says dplus < 1, sublayer formular is valid
       if (dplus < 1.0) {
@@ -224,8 +226,9 @@ double WallFcn::computeFrictionVelocity(double ut, double delta, double rho, dou
 
   if (utau <= 0.0)
     fprintf(stderr, "*** Warning: utau=%e\n", utau);
-
-  //std::cout << "yplus= " << dplus << " utau is " << utau <<std::endl;
+  
+  if (dplus > 200.0)
+    std::cout << "*** Warning yplus is too large, it is  " << dplus << " utau is " << utau <<std::endl;
   return utau;
 
 }
