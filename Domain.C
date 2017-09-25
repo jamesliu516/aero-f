@@ -2339,7 +2339,7 @@ void Domain::finishJacobianGalerkinTerm(DistVec<double> &ctrlVol, DistMat<Scalar
 }
 
 //------------------------------------------------------------------------------
-
+//Embedded boundary method
 template<int dim>
 void Domain::computeGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &bcData,
 				 DistGeoState &geoState, DistSVec<double,3> &X,
@@ -4752,7 +4752,7 @@ void Domain::populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints, DistSVe
 
 	  for (iSub = 0; iSub < numLocSub; ++iSub) 
 		  subDomain[iSub]->reduceGhostPoints((*ghostPoints)(iSub), X(iSub));
-
+      //Some times canot populate ghost point become of domain decomposition, we need to check it
 	  for (iSub = 0; iSub < numLocSub; ++iSub) 
 		  subDomain[iSub]->checkGhostPoints((*ghostPoints)(iSub), X(iSub), U(iSub), (*ngrad)(iSub),
 														varFcn, (*distLSS)(iSub), tag(iSub));
@@ -4775,32 +4775,6 @@ void Domain::populateGhostJacobian(DistVec<GhostPoint<dim>*> *ghostPoints,
  
 }
 
-//------------------------------------------------------------------------------
-
-template<int dim>
-void Domain::setSIstencil(DistSVec<double,3> &X, DistLevelSetStructure *distLSS, DistVec<int> &fluidId, DistSVec<double,dim> &U, bool externalSI)
-{
-
-	int iSub;
-
-#pragma omp parallel for
-	for (iSub = 0; iSub < numLocSub; ++iSub) 
-		subDomain[iSub]->setSIstencil(X(iSub), (*distLSS)(iSub), fluidId(iSub), U(iSub), externalSI);
-			
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim>
-void Domain::setFEMstencil(DistSVec<double,3> &X, DistLevelSetStructure *distLSS, DistVec<int> &fluidId, DistSVec<double,dim> &U)
-{
-
-	int iSub;
-
-#pragma omp parallel for
-	for (iSub = 0; iSub < numLocSub; ++iSub)
-		subDomain[iSub]->setFEMstencil(X(iSub), (*distLSS)(iSub), fluidId(iSub), U(iSub));			
-}
 
 
 //------------------------------------------------------------------------------

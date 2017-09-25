@@ -8290,7 +8290,7 @@ void SubDomain::populateGhostPoints_e(Vec<GhostPoint<dim>*> &ghostPoints, SVec<d
 
 }
 //--------------------------------------------------------------------------
-
+// if the ghost node is not populated
 template<int dim>
 void SubDomain::checkGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<double,3> &X, 
 											SVec<double,dim> &U, NodalGrad<dim, double> &ngrad, 
@@ -8321,7 +8321,7 @@ void SubDomain::checkGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<double
 			W_ = ghostPoints[i]->Ws;
 
 
-			if(gValid) continue;			
+			if(gValid) continue; //it is valid
 
 			dummy = LSS.xWallNode(i, xWall);
 			dummy = LSS.vWallNode(i, vWall);
@@ -8340,7 +8340,7 @@ void SubDomain::checkGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<double
 			
 			bool gotIt = false;
 
-			for(int j=0; j<Nsize; ++j) 
+			for(int j=0; j<Nsize; ++j) //loop all its active neighber
 			{
 				int Nj = Nlist[j];
 
@@ -8388,103 +8388,7 @@ void SubDomain::checkGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<double
 	delete[] Vf;
 
 }
-//--------------------------------------------------------------------------
 
-//d2d
-// Set the stencil, for these edges cross the surrogate interface, P, we have its closest point on the structure Q,
-// Find the QP intersects a fluid tet, and its face, and the barycentric coordinate of the intersection on the face
-
-template<int dim>
-void SubDomain::setSIstencil(SVec<double,3> &X, LevelSetStructure &LSS, 
-									  Vec<int> &fluidId, SVec<double,dim> &U, bool externalSI)
-{
-
-	int i, j;
-
-	bool* edgeFlag    = edges.getMasterFlag();
-	int (*edgePtr)[2] = edges.getPtr();
-
-	Vec3D xWall, normWall;
-
-	V6NodeData (*SiStencilData);
-   SiStencilData = 0;
-
-	if(!SiStencilData) 
-		SiStencilData = new V6NodeData[edges.size()]; 
-	
-	bool withSI = false;
-
-	for(int l=0; l<edges.size(); l++)
-	{
-		//if( edgeFlag[l] ) continue;???
-
-		if(!LSS.edgeWithSI(l)) continue;
-
-		i = edgePtr[l][0];
-		j = edgePtr[l][1];		
-
-		Vec3D xwall, nwall;
-	   LSS.xWallWithSI(l, xwall);
-	   LSS.nWallWithSI(l, nwall);
-
-		bool gotIt = getSIstencil(i, j, X, LSS, fluidId, nwall, xwall, SiStencilData[l], externalSI);
-	  
-		withSI = withSI || gotIt;
-	}
-
-	if(withSI) 
-		higherOrderFSI->setSIstencil(SiStencilData, U);
-	else
-		delete [] SiStencilData;
-
-}
-
-//--------------------------------------------------------------------------
-//d2d
-template<int dim>
-void SubDomain::setFEMstencil(SVec<double,3> &X, LevelSetStructure &LSS, 
-										Vec<int> &fluidId, SVec<double,dim> &U)
-{
-	
-	Vec3D xWall, normWall;
-
-	V6NodeData (*NodeStencilData_p);
-   NodeStencilData_p = 0;
-
-	V6NodeData (*NodeStencilData_m);
-   NodeStencilData_m = 0;
-	
-	if(!NodeStencilData_p) NodeStencilData_p = new V6NodeData[nodes.size()]; 
-	if(!NodeStencilData_m) NodeStencilData_m = new V6NodeData[nodes.size()]; 
-	
-	bool withGhost = false;
-
-	for(int i=0; i<nodes.size(); i++)
-	{
-		Vec3D xwall, nwall;
-
-	   bool isIGhost = LSS.xWallNode(i, xwall); //closest wall node
-
-		if(!isIGhost) continue;
-
-	   LSS.nWallNode(i, nwall);
-
-		//bool gotIt = getFEMstencil(i, X, LSS, fluidId, nwall, xwall, NodeStencilData[i]);
-		bool gotIt = getFEMstencil2(i, X, LSS, fluidId, nwall, xwall, 
-											 NodeStencilData_p[i], NodeStencilData_m[i]);
-
-		withGhost = withGhost || gotIt;
-	}
-
-	if(withGhost)
-	 	higherOrderFSI->setFEMstencil(NodeStencilData_p, NodeStencilData_m, U);
-	else
-	{
-	 	delete [] NodeStencilData_p;
-	 	delete [] NodeStencilData_m;
-	}
-
-}
 
 //--------------------------------------------------------------------------
 //TODO: should distinguish master edges and non-master edges.
@@ -10522,7 +10426,7 @@ void SubDomain::computeEMBNodeScalarQuantity_step1(SVec<double,3> &X, SVec<doubl
 		E->computeBarycentricCoordinates(X, Xp, bary); 
 		if(bary[0] < 0.0 || bary[1] < 0.0 || bary[2] < 0.0 || bary[0]+bary[1]+bary[2] > 1.0) 
 		{
-            std::cout << "impossible in SubDomain::computeEMBNodeScalarQuantity_step1" << std::endl;
+            std::cout << "impossible in SubDomain::computeEMBNodeScalarQuantity_step1" << bary[0] << " " << bary[1] << " " << bary[2] << std::endl;
 			E = 0;
 			continue;
 		}

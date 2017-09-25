@@ -115,6 +115,7 @@ void ExplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
     double tw = this->timer->getTime();
 
     this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts, true, TsDesc<dim>::failSafeFlag);
+    this->spaceOp->updateStencil(*this->X, this->distLSS, this->nodeTag); // d2d this is for update stencil in algorithom involving closest points
     this->timer->addIntersectionTime(tw);
     this->com->barrier();
     this->timer->removeIntersAndPhaseChange(tw);

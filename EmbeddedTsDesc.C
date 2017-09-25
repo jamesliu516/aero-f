@@ -404,13 +404,13 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
     //d2d
 	if(ioData.embed.surrogateinterface == EmbeddedFramework::EXTERNAL) 
 	{
-		this->spaceOp->setSIstencil(*this->X, distLSS, this->nodeTag, *U);
+		this->spaceOp->setSIstencil(*this->X, distLSS, this->nodeTag);
 
 		if(eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
-			this->spaceOp->setFEMstencil(*this->X, distLSS, this->nodeTag, *U);
+			this->spaceOp->setFEMstencil(*this->X, distLSS, this->nodeTag);
 	}else if(ioData.embed.interfaceAlg == EmbeddedFramework::INTERSECTION && ioData.embed.secondOrderEulerFlux == EmbeddedFramework::CLOSESTPOINT) {
       // If use original FIVER but choose to compute second order Euler flux based on Closest Point;
-      this->spaceOp->setSIstencil(*this->X, distLSS, this->nodeTag, *U);
+      this->spaceOp->setSIstencil(*this->X, distLSS, this->nodeTag);
     }
 
   // Initialize fluid state vector

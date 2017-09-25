@@ -218,9 +218,9 @@ public:
 
 
   // d2d
-  void setSIstencil( DistSVec<double,3> &X, DistLevelSetStructure *distLSS, DistVec<int> &fluidId, DistSVec<double,dim> &U);
-  void setFEMstencil(DistSVec<double,3> &X, DistLevelSetStructure *distLSS, DistVec<int> &fluidId, DistSVec<double,dim> &U);
-  void updateStencil(DistSVec<double,3> &X, DistLevelSetStructure *distLSS, DistVec<int> &fluidId, DistSVec<double,dim> &U);
+  void setSIstencil( DistSVec<double,3> &X, DistLevelSetStructure *distLSS, DistVec<int> &fluidId);
+  void setFEMstencil(DistSVec<double,3> &X, DistLevelSetStructure *distLSS, DistVec<int> &fluidId);
+  void updateStencil(DistSVec<double,3> &X, DistLevelSetStructure *distLSS, DistVec<int> &fluidId);
   void computeRiemannWeightsForEmbeddedStruct(DistSVec<double,3> &X,
                            DistSVec<double,dim> &U, DistSVec<double,dim> &V,
                            DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
