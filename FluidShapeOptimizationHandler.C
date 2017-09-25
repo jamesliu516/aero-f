@@ -2474,8 +2474,11 @@ void FluidShapeOptimizationHandler<dim>::fsoComputeAdjoint(IoData &ioData, DistV
   if ( ioData.sa.scFlag != SensitivityAnalysis::ANALYTICAL ) {
     this->com->fprintf(stderr, " --- WARNING : only analytical adjoint sensitivities are available\n");
   }
+  DistSVec<double,dim> Udummy(dQdU);
+  Udummy=0.0;
 
   fsoAdjointLinearSolver(ioData, dQdU, lambdaU, isFSI);
+  this->spaceOp->applyBCsToDerivativeOfResidual(Udummy, lambdaU);//has same effect as applying to residual
   fsoApply_dFdXtranspose(A, lambdaU, rhs);
   rhs -= dQdX;
   if(isFSI) rhs -= dfaX;

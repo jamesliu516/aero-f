@@ -800,14 +800,11 @@ public:
     exit(-1);
   }
   
-
-
-  static void applyTransToVector(Scalar (*a)[36], int k, double (*b)[6], int i,
-                                 double (*c)[6], int j) {
-    fprintf(stderr, "*** Warning: applyTransToVector routine is not optimized for dim of 6\n");
-    fprintf(stderr, " *** WARNING: Bill's non-optimized routine\n");
+  static void applyTransToVector(bcomp (*a)[36], int k, double (*b)[6], int i,
+          double (*c)[6], int j) {
+    fprintf(stderr, " ... Incompatible types in DenseMatrixOps<bcomp,6,36>::applyTransToVector\n");
     exit(-1);
-  }
+  } 
 
 
   template<class Scalar2>

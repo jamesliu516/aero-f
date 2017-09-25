@@ -174,6 +174,11 @@ public:
   void computeDerivativeOperators(DistSVec<double,3> &, DistVec<double> &, DistSVec<Scalar2,dim> &, dRdXoperators<dim> &);
 
   template<class Scalar2>
+  void computeDerivativeOperators(DistSVec<double,3> &, DistVec<double> &, DistVec<int> &, DistSVec<Scalar2,dim> &, dRdXoperators<dim> &,
+    bool, DistLevelSetStructure *, bool includeSweptNodes = true);
+
+
+  template<class Scalar2>
   void limitDerivative(RecFcn *, DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &, DistVec<double> &, DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &);
 
   DistSVec<Scalar,dim> &getXderivative() const { return *dddx; }

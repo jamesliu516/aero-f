@@ -303,7 +303,8 @@ void PostOperator<dim>::computeDerivativeOperatorsOfNodalForce(DistSVec<double,3
                                                                RectangularSparseMat<double,dim,3> **dForcedV,
                                                                RectangularSparseMat<double,3,3> **dForcedS,
                                                                RectangularSparseMat<double,dim,dim> **dVdU,
-                                                               RectangularSparseMat<double,1,dim> **dVdPstiff)
+                                                               RectangularSparseMat<double,1,dim> **dVdPstiff,
+                                                               bool todoFixFlag)//this Flag defaults to 1 so that we can turn off NF operators for embedded non-FSI
 {
 
 #pragma omp parallel for
@@ -311,14 +312,14 @@ void PostOperator<dim>::computeDerivativeOperatorsOfNodalForce(DistSVec<double,3
     varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub));
     if(!built_dVdU) {
       varFcn->computeConservativeToPrimitiveDerivativeOperators(U(iSub), (*V)(iSub), *dVdU[iSub], *dVdPstiff[iSub]);
-      built_dVdU = true;
     }
+    if(todoFixFlag){
     subDomain[iSub]->computeDerivativeOperatorsOfNodalForce(postFcn, X(iSub), (*V)(iSub), Pin(iSub),
                                                             *dForcedX[iSub], *dForcedGradP[iSub],
                                                             *dForcedV[iSub], *dForcedS[iSub]);
   }
-
-
+  }
+built_dVdU = true;//moved to outside for loop otherwise will not be built for all local subdomains
 }
 
 //------------------------------------------------------------------------------
@@ -792,7 +793,7 @@ void PostOperator<dim>::computeDerivativeOfForceAndMoment(
 
 // Included (YC)
 // computes the derivative of non-dimensional forces and moments
-// spare implementation
+// sparse implementation
 template<int dim>
 void PostOperator<dim>::computeDerivativeOfForceAndMoment(dRdXoperators<dim> *dRdXop, DistSVec<double,3> &dX,
                                                           DistSVec<double,dim> &dU, double dS[3], DistSVec<double,3> &dGradP,
@@ -807,9 +808,9 @@ void PostOperator<dim>::computeDerivativeOfForceAndMoment(dRdXoperators<dim> *dR
     dMv[iSurf] = 0.0;
   }
 
+
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {//llooping over all subdomains
-    dRdXop->dVdU[iSub]->apply(dU(iSub), (*dV)(iSub));
     Vec3D *dfi = new Vec3D[numSurf];
     Vec3D *dmi = new Vec3D[numSurf];
     Vec3D *dfv = new Vec3D[numSurf];
@@ -820,7 +821,8 @@ void PostOperator<dim>::computeDerivativeOfForceAndMoment(dRdXoperators<dim> *dR
       dfv[iSurf] = 0.0;
       dmv[iSurf] = 0.0;
     }
-
+    dRdXop->dVdU[iSub]->apply(dU(iSub), (*dV)(iSub));
+    
     subDomain[iSub]->computeDerivativeOfForceAndMoment(dRdXop->dFidGradP[iSub],
                                                        dRdXop->dFidX[iSub],     dRdXop->dFidV[iSub],
                                                        dRdXop->dFvdX[iSub],     dRdXop->dFvdV[iSub],
@@ -846,7 +848,6 @@ void PostOperator<dim>::computeDerivativeOfForceAndMoment(dRdXoperators<dim> *dR
     delete [] dfv;
     delete [] dmv;
   }//end loop over all subdomains
-
   for(iSurf = 0; iSurf < numSurf; ++iSurf) {
 //#pragma omp critical
     {
@@ -873,7 +874,6 @@ void PostOperator<dim>::computeDerivativeOfForceAndMoment(dRdXoperators<dim> *dR
       dMv[iSurf][2] = dCoef[11];
     }
   }
-
   map<int, int>::iterator it;
   for (it = surfOutMap.begin(); it != surfOutMap.end(); it++)  {
     if (it->second > 0)  {
@@ -931,7 +931,6 @@ void PostOperator<dim>::computeDerivativeOperatorsOfForceAndMoment(dRdXoperators
     varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub));
     if(!built_dVdU) {
       varFcn->computeConservativeToPrimitiveDerivativeOperators(U(iSub), (*V)(iSub), *dRdXop.dVdU[iSub], *dRdXop.dVdPstiff[iSub]);
-      built_dVdU = true;
     }
     subDomain[iSub]->computeDerivativeOperatorsOfForceAndMoment(surfOutMap, postFcn, (*bcData)(iSub), (*geoState)(iSub),
                                                                 X(iSub), (*V)(iSub), x0, hydro,
@@ -941,7 +940,7 @@ void PostOperator<dim>::computeDerivativeOperatorsOfForceAndMoment(dRdXoperators
                                                                 *dRdXop.dFidS[iSub], *dRdXop.dMidGradP[iSub], *dRdXop.dMidX[iSub],
                                                                 *dRdXop.dMidV[iSub], *dRdXop.dMidS[iSub], *dRdXop.dMvdX[iSub], *dRdXop.dMvdV[iSub]);
   }
-
+built_dVdU = true; //moved to outside for loop otherwise will not be built for all subdomains
 }
 
 //------------------------------------------------------------------------------
@@ -1030,6 +1029,58 @@ void PostOperator<dim>::computeDerivativeOfForceAndMomentEmb(Vec3D &x0, DistSVec
 
 }
 
+
+
+// compute derivatives operators of forces and Moment for the embedded framework
+template<int dim>
+void PostOperator<dim>::computeDerivativeOperatorsOfForceAndMomentEmb(dRdXoperators<dim> &dRdXop,
+                Vec3D &x0, DistSVec<double,3> &X,
+                DistSVec<double,dim> &U,
+                DistVec<int> *fluidId,
+                double dS[3],
+                int hydro, VecSet< DistSVec<double,3> > *mX, Vec<double> *genCF)//currently exists for multiple surfaces -- we will probably only do one
+{
+
+  varFcn->conservativeToPrimitive(U, *V, fluidId);
+
+
+  if(forceGen != 0)
+    forceGen->getderivativeOperatorsOfForcesAndMoments(dRdXop, surfOutMap, *V, X, dS);
+
+
+
+
+}
+
+
+template<int dim>
+void PostOperator<dim>::computeDerivativeOfForceAndMomentEmbSurfMotion(Vec3D *dFidS,
+                Vec3D &x0, DistSVec<double,3> &X,
+                DistSVec<double,dim> &U,
+                DistVec<int> *fluidId,
+                double dS[3],
+                int hydro, VecSet< DistSVec<double,3> > *mX, Vec<double> *genCF)
+{
+
+  varFcn->conservativeToPrimitive(U, *V, fluidId);
+
+  if(forceGen != 0)
+    forceGen->getderivativeOfForcesAndMomentsSurfMotion(dFidS, surfOutMap, *V, X, dS);
+  for(int iSurf = 0; iSurf < numSurf; ++iSurf) {
+
+    double coef[3] = {dFidS[iSurf][0], dFidS[iSurf][1], dFidS[iSurf][2]};
+
+    com->globalSum(3, coef);
+
+    dFidS[iSurf][0] = coef[0];
+    dFidS[iSurf][1] = coef[1];
+    dFidS[iSurf][2] = coef[2];
+
+  }
+
+
+
+}
 //------------------------------------------------------------------------------
 
 template<int dim>

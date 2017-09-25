@@ -63,11 +63,15 @@ private:
   DistSVec<double,dim> dddy;
   DistSVec<double,dim> dddz;
 
+  DistSVec<double,6> dR;        // derivative of least square gradient coefficient or adjoint vectors, probably not needed
+  DistSVec<double,3> dGradP;    // nodal pressure gradient
+
   DistSVec<double,3> *load;
   DistSVec<double,3> *dLoad;
   DistSVec<double,3> *dLoadref;
 
   DistSVec<double,dim> dFdS;
+  DistSVec<double,dim> lambdaU;
 
   DistSVec<double,dim> dFdS_inviscid;
   DistSVec<double,dim> dFdS_viscous;
@@ -148,6 +152,11 @@ public:
 			    DistVec<double> &, 			    
 			    DistSVec<double,dim> &,
 			    DistSVec<double,dim> &);
+  void fsoSetUpAdjointLinearSolver(IoData &, 
+          DistSVec<double,3> &, 
+          DistVec<double> &,          
+          DistSVec<double,dim> &,
+          DistSVec<double,dim> &);
 
   void fsoSetUpLinearSolver2(IoData &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
 
@@ -158,6 +167,8 @@ public:
   void fso_on_sensitivityMach(bool isSparse,IoData &,  DistSVec<double,dim> &);
   void fso_on_sensitivityBeta(bool isSparse,IoData &,  DistSVec<double,dim> &);
   void fso_on_sensitivityAlpha(bool isSparse,IoData &, DistSVec<double,dim> &);
+
+  void fso_on_AdjointSensitivityMesh(bool isSparse,IoData &,  DistSVec<double,dim> &);
 
   void fsoComputeDerivativesOfFluxAndSolution(IoData &,
 					      DistSVec<double,3> &, 
@@ -181,6 +192,10 @@ public:
 		       DistSVec<double,dim> &, 
 		       DistSVec<double,dim> &,
 		       bool);
+void fsoAdjointLinearSolver(IoData &, 
+           DistSVec<double,dim> &, 
+           DistSVec<double,dim> &,
+           bool);
 
   void fsoComputeSensitivities(bool isSparse,IoData &,
 			       const char *, 
@@ -211,6 +226,9 @@ public:
   void fsoGetDerivativeOfEffortsFiniteDifference(IoData &ioData, DistSVec<double,3> &X,
 						 DistSVec<double,dim> &U, DistSVec<double,dim> &dU,
 						 Vec3D &dForces, Vec3D &dMoments, Vec3D &dL);
+  void fsoGetDerivativeOfEffortsWRTStateAnalytical(bool isSparse, Vec3D &dForces, Vec3D &dMoments,
+    IoData &ioData, DistSVec<double,3> &X, DistSVec<double,dim> &U, DistSVec<double,3> &dQdX, DistSVec<double,dim> &dQdU);
+  void fsoComputeAdjoint(IoData &ioData, DistVec<double> &A, DistSVec<double,dim> &dQdU, bool isFSI);
 
   
 

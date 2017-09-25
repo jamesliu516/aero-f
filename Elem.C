@@ -90,40 +90,40 @@ void ElemSet::computeTimeStep(
 
 template<int dim>
 void ElemSet::computeGalerkinTerm(FemEquationTerm *fet, GeoState &geoState, 
-				  SVec<double,3> &X, SVec<double,dim> &V, 
-				  SVec<double,dim> &R,
-											 Vec<GhostPoint<dim>*> *ghostPoints, 
-											 LevelSetStructure *LSS, bool externalSI)
+                SVec<double,3> &X, SVec<double,dim> &V,
+                SVec<double,dim> &R,
+                Vec<GhostPoint<dim>*> *ghostPoints,
+                LevelSetStructure *LSS, bool externalSI)
 {
 
   Vec<double> &d2wall = geoState.getDistanceToWall();
 
-	if(!externalSI)
-	{
-		if (sampleMesh)
-		{
-			for (int iElem=0; iElem<numSampledElems; ++iElem)
-			elems[ (elemsConnectedToSampleNode[iElem]) ]->computeGalerkinTerm(fet, X, d2wall, V, R, ghostPoints,LSS);
-		}
-		else
-		{
-			for (int iElem=0; iElem<numSampledElems; ++iElem)
-			elems[ iElem ]->computeGalerkinTerm(fet, X, d2wall, V, R, ghostPoints,LSS);
-		}
-	}
-	else
-	{
-		if (sampleMesh) //todo Daniel Huang What is sampleMesh
-		{
-			for (int iElem=0; iElem<numSampledElems; ++iElem) 
-				elems[ (elemsConnectedToSampleNode[iElem]) ]->computeGalerkinTerm_e(fet, X, d2wall, V, R, ghostPoints, LSS);
-		}
-		else 
-		{
-			for (int iElem=0; iElem<numSampledElems; ++iElem)
-				elems[ iElem ]->computeGalerkinTerm_e(fet, X, d2wall, V, R, ghostPoints, LSS);
-		}
-	}
+  if(!externalSI)
+  {
+    if (sampleMesh)
+    {
+      for (int iElem=0; iElem<numSampledElems; ++iElem)
+      elems[ (elemsConnectedToSampleNode[iElem]) ]->computeGalerkinTerm(fet, X, d2wall, V, R, ghostPoints,LSS);
+    }
+    else
+    {
+      for (int iElem=0; iElem<numSampledElems; ++iElem)
+      elems[ iElem ]->computeGalerkinTerm(fet, X, d2wall, V, R, ghostPoints,LSS);
+    }
+  }
+  else
+  {
+    if (sampleMesh)
+    {
+      for (int iElem=0; iElem<numSampledElems; ++iElem)
+        elems[ (elemsConnectedToSampleNode[iElem]) ]->computeGalerkinTerm_e(fet, X, d2wall, V, R, ghostPoints, LSS);
+    }
+    else
+    {
+      for (int iElem=0; iElem<numSampledElems; ++iElem)
+        elems[ iElem ]->computeGalerkinTerm_e(fet, X, d2wall, V, R, ghostPoints, LSS);
+    }
+  }
 
 }
 

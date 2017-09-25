@@ -32,12 +32,18 @@ public:
   virtual void apply(DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &)  { std::cout << "  ERROR: Using default apply function in KspPrec" << endl;  exit(-1);}
   virtual void apply(DistVec<Scalar2> &, DistVec<Scalar2> &)  { std::cout << "  ERROR: Using default apply function in KspPrec" << endl;  exit(-1);}
   virtual void applyT(DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &)  { std::cout << "  ERROR: Using default applyT function in KspPrec" << endl;  exit(-1);}
-  virtual void applyT(DistEmbeddedVec<Scalar2,dim>& x, DistEmbeddedVec<Scalar2,dim>& Px) { std::cout<< " ERROR: Using default applyT function in KspPrec" << endl;  exit(-1);}
   //virtual void applyTranspose(DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &)  { std::cout << "  ERROR: Using default applyTranspose function in KspPrec" << endl;  exit(-1);}
   //virtual void applyTranspose(DistEmbeddedVec<Scalar2,dim>& x, DistEmbeddedVec<Scalar2,dim>& Px) { std::cout<< " ERROR: Using default applyTranspose function in KspPrec" << endl;  exit(-1);}
 
   void apply(DistEmbeddedVec<Scalar2,dim>& x, DistEmbeddedVec<Scalar2,dim>& Px) { 
     apply(x.real(), Px.real());
+    Px.ghost() = x.ghost();
+    if (x.hasHHBoundaryTerm())
+      Px.hh() = x.hh();
+  }
+
+  void applyT(DistEmbeddedVec<Scalar2,dim>& x, DistEmbeddedVec<Scalar2,dim>& Px) { 
+    applyT(x.real(), Px.real());
     Px.ghost() = x.ghost();
     if (x.hasHHBoundaryTerm())
       Px.hh() = x.hh();
@@ -85,8 +91,9 @@ public:
   GenMat<Scalar,dim> &operator() (int i) { return *A[i]; }
   
   void setup();
-
+  void setupTR() {};
   void apply(DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &);
+  void applyT(DistSVec<Scalar2,dim> &x, DistSVec<Scalar2,dim> &y){apply(x,y);};// transpose is the same for diagonal matrices
   template<class MatScal>
   void getData(DistMat<MatScal,dim> &);
 

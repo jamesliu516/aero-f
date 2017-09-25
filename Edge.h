@@ -353,6 +353,15 @@ public:
 					   ExactRiemannSolver<dim>& riemann, int Nriemann,
 					   NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
 					   double dMach, SVec<double,dim>& V, SVec<double,dim>& dFluxes);
+
+  //Adjoint sensitivity contribution for invsicid term in Embedded
+  template<int dim>
+  void computeTransposeDerivativeOfFiniteVolumeTerm(FluxFcn** fluxFcn, RecFcn* recFcn, Vec<double> &ctrlVol,
+             GeoState& geoState, SVec<double,3>& X, LevelSetStructure &LSS,
+             bool linRecAtInterface, Vec<int> &fluidId, 
+             ExactRiemannSolver<dim>& riemann, int Nriemann,
+             NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
+             double dMach, SVec<double,dim>& V, SVec<double,dim>& lambdaU, double& dQ);
    
   template<int dim>
   void computeDerivativeOperatorsOfFiniteVolumeTerm(Vec<double> &irey, Vec<double> &dIrey, FluxFcn** fluxFcn, RecFcn* recFcn,

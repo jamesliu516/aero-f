@@ -30,22 +30,22 @@
 
 template<int dim>
 void Domain::computeTimeStep(double cfl, double dualtimecfl, double viscous, FemEquationTerm *fet, VarFcn *varFcn, 
-			     DistGeoState &geoState,
-			     DistSVec<double,3> &X, DistVec<double> &ctrlVol, DistSVec<double,dim> &V,
-			     DistVec<double> &dt, DistVec<double> &idti, DistVec<double> &idtv, DistVec<double> &dtau,
-									  DistVec<double> &irey, TimeLowMachPrec &tprec, SpatialLowMachPrec &sprec, 
-									  DistLevelSetStructure *distLSS)
+           DistGeoState &geoState,
+           DistSVec<double,3> &X, DistVec<double> &ctrlVol, DistSVec<double,dim> &V,
+           DistVec<double> &dt, DistVec<double> &idti, DistVec<double> &idtv, DistVec<double> &dtau,
+                    DistVec<double> &irey, TimeLowMachPrec &tprec, SpatialLowMachPrec &sprec, 
+                    DistLevelSetStructure *distLSS)
 {
 
   int iSub;
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
-	  if(distLSS)
-		  subDomain[iSub]->computeTimeStep(fet, varFcn, geoState(iSub), X(iSub), V(iSub), 
-													  dt(iSub), idti(iSub), idtv(iSub), dtau(iSub), tprec, &((*distLSS)(iSub)) );
-	  else
-		  subDomain[iSub]->computeTimeStep(fet, varFcn, geoState(iSub), X(iSub), V(iSub), 
-													  dt(iSub), idti(iSub), idtv(iSub), dtau(iSub), tprec );
+    if(distLSS)
+      subDomain[iSub]->computeTimeStep(fet, varFcn, geoState(iSub), X(iSub), V(iSub), 
+                            dt(iSub), idti(iSub), idtv(iSub), dtau(iSub), tprec, &((*distLSS)(iSub)) );
+    else
+      subDomain[iSub]->computeTimeStep(fet, varFcn, geoState(iSub), X(iSub), V(iSub), 
+                            dt(iSub), idti(iSub), idtv(iSub), dtau(iSub), tprec );
 
     subDomain[iSub]->sndData(*volPat, reinterpret_cast<double (*)[1]>(idti.subData(iSub)));
   }
@@ -77,16 +77,16 @@ void Domain::computeTimeStep(double cfl, double dualtimecfl, double viscous, Fem
     double (*volume) = ctrlVol.subData(iSub);
 
     for (int i = 0; i < ctrlVol.subSize(iSub); ++i) 
-	 {
+   {
 /*
-		 if( distLSS && !((*distLSS)(iSub).isActive(0.0,i)))
-		 {
-			 dtime[i] = cfl*volume[i];
-			 dualtime[i] = dualtimecfl *volume[i];
-			 ireynolds[i] = -sprec.getViscousRatio();
-		 }
-		 else
-		 {
+     if( distLSS && !((*distLSS)(iSub).isActive(0.0,i)))
+     {
+       dtime[i] = cfl*volume[i];
+       dualtime[i] = dualtimecfl *volume[i];
+       ireynolds[i] = -sprec.getViscousRatio();
+     }
+     else
+     {
 */
       //   idtimev[i] = idtimev[i] / volume[i];
       dtime[i] = cfl *volume[i]/(-1.0*idtimei[i] + viscous*idtimev[i]);
@@ -105,10 +105,10 @@ void Domain::computeTimeStep(double cfl, double dualtimecfl, double viscous, Fem
 // Included (MB)
 template<int dim>
 void Domain::computeDerivativeOfInvReynolds(FemEquationTerm *fet, VarFcn *varFcn, DistGeoState &geoState,
-			     DistSVec<double,3> &X, DistSVec<double,3> &dX, DistVec<double> &ctrlVol,
-			     DistVec<double> &dCtrlVol, DistSVec<double,dim> &V, DistSVec<double,dim> &dV,
-			     DistVec<double> &idti, DistVec<double> &dIdti, DistVec<double> &idtv, DistVec<double> &dIdtv,
-			     DistVec<double> &dIrey, double dMach, TimeLowMachPrec&tprec, SpatialLowMachPrec &sprec)
+           DistSVec<double,3> &X, DistSVec<double,3> &dX, DistVec<double> &ctrlVol,
+           DistVec<double> &dCtrlVol, DistSVec<double,dim> &V, DistSVec<double,dim> &dV,
+           DistVec<double> &idti, DistVec<double> &dIdti, DistVec<double> &idtv, DistVec<double> &dIdtv,
+           DistVec<double> &dIrey, double dMach, TimeLowMachPrec&tprec, SpatialLowMachPrec &sprec)
 {
 
   int iSub;
@@ -158,7 +158,7 @@ template<int dim>
 void Domain::computeTimeStep(double cfl, double dualtimecfl, double viscous, FemEquationTerm *fet, VarFcn *varFcn, DistGeoState &geoState,
                              DistVec<double> &ctrlVol, DistSVec<double,dim> &V,
                              DistVec<double> &dt, DistVec<double> &idti, DistVec<double> &idtv, DistVec<double> &dtau,
-			     TimeLowMachPrec &tprec, DistVec<int> &fluidId, DistVec<double>* umax)
+           TimeLowMachPrec &tprec, DistVec<int> &fluidId, DistVec<double>* umax)
 {
 
   int iSub;
@@ -207,17 +207,17 @@ void Domain::computeTimeStep(double cfl, double dualtimecfl, double viscous, Fem
 
 template<int dim, class Scalar>
 void Domain::computeGradientsLeastSquares(DistSVec<double,3> &X,
-					  DistSVec<double,6> &R,
-					  DistSVec<Scalar,dim> &var,
-					  DistSVec<Scalar,dim> &ddx,
-					  DistSVec<Scalar,dim> &ddy,
-					  DistSVec<Scalar,dim> &ddz)
+            DistSVec<double,6> &R,
+            DistSVec<Scalar,dim> &var,
+            DistSVec<Scalar,dim> &ddx,
+            DistSVec<Scalar,dim> &ddy,
+            DistSVec<Scalar,dim> &ddz)
 {
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->computeGradientsLeastSquares(X(iSub), R(iSub), var(iSub),
-						  ddx(iSub), ddy(iSub), ddz(iSub));
+              ddx(iSub), ddy(iSub), ddz(iSub));
 
   CommPattern<Scalar> *vPat = getCommPat(var);
   assemble(vPat, ddx);
@@ -231,9 +231,9 @@ void Domain::computeGradientsLeastSquares(DistSVec<double,3> &X,
 // Included (MB)
 template<int dim, class Scalar>
 void Domain::computeDerivativeOfGradientsLeastSquares(DistSVec<double,3> &X, DistSVec<double,3> &dX,
-					  DistSVec<double,6> &R, DistSVec<double,6> &dR,
-					  DistSVec<Scalar,dim> &var, DistSVec<Scalar,dim> &dvar, DistSVec<Scalar,dim> &dddx,
-					  DistSVec<Scalar,dim> &dddy, DistSVec<Scalar,dim> &dddz)
+            DistSVec<double,6> &R, DistSVec<double,6> &dR,
+            DistSVec<Scalar,dim> &var, DistSVec<Scalar,dim> &dvar, DistSVec<Scalar,dim> &dddx,
+            DistSVec<Scalar,dim> &dddy, DistSVec<Scalar,dim> &dddz)
 {
 
   double t0 = timer->getTime();
@@ -371,6 +371,35 @@ void Domain::computeDerivativeOperatorsOfGradientsLeastSquares(DistSVec<double,3
 }
 
 //------------------------------------------------------------------------------
+
+// Included (JH) Embedded Version
+template<int dim, class Scalar>
+void Domain::computeDerivativeOperatorsOfGradientsLeastSquares(DistSVec<double,3> &X, DistVec<int> &fluidId,
+                                                               DistSVec<double,6> &R, DistSVec<Scalar,dim> &var, 
+                                                               dRdXoperators<dim> &dRdXop,
+                                                               bool linFSI, DistLevelSetStructure *distLSS,
+                                                               bool includeSweptNodes)
+{
+
+  double t0 = timer->getTime();
+if(distLSS) {
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->computeDerivativeOperatorsOfGradientsLeastSquares(X(iSub), fluidId(iSub), R(iSub), var(iSub), 
+                                  *dRdXop.dddxdV[iSub], *dRdXop.dddydV[iSub], *dRdXop.dddzdV[iSub],
+                                  linFSI, &((*distLSS)(iSub)), includeSweptNodes);
+}
+else {
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->computeDerivativeOperatorsOfGradientsLeastSquares(X(iSub), fluidId(iSub), R(iSub), var(iSub), 
+                                  *dRdXop.dddxdV[iSub], *dRdXop.dddydV[iSub], *dRdXop.dddzdV[iSub],
+                                  linFSI, 0, includeSweptNodes);   
+}
+timer->addNodalGradTime(t0);
+
+}
+
+//------------------------------------------------------------------------------
 // least square gradient involving only nodes of same fluid (multiphase flow and FSI)
 // d2d$ dzh
 template<int dim, class Scalar>
@@ -446,20 +475,20 @@ void Domain::computeGradientsLeastSquares(DistSVec<double,3> &X,
                                           DistVec<int> &fluidId,
                                           DistSVec<double,6> &R,
                                           DistSVec<Scalar,dim> &var,
-					  DistSVec<Scalar,dim> &Wstarij,
-					  DistSVec<Scalar,dim> &Wstarji,
-					  DistVec<int> &countWstarij, DistVec<int> &countWstarji,
+            DistSVec<Scalar,dim> &Wstarij,
+            DistSVec<Scalar,dim> &Wstarji,
+            DistVec<int> &countWstarij, DistVec<int> &countWstarji,
                                           DistSVec<Scalar,dim> &ddx, DistSVec<Scalar,dim> &ddy,
                                           DistSVec<Scalar,dim> &ddz,
-					  bool linFSI, DistLevelSetStructure *distLSS)
+            bool linFSI, DistLevelSetStructure *distLSS)
 {
 
   if(distLSS) {
 #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub)
       subDomain[iSub]->computeGradientsLeastSquares(X(iSub), fluidId(iSub), R(iSub), var(iSub),
-						    Wstarij(iSub), Wstarji(iSub), 
-						    countWstarij(iSub), countWstarji(iSub),
+                Wstarij(iSub), Wstarji(iSub), 
+                countWstarij(iSub), countWstarji(iSub),
                                                     ddx(iSub), ddy(iSub), ddz(iSub), linFSI, &((*distLSS)(iSub)));
   } else {
 #pragma omp parallel for
@@ -479,15 +508,15 @@ void Domain::computeGradientsLeastSquares(DistSVec<double,3> &X,
 
 template<int dim, class Scalar>
 void Domain::computeGradientsGalerkin(DistVec<double> &ctrlVol, DistSVec<double,3> &wii,
-				      DistSVec<double,3> &wij, DistSVec<double,3> &wji,
-				      DistSVec<Scalar,dim> &var, DistSVec<Scalar,dim> &ddx,
-				      DistSVec<Scalar,dim> &ddy, DistSVec<Scalar,dim> &ddz)
+              DistSVec<double,3> &wij, DistSVec<double,3> &wji,
+              DistSVec<Scalar,dim> &var, DistSVec<Scalar,dim> &ddx,
+              DistSVec<Scalar,dim> &ddy, DistSVec<Scalar,dim> &ddz)
 {
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->computeGradientsGalerkin(ctrlVol(iSub), wii(iSub), wij(iSub), wji(iSub),
-					      var(iSub), ddx(iSub), ddy(iSub), ddz(iSub));
+                var(iSub), ddx(iSub), ddy(iSub), ddz(iSub));
 
   CommPattern<Scalar> *vPat = getCommPat(var);
   assemble(vPat, ddx);
@@ -557,19 +586,19 @@ void Domain::computeGradientsGalerkinT(DistVec<double> &ctrlVol,
 
 template<int dim>
 void Domain::computeMultiDimLimiter(RecFcnLtdMultiDim<dim> *recFcn, DistSVec<double,3> &X,
-				    DistVec<double> &ctrlVol, DistSVec<double,dim> &V,
-												DistSVec<double,dim> &dVdx, 
-												DistSVec<double,dim> &dVdy,
-												DistSVec<double,dim> &dVdz, 
-												DistSVec<double,dim> &Vmin, DistSVec<double,dim> &Vmax, 
-												DistSVec<double,dim> &phi)
+            DistVec<double> &ctrlVol, DistSVec<double,dim> &V,
+                        DistSVec<double,dim> &dVdx, 
+                        DistSVec<double,dim> &dVdy,
+                        DistSVec<double,dim> &dVdz, 
+                        DistSVec<double,dim> &Vmin, DistSVec<double,dim> &Vmax, 
+                        DistSVec<double,dim> &phi)
 {
 
   int iSub;
 
 #pragma omp parallel for
-	for(iSub = 0; iSub < numLocSub; ++iSub) 
-	{
+  for(iSub = 0; iSub < numLocSub; ++iSub) 
+  {
     subDomain[iSub]->computeMinMaxStencilValues(V(iSub), Vmin(iSub), Vmax(iSub));
     subDomain[iSub]->sndData(*vecPat, Vmin.subData(iSub));
   }
@@ -587,11 +616,11 @@ void Domain::computeMultiDimLimiter(RecFcnLtdMultiDim<dim> *recFcn, DistSVec<dou
 
 #pragma omp parallel for
   for(iSub = 0; iSub < numLocSub; ++iSub) 
-  {	  
+  {   
     subDomain[iSub]->maxRcvData(*vecPat, Vmax.subData(iSub));
     subDomain[iSub]->computeMultiDimLimiter(recFcn, X(iSub), ctrlVol(iSub),
-					    V(iSub), dVdx(iSub), dVdy(iSub), dVdz(iSub),
-					    Vmin(iSub), Vmax(iSub), phi(iSub));
+              V(iSub), dVdx(iSub), dVdy(iSub), dVdz(iSub),
+              Vmin(iSub), Vmax(iSub), phi(iSub));
     subDomain[iSub]->sndData(*vecPat, phi.subData(iSub));
   }
 
@@ -608,9 +637,9 @@ void Domain::computeMultiDimLimiter(RecFcnLtdMultiDim<dim> *recFcn, DistSVec<dou
 
     for (int i=0; i<phi.subSize(iSub); ++i) {
       for (int k=0; k<dim; ++k) {
-	locdVdx[i][k] *= locphi[i][k];
-	locdVdy[i][k] *= locphi[i][k];
-	locdVdz[i][k] *= locphi[i][k];
+  locdVdx[i][k] *= locphi[i][k];
+  locdVdy[i][k] *= locphi[i][k];
+  locdVdz[i][k] *= locphi[i][k];
       }
     }
   }
@@ -622,9 +651,9 @@ void Domain::computeMultiDimLimiter(RecFcnLtdMultiDim<dim> *recFcn, DistSVec<dou
 // Included (MB)
 template<int dim>
 void Domain::computeDerivativeOfMultiDimLimiter(RecFcnLtdMultiDim<dim> *recFcn, DistSVec<double,3> &X, DistSVec<double,3> &dX,
-				    DistVec<double> &ctrlVol, DistVec<double> &dCtrlVol, DistSVec<double,dim> &V, DistSVec<double,dim> &dV,
-				    DistSVec<double,dim> &dVdx, DistSVec<double,dim> &dVdy, DistSVec<double,dim> &dVdz,
-				    DistSVec<double,dim> &ddVdx, DistSVec<double,dim> &ddVdy, DistSVec<double,dim> &ddVdz,
+            DistVec<double> &ctrlVol, DistVec<double> &dCtrlVol, DistSVec<double,dim> &V, DistSVec<double,dim> &dV,
+            DistSVec<double,dim> &dVdx, DistSVec<double,dim> &dVdy, DistSVec<double,dim> &dVdz,
+            DistSVec<double,dim> &ddVdx, DistSVec<double,dim> &ddVdy, DistSVec<double,dim> &ddVdz,
                     DistSVec<double,dim> &Vmin, DistSVec<double,dim> &dVmin, DistSVec<double,dim> &Vmax,
                     DistSVec<double,dim> &dVmax, DistSVec<double,dim> &phi, DistSVec<double,dim> &dphi)
 {
@@ -668,8 +697,8 @@ void Domain::computeDerivativeOfMultiDimLimiter(RecFcnLtdMultiDim<dim> *recFcn, 
   for (iSub = 0; iSub < numLocSub; ++iSub) {
     subDomain[iSub]->maxRcvData(*vecPat, dVmax.subData(iSub));
     subDomain[iSub]->computeDerivativeOfMultiDimLimiter(recFcn, X(iSub), dX(iSub), ctrlVol(iSub), dCtrlVol(iSub),
-					    V(iSub), dV(iSub), dVdx(iSub), dVdy(iSub), dVdz(iSub), ddVdx(iSub), ddVdy(iSub), ddVdz(iSub),
-					    Vmin(iSub), dVmin(iSub), Vmax(iSub), dVmax(iSub), phi(iSub), dphi(iSub));
+              V(iSub), dV(iSub), dVdx(iSub), dVdy(iSub), dVdz(iSub), ddVdx(iSub), ddVdy(iSub), ddVdz(iSub),
+              Vmin(iSub), dVmin(iSub), Vmax(iSub), dVmax(iSub), phi(iSub), dphi(iSub));
     subDomain[iSub]->sndData(*vecPat, phi.subData(iSub));
   }
 
@@ -699,12 +728,12 @@ void Domain::computeDerivativeOfMultiDimLimiter(RecFcnLtdMultiDim<dim> *recFcn, 
 
     for (int i=0; i<dphi.subSize(iSub); ++i) {
       for (int k=0; k<dim; ++k) {
-	dlocdVdx[i][k] *= locphi[i][k];
-	dlocdVdy[i][k] *= locphi[i][k];
-	dlocdVdz[i][k] *= locphi[i][k];
-	dlocdVdx[i][k] += locdVdx[i][k] * dlocphi[i][k];
-	dlocdVdy[i][k] += locdVdy[i][k] * dlocphi[i][k];
-	dlocdVdz[i][k] += locdVdz[i][k] * dlocphi[i][k];
+  dlocdVdx[i][k] *= locphi[i][k];
+  dlocdVdy[i][k] *= locphi[i][k];
+  dlocdVdz[i][k] *= locphi[i][k];
+  dlocdVdx[i][k] += locdVdx[i][k] * dlocphi[i][k];
+  dlocdVdy[i][k] += locdVdy[i][k] * dlocphi[i][k];
+  dlocdVdz[i][k] += locdVdz[i][k] * dlocphi[i][k];
       }
     }
   }
@@ -718,9 +747,9 @@ void Domain::computeDerivativeOfMultiDimLimiter(RecFcnLtdMultiDim<dim> *recFcn, 
 
     for (int i=0; i<phi.subSize(iSub); ++i) {
       for (int k=0; k<dim; ++k) {
-	locdVdx[i][k] *= locphi[i][k];
-	locdVdy[i][k] *= locphi[i][k];
-	locdVdz[i][k] *= locphi[i][k];
+  locdVdx[i][k] *= locphi[i][k];
+  locdVdy[i][k] *= locphi[i][k];
+  locdVdz[i][k] *= locphi[i][k];
       }
     }
   }
@@ -730,80 +759,80 @@ void Domain::computeDerivativeOfMultiDimLimiter(RecFcnLtdMultiDim<dim> *recFcn, 
 //------------------------------------------------------------------------------
 template<int dim>
 void Domain::computeMultiDimLimiter(DistSVec<double,3> &X,
-												DistVec<double> &A, DistSVec<double,dim> &V,
-												DistSVec<double,dim> &dVdx, 
-												DistSVec<double,dim> &dVdy,
-												DistSVec<double,dim> &dVdz,
-												DistLevelSetStructure *distLSS)
+                        DistVec<double> &A, DistSVec<double,dim> &V,
+                        DistSVec<double,dim> &dVdx, 
+                        DistSVec<double,dim> &dVdy,
+                        DistSVec<double,dim> &dVdz,
+                        DistLevelSetStructure *distLSS)
 {
 
-	DistSVec<double,dim> *Vmin = new DistSVec<double,dim>(getNodeDistInfo());
-	DistSVec<double,dim> *Vmax = new DistSVec<double,dim>(getNodeDistInfo());
-	DistSVec<double,dim> *phi  = new DistSVec<double,dim>(getNodeDistInfo());
+  DistSVec<double,dim> *Vmin = new DistSVec<double,dim>(getNodeDistInfo());
+  DistSVec<double,dim> *Vmax = new DistSVec<double,dim>(getNodeDistInfo());
+  DistSVec<double,dim> *phi  = new DistSVec<double,dim>(getNodeDistInfo());
 
-	int iSub;
-
-#pragma omp parallel for
-	for(iSub = 0; iSub < numLocSub; ++iSub) 
-	{
-		subDomain[iSub]->computeMinMaxStencilValues(V(iSub), (*Vmin)(iSub), (*Vmax)(iSub), &((*distLSS)(iSub)));
-
-		subDomain[iSub]->sndData(*vecPat, (*Vmin).subData(iSub));
-	}
-
- 	vecPat->exchange();
+  int iSub;
 
 #pragma omp parallel for
- 	for(iSub = 0; iSub < numLocSub; ++iSub) 
-	{
- 		subDomain[iSub]->minRcvData(*vecPat, (*Vmin).subData(iSub));
-		
- 		subDomain[iSub]->sndData(*vecPat, (*Vmax).subData(iSub));
- 	}
-	
- 	vecPat->exchange();
+  for(iSub = 0; iSub < numLocSub; ++iSub) 
+  {
+    subDomain[iSub]->computeMinMaxStencilValues(V(iSub), (*Vmin)(iSub), (*Vmax)(iSub), &((*distLSS)(iSub)));
 
-	RecFcnLtdMultiDim<dim> *rf = new RecFcnVenkat<dim>(1.0, 0.1);
+    subDomain[iSub]->sndData(*vecPat, (*Vmin).subData(iSub));
+  }
+
+  vecPat->exchange();
 
 #pragma omp parallel for
- 	for(iSub = 0; iSub < numLocSub; ++iSub) 
-	{	  
- 		subDomain[iSub]->maxRcvData(*vecPat, (*Vmax).subData(iSub));
+  for(iSub = 0; iSub < numLocSub; ++iSub) 
+  {
+    subDomain[iSub]->minRcvData(*vecPat, (*Vmin).subData(iSub));
+    
+    subDomain[iSub]->sndData(*vecPat, (*Vmax).subData(iSub));
+  }
+  
+  vecPat->exchange();
 
- 		subDomain[iSub]->computeMultiDimLimiter(rf, X(iSub), A(iSub), V(iSub), 
- 															 dVdx(iSub), dVdy(iSub), dVdz(iSub),
- 															 (*Vmin)(iSub), (*Vmax)(iSub), (*phi)(iSub), &((*distLSS)(iSub)) );
-
- 		subDomain[iSub]->sndData(*vecPat, (*phi).subData(iSub));
- 	}
-
- 	vecPat->exchange();
+  RecFcnLtdMultiDim<dim> *rf = new RecFcnVenkat<dim>(1.0, 0.1);
 
 #pragma omp parallel for
-  	for(iSub = 0; iSub < numLocSub; ++iSub) 
-  	{
- 		subDomain[iSub]->minRcvData(*vecPat, (*phi).subData(iSub));
+  for(iSub = 0; iSub < numLocSub; ++iSub) 
+  {   
+    subDomain[iSub]->maxRcvData(*vecPat, (*Vmax).subData(iSub));
 
- 		double (*locphi)[dim]  = (*phi).subData(iSub);
- 		double (*locdVdx)[dim] = dVdx.subData(iSub);
- 		double (*locdVdy)[dim] = dVdy.subData(iSub);
- 		double (*locdVdz)[dim] = dVdz.subData(iSub);
+    subDomain[iSub]->computeMultiDimLimiter(rf, X(iSub), A(iSub), V(iSub), 
+                               dVdx(iSub), dVdy(iSub), dVdz(iSub),
+                               (*Vmin)(iSub), (*Vmax)(iSub), (*phi)(iSub), &((*distLSS)(iSub)) );
 
- 		for(int i=0; i<(*phi).subSize(iSub); ++i) 
- 		{			
- 			for(int k=0; k<dim; ++k) 
- 			{
- 				locdVdx[i][k] *= locphi[i][k];
- 				locdVdy[i][k] *= locphi[i][k];
- 				locdVdz[i][k] *= locphi[i][k];
- 			}
- 		}
- 	}
+    subDomain[iSub]->sndData(*vecPat, (*phi).subData(iSub));
+  }
 
-	delete Vmin;
-	delete Vmax;
-	delete phi;
-	delete rf;
+  vecPat->exchange();
+
+#pragma omp parallel for
+    for(iSub = 0; iSub < numLocSub; ++iSub) 
+    {
+    subDomain[iSub]->minRcvData(*vecPat, (*phi).subData(iSub));
+
+    double (*locphi)[dim]  = (*phi).subData(iSub);
+    double (*locdVdx)[dim] = dVdx.subData(iSub);
+    double (*locdVdy)[dim] = dVdy.subData(iSub);
+    double (*locdVdz)[dim] = dVdz.subData(iSub);
+
+    for(int i=0; i<(*phi).subSize(iSub); ++i) 
+    {     
+      for(int k=0; k<dim; ++k) 
+      {
+        locdVdx[i][k] *= locphi[i][k];
+        locdVdy[i][k] *= locphi[i][k];
+        locdVdz[i][k] *= locphi[i][k];
+      }
+    }
+  }
+
+  delete Vmin;
+  delete Vmax;
+  delete phi;
+  delete rf;
 
 }
 
@@ -811,9 +840,9 @@ void Domain::computeMultiDimLimiter(DistSVec<double,3> &X,
 
 template<int dim>
 void Domain::computePressureSensor(double threshold, DistSVec<double,3>& X,
-				   DistSVec<double,dim>& V, DistSVec<double,dim>& dVdx,
-				   DistSVec<double,dim>& dVdy, DistSVec<double,dim>& dVdz,
-				   DistSVec<double,3>& sensor, DistVec<double>& sigma)
+           DistSVec<double,dim>& V, DistSVec<double,dim>& dVdx,
+           DistSVec<double,dim>& dVdy, DistSVec<double,dim>& dVdz,
+           DistSVec<double,3>& sensor, DistVec<double>& sigma)
 {
 
   const int nsmooth = 2;
@@ -826,7 +855,7 @@ void Domain::computePressureSensor(double threshold, DistSVec<double,3>& X,
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
     subDomain[iSub]->computePressureSensor(X(iSub), V(iSub), dVdx(iSub), dVdy(iSub),
-					   dVdz(iSub), sensor(iSub));
+             dVdz(iSub), sensor(iSub));
     subDomain[iSub]->sndData(*vec3DPat, sensor.subData(iSub));
   }
   vec3DPat->exchange();
@@ -854,7 +883,7 @@ void Domain::computePressureSensor(double threshold, DistSVec<double,3>& X,
       double (*s)[3] = sensor.subData(iSub);
       double* sig = sigma.subData(iSub);
       for (int i=0; i<sigma.subSize(iSub); ++i)
-	sig[i] = eps * sig[i] + omeps * s[i][0] / s[i][1];
+  sig[i] = eps * sig[i] + omeps * s[i][0] / s[i][1];
     }
   }
 
@@ -866,15 +895,15 @@ void Domain::computePressureSensor(double threshold, DistSVec<double,3>& X,
     double* sig = sigma.subData(iSub);
     for (int i=0; i<sigma.subSize(iSub); ++i) {
       if (sig[i] >= threshold) {
-	sig[i] = 1.0;
-	for (int k=0; k<dim; ++k) {
-	  locdVdx[i][k] = 0.0;
-	  locdVdy[i][k] = 0.0;
-	  locdVdz[i][k] = 0.0;
-	}
+  sig[i] = 1.0;
+  for (int k=0; k<dim; ++k) {
+    locdVdx[i][k] = 0.0;
+    locdVdy[i][k] = 0.0;
+    locdVdz[i][k] = 0.0;
+  }
       }
       else
-	sig[i] = 0.0;
+  sig[i] = 0.0;
     }
   }
 
@@ -1114,8 +1143,8 @@ void Domain::computeDerivativeOfFiniteVolumeTerm(
 // Included (YC)
 template<int dim>
 void Domain::computeDerivativeOfFiniteVolumeTerm(dRdXoperators<dim> &dRdXop, 
-						 DistBcData<dim>& bcData, DistGeoState& geoState, DistSVec<double,3>& dX, 
-						 DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad, 
+             DistBcData<dim>& bcData, DistGeoState& geoState, DistSVec<double,3>& dX, 
+             DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad, 
              DistSVec<double,dim>& dddx,
              DistSVec<double,dim>& dddy, 
              DistSVec<double,dim>& dddz,
@@ -1136,7 +1165,7 @@ void Domain::computeDerivativeOfFiniteVolumeTerm(dRdXoperators<dim> &dRdXop,
                                                          dRdXop.dFluxdEdgeNorm[iSub], dRdXop.dFluxdX[iSub],
                                                          dRdXop.dFluxdFaceNormal[iSub], dRdXop.dFluxdFaceNormalVel[iSub], dRdXop.dFluxdUb[iSub],
                                                          bcData(iSub), geoState(iSub),
-		                                                     dX(iSub), ngrad(iSub), legrad, 
+                                                         dX(iSub), ngrad(iSub), legrad, 
                                                          dddx(iSub), dddy(iSub), dddz(iSub), dEdgeNormal(iSub), dFaceNormal(iSub), dFaceNormalVel(iSub), dF(iSub));
   }
   assemble(vecPat, dF);
@@ -1150,10 +1179,10 @@ void Domain::computeDerivativeOfFiniteVolumeTerm(dRdXoperators<dim> &dRdXop,
 // Included (YC)
 template<int dim>
 void Domain::computeTransposeDerivativeOfFiniteVolumeTerm(dRdXoperators<dim> &dRdXop, 
-						 DistBcData<dim>& bcData, DistGeoState& geoState,
-						 DistSVec<double,dim>& dF, 
-						 DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad, 
-						 DistSVec<double,3>& dX2,
+             DistBcData<dim>& bcData, DistGeoState& geoState,
+             DistSVec<double,dim>& dF, 
+             DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad, 
+             DistSVec<double,3>& dX2,
              DistSVec<double,dim>& dddx2,
              DistSVec<double,dim>& dddy2,
              DistSVec<double,dim>& dddz2,
@@ -1284,6 +1313,54 @@ void Domain::computeDerivativeOfFiniteVolumeTermEmb(
   timer->addFiniteVolumeTermTime(t0);
 
 }
+
+
+/****************************************************************************************
+ * Derivative of the inviscid term for emebedded simulations                            *
+ * It is hard to say whether this is sparse or non-sparse... JH - it's really just a dot product *
+ ****************************************************************************************/
+template<int dim>
+void Domain::computeTransposeDerivativeOfFiniteVolumeTermEmb(
+               FluxFcn** fluxFcn, RecFcn* recFcn, DistVec<double> &ctrlVol,
+               DistBcData<dim>& bcData, DistGeoState& geoState,
+               DistSVec<double,3> &X,
+               DistLevelSetStructure *distLSS,
+               bool linRecAtInterface, bool viscSecOrder,
+               DistVec<int> &fluidId,
+               DistExactRiemannSolver<dim> &riemann,
+               int Nriemann,
+               DistNodalGrad<dim>& ngrad,
+               DistEdgeGrad<dim>* egrad,
+               double dMach,
+               DistSVec<double,dim>& V,
+               DistSVec<double,dim>& lambdaU,
+               double &dQ)
+{
+
+  double t0 = timer->getTime();
+  double subdQ[numLocSub];
+  int iSub;
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) {
+
+    EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
+
+    Vec<int> &FluidId = fluidId(iSub);
+
+    subDomain[iSub]->computeTransposeDerivativeOfFiniteVolumeTerm(fluxFcn, recFcn, ctrlVol(iSub), bcData(iSub), geoState(iSub),
+                       X(iSub), (*distLSS)(iSub),
+                       linRecAtInterface,  viscSecOrder,
+                       FluidId, riemann(iSub), Nriemann,
+                       ngrad(iSub), legrad, dMach,
+                       V(iSub), lambdaU(iSub), subdQ[iSub]);
+
+  }
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) dQ += subdQ[iSub];
+  timer->addFiniteVolumeTermTime(t0);
+
+}
 //------------------------------------------------------------------------------
 
 
@@ -1295,9 +1372,9 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                      DistSVec<double,3>& X, DistSVec<double,dim>& V,
                                      FluidSelector &fluidSelector,
                                      DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
-				     DistSVec<double,dimLS>& phi,
+             DistSVec<double,dimLS>& phi,
                                      DistNodalGrad<dimLS>& ngradLS,
-				     DistEdgeGrad<dimLS>* egradLS,
+             DistEdgeGrad<dimLS>* egradLS,
                                      DistSVec<double,dim>& R, int it,
                                      int failsafe, int rshift)
 {
@@ -1323,13 +1400,13 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
 
     Vec<int> &fluidId = FluidId(iSub);
     ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub),
-						    fluxFcn, recFcn, bcData(iSub), geoState(iSub),
-						    X(iSub), V(iSub), fluidId,
-						    fluidSelector, 
-						    ngrad(iSub),   legrad, phi(iSub),  
-						    ngradLS(iSub), legradLS,
-						    (*RR)(iSub), it,
-						    (*tag)(iSub), failsafe, rshift);
+                fluxFcn, recFcn, bcData(iSub), geoState(iSub),
+                X(iSub), V(iSub), fluidId,
+                fluidSelector, 
+                ngrad(iSub),   legrad, phi(iSub),  
+                ngradLS(iSub), legradLS,
+                (*RR)(iSub), it,
+                (*tag)(iSub), failsafe, rshift);
   }
   com->globalSum(1, &ierr);
 
@@ -1372,13 +1449,13 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
 
         Vec<int> &fluidId = FluidId(iSub);
         ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub),
-							fluxFcn, recFcn, bcData(iSub), geoState(iSub),
-							X(iSub), V(iSub), fluidId,
-							fluidSelector, 
-							ngrad(iSub),   legrad, phi(iSub), 
-							ngradLS(iSub), legradLS, 
-							(*RR)(iSub), it,
-							(*tag)(iSub), 0, rshift);
+              fluxFcn, recFcn, bcData(iSub), geoState(iSub),
+              X(iSub), V(iSub), fluidId,
+              fluidSelector, 
+              ngrad(iSub),   legrad, phi(iSub), 
+              ngradLS(iSub), legradLS, 
+              (*RR)(iSub), it,
+              (*tag)(iSub), 0, rshift);
       }
 
       if (failsafe == 1) *tag = 0;
@@ -1418,19 +1495,19 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
 //d2d embedded with LS????
 template<int dim, int dimLS>
 void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol, 
-				     DistExactRiemannSolver<dim> &riemann,
+             DistExactRiemannSolver<dim> &riemann,
                                      FluxFcn** fluxFcn, RecFcn* recFcn, 
-				     DistBcData<dim>& bcData, 
-				     DistGeoState& geoState,
+             DistBcData<dim>& bcData, 
+             DistGeoState& geoState,
                                      DistSVec<double,3>& X, 
-				     DistSVec<double,dim>& V, 
-				     DistSVec<double,dim>& Wstarij, DistSVec<double,dim>& Wstarji,
+             DistSVec<double,dim>& V, 
+             DistSVec<double,dim>& Wstarij, DistSVec<double,dim>& Wstarji,
                                      DistLevelSetStructure *distLSS, bool linRecAtInterface, 
-				     FluidSelector &fluidSelector, int Nriemann,
-				     DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
-				     DistSVec<double,dimLS>& phi,
+             FluidSelector &fluidSelector, int Nriemann,
+             DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
+             DistSVec<double,dimLS>& phi,
                                      DistNodalGrad<dimLS>& ngradLS, DistEdgeGrad<dimLS>* egradLS, 
-				     DistSVec<double,dim>& R, int it, int failsafe, int rshift)
+             DistSVec<double,dim>& R, int it, int failsafe, int rshift)
 {
 
  double t0 = timer->getTime();
@@ -1454,14 +1531,14 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
 
     Vec<int> &fluidId = FluidId(iSub);
     ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub),
-						    fluxFcn, recFcn, bcData(iSub), geoState(iSub),
-						    X(iSub), V(iSub), Wstarij(iSub), Wstarji(iSub), (*distLSS)(iSub), 
-						    linRecAtInterface, fluidId, Nriemann,
-						    fluidSelector, 
-						    ngrad(iSub),   legrad, phi(iSub), 
-						    ngradLS(iSub), legradLS, 
-						    (*RR)(iSub), it,
-						    (*tag)(iSub), failsafe, rshift);
+                fluxFcn, recFcn, bcData(iSub), geoState(iSub),
+                X(iSub), V(iSub), Wstarij(iSub), Wstarji(iSub), (*distLSS)(iSub), 
+                linRecAtInterface, fluidId, Nriemann,
+                fluidSelector, 
+                ngrad(iSub),   legrad, phi(iSub), 
+                ngradLS(iSub), legradLS, 
+                (*RR)(iSub), it,
+                (*tag)(iSub), failsafe, rshift);
   }
   com->globalSum(1, &ierr);
 
@@ -1506,14 +1583,14 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
         Vec<int> &fluidId = FluidId(iSub);
 
         ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub),
-							fluxFcn, recFcn, bcData(iSub), geoState(iSub), 
-							X(iSub), V(iSub), Wstarij(iSub), Wstarji(iSub),(*distLSS)(iSub), 
-							linRecAtInterface, fluidId, Nriemann,
-							fluidSelector, 
-							ngrad(iSub),   legrad,  phi(iSub), 
-							ngradLS(iSub), legradLS,
-							(*RR)(iSub), it,
-							(*tag)(iSub), 0, rshift);
+              fluxFcn, recFcn, bcData(iSub), geoState(iSub), 
+              X(iSub), V(iSub), Wstarij(iSub), Wstarji(iSub),(*distLSS)(iSub), 
+              linRecAtInterface, fluidId, Nriemann,
+              fluidSelector, 
+              ngrad(iSub),   legrad,  phi(iSub), 
+              ngradLS(iSub), legradLS,
+              (*RR)(iSub), it,
+              (*tag)(iSub), 0, rshift);
       }
 
       if (failsafe == 1) *tag = 0;
@@ -1555,16 +1632,16 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                      DistExactRiemannSolver<dim> &riemann,
                                      FluxFcn** fluxFcn, RecFcn* recFcn,
                                      DistBcData<dim>& bcData, 
-				     DistGeoState& geoState,
+             DistGeoState& geoState,
                                      DistSVec<double,3>& X, 
-				     DistSVec<double,dim>& V,
+             DistSVec<double,dim>& V,
                                      DistSVec<double,dim>& Wstarij, DistSVec<double,dim>& Wstarji,
-												 DistSVec<double,dim>& Wext,
+                         DistSVec<double,dim>& Wext,
                                      DistLevelSetStructure *LSS, bool linRecAtInterface, DistVec<int> &fluidId, 
                                      int Nriemann, 
-				     DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
+             DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
                                      DistSVec<double,dim>& R, 
-												 int it, int failsafe, int rshift, bool externalSI)
+                         int it, int failsafe, int rshift, bool externalSI)
 {
  
   double t0 = timer->getTime();
@@ -1584,31 +1661,31 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
   {
     EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
     ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub),
-						    fluxFcn, recFcn, 
-						    bcData(iSub), geoState(iSub),
-						    X(iSub), V(iSub), 
-																	  Wstarij(iSub), Wstarji(iSub), Wext(iSub),
-						    (*LSS)(iSub),
-						    linRecAtInterface, fluidId(iSub), Nriemann, 
-						    ngrad(iSub), legrad, 
-						    (*RR)(iSub), 
-																	  it, (*tag)(iSub), failsafe, rshift, externalSI);
+                fluxFcn, recFcn, 
+                bcData(iSub), geoState(iSub),
+                X(iSub), V(iSub), 
+                                    Wstarij(iSub), Wstarji(iSub), Wext(iSub),
+                (*LSS)(iSub),
+                linRecAtInterface, fluidId(iSub), Nriemann, 
+                ngrad(iSub), legrad, 
+                (*RR)(iSub), 
+                                    it, (*tag)(iSub), failsafe, rshift, externalSI);
   }
 
   com->globalSum(1, &ierr);
 
   if(ierr) 
-  {	  
-	  if (!failsafe) 
-	  {
+  {   
+    if (!failsafe) 
+    {
       com->fprintf(stderr," ... Error: some reconstructed pressure & density are negative. Aborting....\n");
       MPI_Abort(com->comm,-1);
       exit(1);
-	  } 
-	  else 
-	  {
-		  
-		  // If failsafe option is Yes or Always
+    } 
+    else 
+    {
+      
+      // If failsafe option is Yes or Always
 
       *RR = R; // reinitialize temp residual
 
@@ -1633,20 +1710,20 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
       if (egrad) egrad->fix(*tag);
 
 #pragma omp parallel for reduction(+: ierr)
-		  for (iSub = 0; iSub < numLocSub; ++iSub) 
-		  {
+      for (iSub = 0; iSub < numLocSub; ++iSub) 
+      {
 
         EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
         ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub),
-							fluxFcn, recFcn, 
-							bcData(iSub), geoState(iSub),
-							X(iSub), V(iSub), 
-																			  Wstarij(iSub), Wstarji(iSub), Wext(iSub),
-							(*LSS)(iSub), 
-							linRecAtInterface, fluidId(iSub), Nriemann, 
-							ngrad(iSub), legrad, (*RR)(iSub), 
-																			  it, (*tag)(iSub), 0, rshift, externalSI);
-		  }
+              fluxFcn, recFcn, 
+              bcData(iSub), geoState(iSub),
+              X(iSub), V(iSub), 
+                                        Wstarij(iSub), Wstarji(iSub), Wext(iSub),
+              (*LSS)(iSub), 
+              linRecAtInterface, fluidId(iSub), Nriemann, 
+              ngrad(iSub), legrad, (*RR)(iSub), 
+                                        it, (*tag)(iSub), 0, rshift, externalSI);
+      }
       if (failsafe == 1) *tag = 0;
     }
   }
@@ -1665,13 +1742,13 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
 
 #pragma omp parallel for reduction(+: ierr)
   for (iSub = 0; iSub < numLocSub; ++iSub)
-	  subDomain[iSub]->sndData(*vecPat, Wext.subData(iSub));
+    subDomain[iSub]->sndData(*vecPat, Wext.subData(iSub));
 
   vecPat->exchange();
 
 #pragma omp parallel for
    for (iSub = 0; iSub < numLocSub; ++iSub)
-		subDomain[iSub]->RcvData(*vecPat, Wext.subData(iSub));
+    subDomain[iSub]->RcvData(*vecPat, Wext.subData(iSub));
 
   timer->addFiniteVolumeTermTime(t0);
 
@@ -1687,14 +1764,14 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                      DistBcData<dim>& bcData, DistGeoState& geoState,
                                      DistSVec<double,3>& X, DistSVec<double,dim>& V,
                                      DistSVec<double,dim>& Wstarij, 
-				     DistSVec<double,dim>& Wstarji,
-				     DistVec<int>& countWstarij, 
-				     DistVec<int>& countWstarji,
+             DistSVec<double,dim>& Wstarji,
+             DistVec<int>& countWstarij, 
+             DistVec<int>& countWstarji,
                                      DistLevelSetStructure *LSS, bool linRecAtInterface, 
-				     DistVec<int> &fluidId, int Nriemann, 
-				     double dt, double alpha, 
-				     DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad, 
-				     DistSVec<double,dim>& R, int it, int failsafe, int rshift)
+             DistVec<int> &fluidId, int Nriemann, 
+             double dt, double alpha, 
+             DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad, 
+             DistSVec<double,dim>& R, int it, int failsafe, int rshift)
 {
 
   double t0 = timer->getTime();
@@ -1713,13 +1790,13 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
   for (iSub = 0; iSub < numLocSub; ++iSub) {
     EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
     ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub),
-						    fluxFcn, recFcn, bcData(iSub), geoState(iSub),
-						    X(iSub), V(iSub), Wstarij(iSub), Wstarji(iSub), 
-						    countWstarij(iSub), countWstarji(iSub), 
-						    (*LSS)(iSub), linRecAtInterface, fluidId(iSub), 
-						    Nriemann,
-						    dt, alpha, ngrad(iSub), legrad, (*RR)(iSub), it,
-						    (*tag)(iSub), failsafe, rshift);
+                fluxFcn, recFcn, bcData(iSub), geoState(iSub),
+                X(iSub), V(iSub), Wstarij(iSub), Wstarji(iSub), 
+                countWstarij(iSub), countWstarji(iSub), 
+                (*LSS)(iSub), linRecAtInterface, fluidId(iSub), 
+                Nriemann,
+                dt, alpha, ngrad(iSub), legrad, (*RR)(iSub), it,
+                (*tag)(iSub), failsafe, rshift);
   }
   com->globalSum(1, &ierr);
 
@@ -1757,13 +1834,13 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
       for (iSub = 0; iSub < numLocSub; ++iSub) {
         EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
         ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub),fluxFcn, recFcn, 
-							bcData(iSub), geoState(iSub), X(iSub), V(iSub), 
-							Wstarij(iSub), Wstarji(iSub), 
-							countWstarij(iSub), countWstarji(iSub), 
-							(*LSS)(iSub), linRecAtInterface, fluidId(iSub), Nriemann, 
-							dt, alpha, 
-							ngrad(iSub), legrad, (*RR)(iSub), it, 
-							(*tag)(iSub), 0, rshift); 
+              bcData(iSub), geoState(iSub), X(iSub), V(iSub), 
+              Wstarij(iSub), Wstarji(iSub), 
+              countWstarij(iSub), countWstarji(iSub), 
+              (*LSS)(iSub), linRecAtInterface, fluidId(iSub), Nriemann, 
+              dt, alpha, 
+              ngrad(iSub), legrad, (*RR)(iSub), it, 
+              (*tag)(iSub), 0, rshift); 
       }
 
       if (failsafe == 1) *tag = 0;
@@ -1791,13 +1868,13 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
 
 template<int dim, int dimLS>
 void Domain::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFcn* recFcnLS,
-				       DistBcData<dim>& bcData, DistGeoState& geoState,
-				       DistSVec<double,3>& X, DistSVec<double,dim>& V,
+               DistBcData<dim>& bcData, DistGeoState& geoState,
+               DistSVec<double,3>& X, DistSVec<double,dim>& V,
                                        DistVec<int>& fluidId,
-				       DistNodalGrad<dim>& ngrad,     DistEdgeGrad<dim>* egrad,
-				       DistNodalGrad<dimLS>& ngradLS, DistEdgeGrad<dimLS>* egradLS,
-				       DistSVec<double,dimLS>& Phi, DistSVec<double,dimLS> &PhiF,
-				       DistLevelSetStructure *distLSS, int ls_order)
+               DistNodalGrad<dim>& ngrad,     DistEdgeGrad<dim>* egrad,
+               DistNodalGrad<dimLS>& ngradLS, DistEdgeGrad<dimLS>* egradLS,
+               DistSVec<double,dimLS>& Phi, DistSVec<double,dimLS> &PhiF,
+               DistLevelSetStructure *distLSS, int ls_order)
 {
 
   double t0 = timer->getTime();
@@ -1814,8 +1891,8 @@ void Domain::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFcn
     subDomain[iSub]->computeFiniteVolumeTermLS(fluxFcn, recFcn, recFcnLS, bcData(iSub),
                                                geoState(iSub),
                                                X(iSub), V(iSub),fluidId(iSub), 
-					       ngrad(iSub),   legrad,
-					       ngradLS(iSub), legradLS,
+                 ngrad(iSub),   legrad,
+                 ngradLS(iSub), legradLS,
                                                Phi(iSub),PhiF(iSub), LSS, ls_order);
     subDomain[iSub]->sndData(*phiVecPat, PhiF.subData(iSub));
   }
@@ -2126,7 +2203,7 @@ void Domain::computeJacobianFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                                      X(iSub), V(iSub),ctrlVol(iSub),
                                                      (*LSS)(iSub),
                                                      fluidId(iSub),Nriemann,
-																		  A(iSub),irey(iSub), externalSI);
+                                      A(iSub),irey(iSub), externalSI);
       subDomain[iSub]->sndDiagBlocks(*matPat, A(iSub));
     }
     double t = timer->addFiniteVolumeJacTime(t0);
@@ -2175,11 +2252,11 @@ void Domain::computeJacobianFiniteVolumeTerm(DistExactRiemannSolver<dim>& rieman
 //------------------------------------------------------------------------------
 template<int dim, class Scalar, int dimLS>
 void Domain::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS,
-					   DistGeoState &geoState,DistSVec<double,3>& X,DistSVec<double,dim> &V,
-					   DistNodalGrad<dim>& ngrad,DistNodalGrad<dimLS> &ngradLS,
-					   DistEdgeGrad<dim>* egrad,
-					   DistVec<double> &ctrlVol,DistSVec<double,dimLS>& Phi,
-					   DistMat<Scalar,dimLS> &A,DistLevelSetStructure* distLSS)
+             DistGeoState &geoState,DistSVec<double,3>& X,DistSVec<double,dim> &V,
+             DistNodalGrad<dim>& ngrad,DistNodalGrad<dimLS> &ngradLS,
+             DistEdgeGrad<dim>* egrad,
+             DistVec<double> &ctrlVol,DistSVec<double,dimLS>& Phi,
+             DistMat<Scalar,dimLS> &A,DistLevelSetStructure* distLSS)
 {
 
   int iSub;
@@ -2193,14 +2270,14 @@ void Domain::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS,
       EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
       LevelSetStructure* lss = (distLSS) ? &((*distLSS)(iSub)) : 0;
       subDomain[iSub]->computeJacobianFiniteVolumeTermLS(recFcn,recFcnLS, 
-							 geoState(iSub),
-							 X(iSub),V(iSub),ngrad(iSub),
-							 ngradLS(iSub),
-							 legrad,
-							 ctrlVol(iSub),
-							 Phi(iSub), 
-							 A(iSub),lss,
-							 inletRhsPat);
+               geoState(iSub),
+               X(iSub),V(iSub),ngrad(iSub),
+               ngradLS(iSub),
+               legrad,
+               ctrlVol(iSub),
+               Phi(iSub), 
+               A(iSub),lss,
+               inletRhsPat);
       subDomain[iSub]->sndDiagBlocks(*matPat, A(iSub));
     }
     double t = timer->addLSFiniteVolumeJacTime(t0);
@@ -2217,14 +2294,14 @@ void Domain::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS,
       EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
       LevelSetStructure* lss = (distLSS) ? &((*distLSS)(iSub)) : 0;
       subDomain[iSub]->computeJacobianFiniteVolumeTermLS(recFcn,recFcnLS, 
-							 geoState(iSub),
-							 X(iSub),V(iSub),ngrad(iSub),
-							 ngradLS(iSub),
-							 legrad,
-							 ctrlVol(iSub),
-							 Phi(iSub), 
-							 A(iSub),lss,
-							 inletRhsPat);
+               geoState(iSub),
+               X(iSub),V(iSub),ngrad(iSub),
+               ngradLS(iSub),
+               legrad,
+               ctrlVol(iSub),
+               Phi(iSub), 
+               A(iSub),lss,
+               inletRhsPat);
       subDomain[iSub]->sndDiagBlocks(*matPat, A(iSub));
     }
     double t = timer->addLSFiniteVolumeJacTime(t0);
@@ -2248,7 +2325,7 @@ void Domain::recomputeRHS(VarFcn* vf, DistSVec<double,dim> &V, DistSVec<double,d
   for ( iSub = 0; iSub < numLocSub; iSub++){
     Extrapolation<dim>* lxpol = (xpol) ? &((*xpol)(iSub)) : 0;
     subDomain[iSub]->recomputeRHS(vf, V(iSub), rhs(iSub), lxpol,
-   				 bcData(iSub), geoState(iSub), X(iSub));
+           bcData(iSub), geoState(iSub), X(iSub));
     subDomain[iSub]->sndInletRhsData(*inletRhsPat, rhs.subData(iSub));
   }
 
@@ -2366,7 +2443,7 @@ void Domain::computeGalerkinTerm(
   {
     if(!LSS) 
     {
-			std::cout<<"LSS has to be provided in the case of a viscous simulation\n";
+      std::cout<<"LSS has to be provided in the case of a viscous simulation\n";
       exit(1);
     }
 
@@ -2383,8 +2460,8 @@ void Domain::computeGalerkinTerm(
   else//call the non-embedded version
   {
 #pragma omp parallel for
-		for (int iSub = 0; iSub < numLocSub; ++iSub) 
-		{
+    for (int iSub = 0; iSub < numLocSub; ++iSub) 
+    {
       subDomain[iSub]->computeGalerkinTerm(fet, bcData(iSub), geoState(iSub),
                                            X(iSub), V(iSub), R(iSub));
     }
@@ -2504,8 +2581,8 @@ void Domain::computeTransposeDerivativeOfGalerkinTerm(dRdXoperators<dim> &dRdXop
 // Included (YC)
 template<int dim>
 void Domain::computeDerivativeOperatorsOfGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &bcData,
-				 DistGeoState &geoState, DistSVec<double,3> &X,
-				 DistSVec<double,dim> &V, RectangularSparseMat<double,3,dim> **dViscousFluxdX)
+         DistGeoState &geoState, DistSVec<double,3> &X,
+         DistSVec<double,dim> &V, RectangularSparseMat<double,3,dim> **dViscousFluxdX)
 {
 
   double t0 = timer->getTime();
@@ -2513,7 +2590,7 @@ void Domain::computeDerivativeOperatorsOfGalerkinTerm(FemEquationTerm *fet, Dist
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->computeDerivativeOperatorsOfGalerkinTerm(fet, bcData(iSub), geoState(iSub),
-					 X(iSub), V(iSub), *dViscousFluxdX[iSub]);
+           X(iSub), V(iSub), *dViscousFluxdX[iSub]);
 
   timer->addFiniteElementTermTime(t0);
 
@@ -2525,8 +2602,8 @@ void Domain::computeDerivativeOperatorsOfGalerkinTerm(FemEquationTerm *fet, Dist
 // Included (MB)
 template<int dim>
 void Domain::computeOnlyGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &bcData,
-				 DistGeoState &geoState, DistSVec<double,3> &X,
-				 DistSVec<double,dim> &V, DistSVec<double,dim> &R)
+         DistGeoState &geoState, DistSVec<double,3> &X,
+         DistSVec<double,dim> &V, DistSVec<double,dim> &R)
 {
 
   double t0 = timer->getTime();
@@ -2535,7 +2612,7 @@ void Domain::computeOnlyGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &bcDa
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
     subDomain[iSub]->computeGalerkinTerm(fet, bcData(iSub), geoState(iSub),
-					 X(iSub), V(iSub), R(iSub));
+           X(iSub), V(iSub), R(iSub));
 
     subDomain[iSub]->sndData(*vecPat, R.subData(iSub));
   }
@@ -2628,8 +2705,8 @@ void Domain::computeGalerkinBarTerm(bool doInitialTasks,
 
 template<int dim>
 void Domain::computePointWiseSourceTerm(DistGeoState &geoState, DistVec<double> &ctrlVol,
-					DistNodalGrad<dim> &ngrad, DistSVec<double,dim> &VV,
-					DistSVec<double,dim> &RR)
+          DistNodalGrad<dim> &ngrad, DistSVec<double,dim> &VV,
+          DistSVec<double,dim> &RR)
 {
 
   const double sixth = 1.0/6.;
@@ -2704,9 +2781,9 @@ void Domain::computePointWiseSourceTerm(DistGeoState &geoState, DistVec<double> 
 
 template<int dim>
 void Domain::computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, DistSVec<double,3> &X,
-				       DistSVec<double,dim> &V, DistSVec<double,dim> &R,
-													DistVec<GhostPoint<dim>*> *ghostPoints, 
-													DistLevelSetStructure *LSS, bool externalSI)
+               DistSVec<double,dim> &V, DistSVec<double,dim> &R,
+                          DistVec<GhostPoint<dim>*> *ghostPoints, 
+                          DistLevelSetStructure *LSS, bool externalSI)
 
 {
 
@@ -2721,11 +2798,11 @@ void Domain::computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, DistSVec<double
 #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub)
       subDomain[iSub]->computeSmagorinskyLESTerm(smag, X(iSub), V(iSub), R(iSub), 
-																	 ghostPoints->operator[](iSub), 
-																	 &(LSS->operator()(iSub)), externalSI);
-	}
-	else 
-	{
+                                   ghostPoints->operator[](iSub), 
+                                   &(LSS->operator()(iSub)), externalSI);
+  }
+  else 
+  {
 #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub)
       subDomain[iSub]->computeSmagorinskyLESTerm(smag, X(iSub), V(iSub), R(iSub));
@@ -2738,10 +2815,10 @@ void Domain::computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, DistSVec<double
 template<int dim>
 void Domain::computeDynamicLESTerm(DynamicLESTerm *dles, DistSVec<double,2> &Cs,
                                    DistSVec<double,3> &X, DistSVec<double,dim> &V,
-				   DistSVec<double,dim> &R,
-											  DistVec<GhostPoint<dim>*> *ghostPoints, 
-											  DistLevelSetStructure *LSS,
-											  bool externalSI)
+           DistSVec<double,dim> &R,
+                        DistVec<GhostPoint<dim>*> *ghostPoints, 
+                        DistLevelSetStructure *LSS,
+                        bool externalSI)
 {
 
   if (ghostPoints)
@@ -2755,8 +2832,8 @@ void Domain::computeDynamicLESTerm(DynamicLESTerm *dles, DistSVec<double,2> &Cs,
 #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub)
       subDomain[iSub]->computeDynamicLESTerm(dles, Cs(iSub), X(iSub), V(iSub), R(iSub),
-															ghostPoints->operator[](iSub), &(LSS->operator()(iSub)), 
-															externalSI);
+                              ghostPoints->operator[](iSub), &(LSS->operator()(iSub)), 
+                              externalSI);
   }
   else 
   {
@@ -2980,9 +3057,9 @@ void Domain::computeDynamicVMSTerm(DynamicVMSTerm *dvmst, DistMacroCellSet *macr
 
 template<int dim>
 void Domain::computeWaleLESTerm(WaleLESTerm *wale, DistSVec<double,3> &X,
-				DistSVec<double,dim> &V, DistSVec<double,dim> &R,
-										  DistVec<GhostPoint<dim>*> *ghostPoints, 
-										  DistLevelSetStructure *LSS, bool externalSI)
+        DistSVec<double,dim> &V, DistSVec<double,dim> &R,
+                      DistVec<GhostPoint<dim>*> *ghostPoints, 
+                      DistLevelSetStructure *LSS, bool externalSI)
 
 {
 
@@ -2997,7 +3074,7 @@ void Domain::computeWaleLESTerm(WaleLESTerm *wale, DistSVec<double,3> &X,
 #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub)
       subDomain[iSub]->computeWaleLESTerm(wale, X(iSub), V(iSub), R(iSub),
-															ghostPoints->operator[](iSub), &(LSS->operator()(iSub)), externalSI);
+                              ghostPoints->operator[](iSub), &(LSS->operator()(iSub)), externalSI);
   }
   else {
 #pragma omp parallel for
@@ -3088,12 +3165,12 @@ void Domain::computeTestFilterValues(DistVec<double> &ctrlVol,
                                      DistVec<double> &modS_Test,
                                      DistSVec<double,8> &Eng_Test,
                                      DistSVec<double,2> &Cs,
-				     DistVec<int> &Ni,
+             DistVec<int> &Ni,
                                      DistBcData<dim> &bcData,
-												 DistSVec<double,3> &X, 
-												 DistSVec<double,dim> &V,
-				     double gam, double R,
-				     DistVec<GhostPoint<dim>*> *ghostPoints, 
+                         DistSVec<double,3> &X, 
+                         DistSVec<double,dim> &V,
+             double gam, double R,
+             DistVec<GhostPoint<dim>*> *ghostPoints, 
                                      DistLevelSetStructure *LSS, bool externalSI)
 {
 
@@ -3108,11 +3185,11 @@ void Domain::computeTestFilterValues(DistVec<double> &ctrlVol,
     }
 
 #pragma omp parallel for
-		for(int iSub = 0; iSub < numLocSub; ++iSub)
-		{
+    for(int iSub = 0; iSub < numLocSub; ++iSub)
+    {
       subDomain[iSub]->computeTestFilterAvgs(VCap(iSub), Mom_Test(iSub), Sij_Test(iSub), modS_Test(iSub),
                                              Eng_Test(iSub), X(iSub), V(iSub), gam, R,
-																ghostPoints->operator[](iSub), &(LSS->operator()(iSub)), externalSI);
+                                ghostPoints->operator[](iSub), &(LSS->operator()(iSub)), externalSI);
       subDomain[iSub]->sndData(*vecPat, VCap.subData(iSub));
     }
   }
@@ -3176,7 +3253,7 @@ void Domain::computeTestFilterValues(DistVec<double> &ctrlVol,
     for(int iSub = 0; iSub < numLocSub; ++iSub) {
       subDomain[iSub]->computeCsValues(VCap(iSub), Mom_Test(iSub), Sij_Test(iSub),
                                        modS_Test(iSub), Eng_Test(iSub), Cs(iSub),
-         			       Ni(iSub), X(iSub), gam, R,
+                     Ni(iSub), X(iSub), gam, R,
                                        &(LSS->operator()(iSub)));
     }
   }
@@ -3185,7 +3262,7 @@ void Domain::computeTestFilterValues(DistVec<double> &ctrlVol,
     for(int iSub = 0; iSub < numLocSub; ++iSub) {
       subDomain[iSub]->computeCsValues(VCap(iSub), Mom_Test(iSub), Sij_Test(iSub),
                                        modS_Test(iSub), Eng_Test(iSub), Cs(iSub),
-         			       Ni(iSub), X(iSub), gam, R);
+                     Ni(iSub), X(iSub), gam, R);
     }
   }
 
@@ -3210,7 +3287,7 @@ void Domain::computeTestFilterValues(DistVec<double> &ctrlVol,
 // Included (MB)
 template<int dim>
 void Domain::computeDerivativeOfSmagorinskyLESTerm(SmagorinskyLESTerm *smag, DistSVec<double,3> &X,
-				       DistSVec<double,dim> &V, DistSVec<double,dim> &R)
+               DistSVec<double,dim> &V, DistSVec<double,dim> &R)
 
 {
 
@@ -3368,8 +3445,8 @@ void Domain::computeJacobianGalerkinTerm(
 // Included (MB)
 template<int dim>
 void Domain::computeBCsJacobianWallValues(FemEquationTerm *fet, DistBcData<dim> &bcData,
-					  DistGeoState &geoState, DistSVec<double,3> &X,
-					  DistSVec<double,dim> &V)
+            DistGeoState &geoState, DistSVec<double,3> &X,
+            DistSVec<double,dim> &V)
 {
 
   int iSub;
@@ -3473,8 +3550,8 @@ void Domain::applyBCsToTurbSolutionVector(BcFcn *bcFcn, DistBcData<dim> &bcData,
 
 template<int dim>
 void Domain::applyBCsToResidual(BcFcn *bcFcn, DistBcData<dim> &bcData,
-										  DistSVec<double,dim> &U, DistSVec<double,dim> &F, 
-										  DistLevelSetStructure *distLSS)
+                      DistSVec<double,dim> &U, DistSVec<double,dim> &F, 
+                      DistLevelSetStructure *distLSS)
 {
 
 #pragma omp parallel for
@@ -3491,7 +3568,7 @@ void Domain::applyBCsToResidual(BcFcn *bcFcn, DistBcData<dim> &bcData,
 // Included (MB)
 template<int dim>
 void Domain::applyBCsToDerivativeOfResidual(BcFcn *bcFcn, DistBcData<dim> &bcData,
-				DistSVec<double,dim> &U, DistSVec<double,dim> &dU, DistSVec<double,dim> &dF)
+        DistSVec<double,dim> &U, DistSVec<double,dim> &dU, DistSVec<double,dim> &dF)
 {
 
 #pragma omp parallel for
@@ -3520,7 +3597,7 @@ void Domain::applyHackedBCsToDerivativeOfResidual(BcFcn *bcFcn, DistBcData<dim> 
 
 template<int dim, class Scalar, int neq>
 void Domain::applyBCsToJacobian(BcFcn *bcFcn, DistBcData<dim> &bcData,
-				DistSVec<double,dim> &U, DistMat<Scalar,neq> &A, DistLevelSetStructure *distLSS)
+        DistSVec<double,dim> &U, DistMat<Scalar,neq> &A, DistLevelSetStructure *distLSS)
 {
 
 #pragma omp parallel for
@@ -3536,7 +3613,7 @@ void Domain::applyBCsToJacobian(BcFcn *bcFcn, DistBcData<dim> &bcData,
 
 template<int dim, class Scalar, int neq>
 void Domain::applyBCsToH2Jacobian(BcFcn *bcFcn, DistBcData<dim> &bcData,
-	                          DistSVec<double,dim> &U, DistMat<Scalar,neq> &A)
+                            DistSVec<double,dim> &U, DistMat<Scalar,neq> &A)
 {
 
 #pragma omp parallel for
@@ -3550,7 +3627,7 @@ void Domain::applyBCsToH2Jacobian(BcFcn *bcFcn, DistBcData<dim> &bcData,
 // Included (MB)
 template<int dim, class Scalar, int neq>
 void Domain::applyBCsToJacobianWallValues(BcFcn *bcFcn, DistBcData<dim> &bcData,
-				DistSVec<double,dim> &U, DistMat<Scalar,neq> &A)
+        DistSVec<double,dim> &U, DistMat<Scalar,neq> &A)
 {
 
 #pragma omp parallel for
@@ -3605,33 +3682,6 @@ void Domain::computeH1(FluxFcn **fluxFcn, DistBcData<dim> &bcData,
 
 }
 
-//------------------------------------------------------------------------------
-
-
-template<int dim, class Scalar, int neq>
-void Domain::computeH2transpose(FluxFcn **fluxFcn, RecFcn *recFcn,
-           DistBcData<dim> &bcData, DistGeoState &geoState,
-           DistSVec<double,3> &X, DistSVec<double,dim> &V,
-           DistNodalGrad<dim, double> &ngrad, DistMat<Scalar,neq> &H2transpose,
-           DistSVec<double,dim> &aij, DistSVec<double,dim> &aji,
-           DistSVec<double,dim> &bij, DistSVec<double,dim> &bji)
-{
-
-  double t0 = timer->getTime();
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub) {
-    subDomain[iSub]->computeH2transpose(fluxFcn, recFcn, bcData(iSub), geoState(iSub),
-             X(iSub), V(iSub), ngrad(iSub), H2transpose(iSub));
-    subDomain[iSub]->precomputeRec(recFcn, X(iSub), V(iSub), ngrad(iSub),
-           aij(iSub), aji(iSub), bij(iSub), bji(iSub));
-  }
-
-  double t = timer->addH2SetupTime(t0);
-
-  com->printf(6, "H2 matrix transpose computation: %f s\n", t);
-
-}
 
 //------------------------------------------------------------------------------
 
@@ -3705,11 +3755,11 @@ void Domain::computeMatVecProdH2transposeNew(IoData& iod, DistSVec<double,3> &X,
 
 template<int dim, class Scalar, int neq>
 void Domain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn,
-		       DistBcData<dim> &bcData, DistGeoState &geoState,
-		       DistSVec<double,3> &X, DistSVec<double,dim> &V,
-		       DistNodalGrad<dim, double> &ngrad, DistMat<Scalar,neq> &H2,
-		       DistSVec<double,dim> &aij, DistSVec<double,dim> &aji,
-		       DistSVec<double,dim> &bij, DistSVec<double,dim> &bji)
+           DistBcData<dim> &bcData, DistGeoState &geoState,
+           DistSVec<double,3> &X, DistSVec<double,dim> &V,
+           DistNodalGrad<dim, double> &ngrad, DistMat<Scalar,neq> &H2,
+           DistSVec<double,dim> &aij, DistSVec<double,dim> &aji,
+           DistSVec<double,dim> &bij, DistSVec<double,dim> &bji)
 {
 
   double t0 = timer->getTime();
@@ -3717,10 +3767,10 @@ void Domain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn,
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
     subDomain[iSub]->computeH2(fluxFcn, recFcn, bcData(iSub), geoState(iSub),
-			       X(iSub), V(iSub), ngrad(iSub), H2(iSub));
+             X(iSub), V(iSub), ngrad(iSub), H2(iSub));
 
     subDomain[iSub]->precomputeRec(recFcn, X(iSub), V(iSub), ngrad(iSub),
-				   aij(iSub), aji(iSub), bij(iSub), bji(iSub));
+           aij(iSub), aji(iSub), bij(iSub), bji(iSub));
   }
 
   double t = timer->addH2SetupTime(t0);
@@ -3733,17 +3783,17 @@ void Domain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn,
 
 template<int dim, class Scalar, int neq>
 void Domain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn,
-		       DistBcData<dim> &bcData, DistGeoState &geoState,
-		       DistSVec<double,3> &X, DistSVec<double,dim> &V,
-		       DistNodalGrad<dim, double> &ngrad,
-		       DistExactRiemannSolver<dim> &riemann,
-		       DistLevelSetStructure *distLSS,
-		       DistVec<int> &fluidId, 		      
-		       int Nriemann,
-		       DistMat<Scalar,neq> &H2,
-		       DistSVec<double,dim> &aij, DistSVec<double,dim> &aji,
-		       DistSVec<double,dim> &bij, DistSVec<double,dim> &bji,
-		       DistSVec<double,dim> &betaij, DistSVec<double,dim> &betaji)
+           DistBcData<dim> &bcData, DistGeoState &geoState,
+           DistSVec<double,3> &X, DistSVec<double,dim> &V,
+           DistNodalGrad<dim, double> &ngrad,
+           DistExactRiemannSolver<dim> &riemann,
+           DistLevelSetStructure *distLSS,
+           DistVec<int> &fluidId,           
+           int Nriemann,
+           DistMat<Scalar,neq> &H2,
+           DistSVec<double,dim> &aij, DistSVec<double,dim> &aji,
+           DistSVec<double,dim> &bij, DistSVec<double,dim> &bji,
+           DistSVec<double,dim> &betaij, DistSVec<double,dim> &betaji)
 {
 
   double t0 = timer->getTime();
@@ -3754,13 +3804,13 @@ void Domain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn,
     Vec<int> &FluidId = fluidId(iSub);
 
     subDomain[iSub]->computeH2(fluxFcn, recFcn, bcData(iSub), geoState(iSub),
-			       X(iSub), V(iSub), ngrad(iSub), riemann(iSub),
-			       (*distLSS)(iSub), FluidId, Nriemann,
-			       H2(iSub), aij(iSub), aji(iSub), bij(iSub), bji(iSub), 
-			       betaij(iSub), betaji(iSub));
+             X(iSub), V(iSub), ngrad(iSub), riemann(iSub),
+             (*distLSS)(iSub), FluidId, Nriemann,
+             H2(iSub), aij(iSub), aji(iSub), bij(iSub), bji(iSub), 
+             betaij(iSub), betaji(iSub));
 
     subDomain[iSub]->precomputeRec(recFcn, X(iSub), V(iSub), ngrad(iSub), (*distLSS)(iSub), FluidId,
-    				   aij(iSub), aji(iSub), bij(iSub), bji(iSub));
+               aij(iSub), aji(iSub), bij(iSub), bji(iSub));
 
   }
 
@@ -3775,11 +3825,11 @@ void Domain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn,
 
 template<class Scalar1, class Scalar2, int dim>
 void Domain::computeMatVecProdH2(RecFcn *recFcn, DistSVec<double,3> &X,
-				 DistVec<double> &ctrlVol, DistMat<Scalar1,dim> &H2,
-				 DistSVec<double,dim> &aij, DistSVec<double,dim> &aji,
-				 DistSVec<double,dim> &bij, DistSVec<double,dim> &bji,
-				 DistSVec<Scalar2,dim> &p, DistNodalGrad<dim, Scalar2> &dpdxj,
-				 DistSVec<Scalar2,dim> &prod)  {
+         DistVec<double> &ctrlVol, DistMat<Scalar1,dim> &H2,
+         DistSVec<double,dim> &aij, DistSVec<double,dim> &aji,
+         DistSVec<double,dim> &bij, DistSVec<double,dim> &bji,
+         DistSVec<Scalar2,dim> &p, DistNodalGrad<dim, Scalar2> &dpdxj,
+         DistSVec<Scalar2,dim> &prod)  {
 
   int iSub;
 
@@ -3788,8 +3838,8 @@ void Domain::computeMatVecProdH2(RecFcn *recFcn, DistSVec<double,3> &X,
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
     subDomain[iSub]->computeMatVecProdH2(recFcn, X(iSub), ctrlVol(iSub), H2(iSub),
-					 aij(iSub), aji(iSub), bij(iSub), bji(iSub),
-					 p(iSub), dpdxj(iSub), prod(iSub));
+           aij(iSub), aji(iSub), bij(iSub), bji(iSub),
+           p(iSub), dpdxj(iSub), prod(iSub));
     subDomain[iSub]->sndData(*vPat, prod.subData(iSub));
   }
 
@@ -3804,17 +3854,17 @@ void Domain::computeMatVecProdH2(RecFcn *recFcn, DistSVec<double,3> &X,
 
 template<class Scalar1, class Scalar2, int dim>
 void Domain::computeMatVecProdH2(FluxFcn **fluxFcn, RecFcn *recFcn, DistGeoState &geoState,
-				 DistSVec<double,3> &X, DistVec<double> &ctrlVol, 
-				 DistExactRiemannSolver<dim> &riemann,
-				 DistLevelSetStructure *distLSS,
-				 DistVec<int> &fluidId,
-				 int Nriemann,
-				 DistMat<Scalar1,dim> &H2,
-				 DistSVec<double,dim> &aij, DistSVec<double,dim> &aji,
-				 DistSVec<double,dim> &bij, DistSVec<double,dim> &bji,
-				 DistSVec<double,dim> &betaij, DistSVec<double,dim> &betaji,
-				 DistSVec<Scalar2,dim> &p, DistNodalGrad<dim, Scalar2> &dpdxj,
-				 DistSVec<Scalar2,dim> &prod)  {
+         DistSVec<double,3> &X, DistVec<double> &ctrlVol, 
+         DistExactRiemannSolver<dim> &riemann,
+         DistLevelSetStructure *distLSS,
+         DistVec<int> &fluidId,
+         int Nriemann,
+         DistMat<Scalar1,dim> &H2,
+         DistSVec<double,dim> &aij, DistSVec<double,dim> &aji,
+         DistSVec<double,dim> &bij, DistSVec<double,dim> &bji,
+         DistSVec<double,dim> &betaij, DistSVec<double,dim> &betaji,
+         DistSVec<Scalar2,dim> &p, DistNodalGrad<dim, Scalar2> &dpdxj,
+         DistSVec<Scalar2,dim> &prod)  {
 
   int iSub;
 
@@ -3826,13 +3876,13 @@ void Domain::computeMatVecProdH2(FluxFcn **fluxFcn, RecFcn *recFcn, DistGeoState
         Vec<int> &FluidId = fluidId(iSub);
 
         subDomain[iSub]->computeMatVecProdH2(fluxFcn, recFcn, geoState(iSub), 
-					     X(iSub), ctrlVol(iSub),
-					     riemann(iSub), (*distLSS)(iSub), FluidId,
-					     Nriemann, H2(iSub),
-					     aij(iSub), aji(iSub), bij(iSub), bji(iSub),
-					     betaij(iSub), betaji(iSub),
-					     p(iSub), dpdxj(iSub), prod(iSub));
-	subDomain[iSub]->sndData(*vPat, prod.subData(iSub));
+               X(iSub), ctrlVol(iSub),
+               riemann(iSub), (*distLSS)(iSub), FluidId,
+               Nriemann, H2(iSub),
+               aij(iSub), aji(iSub), bij(iSub), bji(iSub),
+               betaij(iSub), betaji(iSub),
+               p(iSub), dpdxj(iSub), prod(iSub));
+  subDomain[iSub]->sndData(*vPat, prod.subData(iSub));
 
   }
 
@@ -3843,29 +3893,78 @@ void Domain::computeMatVecProdH2(FluxFcn **fluxFcn, RecFcn *recFcn, DistGeoState
     subDomain[iSub]->addRcvData(*vPat, prod.subData(iSub));
   
 }
-
 //------------------------------------------------------------------------------
 
 template<class Scalar1, class Scalar2, int dim>
-void Domain::computeMatVecProdH2T(RecFcn *recFcn, DistSVec<double,3> &X,
-                DistVec<double> &ctrlVol, DistMat<Scalar1,dim> &H2,
-                DistSVec<double,dim> &aij, DistSVec<double,dim> &aji,
-                DistSVec<double,dim> &bij, DistSVec<double,dim> &bji,
-                DistSVec<Scalar2,dim> &p, DistSVec<Scalar2,dim> &prod,
-                DistSVec<Scalar2,dim> &prod2, DistSVec<Scalar2,dim> &prod3,
-                DistSVec<Scalar2,dim> &prod4)  {
+void Domain::computeMatVecProdH2transpose(IoData& iod, FluxFcn **fluxFcn, RecFcn *recFcn, DistGeoState &geoState,
+         DistSVec<double,3> &X, DistVec<double> &ctrlVol, 
+         DistExactRiemannSolver<dim> &riemann,
+         DistLevelSetStructure *distLSS,
+         DistVec<int> &fluidId,
+         int Nriemann,
+         DistMat<Scalar1,dim> &H2,
+         DistSVec<double,dim> &aij, DistSVec<double,dim> &aji,
+         DistSVec<double,dim> &bij, DistSVec<double,dim> &bji,
+         DistSVec<double,dim> &betaij, DistSVec<double,dim> &betaji,
+         DistSVec<Scalar2,dim> &p, DistNodalGrad<dim, Scalar2> &dpdxj,
+         DistSVec<Scalar2,dim> &prod)  {
 
   int iSub;
 
   CommPattern<Scalar2> *vPat = getCommPat(p);
+DistSVec<Scalar2,dim> ddxt(p.info());
+  DistSVec<Scalar2,dim> ddyt(p.info());
+  DistSVec<Scalar2,dim> ddzt(p.info());
+  DistSVec<Scalar2,dim> cij(aij.info()), cji(aij.info()), dij(aij.info()), dji(aij.info());
+
+  if(iod.schemes.ns.reconstruction == SchemeData::LINEAR) {
+#pragma omp parallel for
+    for (iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->computeGradientsTranspose(X(iSub), ctrlVol(iSub), (*distLSS)(iSub), H2(iSub),
+                                                    bij(iSub), bji(iSub), cij(iSub), cji(iSub), dij(iSub), dji(iSub),
+                                                    p(iSub), ddxt(iSub), ddyt(iSub), ddzt(iSub));
+
+    assemble(vPat, ddxt);
+    assemble(vPat, ddyt);
+    assemble(vPat, ddzt);
+  }
+
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
-    subDomain[iSub]->computeMatVecProdH2T(recFcn, X(iSub), ctrlVol(iSub),
-        H2(iSub), aij(iSub), aji(iSub), bij(iSub), bji(iSub), p(iSub),
-        prod(iSub), prod2(iSub), prod3(iSub), prod4(iSub));
 
-    subDomain[iSub]->sndData(*vPat, prod.subData(iSub));
+        Vec<int> &FluidId = fluidId(iSub);
+
+        subDomain[iSub]->computeMatVecProdH2transpose(fluxFcn, recFcn, geoState(iSub), 
+               X(iSub), ctrlVol(iSub),
+               riemann(iSub), (*distLSS)(iSub), FluidId,
+               Nriemann, H2(iSub),
+               aij(iSub), aji(iSub), bij(iSub), bji(iSub),
+               betaij(iSub), betaji(iSub),
+               p(iSub), dpdxj(iSub), prod(iSub));
+
   }
+  if(iod.schemes.ns.reconstruction == SchemeData::LINEAR) {
+    if(iod.schemes.ns.gradient == SchemeData::LEAST_SQUARES) {
+      DistSVec<double,6> R = dpdxj.getR();
+#pragma omp parallel for
+      for (iSub = 0; iSub < numLocSub; ++iSub)
+        subDomain[iSub]->addToMatVecProdH2transposeLeastSquareNew(X(iSub), R(iSub), ddxt(iSub), ddyt(iSub), ddzt(iSub),
+                                                                  dpdxj(iSub), prod(iSub));
+    }
+    else if(iod.schemes.ns.gradient == SchemeData::GALERKIN || iod.schemes.ns.gradient == SchemeData::NON_NODAL) {
+#pragma omp parallel for
+      for (iSub = 0; iSub < numLocSub; ++iSub)
+        subDomain[iSub]->addToMatVecProdH2transposeGalerkinNew(ctrlVol(iSub), ddxt(iSub), ddyt(iSub), ddzt(iSub),
+                                                               dpdxj(iSub), prod(iSub));
+    }
+  }
+#pragma omp parallel for
+   for (iSub = 0; iSub < numLocSub; ++iSub)
+     subDomain[iSub]->addDiagonalInMatVecProdH2transpose(ctrlVol(iSub), H2(iSub), p(iSub), prod(iSub));
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->sndData(*vPat, prod.subData(iSub));
 
   vPat->exchange();
 
@@ -3873,30 +3972,8 @@ void Domain::computeMatVecProdH2T(RecFcn *recFcn, DistSVec<double,3> &X,
   for (iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->addRcvData(*vPat, prod.subData(iSub));
 
- assemble(vPat, prod2);
- assemble(vPat, prod3);
- assemble(vPat, prod4);
-
-}
-
-//------------------------------------------------------------------------------
-
-template<class Scalar1, class Scalar2, int dim>
-void Domain::computeMatVecProdH2Tb(RecFcn *recFcn, DistSVec<double,3> &X,
-                DistVec<double> &ctrlVol, DistMat<Scalar1,dim> &H2,
-                DistNodalGrad<dim, Scalar2> &dpdxj, DistSVec<Scalar2,dim> &p,
-                DistSVec<Scalar2,dim> &prod, DistSVec<Scalar2,dim> &prod2)
-{
-
-  int iSub;
-
-#pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub) {
-    subDomain[iSub]->computeMatVecProdH2Tb(recFcn, X(iSub), ctrlVol(iSub),
-        H2(iSub), dpdxj(iSub), p(iSub), prod(iSub), prod2(iSub) );
-  }
-// No assemble????
-
+  
+  
 }
 
 //------------------------------------------------------------------------------
@@ -4082,7 +4159,7 @@ bool Domain::readTagFromFile(const char *prefix, int step, double *tag, int *num
 
 template<class Scalar, int dim>
 bool Domain::readVectorFromFile(const char *prefix, int step, double *tag,
-				DistSVec<Scalar,dim> &U, Scalar* scale)
+        DistSVec<Scalar,dim> &U, Scalar* scale)
 {
   int neq, numSteps;
   double t = subDomain[0]->template readTagFromFile<Scalar,dim>(prefix, step, &neq, &numSteps);
@@ -4346,8 +4423,8 @@ int Domain::checkSolution(VarFcn *varFcn, DistSVec<double,dim> &U, DistLevelSetS
   if(distLSS)
   {
 #pragma omp parallel for reduction(+: ierr)
-	  for (int iSub = 0; iSub < numLocSub; ++iSub)
-		  ierr += subDomain[iSub]->checkSolution(varFcn, U(iSub), &((*distLSS)(iSub)));
+    for (int iSub = 0; iSub < numLocSub; ++iSub)
+      ierr += subDomain[iSub]->checkSolution(varFcn, U(iSub), &((*distLSS)(iSub)));
   }
   else
   {
@@ -4373,8 +4450,8 @@ int Domain::checkSolution(VarFcn *varFcn, DistSVec<double,dim> &U, DistVec<int> 
   if(distLSS)
   {
 #pragma omp parallel for reduction(+: ierr)
-	  for (int iSub = 0; iSub < numLocSub; ++iSub)
-		  ierr += subDomain[iSub]->checkSolution(varFcn, U(iSub), fluidId(iSub), &((*distLSS)(iSub)));
+    for (int iSub = 0; iSub < numLocSub; ++iSub)
+      ierr += subDomain[iSub]->checkSolution(varFcn, U(iSub), fluidId(iSub), &((*distLSS)(iSub)));
   }
   else
   {
@@ -4450,7 +4527,7 @@ int Domain::checkSolution(VarFcn *varFcn, DistVec<double> &ctrlVol,
 
 template<int dim, int neq>
 int Domain::clipSolution(TsData::Clipping ctype, BcsWallData::Integration wtype,
-			 VarFcn* varFcn, double* Uin, DistSVec<double,dim>& U)
+       VarFcn* varFcn, double* Uin, DistSVec<double,dim>& U)
 {
 
   const DistInfo& distInfo = U.info();
@@ -4479,7 +4556,7 @@ int Domain::clipSolution(TsData::Clipping ctype, BcsWallData::Integration wtype,
     int gSub = distInfo.locSubToGlobSub[iSub];
     ierr += subDomain[iSub]->template
       clipSolution<dim,neq>(ctype, wtype, varFcn, Uin, U.getMasterFlag(iSub), U(iSub),
-			    allcmin[gSub], allpmin[gSub], allvmin[gSub]);
+          allcmin[gSub], allpmin[gSub], allvmin[gSub]);
   }
 
   allint[sizeint] = ierr;
@@ -4501,8 +4578,8 @@ int Domain::clipSolution(TsData::Clipping ctype, BcsWallData::Integration wtype,
     for (k=0; k<neq; ++k) {
       cmin[k] += allcmin[iSub][k];
       if (allvmin[iSub][k] < vmin[k]) {
-	pmin[k] = allpmin[iSub][k];
-	vmin[k] = allvmin[iSub][k];
+  pmin[k] = allpmin[iSub][k];
+  vmin[k] = allvmin[iSub][k];
       }
     }
   }
@@ -4510,17 +4587,17 @@ int Domain::clipSolution(TsData::Clipping ctype, BcsWallData::Integration wtype,
   for (k=0; k<neq; ++k) {
     if (cmin[k] > 0) {
       if (ctype == TsData::NONE)
-	com->printf(1, "*** Warning: %d negative %s value%s (min=%e at %d)\n",
-		    cmin[k], varFcn->pname(dim-neq+k), cmin[k]>1? "s":"", vmin[k], pmin[k]);
+  com->printf(1, "*** Warning: %d negative %s value%s (min=%e at %d)\n",
+        cmin[k], varFcn->pname(dim-neq+k), cmin[k]>1? "s":"", vmin[k], pmin[k]);
       else if (ctype == TsData::ABS_VALUE)
-	com->printf(1, "*** Warning: %d %s value%s clipped with abs (min=%e at %d)\n",
-		    cmin[k], varFcn->pname(dim-neq+k), cmin[k]>1? "s":"", vmin[k], pmin[k]);
+  com->printf(1, "*** Warning: %d %s value%s clipped with abs (min=%e at %d)\n",
+        cmin[k], varFcn->pname(dim-neq+k), cmin[k]>1? "s":"", vmin[k], pmin[k]);
       else if (ctype == TsData::FREESTREAM)
-	com->printf(1, "*** Warning: %d %s value%s clipped at freestream (min=%e at %d)\n",
-		    cmin[k], varFcn->pname(dim-neq+k), cmin[k]>1? "s":"", vmin[k], pmin[k]);
+  com->printf(1, "*** Warning: %d %s value%s clipped at freestream (min=%e at %d)\n",
+        cmin[k], varFcn->pname(dim-neq+k), cmin[k]>1? "s":"", vmin[k], pmin[k]);
       else if (ctype == TsData::CUTOFF)
-	com->printf(1, "*** Warning: %d %s value%s clipped at cutoff (min=%e at %d)\n",
-		    cmin[k], varFcn->pname(dim-neq+k), cmin[k]>1? "s":"", vmin[k], pmin[k]);
+  com->printf(1, "*** Warning: %d %s value%s clipped at cutoff (min=%e at %d)\n",
+        cmin[k], varFcn->pname(dim-neq+k), cmin[k]>1? "s":"", vmin[k], pmin[k]);
     }
   }
 
@@ -4549,7 +4626,7 @@ void Domain::checkFailSafe(VarFcn* varFcn, DistSVec<double,dim>& U,
 
 template<int dim>
 void Domain::checkGradients(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
-			    DistSVec<double,dim> &V, DistNodalGrad<dim> &ngrad)
+          DistSVec<double,dim> &V, DistNodalGrad<dim> &ngrad)
 {
 
   int iSub;
@@ -4574,7 +4651,7 @@ void Domain::checkGradients(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
 
 template<int dim>
 void Domain::checkMatVecProd(DistSVec<double,dim> &prod,
-			     const char *msg)
+           const char *msg)
 {
 
 
@@ -4724,7 +4801,7 @@ void Domain::computedWBar_dt(DistSVec<double, dim> &dWBardt, DistSVec<double, di
 template<int dim>
 void Domain::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &V, 
                DistVec<double> &Weights, DistSVec<double,dim> &VWeights, DistVec<int> &init,
-															DistVec<int> &next_init, DistLevelSetStructure *distLSS, bool externalSI)
+                              DistVec<int> &next_init, DistLevelSetStructure *distLSS, bool externalSI)
 {
 
   int iSub;
@@ -4732,7 +4809,7 @@ void Domain::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<dou
   for (iSub = 0; iSub < numLocSub; ++iSub) 
     subDomain[iSub]->computeWeightsForEmbeddedStruct(V(iSub),VWeights(iSub),Weights(iSub),
                                                      (*distLSS)(iSub),X(iSub),
-																		 init(iSub), next_init(iSub), externalSI);
+                                     init(iSub), next_init(iSub), externalSI);
 
   assemble(vecPat, VWeights);
   assemble(volPat, Weights);
@@ -4744,9 +4821,9 @@ void Domain::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<dou
 
 template<int dim>
 void Domain::computeWeightsLeastSquaresForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &V, 
-																			DistVec<double> &Weights, DistSVec<double,dim> &VWeights, 
-																			DistVec<int> &init, DistVec<int> &next_init, DistLevelSetStructure *distLSS,
-																			DistNodalGrad<dim>& DX, bool limit,	DistVec<int>* fid, bool externalSI)
+                                      DistVec<double> &Weights, DistSVec<double,dim> &VWeights, 
+                                      DistVec<int> &init, DistVec<int> &next_init, DistLevelSetStructure *distLSS,
+                                      DistNodalGrad<dim>& DX, bool limit, DistVec<int>* fid, bool externalSI)
 {
 
   int iSub;
@@ -4754,32 +4831,32 @@ void Domain::computeWeightsLeastSquaresForEmbeddedStruct(DistSVec<double,3> &X, 
   DistSVec<int,1> *count = new DistSVec<int,1>(getNodeDistInfo());
 
 #pragma omp parallel for
-	for(iSub = 0; iSub < numLocSub; ++iSub) 
-	{ 
+  for(iSub = 0; iSub < numLocSub; ++iSub) 
+  { 
     subDomain[iSub]->computeWeightsLeastSquaresEdgePartForEmbeddedStruct((*distLSS)(iSub),X(iSub),
-																									(*count)(iSub), (*R)(iSub), init(iSub), externalSI);
+                                                  (*count)(iSub), (*R)(iSub), init(iSub), externalSI);
 
-	subDomain[iSub]->sndData(*weightPhaseChangePat,(*R).subData(iSub));
-	subDomain[iSub]->sndData(*levelPat,(*count).subData(iSub));
+  subDomain[iSub]->sndData(*weightPhaseChangePat,(*R).subData(iSub));
+  subDomain[iSub]->sndData(*levelPat,(*count).subData(iSub));
   }
   weightPhaseChangePat->exchange();
   levelPat->exchange();
  
 #pragma omp parallel for
-	for(iSub = 0; iSub < numLocSub; ++iSub) 
-	{
-	  subDomain[iSub]->addRcvData(*(weightPhaseChangePat),(*R).subData(iSub));
-	  subDomain[iSub]->addRcvData(*levelPat,(*count).subData(iSub));
-		subDomain[iSub]->computeWeightsLeastSquaresNodePartForEmbeddedStruct((*count)(iSub), (*R)(iSub));
-	}
+  for(iSub = 0; iSub < numLocSub; ++iSub) 
+  {
+    subDomain[iSub]->addRcvData(*(weightPhaseChangePat),(*R).subData(iSub));
+    subDomain[iSub]->addRcvData(*levelPat,(*count).subData(iSub));
+    subDomain[iSub]->computeWeightsLeastSquaresNodePartForEmbeddedStruct((*count)(iSub), (*R)(iSub));
+  }
 
 #pragma omp parallel for
-	for(int iSub = 0; iSub < numLocSub; ++iSub) 
-	{
+  for(int iSub = 0; iSub < numLocSub; ++iSub) 
+  {
     Vec<int>* subFid = (fid ? (&(*fid)(iSub)) : 0);
-	subDomain[iSub]->computeWeightsLeastSquaresForEmbeddedStruct(X(iSub),(*R)(iSub),V(iSub),
-																						 Weights(iSub), VWeights(iSub), (*distLSS)(iSub), 
-																						 init(iSub), next_init(iSub), DX(iSub), limit, subFid, externalSI);
+  subDomain[iSub]->computeWeightsLeastSquaresForEmbeddedStruct(X(iSub),(*R)(iSub),V(iSub),
+                                             Weights(iSub), VWeights(iSub), (*distLSS)(iSub), 
+                                             init(iSub), next_init(iSub), DX(iSub), limit, subFid, externalSI);
   }
 
   assemble(vecPat, VWeights);
@@ -4794,18 +4871,18 @@ void Domain::computeWeightsLeastSquaresForEmbeddedStruct(DistSVec<double,3> &X, 
 
 template<int dim>
 void Domain::computeWeightsForFluidFluid(DistSVec<double,3> &X, DistSVec<double,dim> &V, 
-					 DistVec<double> &Weights, DistSVec<double,dim> &VWeights, DistVec<int> &init,
-					 DistVec<int> &next_init, DistLevelSetStructure *distLSS,
-					 DistVec<int> &fluidId)
+           DistVec<double> &Weights, DistSVec<double,dim> &VWeights, DistVec<int> &init,
+           DistVec<int> &next_init, DistLevelSetStructure *distLSS,
+           DistVec<int> &fluidId)
 {
   int iSub;
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) 
     subDomain[iSub]->computeWeightsForFluidFluid(V(iSub),VWeights(iSub),Weights(iSub),
-						 (distLSS ? &(*distLSS)(iSub) : NULL),
-						 X(iSub),
-						 init(iSub),next_init(iSub),
-						 fluidId(iSub));
+             (distLSS ? &(*distLSS)(iSub) : NULL),
+             X(iSub),
+             init(iSub),next_init(iSub),
+             fluidId(iSub));
 
   assemble(vecPat, VWeights);
   assemble(volPat, Weights);
@@ -4817,11 +4894,11 @@ void Domain::computeWeightsForFluidFluid(DistSVec<double,3> &X, DistSVec<double,
 
 template<int dim>
 void Domain::computeWeightsLeastSquaresForFluidFluid(
-			   DistSVec<double,3> &X, DistSVec<double,dim> &V, 
-			   DistVec<double> &Weights, DistSVec<double,dim> &VWeights, DistVec<int> &init,
-			   DistVec<int> &next_init, DistLevelSetStructure *distLSS,
-			   DistVec<int> &fluidId,DistNodalGrad<dim>& nodalgrad,
-			   bool limit)
+         DistSVec<double,3> &X, DistSVec<double,dim> &V, 
+         DistVec<double> &Weights, DistSVec<double,dim> &VWeights, DistVec<int> &init,
+         DistVec<int> &next_init, DistLevelSetStructure *distLSS,
+         DistVec<int> &fluidId,DistNodalGrad<dim>& nodalgrad,
+         bool limit)
 {
   int iSub;
   DistSVec<double,10> *R = new DistSVec<double,10>(getNodeDistInfo());
@@ -4829,27 +4906,27 @@ void Domain::computeWeightsLeastSquaresForFluidFluid(
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) { 
     subDomain[iSub]->computeWeightsLeastSquaresEdgePartForFF((distLSS ? &(*distLSS)(iSub): NULL),X(iSub),
-							     (*count)(iSub),(*R)(iSub),init(iSub),fluidId(iSub));
-	subDomain[iSub]->sndData(*weightPhaseChangePat,(*R).subData(iSub));
-	subDomain[iSub]->sndData(*levelPat,(*count).subData(iSub));
+                   (*count)(iSub),(*R)(iSub),init(iSub),fluidId(iSub));
+  subDomain[iSub]->sndData(*weightPhaseChangePat,(*R).subData(iSub));
+  subDomain[iSub]->sndData(*levelPat,(*count).subData(iSub));
   }
   weightPhaseChangePat->exchange();
   levelPat->exchange();
  
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
-	  subDomain[iSub]->addRcvData(*(weightPhaseChangePat),(*R).subData(iSub));
-	  subDomain[iSub]->addRcvData(*levelPat,(*count).subData(iSub));
-	  subDomain[iSub]->computeWeightsLeastSquaresNodePartForFF((*count)(iSub),(*R)(iSub));
+    subDomain[iSub]->addRcvData(*(weightPhaseChangePat),(*R).subData(iSub));
+    subDomain[iSub]->addRcvData(*levelPat,(*count).subData(iSub));
+    subDomain[iSub]->computeWeightsLeastSquaresNodePartForFF((*count)(iSub),(*R)(iSub));
   }
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
-	subDomain[iSub]->computeWeightsLeastSquaresForFluidFluid(X(iSub),(*R)(iSub),V(iSub),
-			Weights(iSub),VWeights(iSub),(distLSS ? &(*distLSS)(iSub): NULL),
-								 init(iSub),next_init(iSub),
-								 fluidId(iSub),nodalgrad(iSub),
-								 limit);
+  subDomain[iSub]->computeWeightsLeastSquaresForFluidFluid(X(iSub),(*R)(iSub),V(iSub),
+      Weights(iSub),VWeights(iSub),(distLSS ? &(*distLSS)(iSub): NULL),
+                 init(iSub),next_init(iSub),
+                 fluidId(iSub),nodalgrad(iSub),
+                 limit);
   }
 
   assemble(vecPat, VWeights);
@@ -4900,9 +4977,9 @@ void Domain::extrapolatePhiV(DistLevelSetStructure *distLSS, DistSVec<double,dim
 
 template<int dim>
 void Domain::populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints, DistSVec<double,3> &X, 
-											DistSVec<double,dim> &U, DistNodalGrad<dim, double> *ngrad, 
-											VarFcn *varFcn,DistLevelSetStructure *distLSS,bool viscSecOrder,
-											DistVec<int> &tag, bool externalSI, FemEquationTerm *fet)
+                      DistSVec<double,dim> &U, DistNodalGrad<dim, double> *ngrad, 
+                      VarFcn *varFcn,DistLevelSetStructure *distLSS,bool viscSecOrder,
+                      DistVec<int> &tag, bool externalSI, FemEquationTerm *fet)
 {
 
   int iSub;
@@ -4911,8 +4988,8 @@ void Domain::populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints, DistSVe
   {
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) //loop over all substructures
-	  subDomain[iSub]->populateGhostPoints((*ghostPoints)(iSub), X(iSub), U(iSub), (*ngrad)(iSub),
-														varFcn, (*distLSS)(iSub), viscSecOrder, tag(iSub),fet);
+    subDomain[iSub]->populateGhostPoints((*ghostPoints)(iSub), X(iSub), U(iSub), (*ngrad)(iSub),
+                            varFcn, (*distLSS)(iSub), viscSecOrder, tag(iSub),fet);
 //    subDomain[iSub]->populateGhostPoints((*ghostPoints)(iSub), X(iSub), U(iSub), (*ngrad)(iSub),
 //      varFcn, (*distLSS)(iSub), linRecAtInterface, tag(iSub));//populates values to the ghostpoints o each substructure
   
@@ -4926,7 +5003,7 @@ void Domain::populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints, DistSVe
 #pragma omp parallel for
     for (iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->populateGhostPoints_e((*ghostPoints)(iSub), X(iSub), U(iSub), (*ngrad)(iSub),
-															varFcn, (*distLSS)(iSub), tag(iSub), fet);
+                              varFcn, (*distLSS)(iSub), tag(iSub), fet);
     assembleGhostPoints(*ghostPoints, varFcn);
 
     for (iSub = 0; iSub < numLocSub; ++iSub)
@@ -4944,8 +5021,8 @@ void Domain::populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints, DistSVe
 //
 template<int dim, class Scalar, int neq>
 void Domain::populateGhostJacobian(DistVec<GhostPoint<dim>*> *ghostPoints, 
-											  DistSVec<double,dim> &U, FluxFcn** fluxFcn, VarFcn *varFcn, 
-											  DistLevelSetStructure *distLSS, DistVec<int> &tag, DistMat<Scalar,neq>& A) 
+                        DistSVec<double,dim> &U, FluxFcn** fluxFcn, VarFcn *varFcn, 
+                        DistLevelSetStructure *distLSS, DistVec<int> &tag, DistMat<Scalar,neq>& A) 
 {
 
   int iSub;
@@ -4961,12 +5038,12 @@ template<int dim>
 void Domain::setSIstencil(DistSVec<double,3> &X, DistLevelSetStructure *distLSS, DistVec<int> &fluidId, DistSVec<double,dim> &U, bool externalSI)
 {
 
-	int iSub;
+  int iSub;
 
 #pragma omp parallel for
 	for (iSub = 0; iSub < numLocSub; ++iSub) 
 		subDomain[iSub]->setSIstencil(X(iSub), (*distLSS)(iSub), fluidId(iSub), U(iSub), externalSI);
-			
+      
 }
 
 //------------------------------------------------------------------------------
@@ -4975,11 +5052,11 @@ template<int dim>
 void Domain::setFEMstencil(DistSVec<double,3> &X, DistLevelSetStructure *distLSS, DistVec<int> &fluidId, DistSVec<double,dim> &U)
 {
 
-	int iSub;
+  int iSub;
 
 #pragma omp parallel for
-	for (iSub = 0; iSub < numLocSub; ++iSub)
-		subDomain[iSub]->setFEMstencil(X(iSub), (*distLSS)(iSub), fluidId(iSub), U(iSub));			
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setFEMstencil(X(iSub), (*distLSS)(iSub), fluidId(iSub), U(iSub));      
 }
 
 
@@ -5225,30 +5302,30 @@ void Domain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, DistGeoS
   Vec<GhostPoint<dim>*> *gp=0;
 
 #pragma omp parallel for
-	for(int iSub=0; iSub<numLocSub; iSub++) 
-	{
+  for(int iSub=0; iSub<numLocSub; iSub++) 
+  {
     for (int is=0; is<sizeFs; is++) subFs[iSub][is][0] = subFs[iSub][is][1] = subFs[iSub][is][2] = 0.0;
     if(ghostPoints) gp = ghostPoints->operator[](iSub);
     subDomain[iSub]->computeCVBasedForceLoad(forceApp, orderOfAccuracy, geoState(iSub), X(iSub), subFs[iSub],
                                              sizeFs, (*distLSS)(iSub), pInfty, Wstarij(iSub), Wstarji(iSub),
                                              V(iSub),gp,postFcn,(*ngrad)(iSub),vf,fid ? (&(*fid)(iSub)) : 0);
   }
-	
-	for(int is=0; is<sizeFs; is++) 
-	{
+  
+  for(int is=0; is<sizeFs; is++) 
+  {
     Fs[is][0] = subFs[0][is][0];
     Fs[is][1] = subFs[0][is][1];
     Fs[is][2] = subFs[0][is][2];
   }
   for (int iSub=1; iSub<numLocSub; iSub++)
-	{
-		for (int is=0; is<sizeFs; is++) 
-		{
+  {
+    for (int is=0; is<sizeFs; is++) 
+    {
       Fs[is][0] += subFs[iSub][is][0];
       Fs[is][1] += subFs[iSub][is][1];
       Fs[is][2] += subFs[iSub][is][2];
     }
-	}
+  }
 
   for(int i=0; i<numLocSub; ++i) delete [] subFs[i];
   delete [] subFs;
@@ -5264,7 +5341,7 @@ void Domain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orderOf
                                           DistSVec<double,dim> &V, DistVec<GhostPoint<dim>*> *ghostPoints,
                                           PostFcn *postFcn, DistNodalGrad<dim, double> *ngrad,
                                           VarFcn* vf, DistVec<int> *fid, bool externalSI)
-{//Compute force load: pressure load and shear force
+{
 
   typedef double array3d[3];
   array3d **subFs = new array3d * [numLocSub];
@@ -5432,13 +5509,13 @@ void Domain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orderOf
 //-------------------------------------------------------------------------------
 template<int dim>
 void Domain::computederivativeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orderOfAccuracy, DistSVec<double,3> &X, 
-						    double (*dFs)[3], int sizedFs, DistLevelSetStructure *distLSS, 
-						    double pInfty, double dpInfty,
-						    DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, 
-						    DistSVec<double,dim> &V, DistSVec<double,dim> &dV_,
-						    DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, 
-						    DistNodalGrad<dim, double> *gradV, DistNodalGrad<dim, double> *graddV,
-						    VarFcn* vf, DistVec<int> *fid){
+                double (*dFs)[3], int sizedFs, DistLevelSetStructure *distLSS, 
+                double pInfty, double dpInfty,
+                DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, 
+                DistSVec<double,dim> &V, DistSVec<double,dim> &dV_,
+                DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, 
+                DistNodalGrad<dim, double> *gradV, DistNodalGrad<dim, double> *graddV,
+                VarFcn* vf, DistVec<int> *fid){
 
   typedef double array3d[3];
   array3d **subdFs = new array3d * [numLocSub];
@@ -5457,11 +5534,11 @@ void Domain::computederivativeEmbSurfBasedForceLoad(IoData &iod, int forceApp, i
     for (int is=0; is<sizedFs; is++) subdFs[iSub][is][0] = subdFs[iSub][is][1] = subdFs[iSub][is][2] = 0.0;
 
     subDomain[iSub]->computederivativeEmbSurfBasedForceLoad(iod, forceApp, orderOfAccuracy, X(iSub), 
-							    subdFs[iSub], sizedFs, 
-							    numStructElems, stElem, Xstruct, dXstruct, (*distLSS)(iSub), 
-							    pInfty, dpInfty,
-							    Wstarij(iSub), Wstarji(iSub), V(iSub), dV_(iSub), gp, postFcn, 
-							    (*gradV)(iSub), (*graddV)(iSub), vf, fid?&((*fid)(iSub)):0);
+                  subdFs[iSub], sizedFs, 
+                  numStructElems, stElem, Xstruct, dXstruct, (*distLSS)(iSub), 
+                  pInfty, dpInfty,
+                  Wstarij(iSub), Wstarji(iSub), V(iSub), dV_(iSub), gp, postFcn, 
+                  (*gradV)(iSub), (*graddV)(iSub), vf, fid?&((*fid)(iSub)):0);
   }
 
   for (int is=0; is<sizedFs; is++) {
@@ -5483,6 +5560,92 @@ void Domain::computederivativeEmbSurfBasedForceLoad(IoData &iod, int forceApp, i
 
 }
 //-------------------------------------------------------------------------------
+template<int dim>
+void Domain::computederivativeOperatorsEmbSurfBasedForceLoad(dRdXoperators<dim> &dRdXop,
+                IoData &iod, int forceApp, int orderOfAccuracy, DistSVec<double,3> &X, 
+                int sizedFs, DistLevelSetStructure *distLSS, 
+                double pInfty, double dpInfty,
+                DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, 
+                DistSVec<double,dim> &V, 
+                DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, 
+                DistNodalGrad<dim, double> *gradV,
+                VarFcn* vf, DistVec<int> *fid)
+{
+
+  typedef double array3d[3];
+
+  int numStructElems   = distLSS->getNumStructElems();
+  int (*stElem)[3]     = distLSS->getStructElems();
+  Vec<Vec3D>&  Xstruct = distLSS->getStructPosition();
+  Vec<Vec3D>& dXstruct = distLSS->getStructDerivative();
+
+  Vec<GhostPoint<dim>*> *gp=0;
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++) {
+
+    subDomain[iSub]->computederivativeOperatorsEmbSurfBasedForceLoad(iod, forceApp, orderOfAccuracy, X(iSub), 
+                  sizedFs, 
+                  numStructElems, stElem, Xstruct, dXstruct, (*distLSS)(iSub), 
+                  pInfty, dpInfty,
+                  Wstarij(iSub), Wstarji(iSub), V(iSub), gp, postFcn, 
+                  (*gradV)(iSub), vf, fid?&((*fid)(iSub)):0,
+                  *dRdXop.dFidGradP[iSub],
+                  *dRdXop.dFidV[iSub],
+                  *dRdXop.dFvdV[iSub]);
+  }
+
+}
+
+//-------------------------------------------------------------------------------
+template<int dim>
+void Domain::computederivativeEmbSurfBasedForceLoadSurfMotion(
+                IoData &iod, int forceApp, int orderOfAccuracy, DistSVec<double,3> &X, 
+                int sizedFs, DistLevelSetStructure *distLSS, 
+                double pInfty, double dpInfty,
+                DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, 
+                DistSVec<double,dim> &V, 
+                DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, 
+                DistNodalGrad<dim, double> *gradV,
+                VarFcn* vf, DistVec<int> *fid, Vec3D *dFidS)
+{
+  double subdFs [numLocSub][3];
+
+  int numStructElems   = distLSS->getNumStructElems();
+  int (*stElem)[3]     = distLSS->getStructElems();
+  Vec<Vec3D>&  Xstruct = distLSS->getStructPosition();
+  Vec<Vec3D>& dXstruct = distLSS->getStructDerivative();
+
+  Vec<GhostPoint<dim>*> *gp=0;
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++) {
+    subdFs[iSub][0] = 0;
+    subdFs[iSub][1] = 0;
+    subdFs[iSub][2] = 0;
+    subDomain[iSub]->computederivativeEmbSurfBasedForceLoadSurfMotion(iod, forceApp, orderOfAccuracy, X(iSub), 
+                  sizedFs, 
+                  numStructElems, stElem, Xstruct, dXstruct, (*distLSS)(iSub), 
+                  pInfty, dpInfty,
+                  Wstarij(iSub), Wstarji(iSub), V(iSub), gp, postFcn, 
+                  (*gradV)(iSub), vf, fid?&((*fid)(iSub)):0,
+                  subdFs[iSub]);
+  }
+
+  dFidS[0][0] = subdFs[0][0];
+  dFidS[0][1] = subdFs[0][1];
+  dFidS[0][2] = subdFs[0][2];
+
+#pragma omp parallel for
+  for (int iSub=1; iSub<numLocSub; iSub++){
+      dFidS[0][0] += subdFs[iSub][0];
+      dFidS[0][1] += subdFs[iSub][1];
+      dFidS[0][2] += subdFs[iSub][2];
+}
+  // for(int i=0; i<numLocSub; ++i) delete [] subdFs[i];
+  // delete [] subdFs;
+
+}
+//-------------------------------------------------------------------------------
 
 template<int dim>
 void Domain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, DistSVec<double,3> &X, 
@@ -5501,9 +5664,9 @@ void Domain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, Dis
     for (int is=0; is<sizeFs; is++) subFs[iSub][is][0] = subFs[iSub][is][1] = subFs[iSub][is][2] = 0.0;
     if(ghostPoints) gp = ghostPoints->operator[](iSub);
     subDomain[iSub]->computeRecSurfBasedForceLoad(forceApp, orderOfAccuracy, X(iSub), subFs[iSub], sizeFs,
-						  (*distLSS)(iSub), pInfty, 
-						  Wstarij(iSub), Wstarji(iSub), V(iSub), 
-						  gp, postFcn, vf, fid?&((*fid)(iSub)):0);
+              (*distLSS)(iSub), pInfty, 
+              Wstarij(iSub), Wstarji(iSub), V(iSub), 
+              gp, postFcn, vf, fid?&((*fid)(iSub)):0);
   }
   for (int is=0; is<sizeFs; is++) {
     Fs[is][0] = subFs[0][is][0];
@@ -5600,9 +5763,9 @@ void Domain::TagInterfaceNodes(int lsdim, DistVec<int> &Tag, DistSVec<double,dim
 
 template<int dimLS>
 void Domain::pseudoFastMarchingMethod(DistVec<int> &Tag, DistSVec<double,3> &X, 
-				DistSVec<double,dimLS> &d2wall, int level,  int iterativeLevel,
-				DistVec<int> &sortedNodes, int *nSortedNodes,
-				int *firstCheckedNode, DistLevelSetStructure *distLSS)
+        DistSVec<double,dimLS> &d2wall, int level,  int iterativeLevel,
+        DistVec<int> &sortedNodes, int *nSortedNodes,
+        int *firstCheckedNode, DistLevelSetStructure *distLSS)
 {
   int iSub;
 #pragma omp parallel for
@@ -5647,7 +5810,7 @@ void Domain::FinishReinitialization(DistVec<int> &Tag, DistSVec<double,dimLS> &P
                                     int level)
 {
 
-	int iSub;
+  int iSub;
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub){
     subDomain[iSub]->FinishReinitialization(Tag(iSub),Psi(iSub),level);
@@ -5756,8 +5919,8 @@ void Domain::computeDistanceLevelNodes(int lsdim, DistVec<int> &Tag, int level,
 {
   double res(_res);
 
-	if(copy == MultiFluidData::TRUE && level==2)
-	{ //KW: why?
+  if(copy == MultiFluidData::TRUE && level==2)
+  { //KW: why?
 #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub)
       subDomain[iSub]->copyCloseNodes(lsdim, 2,Tag(iSub),Phi(iSub),Psi(iSub));
@@ -5766,8 +5929,8 @@ void Domain::computeDistanceLevelNodes(int lsdim, DistVec<int> &Tag, int level,
 
 double locRes = 0.0;
 #pragma omp parallel for reduction(+: locRes)
-	for(int iSub = 0; iSub < numLocSub; ++iSub)
-	{
+  for(int iSub = 0; iSub < numLocSub; ++iSub)
+  {
     locRes += subDomain[iSub]->computeDistanceLevelNodes(lsdim, Tag(iSub), level, X(iSub), Psi(iSub),Phi(iSub));
     //subDomain[iSub]->sndData(*phiVecPat, Psi.subData(iSub));
     subDomain[iSub]->sndData(*volPat, Psi.subData(iSub));
@@ -5820,7 +5983,7 @@ void Domain::blur(DistSVec<double,dim> &U, DistSVec<double,dim> &U0)
 
     for (int i = 0; i < U.subSize(iSub); ++i) {
       for (int k = 0; k < dim; ++k)
-	U0(iSub)[i][k] = 0.5*U0(iSub)[i][k]/loc_weight(iSub)[i] + 0.5*U(iSub)[i][k];
+  U0(iSub)[i][k] = 0.5*U0(iSub)[i][k]/loc_weight(iSub)[i] + 0.5*U(iSub)[i][k];
     }
 
   }
@@ -5867,7 +6030,7 @@ void Domain::debugMultiPhysics(DistLevelSetStructure &distLSS, DistSVec<double,d
 
 template<int dim, class Obj>
 void Domain::integrateFunction(Obj* obj,DistSVec<double,3> &X,DistSVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),
-			       int npt) {
+             int npt) {
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub){
@@ -5887,66 +6050,66 @@ void Domain::integrateFunction(Obj* obj,DistSVec<double,3> &X,DistSVec<double,di
 //------------------------------------------------------------------------------
 /*
 template<int dim>
-void Domain::readMultiPodBasis(const char *multiPodFile,VecSet< DistSVec<double,dim> > *(pod[2]), int nPod [2], int nBasesNeeded, int *whichFiles) {	
+void Domain::readMultiPodBasis(const char *multiPodFile,VecSet< DistSVec<double,dim> > *(pod[2]), int nPod [2], int nBasesNeeded, int *whichFiles) {  
 
-	//	multiPodFile: file containing names of bases
-	//	pod: array of pointers to POD bases. Each one is individually uninitialized
-	//	nPod: vector of number of required POD basis vectors
-	//	nBasesNeeded: number of bases needed for the problem (default is zero, meaning ignore)
-	//	whichFiles: indicates which files should be read. if [1 -1], it means
-		//	you should read only second file in the list of files. if [0 1], it
-		//	means you should read both
+  //  multiPodFile: file containing names of bases
+  //  pod: array of pointers to POD bases. Each one is individually uninitialized
+  //  nPod: vector of number of required POD basis vectors
+  //  nBasesNeeded: number of bases needed for the problem (default is zero, meaning ignore)
+  //  whichFiles: indicates which files should be read. if [1 -1], it means
+    //  you should read only second file in the list of files. if [0 1], it
+    //  means you should read both
 
 
-	if (whichFiles == NULL) 	// by default, just take the files in the order prescribed
-		for (int i = 0; i < nBasesNeeded; ++i)
-			whichFiles[i] = i;
+  if (whichFiles == NULL)   // by default, just take the files in the order prescribed
+    for (int i = 0; i < nBasesNeeded; ++i)
+      whichFiles[i] = i;
 
-	const char *vecFile = multiPodFile;	// already read into the function
-	if (!vecFile)
-		vecFile = "multiPodFile.in";	// default filename
-	FILE *inFP = fopen(vecFile, "r");
-	if (!inFP)  {
-		com->fprintf(stderr, "*** Warning: No POD FILES in %s\n", vecFile);
-		exit (-1);
-	}
+  const char *vecFile = multiPodFile; // already read into the function
+  if (!vecFile)
+    vecFile = "multiPodFile.in";  // default filename
+  FILE *inFP = fopen(vecFile, "r");
+  if (!inFP)  {
+    com->fprintf(stderr, "*** Warning: No POD FILES in %s\n", vecFile);
+    exit (-1);
+  }
 
-	// =====================================================
-	// read in file containing filenames for multiple bases
-	// =====================================================
+  // =====================================================
+  // read in file containing filenames for multiple bases
+  // =====================================================
 
-	int nData; // number of available bases in the file
-	fscanf(inFP, "%d",&nData);	// first entry is the number of bases in the file
+  int nData; // number of available bases in the file
+  fscanf(inFP, "%d",&nData);  // first entry is the number of bases in the file
 
-	if (nBasesNeeded > 0 && nData < nBasesNeeded) {
-		com->fprintf(stderr," ... ERROR: expecting %d POD files, found %d\n",nBasesNeeded,nData);
-		com->fprintf(stderr," ... Exiting\n");
-		exit(-1); 
-	}
-	com->fprintf(stderr," ... reading in %d POD files\n",nBasesNeeded);
+  if (nBasesNeeded > 0 && nData < nBasesNeeded) {
+    com->fprintf(stderr," ... ERROR: expecting %d POD files, found %d\n",nBasesNeeded,nData);
+    com->fprintf(stderr," ... Exiting\n");
+    exit(-1); 
+  }
+  com->fprintf(stderr," ... reading in %d POD files\n",nBasesNeeded);
 
-	char **podFile = new char *[nData];	// files as they appear in the list input file
+  char **podFile = new char *[nData]; // files as they appear in the list input file
 
-	for (int iData = 0; iData < nData; ++iData){
-		podFile[iData] = new char[1000];
-		fscanf(inFP, "%s", podFile[iData]);
-	}
+  for (int iData = 0; iData < nData; ++iData){
+    podFile[iData] = new char[1000];
+    fscanf(inFP, "%s", podFile[iData]);
+  }
 
-	// ================================
-	// read individual POD bases
-	// ================================
+  // ================================
+  // read individual POD bases
+  // ================================
 
-	for (int iData=0; iData < nBasesNeeded; ++iData){	// loop over bases
-		com->fprintf(stderr, " ... Reading POD from %s \n", podFile[whichFiles[iData]]);
-		readPodBasis(podFile[whichFiles[iData]], nPod[iData],*(pod[iData]));
-	}
+  for (int iData=0; iData < nBasesNeeded; ++iData){ // loop over bases
+    com->fprintf(stderr, " ... Reading POD from %s \n", podFile[whichFiles[iData]]);
+    readPodBasis(podFile[whichFiles[iData]], nPod[iData],*(pod[iData]));
+  }
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim>
 void Domain::readPodBasis(const char *podFile, int &nPod,
-		VecSet<DistSVec<double, dim> > &podVecs, bool useSnaps) {
+    VecSet<DistSVec<double, dim> > &podVecs, bool useSnaps) {
 
   // read in POD Vectors
   const char *vecFile = podFile;
@@ -5957,21 +6120,21 @@ void Domain::readPodBasis(const char *podFile, int &nPod,
   // read number of vecs
   DistSVec<double,dim> tmpVec(getNodeDistInfo());
 
-	if (useSnaps)	// reading snapshots, not a pod basis
-		nPodVecs = nPod;
-	else {
-		readVectorFromFile(vecFile, 0, &eigValue, tmpVec);
-		nPodVecs = (int) eigValue;
-		com->fprintf(stderr, " ... There are %d total podVecs \n", nPodVecs);	// unique POD vectors (first one repeated)
-	}
+  if (useSnaps) // reading snapshots, not a pod basis
+    nPodVecs = nPod;
+  else {
+    readVectorFromFile(vecFile, 0, &eigValue, tmpVec);
+    nPodVecs = (int) eigValue;
+    com->fprintf(stderr, " ... There are %d total podVecs \n", nPodVecs); // unique POD vectors (first one repeated)
+  }
 
   if (nPod > nPodVecs)  {
     com->fprintf(stderr, " ... WARNING: there are only %d POD Vectors \n", nPodVecs);
     nPod = nPodVecs;
   }
-	else if (nPod < 0)  {	// if negative value specified, read in all vectors
-		nPod = nPodVecs;
-	}
+  else if (nPod < 0)  { // if negative value specified, read in all vectors
+    nPod = nPodVecs;
+  }
   else
     nPodVecs = nPod;
 
@@ -5982,18 +6145,18 @@ void Domain::readPodBasis(const char *podFile, int &nPod,
   int iVec;
   double firstEig;
   for (iVec = 0; iVec < nPodVecs; iVec++) { 
-    readVectorFromFile(vecFile, iVec+1, &eigValue, podVecs[iVec]);	// read in one more
-		if (iVec == 0)
-			firstEig = eigValue;
-	}
+    readVectorFromFile(vecFile, iVec+1, &eigValue, podVecs[iVec]);  // read in one more
+    if (iVec == 0)
+      firstEig = eigValue;
+  }
 
-	double firstEigDisplayed;
-	if (firstEig == 0){
-		firstEigDisplayed = 1.0;
-	}
-	else{
-		firstEigDisplayed = firstEig;
-	}
+  double firstEigDisplayed;
+  if (firstEig == 0){
+    firstEigDisplayed = 1.0;
+  }
+  else{
+    firstEigDisplayed = firstEig;
+  }
   com->fprintf(stderr, " ... Eigenvalue Ratio: (%e/%e) = %e\n", eigValue, firstEigDisplayed, eigValue/firstEigDisplayed);
 }
 
@@ -6001,83 +6164,83 @@ void Domain::readPodBasis(const char *podFile, int &nPod,
 
 template<typename Scalar>
 void Domain::communicateMesh(std::vector <Scalar> * nodeOrEle, int arraySize,
-		int *alreadyCommunicatedArray){	
-	
-	// loop over iIslands
-		// figure out how many total entries each cpu has for the iIsland
-		// 	numNeigh = {0 9 15 58} means that the first cpu has 9, second has 6, etc.
-		// initiate memory for the total number of globalNodes (using last entry in above vector)
-		// fill out entries [iCpu] to [iCpu+1] in above array using vector
-		// do a global sum
-		// overwrite node and element vectors with this global data (for each cpu)
-	
-	int* numNeigh = new int [com->size() + 1];
-	int offset;	// initial values to not communicate (if already communicated some)
-	for (int iArraySize = 0; iArraySize < arraySize; ++iArraySize) {
-		if (com->cpuNum() > 0 && alreadyCommunicatedArray != NULL)
-			offset = alreadyCommunicatedArray[iArraySize];
-		else
-			offset = 0;
-		for (int i = 0; i <=com->size(); ++i)	// initialize
-			numNeigh[i] = 0;
-		numNeigh[com->cpuNum()+1] = nodeOrEle[iArraySize].size() - offset;	// number of entries on this cpu
-		com->globalSum(com->size()+1,numNeigh);
-		for (int i = 1; i <=com->size(); ++i)	// accumulate
-			numNeigh[i] += numNeigh[i-1];
-		int totalNodeOrEle = numNeigh[com->size()];	// total across all processors
+    int *alreadyCommunicatedArray){ 
+  
+  // loop over iIslands
+    // figure out how many total entries each cpu has for the iIsland
+    //  numNeigh = {0 9 15 58} means that the first cpu has 9, second has 6, etc.
+    // initiate memory for the total number of globalNodes (using last entry in above vector)
+    // fill out entries [iCpu] to [iCpu+1] in above array using vector
+    // do a global sum
+    // overwrite node and element vectors with this global data (for each cpu)
+  
+  int* numNeigh = new int [com->size() + 1];
+  int offset; // initial values to not communicate (if already communicated some)
+  for (int iArraySize = 0; iArraySize < arraySize; ++iArraySize) {
+    if (com->cpuNum() > 0 && alreadyCommunicatedArray != NULL)
+      offset = alreadyCommunicatedArray[iArraySize];
+    else
+      offset = 0;
+    for (int i = 0; i <=com->size(); ++i) // initialize
+      numNeigh[i] = 0;
+    numNeigh[com->cpuNum()+1] = nodeOrEle[iArraySize].size() - offset;  // number of entries on this cpu
+    com->globalSum(com->size()+1,numNeigh);
+    for (int i = 1; i <=com->size(); ++i) // accumulate
+      numNeigh[i] += numNeigh[i-1];
+    int totalNodeOrEle = numNeigh[com->size()]; // total across all processors
 
-		Scalar *nodeOrEleArray = new Scalar [totalNodeOrEle];
-		for (int iNeighbor = 0; iNeighbor < totalNodeOrEle; ++iNeighbor) {
-			if (iNeighbor >= numNeigh[com->cpuNum()] && iNeighbor < numNeigh[com->cpuNum()+1]) 
-				nodeOrEleArray[iNeighbor] = nodeOrEle[iArraySize][iNeighbor - numNeigh[com->cpuNum()] + offset];	// fill in this cpu's contribution
-			else
-				nodeOrEleArray[iNeighbor] = 0;
-		}
-		com->globalSum(totalNodeOrEle,nodeOrEleArray);
+    Scalar *nodeOrEleArray = new Scalar [totalNodeOrEle];
+    for (int iNeighbor = 0; iNeighbor < totalNodeOrEle; ++iNeighbor) {
+      if (iNeighbor >= numNeigh[com->cpuNum()] && iNeighbor < numNeigh[com->cpuNum()+1]) 
+        nodeOrEleArray[iNeighbor] = nodeOrEle[iArraySize][iNeighbor - numNeigh[com->cpuNum()] + offset];  // fill in this cpu's contribution
+      else
+        nodeOrEleArray[iNeighbor] = 0;
+    }
+    com->globalSum(totalNodeOrEle,nodeOrEleArray);
 
-		// fill in the array with all global entries
-		nodeOrEle[iArraySize].clear();
+    // fill in the array with all global entries
+    nodeOrEle[iArraySize].clear();
                 nodeOrEle[iArraySize].resize(totalNodeOrEle,0.0);
-		for (int iNeighbor = 0; iNeighbor < totalNodeOrEle; ++iNeighbor) 
-			nodeOrEle[iArraySize][iNeighbor]=nodeOrEleArray[iNeighbor];
+    for (int iNeighbor = 0; iNeighbor < totalNodeOrEle; ++iNeighbor) 
+      nodeOrEle[iArraySize][iNeighbor]=nodeOrEleArray[iNeighbor];
 
-		delete [] nodeOrEleArray;
-		
-	}
-	delete [] numNeigh;
+    delete [] nodeOrEleArray;
+    
+  }
+  delete [] numNeigh;
 }
 
 template<typename Scalar>
 void Domain::makeUnique( std::vector <Scalar> * nodeOrEle, int length) {
 
-	// remove redundant entries from a vector <int> nodeOrEle *
-	// apply to nodeOrEle and elements
+  // remove redundant entries from a vector <int> nodeOrEle *
+  // apply to nodeOrEle and elements
 
-	vector<int>::iterator it;
+  vector<int>::iterator it;
 
-	// put all on one vector
-	for (int iIsland = 1; iIsland < length; ++iIsland) {
-		for (int iEntry = 0; iEntry < nodeOrEle[iIsland].size(); ++iEntry) {
-			nodeOrEle[0].push_back(nodeOrEle[iIsland][iEntry]);
-		}
-		nodeOrEle[iIsland].erase(nodeOrEle[iIsland].begin(),nodeOrEle[iIsland].end());	// no longer need that vector
-	}
+  // put all on one vector
+  for (int iIsland = 1; iIsland < length; ++iIsland) {
+    for (int iEntry = 0; iEntry < nodeOrEle[iIsland].size(); ++iEntry) {
+      nodeOrEle[0].push_back(nodeOrEle[iIsland][iEntry]);
+    }
+    nodeOrEle[iIsland].erase(nodeOrEle[iIsland].begin(),nodeOrEle[iIsland].end());  // no longer need that vector
+  }
 
-	sort(nodeOrEle[0].begin(), nodeOrEle[0].end());	// sort: puts in order
-	it = unique(nodeOrEle[0].begin(), nodeOrEle[0].end()); // remove duplicate consecutive elements (reason for sort)
-	nodeOrEle[0].resize(it - nodeOrEle[0].begin());	// remove extra entries
+  sort(nodeOrEle[0].begin(), nodeOrEle[0].end()); // sort: puts in order
+  it = unique(nodeOrEle[0].begin(), nodeOrEle[0].end()); // remove duplicate consecutive elements (reason for sort)
+  nodeOrEle[0].resize(it - nodeOrEle[0].begin()); // remove extra entries
 }
 // Functions to compute the error (that is, the difference between two state vectors)
 template <int dim>
 void Domain::computeL1Error(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, 
-			    DistVec<double>& vol, double error[dim],
+          DistVec<double>& vol, double error[dim],
                             DistLevelSetStructure* distLSS) {
 
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; iSub++) {
     LevelSetStructure*  LSS = (distLSS ? &(*distLSS)(iSub) : NULL);
     subDomain[iSub]->computeL1Error(U.getMasterFlag(iSub),U(iSub), Uexact(iSub), 
-				    vol(iSub),error, LSS);
+            vol(iSub),error, LSS);
   }
 
   com->globalSum(dim, error);
@@ -6086,14 +6249,14 @@ void Domain::computeL1Error(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexac
 // Functions to compute the error (that is, the difference between two state vectors)
 template <int dim>
 void Domain::computeL2Error(DistSVec<double,dim>& U, DistSVec<double,dim>& Uexact, 
-			    DistVec<double>& vol, double error[dim],
+          DistVec<double>& vol, double error[dim],
                             DistLevelSetStructure* distLSS) {
 
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; iSub++) {
     LevelSetStructure*  LSS = (distLSS ? &(*distLSS)(iSub) : NULL);
     subDomain[iSub]->computeL2Error(U.getMasterFlag(iSub),U(iSub), Uexact(iSub), 
-				    vol(iSub),error, LSS);
+            vol(iSub),error, LSS);
   }
 
   com->globalSum(dim, error);
@@ -6121,7 +6284,7 @@ void Domain::computeLInfError(DistSVec<double,dim>& U, DistSVec<double,dim>& Uex
 
 template <int dim>
 void Domain::computeHHBoundaryTermResidual(DistBcData<dim> &bcData,DistSVec<double,dim> &U,DistVec<double>& res,
-					   VarFcn* vf) {
+             VarFcn* vf) {
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; iSub++)
     subDomain[iSub]->computeHHBoundaryTermResidual(bcData(iSub),U(iSub), res(iSub), vf);
@@ -6129,7 +6292,7 @@ void Domain::computeHHBoundaryTermResidual(DistBcData<dim> &bcData,DistSVec<doub
 
 template <int dim>
 void Domain::setExactBoundaryValues(DistSVec<double,dim>& U, DistSVec<double,3>& X,
-				    IoData& iod,double t, VarFcn* varFcn) {
+            IoData& iod,double t, VarFcn* varFcn) {
 
   if (iod.embed.testCase == 1) {
 
@@ -6139,15 +6302,15 @@ void Domain::setExactBoundaryValues(DistSVec<double,dim>& U, DistSVec<double,3>&
       int lsize = U(iSub).size();
       for (int i = 0; i < lsize; ++i) {
 
-	double* x = X(iSub)[i];
-	if (x[0] == 0.0 || fabs(x[0]-1.0) < 1.0e-12/* || x[1] > 0.98*/) {
-	  
-	  double V[5];
-	  ExactSolution::AcousticBeam(iod,x[0],x[1],x[2],t, V);
+  double* x = X(iSub)[i];
+  if (x[0] == 0.0 || fabs(x[0]-1.0) < 1.0e-12/* || x[1] > 0.98*/) {
+    
+    double V[5];
+    ExactSolution::AcousticBeam(iod,x[0],x[1],x[2],t, V);
 
-	  varFcn->primitiveToConservative(V, U(iSub)[i], 0);
-	  
-	}
+    varFcn->primitiveToConservative(V, U(iSub)[i], 0);
+    
+  }
       }
     }
   } else if (iod.embed.testCase == 2) {
@@ -6158,15 +6321,15 @@ void Domain::setExactBoundaryValues(DistSVec<double,dim>& U, DistSVec<double,3>&
       int lsize = U(iSub).size();
       for (int i = 0; i < lsize; ++i) {
 
-	double* x = X(iSub)[i];
-	if (x[0] == 0.0 || fabs(x[0]-1.0) < 1.0e-12/* || x[1] > 0.98*/) {
-	  
-	  double V[5];
-	  ExactSolution::AcousticViscousBeam(iod,x[0],x[1],x[2],t, V);
+  double* x = X(iSub)[i];
+  if (x[0] == 0.0 || fabs(x[0]-1.0) < 1.0e-12/* || x[1] > 0.98*/) {
+    
+    double V[5];
+    ExactSolution::AcousticViscousBeam(iod,x[0],x[1],x[2],t, V);
 
-	  varFcn->primitiveToConservative(V, U(iSub)[i], 0);
-	  
-	}
+    varFcn->primitiveToConservative(V, U(iSub)[i], 0);
+    
+  }
       }
     }
   } else if (iod.mf.testCase == 3) {
@@ -6177,18 +6340,18 @@ void Domain::setExactBoundaryValues(DistSVec<double,dim>& U, DistSVec<double,3>&
       int lsize = U(iSub).size();
       for (int i = 0; i < lsize; ++i) {
 
-	double* x = X(iSub)[i];
-	if (x[0] == 0.0 || fabs(x[0]-1.0) < 1.0e-12 ||
-	    x[1] == 0.0 || fabs(x[1]-1.0) < 1.0e-12/* || x[1] > 0.98*/) {
-	  
-	  double V[5];
-	  double dummy;
-	  int fid;
-	  ExactSolution::AcousticTwoFluid(iod,x[0],x[1],x[2],t, V,&dummy, fid);
+  double* x = X(iSub)[i];
+  if (x[0] == 0.0 || fabs(x[0]-1.0) < 1.0e-12 ||
+      x[1] == 0.0 || fabs(x[1]-1.0) < 1.0e-12/* || x[1] > 0.98*/) {
+    
+    double V[5];
+    double dummy;
+    int fid;
+    ExactSolution::AcousticTwoFluid(iod,x[0],x[1],x[2],t, V,&dummy, fid);
 
-	  varFcn->primitiveToConservative(V, U(iSub)[i], fid);
-	  
-	}
+    varFcn->primitiveToConservative(V, U(iSub)[i], fid);
+    
+  }
       }
     }
   }
@@ -6196,7 +6359,7 @@ void Domain::setExactBoundaryValues(DistSVec<double,dim>& U, DistSVec<double,3>&
 
 template <int dim>
 void Domain::setExactBoundaryResidual(DistSVec<double,dim>& U, DistSVec<double,3>& X,
-				      IoData& iod,double t, VarFcn* varFcn) {
+              IoData& iod,double t, VarFcn* varFcn) {
 
   if (iod.embed.testCase == 1 || iod.embed.testCase == 2 || iod.mf.testCase == 3) {
 
@@ -6206,12 +6369,12 @@ void Domain::setExactBoundaryResidual(DistSVec<double,dim>& U, DistSVec<double,3
       int lsize = U(iSub).size();
       for (int i = 0; i < lsize; ++i) {
 
-	double* x = X(iSub)[i];
-	if (x[0] == 0.0 || fabs(x[0]-1.0) < 1.0e-12/* || x[1] > 0.98*/) {
-	  
-	  memset(U(iSub)[i], 0, sizeof(double)*dim);
-	  
-	}
+  double* x = X(iSub)[i];
+  if (x[0] == 0.0 || fabs(x[0]-1.0) < 1.0e-12/* || x[1] > 0.98*/) {
+    
+    memset(U(iSub)[i], 0, sizeof(double)*dim);
+    
+  }
       }
     }
   }
@@ -6219,8 +6382,8 @@ void Domain::setExactBoundaryResidual(DistSVec<double,dim>& U, DistSVec<double,3
 
 template <int dim,int neq,class Scalar>
 void Domain::setExactBoundaryJacobian(DistSVec<double,dim>& U, DistSVec<double,3>& X,
-				      IoData& iod,double t, VarFcn* varFcn,
-				      DistMat<Scalar,neq>& A) {
+              IoData& iod,double t, VarFcn* varFcn,
+              DistMat<Scalar,neq>& A) {
 
   if (iod.embed.testCase == 1 || iod.embed.testCase == 2 || iod.mf.testCase == 3) {
 
@@ -6231,23 +6394,23 @@ void Domain::setExactBoundaryJacobian(DistSVec<double,dim>& U, DistSVec<double,3
       
       GenMat<Scalar,neq> &Asub = A(iSub);
       for (int l=0; l<subDomain[iSub]->getEdges().size(); ++l) {
-	int i = edgePtr[l][0];
-	int j = edgePtr[l][1];
-	
-	double* xi = X(iSub)[i];
-	double* xj = X(iSub)[j];
-	bool isi = (xi[0] == 0.0 || fabs(xi[0]-1.0) < 1.0e-12);
-	bool isj = (xj[0] == 0.0 || fabs(xj[0]-1.0) < 1.0e-12);
-	
-	if (isi)  {
-	  Scalar *Aij = Asub.getElem_ij(l);
-	  memset(Aij, 0, sizeof(double)*neq*neq);
-	}
-	
-	if (isj)  {
-	  Scalar *Aji = Asub.getElem_ji(l);
-	  memset(Aji, 0, sizeof(double)*neq*neq);
-	}
+  int i = edgePtr[l][0];
+  int j = edgePtr[l][1];
+  
+  double* xi = X(iSub)[i];
+  double* xj = X(iSub)[j];
+  bool isi = (xi[0] == 0.0 || fabs(xi[0]-1.0) < 1.0e-12);
+  bool isj = (xj[0] == 0.0 || fabs(xj[0]-1.0) < 1.0e-12);
+  
+  if (isi)  {
+    Scalar *Aij = Asub.getElem_ij(l);
+    memset(Aij, 0, sizeof(double)*neq*neq);
+  }
+  
+  if (isj)  {
+    Scalar *Aji = Asub.getElem_ji(l);
+    memset(Aji, 0, sizeof(double)*neq*neq);
+  }
       }
     }
   }

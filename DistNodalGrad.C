@@ -1040,6 +1040,24 @@ void DistNodalGrad<dim, Scalar>::computeDerivativeOperators(DistSVec<double,3> &
 }
 
 //------------------------------------------------------------------------------
+
+// Included (JH)
+template<int dim, class Scalar>
+template<class Scalar2>
+void DistNodalGrad<dim, Scalar>::computeDerivativeOperators(DistSVec<double,3> &X, DistVec<double> &ctrlVol, DistVec<int> &fluidId,
+                                                            DistSVec<Scalar2,dim> &V, dRdXoperators<dim> &dRdXop, bool linFSI,
+                                                            DistLevelSetStructure *distLSS, bool includeSweptNodes)
+{
+
+  if (typeGradient == SchemeData::LEAST_SQUARES)
+    domain->computeDerivativeOperatorsOfGradientsLeastSquares(X, fluidId, *R, V, dRdXop, linFSI, distLSS, includeSweptNodes);
+  else if (typeGradient == SchemeData::GALERKIN || typeGradient == SchemeData::NON_NODAL) {
+    fprintf(stderr, "*** ERROR: DistNodalGrad<dim, Scalar>::computeDerivativeOperators for embedded Galerkin is not implemented\n");
+    exit(-1);
+  }
+}
+
+//------------------------------------------------------------------------------
 // least square gradient involving only nodes of same fluid (multiphase flow)
 // $d2d dzh
 template<int dim, class Scalar>

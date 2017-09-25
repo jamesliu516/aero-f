@@ -369,7 +369,7 @@ public:
   double computeNormDerivWallFcn(double rho, double T, double Du1, double DT1,
 										 double d2w, double &dudn, double &dTdn)
   {
-    fprintf(stderr, "*** Error: computeNormDerivWallFcn should not be called\n");
+    fprintf(stderr, "*** Error: FemEquationTermSAMean::computeNormDerivWallFcn should not be called\n");
     exit(1);
   }
   
@@ -498,7 +498,7 @@ public:
   double computeNormDerivWallFcn(double rho, double T, double Du1, double DT1,
 										 double d2w, double &dudn, double &dTdn)
   {
-    fprintf(stderr, "*** Error: computeNormDerivWallFcn should not be called\n");
+    fprintf(stderr, "*** Error: FemEquationTermDESmean::computeNormDerivWallFcn should not be called\n");
     exit(1);
   }
   
@@ -625,7 +625,7 @@ public:
   double computeNormDerivWallFcn(double rho, double T, double Du1, double DT1,
 										 double d2w, double &dudn, double &dTdn)
   {
-    fprintf(stderr, "*** Error: computeNormDerivWallFcn should not be called\n");
+    fprintf(stderr, "*** Error: FemEquationTermSAturb::computeNormDerivWallFcn should not be called\n");
     exit(1);
   }
 
@@ -764,7 +764,7 @@ public:
   double computeNormDerivWallFcn(double rho, double T, double Du1, double DT1,
 										 double d2w, double &dudn, double &dTdn)
   {
-    fprintf(stderr, "*** Error: computeNormDerivWallFcn should not be called\n");
+    fprintf(stderr, "*** Error: FEMEquationTermDES::computeNormDerivWallFcn should not be called\n");
     exit(1);
   }
   
@@ -1044,7 +1044,7 @@ public:
   double computeNormDerivWallFcn(double rho, double T, double Du1, double DT1,
 										 double d2w, double &dudn, double &dTdn)
   {
-    fprintf(stderr, "*** Error: computeNormDerivWallFcn should not be called\n");
+    fprintf(stderr, "*** Error: FemEquationTermKEmean::computeNormDerivWallFcn should not be called\n");
     exit(1);
   }
   
@@ -1175,7 +1175,7 @@ public:
   double computeNormDerivWallFcn(double rho, double T, double Du1, double DT1,
 										 double d2w, double &dudn, double &dTdn)
   {
-	  fprintf(stderr, "*** Error: computeNormDerivWallFcn should not be called\n");
+	  fprintf(stderr, "*** Error: FemEquationTermKEturb::computeNormDerivWallFcn should not be called\n");
 	  exit(1);
   }
   
