@@ -103,14 +103,14 @@ public:
   {
     for(int i=0;i<this->len;++i) this->v[i].nullify();
   }
-  void deletePointers() 
-  {
-    for(int i=0;i<this->len;++i) 
+    void deletePointers()
+    {
+      for(int i=0;i<this->len;++i)
       {
-	delete this->v[i];
-	this->v[i] = 0;
+        if(this->v[i])  delete this->v[i];
+        this->v[i] = 0;
       }
-  }
+    }
 };
 
 //------------------------------------------------------------------------------

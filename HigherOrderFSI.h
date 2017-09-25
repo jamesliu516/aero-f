@@ -87,12 +87,12 @@ class HigherOrderFSI {
    V6NodeData (*getV6Data() const) [2] { return v6data; }
 
 	/* --------------------------- */
-
-		void setSIstencil(V6NodeData *SIstencilData);
-
-
-		void setFEMstencil(V6NodeData *FEMstencilData_p, 
-								 V6NodeData *FEMstencilData_m);
+//
+//		void setSIstencil(V6NodeData *SIstencilData);
+//
+//
+//		void setFEMstencil(V6NodeData *FEMstencilData_p,
+//								 V6NodeData *FEMstencilData_m);
 
 	template<int dim>
 		void extrapolateToWall_1(int l, int n, int Fid, VarFcn *varFun, 
@@ -128,21 +128,29 @@ class HigherOrderFSI {
 
 private:
 
-   void* lastPhaseChangeState;
+    void* lastPhaseChangeState;
 
-   ElemSet* elems;
+    ElemSet* elems;
 
-   V6NodeData (*v6data)[2];
+    V6NodeData (*v6data)[2];
 
-   V6NodeData (*SIData);
-   V6NodeData (*FEMData_p);
-   V6NodeData (*FEMData_m);
+    V6NodeData (*SIData);
+    V6NodeData (*FEMData_p);
+    V6NodeData (*FEMData_m);
+
+
 
 	bool limitExtrap;
 
 	bool HOtreatment;
 	bool viscQuadRcn;
 public:
+	//todo here we assume the node or edge numbers in each subdomain is fixed, need more for AMR
+	V6NodeData* getAllocatedSIData(int len)    {if(!SIData) SIData = new V6NodeData[len];  return SIData;}
+	V6NodeData* getAllocatedFEMData_p(int len) {if(!FEMData_p) FEMData_p = new V6NodeData[len];  return FEMData_p;}
+	V6NodeData* getAllocatedFEMData_m(int len) {if(!FEMData_m) FEMData_m = new V6NodeData[len];  return FEMData_m;}
+
+
 	void setVelocityG(double* Vf, double** dVf,
 							Vec3D Dir, double xi, double eta,
 							Vec3D &vWall, double* Vg);

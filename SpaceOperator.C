@@ -1505,11 +1505,13 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
 
   }
 
+  std::cout << " ****H In spaceOperator " << std::endl;
+
   //this->updateStencil(X, distLSS, fluidId, U); // d2d this is for update stencil in algorithom involving closest points
 
   if (fet)
     this->populateGhostPoints(ghostPoints,X,U,varFcn,distLSS,viscSecOrder,fluidId);
-
+  std::cout << " ****H In spaceOperator after populate ghost points " << std::endl;
   if (egrad)
     egrad->compute(geoState->getConfig(), X);
   
@@ -1530,7 +1532,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
       domain->computeGalerkinTerm(fet, *bcData, *geoState, X, *V, R, ghostPoints, distLSS, externalSI);
       bcData->computeNodeValue(X);
   }
-
+  std::cout << " ****H In spaceOperator after finish galerkin term " << std::endl;
   if (volForce)
     domain->computeVolumicForceTerm(volForce, ctrlVol, *V, R);
 
@@ -1542,6 +1544,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
 				  distLSS, linRecAtInterface, fluidId, Nriemann,
 											  *ngrad, egrad, R, it, failsafe, rshift, externalSI, ghostPoints);
 
+  std::cout << " ****H In spaceOperator after finish compute FiniteVolume Term " << std::endl;
   if(compatF3D) 
   {
 	  if(descriptorCase != DESCRIPTOR)
@@ -1893,6 +1896,7 @@ void SpaceOperator<dim>::populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoi
 															bool viscSecOrder, DistVec<int> &fluidId)
 {
 ghostPoints->deletePointers();
+    std::cout << "****H finish deleting ghost points" << std::endl;
 	
 	domain->populateGhostPoints(ghostPoints, X, U, ngrad, varFcn, distLSS, viscSecOrder, fluidId, externalSI, fet);
 
@@ -1929,7 +1933,9 @@ void SpaceOperator<dim>::setFEMstencil(DistSVec<double,3> &X, DistLevelSetStruct
 template<int dim>
 void SpaceOperator<dim>::updateStencil(DistSVec<double,3> &X, DistLevelSetStructure *distLSS, DistVec<int> &fluidId)
 {
+  std::cout  <<" ****H In the updateStencil " <<std::endl;
   if(iod->problem.type[ProblemData::FORCED] || iod->problem.type[ProblemData::AERO] ) {// only those, the structure if moving, we need to update the stencil, todo,
+    std::cout  <<" ****H enter updateStencil " <<std::endl;
     if (iod->embed.surrogateinterface == EmbeddedFramework::EXTERNAL) {
       this->setSIstencil(X, distLSS, fluidId);
 
