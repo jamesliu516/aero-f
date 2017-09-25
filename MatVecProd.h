@@ -9,7 +9,6 @@
 #include <RestrictionMapping.h>
 //#include <TsDesc.h>
 
-
 typedef std::complex<double> bcomp;
 
 class VarFcn;
@@ -43,6 +42,10 @@ public:
 
   virtual void constructOperators(Vec3D &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &,
                                   double, DistSVec<double,dim> &, DistVec<double> &, DistTimeState<dim> *, PostOperator<dim> *) = 0;
+  virtual void constructOperatorsEmb(Vec3D &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistLevelSetStructure *, bool, bool,
+                                  double, DistSVec<double,dim> &, DistVec<double> &, DistTimeState<dim> *, PostOperator<dim> *,
+                                  DistVec<int> *fluidId, double ds[3]) = 0;
+
   virtual dRdXoperators<dim> *getdRdXop() = 0;
   virtual void exportMemory(MemoryPool *mp)
   {
@@ -67,9 +70,6 @@ public:
   virtual void apply(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &)
   {std::cout<<"*** Error: apply not implemented for this MatVecProd"<<std::endl; exit(-1);}
   
-  virtual void applyT(DistSVec<double,neq> &, DistSVec<double,neq> &) = 0;
-  virtual void applyT(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &) = 0;
-
   virtual void applyTranspose(DistSVec<double,neq> &, DistSVec<double,neq> &) = 0;
   virtual void applyTranspose(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &)
   {std::cout<<"*** Error: applyTranspose not implemented for this MatVecProd"<<std::endl; exit(-1);}
@@ -219,6 +219,11 @@ public:
                           double, DistSVec<double,dim> &, DistVec<double> &, DistTimeState<dim> *, PostOperator<dim> *)
   {std::cout<<"*** Error: function constructOperators not implemented"<<std::endl; exit(-1);}
 
+  void constructOperatorsEmb(Vec3D &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistLevelSetStructure *, bool, bool,
+                          double, DistSVec<double,dim> &, DistVec<double> &, DistTimeState<dim> *, PostOperator<dim> *,
+                          DistVec<int> *fluidId, double ds[3])
+  {std::cout<<"*** Error: function constructOperatorsEmb not implemented"<<std::endl; exit(-1);}
+
   dRdXoperators<dim> *getdRdXop() { return 0;}
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
 		DistSVec<double,dim> &, DistSVec<double,dim> &);
@@ -258,11 +263,6 @@ public:
 
   void apply(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &)  {
     std::cout << "... ERROR: ::apply function not implemented for class MatVecProdFD with complex arguments" << endl; }
-
-  void applyT(DistSVec<double,neq> &, DistSVec<double,neq> &)  {
-    std::cout << "... ERROR: ::applyT function not implemented for class MatVecProdFD" << endl; }
-  void applyT(DistSVec<bcomp,neq> &x, DistSVec<bcomp,neq> &y)  {
-    std::cout << "... ERROR: ::applyT function not implemented for class MatVecProdFD" << endl; }
 
 // Included (MB)
   void evaluateInviscid(int, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
@@ -319,6 +319,10 @@ public:
   void constructOperators(Vec3D &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &,
                           double, DistSVec<double,dim> &, DistVec<double> &, DistTimeState<dim> *, PostOperator<dim> *)
   {std::cout<<"*** Error: function constructOperators not implemented"<<std::endl;exit(-1);}
+  void constructOperatorsEmb(Vec3D &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistLevelSetStructure *, bool, bool,
+                          double, DistSVec<double,dim> &, DistVec<double> &, DistTimeState<dim> *, PostOperator<dim> *,
+                          DistVec<int> *fluidId, double ds[3])
+  {std::cout<<"*** Error: function constructOperatorsEmb not implemented"<<std::endl; exit(-1);}
 
   dRdXoperators<dim> *getdRdXop() { return 0; }
 
@@ -353,11 +357,6 @@ public:
                 int (TsDesc<dim>::*checkSolution)(DistSVec<double,dim> &)=NULL);
 
   void apply(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &);
-
-  void applyT(DistSVec<double,neq> &, DistSVec<double,neq> &)  {
-    std::cout << "... ERROR: ::applyT function not implemented for class MatVecProdH1" << endl; exit(-1);}
-  void applyT(DistSVec<bcomp,neq> &x, DistSVec<bcomp,neq> &y) { 
-    std::cout << "... ERROR: ::applyT function not implemented for class MatVecProdH1" << endl; exit(-1);}
 
   void rstSpaceOp(IoData &, VarFcn *, SpaceOperator<dim> *, bool, SpaceOperator<dim> * = 0);
  
@@ -450,17 +449,6 @@ class MatVecProdH2 : public MatVecProd<dim,neq>, public DistMat<Scalar,dim> {
       , MatVecProdFD<dd, nn> *RFD
       , DistSVec<Scalar2, nn> *vProd
     );
-    void ApplyT
-    (
-      SpaceOperator<dd> *spaceOp
-      , DistSVec<double,3> &X
-      , DistVec<double> &ctrlVol
-      , DistSVec<double,dd> &U
-      , DistMat<Scalar1,dd> &H2
-      , DistSVec<double,dd> &aij, DistSVec<double,dd> &aji
-      , DistSVec<double,dd> &bij, DistSVec<double,dd> &bji
-      , DistSVec<Scalar2,nn> &p, DistSVec<Scalar2,nn> &prod
-    );
   };
 
   template<int dd, class Scalar1, class Scalar2>
@@ -480,6 +468,22 @@ class MatVecProdH2 : public MatVecProd<dim,neq>, public DistMat<Scalar,dim> {
       , MatVecProdFD<dd, dd> *RFD
       , DistSVec<Scalar2, dd> *vProd
     );
+    void Apply //embedded version
+    (
+      SpaceOperator<dd> *spaceOp
+      , DistSVec<double,3> &X
+      , DistVec<double> &ctrlVol
+      , DistSVec<double,dd> &U
+      , DistMat<Scalar1,dd> &H2
+      , DistSVec<double,dd> &aij, DistSVec<double,dd> &aji
+      , DistSVec<double,dd> &bij, DistSVec<double,dd> &bji
+      , DistSVec<double,dd> &betaij, DistSVec<double,dd> &betaji
+      , typename MatVecProd<dim,dim>::_fsi &fsi
+      , DistEmbeddedVec<Scalar2,dd> &p, DistEmbeddedVec<Scalar2,dd> &prod
+      , MatVecProdH1<dd, Scalar1, dd> *R
+      , MatVecProdFD<dd, dd> *RFD
+      , DistSVec<Scalar2, dd> *vProd
+    );
     void ApplyTranspose
     (
       SpaceOperator<dd> *spaceOp
@@ -493,17 +497,6 @@ class MatVecProdH2 : public MatVecProd<dim,neq>, public DistMat<Scalar,dim> {
       , MatVecProdH1<dd, Scalar1, dd> *R
       , MatVecProdFD<dd, dd> *RFD
       , DistSVec<Scalar2, dd> *vProd
-    );
-    void ApplyT
-    (
-      SpaceOperator<dd> *spaceOp
-      , DistSVec<double,3> &X
-      , DistVec<double> &ctrlVol
-      , DistSVec<double,dd> &U
-      , DistMat<Scalar1,dd> &H2
-      , DistSVec<double,dd> &aij, DistSVec<double,dd> &aji
-      , DistSVec<double,dd> &bij, DistSVec<double,dd> &bji
-      , DistSVec<Scalar2,dd> &p, DistSVec<Scalar2,dd> &prod
     );
   };
   //--------------------------------------
@@ -524,6 +517,10 @@ public:
   void constructOperators(Vec3D &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &,
                           double, DistSVec<double,dim> &, DistVec<double> &, DistTimeState<dim> *, PostOperator<dim> *)
   {std::cout<<"*** Error: function constructOperators not implemented"<<std::endl; exit(-1);}
+  void constructOperatorsEmb(Vec3D &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistLevelSetStructure *, bool, bool,
+                          double, DistSVec<double,dim> &, DistVec<double> &, DistTimeState<dim> *, PostOperator<dim> *,
+                          DistVec<int> *fluidId, double ds[3])
+  {std::cout<<"*** Error: function constructOperatorsEmb not implemented"<<std::endl; exit(-1);}
 
   dRdXoperators<dim> *getdRdXop() { return 0; }
 /*
@@ -574,11 +571,8 @@ public:
   void apply(DistSVec<bcomp,neq>         &, DistSVec<bcomp,neq> &);
   void apply(DistEmbeddedVec<double,dim> &, DistEmbeddedVec<double,dim> &);
 
-  void applyT(DistSVec<double,neq> &, DistSVec<double,neq> &);
-  void applyT(DistSVec<bcomp,neq> &x, DistSVec<bcomp,neq> &y);
   void applyTranspose(DistSVec<double,neq> &, DistSVec<double,neq> &);
-  void applyTranspose(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &)
-  {std::cout<<"*** Error: function MatVecProdH2::applyTranspose not implemented for Embedded"<<std::endl; exit(-1);}
+  void applyTranspose(DistEmbeddedVec<double,dim> &, DistEmbeddedVec<double,dim> &);
 
 // Included (MB)
   void evaluateInviscid(int, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
@@ -624,8 +618,6 @@ public:
   virtual void apply(DistEmbeddedVec<double,dim> &, DistEmbeddedVec<double,dim> &)
   {std::cout<<"*** Error: apply not implemented for this MatVecProd:"<<__LINE__<<std::endl; exit(-1);}
 
-  virtual void applyT(DistSVec<double,dim> &, DistSVec<double,dim> &) = 0;
-  virtual void applyT(DistSVec<bcomp,dim> &x, DistSVec<bcomp,dim> &y) = 0;
   virtual void applyTranspose(DistSVec<double,dim> &, DistSVec<double,dim> &) = 0;
   
   virtual void applyTranspose(DistEmbeddedVec<double,dim> &, DistEmbeddedVec<double,dim> &)
@@ -705,12 +697,6 @@ public:
 
   void apply(DistEmbeddedVec<double,dim> &, DistEmbeddedVec<double,dim> &);
 
-  void applyT(DistSVec<double,dim> &, DistSVec<double,dim> &)
-  {std::cout<<"*** Error: applyT not implemented for MultiPhase"<<std::endl; exit(-1);}
-
-  void applyT(DistSVec<bcomp,dim> &x, DistSVec<bcomp,dim> &y)
-  {std::cout<<"*** Error: applyT not implemented for MultiPhase"<<std::endl; exit(-1);}
-
   void applyTranspose(DistSVec<double,dim> &, DistSVec<double,dim> &)
   {std::cout<<"*** Error: applyTranspose not implemented for MultiPhase"<<std::endl; exit(-1);}
 
@@ -756,11 +742,6 @@ public:
   void apply(DistSVec<double,dim> &, DistSVec<double,dim> &);
 
   void apply(DistEmbeddedVec<double,dim> &, DistEmbeddedVec<double,dim> &);
-  void applyT(DistSVec<double,dim> &, DistSVec<double,dim> &)
-  {std::cout<<"*** Error: applyT not implemented for MatVecProdH1MultiPhase"<<std::endl; exit(-1);}
-
-  void applyT(DistSVec<bcomp,dim> &x, DistSVec<bcomp,dim> &y)
-  {std::cout<<"*** Error: applyT not implemented for MatVecProdH1MultiPhase"<<std::endl; exit(-1);}
 
   void applyTranspose(DistSVec<double,dim> &, DistSVec<double,dim> &)
   {std::cout<<"*** Error: applyTranspose not implemented for MatVecProdH1MultiPhase"<<std::endl; exit(-1);}
@@ -811,12 +792,6 @@ public:
 		int lsMethod = 0);
 
   void apply(DistSVec<double,dimLS> &, DistSVec<double,dimLS> &);
-
-  void applyT(DistSVec<double,dimLS> &, DistSVec<double,dimLS> &)
-  {std::cout<<"*** Error: function applyT not implemented for MatVecProdLS:"<<__LINE__<<std::endl; exit(-1);}
-
-  void applyT(DistSVec<bcomp,dimLS> &x, DistSVec<bcomp,dimLS> &y)
-  {std::cout<<"*** Error: function applyT not implemented for MatVecProdLS:"<<__LINE__<<std::endl; exit(-1);}
 
   void applyTranspose(DistSVec<double,dimLS> &, DistSVec<double,dimLS> &)
   {std::cout<<"*** Error: function applyTranspose not implemented for MatVecProdLS:"<<__LINE__<<std::endl; exit(-1);}
@@ -1339,17 +1314,6 @@ class MatVecProd_dRdX : public MatVecProd<dim,neq> {
       , MatVecProdFD<dd, nn> *RFD
       , DistSVec<Scalar2, nn> *vProd
     );
-    void ApplyT
-    (
-      SpaceOperator<dd> *spaceOp
-      , DistSVec<double,3> &X
-      , DistVec<double> &ctrlVol
-      , DistSVec<double,dd> &U
-      , DistMat<Scalar1,dd> &H2
-      , DistSVec<double,dd> &aij, DistSVec<double,dd> &aji
-      , DistSVec<double,dd> &bij, DistSVec<double,dd> &bji
-      , DistSVec<Scalar2,nn> &p, DistSVec<Scalar2,nn> &prod
-    );
   };
 
   template<int dd, class Scalar1, class Scalar2>
@@ -1368,18 +1332,6 @@ class MatVecProd_dRdX : public MatVecProd<dim,neq> {
       , MatVecProdH1<dd, Scalar1, dd> *R
       , MatVecProdFD<dd, dd> *RFD
       , DistSVec<Scalar2, dd> *vProd
-    );
-
-    void ApplyT
-    (
-      SpaceOperator<dd> *spaceOp
-      , DistSVec<double,3> &X
-      , DistVec<double> &ctrlVol
-      , DistSVec<double,dd> &U
-      , DistMat<Scalar1,dd> &H2
-      , DistSVec<double,dd> &aij, DistSVec<double,dd> &aji
-      , DistSVec<double,dd> &bij, DistSVec<double,dd> &bji
-      , DistSVec<Scalar2,dd> &p, DistSVec<Scalar2,dd> &prod
     );
   };
   //--------------------------------------
@@ -1400,6 +1352,9 @@ public:
   void constructOperators(Vec3D &, DistSVec<double,3> &X, DistVec<double> &ctrlVol, DistSVec<double,dim> &U,
                           double dMach, DistSVec<double,dim> &R, DistVec<double> &, DistTimeState<dim> *timeState, PostOperator<dim> *);
 
+  void constructOperatorsEmb(Vec3D &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistLevelSetStructure *, bool, bool,
+                          double, DistSVec<double,dim> &, DistVec<double> &, DistTimeState<dim> *, PostOperator<dim> *,
+                          DistVec<int> *fluidId, double ds[3]);
 
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &,
                 DistSVec<double,dim> &, DistSVec<double,dim> &)
@@ -1440,12 +1395,6 @@ public:
   {std::cout<<__FILE__<<":"<<__LINE__<<" empty header declaration called"; exit(-1);}
 
   void applyTranspose(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &)
-  {std::cout<<__FILE__<<":"<<__LINE__<<" empty header declaration called"; exit(-1);}
-
-  void applyT(DistSVec<double,neq> &, DistSVec<double,neq> &)
-  {std::cout<<__FILE__<<":"<<__LINE__<<" empty header declaration called"; exit(-1);}
-
-  void applyT(DistSVec<bcomp,neq> &x, DistSVec<bcomp,neq> &y)
   {std::cout<<__FILE__<<":"<<__LINE__<<" empty header declaration called"; exit(-1);}
 
 // Included (MB)

@@ -315,12 +315,6 @@ public:
 		 DistSVec<double,dim> &, DistSVec<double,dim> &);
 
   template<class Scalar, int neq>
-  void computeH2transpose(DistSVec<double,3> &, DistVec<double> &,
-                          DistSVec<double,dim> &, DistMat<Scalar,neq> &,
-                          DistSVec<double,dim> &, DistSVec<double,dim> &,
-                          DistSVec<double,dim> &, DistSVec<double,dim> &);
-
-  template<class Scalar, int neq>
   void computeH2(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
 		 DistSVec<double,dim> &U, 
 		 DistLevelSetStructure *distLSS,
@@ -361,14 +355,22 @@ public:
 	       DistSVec<double,dim> &bij, DistSVec<double,dim> &bji,
 	       DistSVec<double,dim> &betaij, DistSVec<double,dim> &betaji,
 	       DistSVec<Scalar2,dim> &p, DistSVec<Scalar2,dim> &prod);
-  
-  template<class Scalar1, class Scalar2>
-  void applyH2T(DistSVec<double,3> &, DistVec<double> &,
-                DistSVec<double,dim> &, DistMat<Scalar1,dim> &,
-                DistSVec<double,dim> &, DistSVec<double,dim> &,
-                DistSVec<double,dim> &, DistSVec<double,dim> &,
-                DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &);
 
+  template<class Scalar1, class Scalar2>
+  void applyH2transpose(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
+         DistSVec<double,dim> &U,   
+         DistLevelSetStructure *distLSS,
+         DistVec<int> &fluidId,
+         bool linRecAtInterface, bool viscSecOrder,
+         DistExactRiemannSolver<dim> *riemann, 
+         int Nriemann,
+         DistVec<GhostPoint<dim>*> *ghostPoints,
+         DistMat<Scalar1,dim> &H2,
+         DistSVec<double,dim> &aij, DistSVec<double,dim> &aji,
+         DistSVec<double,dim> &bij, DistSVec<double,dim> &bji,
+         DistSVec<double,dim> &betaij, DistSVec<double,dim> &betaji,
+         DistSVec<Scalar2,dim> &p, DistSVec<Scalar2,dim> &prod);
+  
   template<class Scalar, int neq>
   void printAllMatrix(DistMat<Scalar,neq> &, int);
 
@@ -381,6 +383,9 @@ public:
 
   // Included (YC)
   void computeDerivativeOperators(Vec3D &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, double, DistSVec<double,dim> &, DistVec<double> &,
+                                  DistTimeState<dim> * = 0, PostOperator<dim> * = 0, dRdXoperators<dim> * =0);
+  // Included (JH)
+  void computeDerivativeOperatorsEmb(Vec3D &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistLevelSetStructure *, bool, bool, double, DistSVec<double,dim> &, DistVec<double> &, DistVec<int> *, double *,
                                   DistTimeState<dim> * = 0, PostOperator<dim> * = 0, dRdXoperators<dim> * =0);
 
   // Included (MB)
@@ -427,6 +432,7 @@ public:
                                             DistVec<double> &, DistVec<double> &, DistSVec<double,3> &,
                                             DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<Vec3D>&,
                                             DistVec<Vec3D>&, DistVec<double>&, DistSVec<double,6>& );
+  
 
   void computeDerivativeOfResidualEmb(
          DistSVec<double,3> &X,
@@ -443,6 +449,20 @@ public:
          double dMach,
          DistSVec<double,dim> &R, DistSVec<double,dim> &dR,
          DistTimeState<dim> *timeState);
+  void computeTransposeDerivativeOfResidualEmb(
+         DistSVec<double,3> &X,
+         DistSVec<double,3> &dX,
+         DistVec<double> &ctrlVol,
+         DistSVec<double,dim> &U,
+         DistLevelSetStructure *distLSS,
+         bool linRecAtInterface, bool viscSecOrder,
+         DistVec<int> &fluidId,
+         DistExactRiemannSolver<dim> *riemann,
+         int Nriemann,
+         DistVec<GhostPoint<dim>*> *ghostPoints,
+         double dMach,
+         DistSVec<double,dim> &R, DistSVec<double,dim> &lambdaU,
+         DistTimeState<dim> *timeState, double &dQ);
 
   //embedded function for debugging purposes
   void computeInviscidDerivativeOfResidualEmb(
@@ -604,6 +624,16 @@ public:
    				    DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
 				    DistSVec<double,dim> &dV_, double dS[3],
    				    DistVec<GhostPoint<dim>*> *ghostPoints = 0, PostFcn *postFcn = 0,DistVec<int>* fid = 0);
+   void computederivativeOperatorsOfForceLoad(dRdXoperators<dim> &dRdXop, int forceApp, int orderOfAccuracy, DistSVec<double,3> &X, DistVec<double> &ctrlVol,
+              int sizeFs, DistLevelSetStructure *distLSS,
+              DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
+            double dS[3],
+              DistVec<GhostPoint<dim>*> *ghostPoints = 0, PostFcn *postFcn = 0,DistVec<int>* fid = 0);
+   void computederivativeOfForceLoadSurfMotion(Vec3D *dFidS, int forceApp, int orderOfAccuracy, DistSVec<double,3> &X, DistVec<double> &ctrlVol,
+              int sizeFs, DistLevelSetStructure *distLSS,
+              DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
+            double dS[3],
+              DistVec<GhostPoint<dim>*> *ghostPoints = 0, PostFcn *postFcn = 0,DistVec<int>* fid = 0);
 };
 
 //------------------------------------------------------------------------------

@@ -45,6 +45,12 @@ class ForceGenerator {
 						 DistSVec<double,dim> &U, DistSVec<double,dim> &dU, 
 						 DistSVec<double,3> &X, double dS[3],
 						 Vec3D *Fi, Vec3D *Mi) = 0;
+    virtual void getderivativeOperatorsOfForcesAndMoments(dRdXoperators<dim> &dRdXop, map<int,int> & surfOutMap, 
+             DistSVec<double,dim> &V, 
+             DistSVec<double,3> &X, double dS[3]) = 0;
+    virtual void getderivativeOfForcesAndMomentsSurfMotion(Vec3D *dFidS, map<int,int> & surfOutMap, 
+             DistSVec<double,dim> &V, 
+             DistSVec<double,3> &X, double dS[3]) = 0;
 
 };
 
@@ -215,7 +221,18 @@ public:
 					 Vec3D *dFi, Vec3D *dMi, 
 					 Vec3D *dFv, Vec3D *dMv, 
 					 int hydro=0, VecSet< DistSVec<double,3> > *mX=0, Vec<double> *genCF=0);
-
+void computeDerivativeOperatorsOfForceAndMomentEmb(dRdXoperators<dim> &dRdXop,
+                Vec3D &x0, DistSVec<double,3> &X,
+                DistSVec<double,dim> &U,
+                DistVec<int> *fluidId,
+                double dS[3],
+                int hydro=0, VecSet< DistSVec<double,3> > *mX=0, Vec<double> *genCF=0);
+void computeDerivativeOfForceAndMomentEmbSurfMotion(Vec3D *dFidS,
+                Vec3D &x0, DistSVec<double,3> &X,
+                DistSVec<double,dim> &U,
+                DistVec<int> *fluidId,
+                double dS[3],
+                int hydro=0, VecSet< DistSVec<double,3> > *mX=0, Vec<double> *genCF=0);
   void computeDerivativeOfForceAndMoment(dRdXoperators<dim> *, DistSVec<double,3> &,
                                          DistSVec<double,dim> &, double [3], DistSVec<double,3> &,
                                          Vec3D *, Vec3D *, Vec3D *, Vec3D *, int = 0);
@@ -256,7 +273,9 @@ public:
                                               RectangularSparseMat<double,dim,3> **dForcedV,
                                               RectangularSparseMat<double,3,3> **dForcedS,
                                               RectangularSparseMat<double,dim,dim> **dVdU,
-                                              RectangularSparseMat<double,1,dim> **dVdPstiff);
+                                              RectangularSparseMat<double,1,dim> **dVdPstiff,
+                                              bool todoFixFlag = true);
+
 								
   void rstVar(IoData &iod) {pressInfty = iod.aero.pressure;}
 
