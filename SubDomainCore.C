@@ -7267,6 +7267,7 @@ void SubDomain::computeInterfaceFluidMeshSize(IoData &iod,SVec<double,3> &X,
 void SubDomain::setSIstencil(SVec<double,3> &X, LevelSetStructure &LSS,
                              Vec<int> &fluidId,  bool externalSI)
 {
+    std::cout  <<" ****H  In SetSI Stencil " <<std::endl;
 
     int i, j;
 
@@ -7275,12 +7276,13 @@ void SubDomain::setSIstencil(SVec<double,3> &X, LevelSetStructure &LSS,
 
     Vec3D xWall, normWall;
 
-    V6NodeData (*SiStencilData);
-    SiStencilData = 0;
+    V6NodeData (*SiStencilData) = higherOrderFSI->getAllocatedSIData(edges.size());
+    //SiStencilData = 0;
 
-    if(!SiStencilData)
-        SiStencilData = new V6NodeData[edges.size()];
-
+    if(!SiStencilData) {
+      std::cout  <<" ****H  new SiStencilData " <<std::endl;
+      SiStencilData = new V6NodeData[edges.size()];
+    }
     bool withSI = false;
 
     for(int l=0; l<edges.size(); l++)
@@ -7301,10 +7303,11 @@ void SubDomain::setSIstencil(SVec<double,3> &X, LevelSetStructure &LSS,
         withSI = withSI || gotIt;
     }
 
-    if(withSI)
-        higherOrderFSI->setSIstencil(SiStencilData);
-    else
-        delete [] SiStencilData;
+//    if(withSI)
+//        higherOrderFSI->setSIstencil(SiStencilData);
+//    else
+//        delete [] SiStencilData;
+  std::cout  <<" ****H  Finish SetSI Stencil " <<std::endl;
 
 }
 
@@ -7313,17 +7316,19 @@ void SubDomain::setSIstencil(SVec<double,3> &X, LevelSetStructure &LSS,
 void SubDomain::setFEMstencil(SVec<double,3> &X, LevelSetStructure &LSS,
                               Vec<int> &fluidId)
 {
-
+  std::cout  <<" ****H  In Set FEM Stencil " <<std::endl;
     Vec3D xWall, normWall;
 
-    V6NodeData (*NodeStencilData_p);
-    NodeStencilData_p = 0;
+//    V6NodeData (*NodeStencilData_p);
+//    NodeStencilData_p = 0;
+//
+//    V6NodeData (*NodeStencilData_m);
+//    NodeStencilData_m = 0;
 
-    V6NodeData (*NodeStencilData_m);
-    NodeStencilData_m = 0;
+    V6NodeData (*NodeStencilData_p) = higherOrderFSI->getAllocatedFEMData_p(nodes.size());
 
-    if(!NodeStencilData_p) NodeStencilData_p = new V6NodeData[nodes.size()];
-    if(!NodeStencilData_m) NodeStencilData_m = new V6NodeData[nodes.size()];
+    V6NodeData (*NodeStencilData_m) = higherOrderFSI->getAllocatedFEMData_m(nodes.size());
+
 
     bool withGhost = false;
 
@@ -7344,12 +7349,14 @@ void SubDomain::setFEMstencil(SVec<double,3> &X, LevelSetStructure &LSS,
         withGhost = withGhost || gotIt;
     }
 
-    if(withGhost)
-        higherOrderFSI->setFEMstencil(NodeStencilData_p, NodeStencilData_m);
-    else
-    {
-        delete [] NodeStencilData_p;
-        delete [] NodeStencilData_m;
-    }
+//    if(withGhost)
+//        higherOrderFSI->setFEMstencil(NodeStencilData_p, NodeStencilData_m);
+//    else
+//    {
+//        delete [] NodeStencilData_p;
+//        delete [] NodeStencilData_m;
+//    }
+
+  std::cout  <<" ****H  Finish FEM Stencil " <<std::endl;
 
 }

@@ -10,12 +10,18 @@ HigherOrderFSI::HigherOrderFSI(const IoData & iod)
 {
   secondOrderEulerFlux = iod.embed.secondOrderEulerFlux;
   lastPhaseChangeState = NULL;
+  SIData = NULL;
+  FEMData_p = NULL;
+  FEMData_m = NULL;
   limitExtrap = false;
 }
 
 inline
 HigherOrderFSI::~HigherOrderFSI() {
-	if(SIData) delete[] SIData;
+    std::cout <<" HigherOrderFSI desctructor " << std::endl;
+	if(SIData)    delete[] SIData;
+    if(FEMData_p) delete[] FEMData_p;
+    if(FEMData_m) delete[] FEMData_m;
 }
 
 inline 
@@ -615,20 +621,20 @@ void HigherOrderFSI::derivativeofHOFSI(int l, int vertex, int i,
 /* ----------------------------------------------------------------- */
 /* ----------------------------------------------------------------- */
 /* ----------------------------------------------------------------- */
-inline
-void HigherOrderFSI::setSIstencil(V6NodeData *SIstencilData)
-{
-	SIData = SIstencilData;
-}
-
-//------------------------------------------------------------------------------
-inline
-void HigherOrderFSI::setFEMstencil(V6NodeData *FEMstencilData_p,
-											  V6NodeData *FEMstencilData_m)
-{
-	FEMData_p = FEMstencilData_p;
-	FEMData_m = FEMstencilData_m;
-}
+//inline
+//void HigherOrderFSI::setSIstencil(V6NodeData *SIstencilData)
+//{
+//	SIData = SIstencilData;
+//}
+//
+////------------------------------------------------------------------------------
+//inline
+//void HigherOrderFSI::setFEMstencil(V6NodeData *FEMstencilData_p,
+//											  V6NodeData *FEMstencilData_m)
+//{
+//	FEMData_p = FEMstencilData_p;
+//	FEMData_m = FEMstencilData_m;
+//}
 
 //------------------------------------------------------------------------------
 

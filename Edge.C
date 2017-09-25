@@ -3880,16 +3880,20 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 //				for(int k=0; k<dim; k++) Vi_[k]     = V[i][k] + 0.5*ddVij[k];
 //				for(int k=0; k<dim; k++) Vi_[k+dim] = V[i][k] + 0.5*ddVij[k];
                 higherOrderFSI->safeExtrapolation(2*dim, V[i],ddVij, 0.5, Vi_);
+                //std::cout << "****H finish i safeExtrapolation" <<std::endl;
 
 				higherOrderFSI->extrapolateToWall_1(l, i, fluidId[i], varFcn, V, ngrad, Vi_, X, xWall, Xij, V_e);
+                //std::cout << "****H finish  i extrapolateToWall_1" <<std::endl;
 
 				riemann.computeFSIRiemannSolution(V_e, vWall, nWall_o, varFcn, Vstar, j, fluidId[i]);
+                //std::cout << "****H finish i computeRSIRiemannSolution" <<std::endl;
 
 				for(int k=0; k<dim; k++) Vext[j][k] = V[i][k] + ddVij[k];
 
 				if(it > 0) for(int k=0; k<dim; k++) Vstarij[l][k] = Vstar[k];
 				
 				higherOrderFSI->interpolateToSI(l, i, fluidId[i], varFcn, V, Vstar, ngrad, X, xWall, Xij, V_si);
+                //std::cout << "****H finish i interpolateToSI" <<std::endl;
 
 				if(masterFlag[l])
 				{					
@@ -3906,18 +3910,23 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 //				for(int k=0; k<dim; k++) Vj_[k]     = V[j][k] - 0.5*ddVji[k];
 //				for(int k=0; k<dim; k++) Vj_[k+dim] = V[j][k] - 0.5*ddVji[k];
                 higherOrderFSI->safeExtrapolation(2*dim, V[j],ddVji,-0.5, Vj_);
+                //std::cout << "****H finish j safeExtrapolation" <<std::endl;
 
 				higherOrderFSI->extrapolateToWall_1(l, j, fluidId[j], varFcn, V, ngrad, Vj_, X, xWall, Xij, V_e);
+                //std::cout << "****H finish  j extrapolateToWall_1" <<std::endl;
 
 				riemann.computeFSIRiemannSolution(V_e, vWall, nWall_o, varFcn, Vstar, i, fluidId[j]);
+                //std::cout << "****H finish j computeRSIRiemannSolution" <<std::endl;
 				
 				for(int k=0; k<dim; k++) Vext[i][k] = V[j][k] + ddVji[k];
 
 				if(it > 0) for(int k=0; k<dim; k++)	Vstarji[l][k] = Vstar[k];
 			
 				higherOrderFSI->interpolateToSI(l, j, fluidId[j], varFcn, V, Vstar, ngrad, X, xWall, Xij, V_si);
+                //std::cout << "****H finish j interpolateToSI" <<std::endl;
 
-				if (masterFlag[l])
+
+                if (masterFlag[l])
 				{
 					fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], V_si, Vj_, fluxj, fluidId[j], false);
 

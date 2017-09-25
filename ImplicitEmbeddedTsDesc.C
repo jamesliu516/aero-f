@@ -286,13 +286,15 @@ int ImplicitEmbeddedTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U, i
 
   int its = 0;
   its = commonPart(U); //failure gives negative values, update structure position, update levelset(intersector) informtion
+  this->com->fprintf(stdout, "Finish commonPart(U)!\n");
+
   projectStateOntoROB(U); // Lei Lei, 11 Oct 2016, for Rom projection
-	if(its<0) return its; //failSafe
+  if(its<0) return its; //failSafe
 
   TsDesc<dim>::setFailSafe(false);
 
   its = this->ns->solve(U);// Lei Lei 01/11/2016: see NewtonSolver.C: solve(Vector U, int T = 0, double dT = 0.0);
-
+  this->com->fprintf(stdout, "Finish solvingNS(U)!\n");
   this->errorHandler->reduceError();
   this->data->resolveErrors();
   if(this->errorHandler->globalErrors[ErrorHandler::REDO_TIMESTEP]) return its;
