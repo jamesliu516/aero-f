@@ -1290,11 +1290,10 @@ public:
   template<int dim, class Scalar, int neq>
     void populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<double,dim> &U,FluxFcn** fluxFcn,VarFcn *varFcn,LevelSetStructure &LSS,Vec<int> &tag,GenMat<Scalar,neq>& A);
 
-  template<int dim>
-	  void setSIstencil(SVec<double,3> &X, LevelSetStructure &LSS, Vec<int> &fluidId, SVec<double,dim> &U, bool externalSI);
 
-  template<int dim>
-	  void setFEMstencil(SVec<double,3> &X, LevelSetStructure &LSS, Vec<int> &fluidId, SVec<double,dim> &U);
+	  void setSIstencil(SVec<double,3> &X, LevelSetStructure &LSS, Vec<int> &fluidId, bool externalSI);
+
+	  void setFEMstencil(SVec<double,3> &X, LevelSetStructure &LSS, Vec<int> &fluidId);
 
   template<int dim>
 	  void reduceGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<double,3> &X);

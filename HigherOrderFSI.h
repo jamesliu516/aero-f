@@ -87,13 +87,12 @@ class HigherOrderFSI {
    V6NodeData (*getV6Data() const) [2] { return v6data; }
 
 	/* --------------------------- */
-	template<int dim>
-		void setSIstencil(V6NodeData *SIstencilData, SVec<double,dim> &U);
 
-	template<int dim>
+		void setSIstencil(V6NodeData *SIstencilData);
+
+
 		void setFEMstencil(V6NodeData *FEMstencilData_p, 
-								 V6NodeData *FEMstencilData_m,
-								 SVec<double,dim> &U);
+								 V6NodeData *FEMstencilData_m);
 
 	template<int dim>
 		void extrapolateToWall_1(int l, int n, int Fid, VarFcn *varFun, 

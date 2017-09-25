@@ -6965,15 +6965,14 @@ bool SubDomain::getFEMstencil2(int Ni, SVec<double,3> &X,
 
 
       if (norm > geomTol) {
-        
-        dir *= 1.0 / norm;
+        dir = (dir*normWall>=0 ? dir/norm : -dir/norm);
       }
 	else
 	{
-	    std::cout << "WARNING***, in SubDomain::getFEMstencil2 too close to the surface" << std::endl;
+	    // std::cout << "WARNING***, in SubDomain::getFEMstencil2 too close to the surface" << std::endl;
 		// X_i and xWall coincide: use nWall as searching direction
 
-	   norm = sqrt(normWall * normWall);
+	    norm = sqrt(normWall * normWall);
 		dir = normWall * (1.0/norm);
 	}
 
@@ -7259,3 +7258,98 @@ void SubDomain::computeInterfaceFluidMeshSize(IoData &iod,SVec<double,3> &X,
   }
 }
 
+//--------------------------------------------------------------------------
+
+//d2d
+// Set the stencil, for these edges cross the surrogate interface, P, we have its closest point on the structure Q,
+// Find the QP intersects a fluid tet, and its face, and the barycentric coordinate of the intersection on the face
+
+void SubDomain::setSIstencil(SVec<double,3> &X, LevelSetStructure &LSS,
+                             Vec<int> &fluidId,  bool externalSI)
+{
+
+    int i, j;
+
+    bool* edgeFlag    = edges.getMasterFlag();
+    int (*edgePtr)[2] = edges.getPtr();
+
+    Vec3D xWall, normWall;
+
+    V6NodeData (*SiStencilData);
+    SiStencilData = 0;
+
+    if(!SiStencilData)
+        SiStencilData = new V6NodeData[edges.size()];
+
+    bool withSI = false;
+
+    for(int l=0; l<edges.size(); l++)
+    {
+        //if( edgeFlag[l] ) continue;???
+
+        if(!LSS.edgeWithSI(l)) continue;
+
+        i = edgePtr[l][0];
+        j = edgePtr[l][1];
+
+        Vec3D xwall, nwall;
+        LSS.xWallWithSI(l, xwall);
+        LSS.nWallWithSI(l, nwall);
+
+        bool gotIt = getSIstencil(i, j, X, LSS, fluidId, nwall, xwall, SiStencilData[l], externalSI);
+
+        withSI = withSI || gotIt;
+    }
+
+    if(withSI)
+        higherOrderFSI->setSIstencil(SiStencilData);
+    else
+        delete [] SiStencilData;
+
+}
+
+//--------------------------------------------------------------------------
+//d2d
+void SubDomain::setFEMstencil(SVec<double,3> &X, LevelSetStructure &LSS,
+                              Vec<int> &fluidId)
+{
+
+    Vec3D xWall, normWall;
+
+    V6NodeData (*NodeStencilData_p);
+    NodeStencilData_p = 0;
+
+    V6NodeData (*NodeStencilData_m);
+    NodeStencilData_m = 0;
+
+    if(!NodeStencilData_p) NodeStencilData_p = new V6NodeData[nodes.size()];
+    if(!NodeStencilData_m) NodeStencilData_m = new V6NodeData[nodes.size()];
+
+    bool withGhost = false;
+
+    for(int i=0; i<nodes.size(); i++)
+    {
+        Vec3D xwall, nwall;
+
+        bool isIGhost = LSS.xWallNode(i, xwall); //closest wall node
+
+        if(!isIGhost) continue;
+
+        LSS.nWallNode(i, nwall);
+
+        //bool gotIt = getFEMstencil(i, X, LSS, fluidId, nwall, xwall, NodeStencilData[i]);
+        bool gotIt = getFEMstencil2(i, X, LSS, fluidId, nwall, xwall,
+                                    NodeStencilData_p[i], NodeStencilData_m[i]);
+
+        withGhost = withGhost || gotIt;
+    }
+
+    if(withGhost)
+        higherOrderFSI->setFEMstencil(NodeStencilData_p, NodeStencilData_m);
+    else
+    {
+        delete [] NodeStencilData_p;
+        delete [] NodeStencilData_m;
+    }
+
+}

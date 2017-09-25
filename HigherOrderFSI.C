@@ -615,19 +615,16 @@ void HigherOrderFSI::derivativeofHOFSI(int l, int vertex, int i,
 /* ----------------------------------------------------------------- */
 /* ----------------------------------------------------------------- */
 /* ----------------------------------------------------------------- */
-
-template <int dim>
-void HigherOrderFSI::setSIstencil(V6NodeData *SIstencilData, SVec<double,dim> &U)
+inline
+void HigherOrderFSI::setSIstencil(V6NodeData *SIstencilData)
 {
 	SIData = SIstencilData;
 }
 
 //------------------------------------------------------------------------------
-
-template <int dim>
+inline
 void HigherOrderFSI::setFEMstencil(V6NodeData *FEMstencilData_p,
-											  V6NodeData *FEMstencilData_m,
-											  SVec<double,dim> &U)
+											  V6NodeData *FEMstencilData_m)
 {
 	FEMData_p = FEMstencilData_p;
 	FEMData_m = FEMstencilData_m;

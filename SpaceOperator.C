@@ -1505,7 +1505,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
 
   }
 
-  this->updateStencil(X, distLSS, fluidId, U); // d2d this is for update stencil in algorithom involving closest points
+  //this->updateStencil(X, distLSS, fluidId, U); // d2d this is for update stencil in algorithom involving closest points
 
   if (fet)
     this->populateGhostPoints(ghostPoints,X,U,varFcn,distLSS,viscSecOrder,fluidId);
@@ -1900,47 +1900,45 @@ ghostPoints->deletePointers();
 
 //------------------------------------------------------------------------------
 
-
 template<int dim>
-void SpaceOperator<dim>::setSIstencil(DistSVec<double,3> &X, DistLevelSetStructure *distLSS, DistVec<int> &fluidId, DistSVec<double,dim> &U)
+void SpaceOperator<dim>::setSIstencil(DistSVec<double,3> &X, DistLevelSetStructure *distLSS, DistVec<int> &fluidId)
 {
 	if(!externalSI && !((iod->embed).interfaceAlg == EmbeddedFramework::INTERSECTION && (iod->embed).secondOrderEulerFlux == EmbeddedFramework::CLOSESTPOINT))
 	{
 		fprintf(stderr, "setSIstencil : you're not supposed to be here\n");
 		exit(-1);
 	}
-	domain->setSIstencil(X, distLSS, fluidId, U,externalSI);
+	domain->setSIstencil(X, distLSS, fluidId, externalSI);
 }
 
 //------------------------------------------------------------------------------
-
-template<int dim> 
-void SpaceOperator<dim>::setFEMstencil(DistSVec<double,3> &X, DistLevelSetStructure *distLSS, DistVec<int> &fluidId, DistSVec<double,dim> &U)
+template<int dim>
+void SpaceOperator<dim>::setFEMstencil(DistSVec<double,3> &X, DistLevelSetStructure *distLSS, DistVec<int> &fluidId)
 {
 	if(!externalSI) 
 	{
 		fprintf(stderr, "setFEMstencil : you're not supposed to be here\n");
 		exit(-1);
 	}
-	domain->setFEMstencil(X, distLSS, fluidId, U);
+	domain->setFEMstencil(X, distLSS, fluidId);
 }
 
 //------------------------------------------------------------------------------
 //For FSI problem , if the method involves closest point, like Dante's method or FIVER2 with closest point, we need to
 //update stencil for each time step.
 template<int dim>
-void SpaceOperator<dim>::updateStencil(DistSVec<double,3> &X, DistLevelSetStructure *distLSS, DistVec<int> &fluidId, DistSVec<double,dim> &U)
+void SpaceOperator<dim>::updateStencil(DistSVec<double,3> &X, DistLevelSetStructure *distLSS, DistVec<int> &fluidId)
 {
   if(iod->problem.type[ProblemData::FORCED] || iod->problem.type[ProblemData::AERO] ) {// only those, the structure if moving, we need to update the stencil, todo,
     if (iod->embed.surrogateinterface == EmbeddedFramework::EXTERNAL) {
-      this->setSIstencil(X, distLSS, fluidId, U);
+      this->setSIstencil(X, distLSS, fluidId);
 
       if (iod->eqs.type == EquationsData::NAVIER_STOKES)
-        this->setFEMstencil(X, distLSS, fluidId, U);
+        this->setFEMstencil(X, distLSS, fluidId);
     } else if (iod->embed.interfaceAlg == EmbeddedFramework::INTERSECTION &&
                iod->embed.secondOrderEulerFlux == EmbeddedFramework::CLOSESTPOINT) {
       // If use original FIVER but choose to compute second order Euler flux based on Closest Point;
-      this->setSIstencil(X, distLSS, fluidId, U);
+      this->setSIstencil(X, distLSS, fluidId);
     }
   }
 }

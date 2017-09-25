@@ -2496,7 +2496,31 @@ void Domain::printDistVecBool(DistVec<bool> &X, bool status)
   com->barrier();
 }
 
+//------------------------------------------------------------------------------
 
+
+void Domain::setSIstencil(DistSVec<double,3> &X, DistLevelSetStructure *distLSS, DistVec<int> &fluidId, bool externalSI)
+{
+
+  int iSub;
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setSIstencil(X(iSub), (*distLSS)(iSub), fluidId(iSub),  externalSI);
+
+}
+
+//------------------------------------------------------------------------------
+
+void Domain::setFEMstencil(DistSVec<double,3> &X, DistLevelSetStructure *distLSS, DistVec<int> &fluidId)
+{
+
+  int iSub;
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setFEMstencil(X(iSub), (*distLSS)(iSub), fluidId(iSub));
+}
 //-----------------------------------------------------------------------------------------------
 
 

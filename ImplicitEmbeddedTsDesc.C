@@ -192,6 +192,8 @@ int ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
         failSafe = this->distLSS->recompute(this->dtf, this->dtfLeft,
                                             this->dts, true, TsDesc<dim>::failSafeFlag);
 
+        this->spaceOp->updateStencil(*this->X, this->distLSS, this->nodeTag); // d2d this is for update stencil in algorithom involving closest points
+
         this->com->globalMin(1, &failSafe);
         if(failSafe<0) //in case of intersection failure -1 is returned by recompute
             return failSafe;
