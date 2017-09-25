@@ -189,7 +189,7 @@ DistIntersectorPhysBAM::~DistIntersectorPhysBAM()
   if(rotOwn) delete[] rotOwn;
 
   if(dXdSb) delete[] dXdSb;
-  if(strucOrientation)  delete []strucOrientation;
+  //if(strucOrientation)  delete []strucOrientation;
 }
 
 //----------------------------------------------------------------------------
@@ -1149,7 +1149,7 @@ void DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X,
      eta_node = new DistVec<double>(domain->getNodeDistInfo());
 	TriID_node = new DistVec<int>(domain->getNodeDistInfo());
 	nWall_node = new DistVec<Vec3D>(domain->getNodeDistInfo());
-    strucOrientation = new int[numStElems];
+//    strucOrientation = new int[numStElems];
   // for hasCloseTriangle
   DistVec<bool> tId(domain->getNodeDistInfo());
 
@@ -1290,13 +1290,6 @@ if(SymmetryPlaneList.size()!=0){
   			intersector[iSub]->setInactiveNodesSymmetry((X(iSub)),SymmetryPlaneList);
    	 }
 }
-
-
-////////Daniel Huang, initialize structure information
-    for(int i = 0 ; i < numStElems; i++) strucOrientation[i] = -1;
-    domain->computeStrucOrientation(X,numStElems,stElem,*solidX,*is_active, strucOrientation);
-
-    com->globalMax(numStElems, strucOrientation);
 
 
 
@@ -1723,7 +1716,9 @@ int DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts, bo
 
 #pragma omp parallel for
 			for(int iSub = 0; iSub < numLocSub; ++iSub)
-			{
+			{   // based on the active nodes results, check all intersection edges,
+                // mark these active nodes to ghost, if the control volume is partially covered
+                // and also mark these swept nodes
 				intersector[iSub]->reFlagRealNodes((*X)(iSub), &bk_ISactive(iSub));
 
 				for(int i=0; i<(*X)(iSub).size(); ++i)
@@ -1735,9 +1730,11 @@ int DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts, bo
 			}
 
 			operMin<int> minOp;
+            //any subdomain marks it is inactive, then it is inactive
 			domain->assemble(domain->getLevelPat(), intISactive, minOp);
 
 			operMax<int> maxOp;
+            //any subdomain marks it is swept, then it is swept
 			domain->assemble(domain->getLevelPat(), intSwept, maxOp);
 
 #pragma omp parallel for
@@ -1769,6 +1766,9 @@ int DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts, bo
 }
 
 //----------------------------------------------------------------------------
+// based on the active nodes results, check all intersection edges,
+// mark these active nodes to ghost, if the control volume is partially covered
+// and also mark these swept nodes
 void IntersectorPhysBAM::reFlagRealNodes(SVec<double,3>& X, Vec<bool> *bk_isActive)
 {
 
@@ -1783,27 +1783,6 @@ void IntersectorPhysBAM::reFlagRealNodes(SVec<double,3>& X, Vec<bool> *bk_isActi
 		{
 			int i = ptr[l][0];
 			int j = ptr[l][1];
-		
-			/*
-			bool isOK = false;
-			if( 
-				((fabs(X[i][0]-0.165724)<1.0e-4 && fabs(X[i][1]-0.074293)<1.0e-4 && fabs(X[i][2]-0.03)<1.0e-4) &&
-				 (fabs(X[j][0]-0.167208)<1.0e-4 && fabs(X[j][1]-0.034521)<1.0e-4 && fabs(X[j][2]-0.03)<1.0e-4)) ||
-				((fabs(X[j][0]-0.165724)<1.0e-4 && fabs(X[j][1]-0.074293)<1.0e-4 && fabs(X[j][2]-0.03)<1.0e-4) &&
-				 (fabs(X[i][0]-0.167208)<1.0e-4 && fabs(X[i][1]-0.034521)<1.0e-4 && fabs(X[i][2]-0.03)<1.0e-4)) 
-				) isOK = true;
-				
-			if(isOK && recompute)
-			{
-				std::cout << X[i][0] << " " << X[i][1] << " " << X[i][2] << " | "  << X[j][0] << " " << X[j][1] << " " << X[j][2] << " || "
-					       << std::boolalpha << is_active[i] << " " << is_active[j] << " ~~~ " << (*bk_isActive)[i] << " " << (*bk_isActive)[j] << " ++++ ";
-			}
-			else if(isOK && !recompute)
-			{
-				std::cout << X[i][0] << " " << X[i][1] << " " << X[i][2] << " | "  << X[j][0] << " " << X[j][1] << " " << X[j][2] << " || "
-					       << std::boolalpha << is_active[i] << " " << is_active[j] << " ~~~ ";
-			}
-			*/
 
 			// Intersection I ---> J
 			const IntersectionResult<double>& Res_ij = CrossingEdgeRes[l];
@@ -1836,7 +1815,14 @@ void IntersectorPhysBAM::reFlagRealNodes(SVec<double,3>& X, Vec<bool> *bk_isActi
 }
 
 //----------------------------------------------------------------------------
-//Arthur Morlot : This function was created by Dante De Santis. It computes the Intersections for The new version of the ghost points
+//This function was created by Dante De Santis. It computes the Intersections for The new version of the ghost points
+//1. For these edges at the surrogate interface, its middle point closest triangle TriID_SI, this triangle's normal, toward the mid point,
+//   its perpendicular point's barycentric coordinates xi_SI[l], eta_SI[l], the wall normal is in nn_SI[l]
+//
+//2. For these inactive node, its closest point is on the triangle TriID_node[i], and with barycentric coordinate l1_node[i] ,
+//   l2_node[i], and structure  wall normal is nn_node[i]
+//
+// The wall normal is computed as x1-x0 ^ x2 -x0
 void IntersectorPhysBAM::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X,  
 																	  SVec<double,3> &boxMin, SVec<double,3> &boxMax, 
 																	  bool withViscousTerms, bool externalSI)
@@ -1901,7 +1887,7 @@ void IntersectorPhysBAM::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X
 			l1_i = l1_j = l2_i = l2_j = -1.0;
 			
 			if(t_i) 
-			{
+			{   // find the closest point of the midpoint in node i candidates
 				for(int iArray=1; iArray <= candidates_i.Size(); iArray++) 
 				{					
 					trId = candidates_i(iArray) - 1;
@@ -1918,7 +1904,7 @@ void IntersectorPhysBAM::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X
 					}
 
 					if(withViscousTerms && !is_active[i])
-					{
+					{   // if node i in in active, find its closest point
 						dist_i = piercing(X[i], trId, lambda);
 
 						if(dist_i < min_dist_i)
@@ -1935,7 +1921,7 @@ void IntersectorPhysBAM::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X
 			}
 
 			if(t_j) 
-			{		  
+			{	 // find the closest point of the midpoint in node j candidates
 				for(int iArray=1; iArray <= candidates_j.Size(); iArray++) 
 				{
 					trId = candidates_j(iArray) - 1;
@@ -1952,7 +1938,7 @@ void IntersectorPhysBAM::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X
 					}
 
 					if(withViscousTerms && !is_active[j])
-					{
+					{   //if node j is in active, find its closest point
 						dist_j = piercing(X[j], trId, lambda);
 
 						if(dist_j < min_dist_j)
@@ -1967,6 +1953,7 @@ void IntersectorPhysBAM::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X
 
 				}
 			}
+            // Find all these closest points of midpoint and inactive nodes
 			
 			Vec3D d2, d3, nn;
 
@@ -2694,7 +2681,9 @@ double IntersectorPhysBAM::project(Vec3D x0, int tria, double& xi1, double& xi2)
 }
 
 //----------------------------------------------------------------------------
-
+// x0: a point in the fluid domian
+// tria: triangle id of the structure boudary
+// xi[3]: the barycentric point of the closest on the triangle
 double IntersectorPhysBAM::piercing(Vec3D x0, int tria, double xi[3])
 {
 
@@ -2710,17 +2699,17 @@ double IntersectorPhysBAM::piercing(Vec3D x0, int tria, double xi[3])
 	xi[2] = 1.0 - xi[0] - xi[1];
 
 	if(xi[0] >= tol && xi[1] >= tol && xi[2] >= tol)
-	{		
+	{	//if the projection is in the triangle
 		return dist;
 	} 
 	else
-	{
+	{   // consider the closest point on the triangle(it is not the projection)
 		dist = 1.0e16;
 
 		for(int i=0; i<3; ++i)
 		{
 			if(xi[i] < tol)
-			{
+			{   // the closest point is on the opposite edge of node i
 				int p1 = triNodes[tria][(i+1)%3];
 				int p2 = triNodes[tria][(i+2)%3];
 				

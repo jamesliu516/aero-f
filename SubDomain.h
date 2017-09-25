@@ -343,8 +343,8 @@ public:
   bool getPiercedPoint(Vec3D va, Vec3D vb, Vec3D vc, Vec3D vd, Vec3D ve, double &r, double &t);
   bool getSIstencil(int Ni, int Nj, SVec<double,3> &X, LevelSetStructure &LSS, Vec<int> &fluidId,
 						  Vec3D &normWall, Vec3D &xWall, V6NodeData &SiStencilData,bool externalSI);
-  bool getFEMstencil(int Ni, SVec<double,3> &X, LevelSetStructure &LSS, Vec<int> &fluidId,
-							Vec3D &normWall, Vec3D &xWall, V6NodeData &NodeStencilData);
+//  bool getFEMstencil(int Ni, SVec<double,3> &X, LevelSetStructure &LSS, Vec<int> &fluidId,
+//							Vec3D &normWall, Vec3D &xWall, V6NodeData &NodeStencilData);
 
   bool getFEMstencil2(int Ni, SVec<double,3> &X, LevelSetStructure &LSS, 
 							 Vec<int> &fluidId, Vec3D &normWall, Vec3D &xWall, 
@@ -1715,16 +1715,13 @@ public:
 				    double pInfty,
 				    Vec<GhostPoint<dim>*> *ghostPoints,
 				    NodalGrad<dim, double> &ngrad,double* interfaceFluidMeshSize,
-									int* strucOrientation, double (*Qnty)[4]);
+									double (*Qnty)[4]);
 
 
     void computeInterfaceFluidMeshSize(IoData &iod,SVec<double,3> &X,
                                                   int numStructElems, int (*stElem)[3],
                                                   Vec<Vec3D>& Xstruct,
 									   double *interfaceFluidMeshSize);
-	void computeStrucOrientation(SVec<double,3> &X,
-											int numStructElems, int (*stElem)[3],
-											Vec<Vec3D>& Xstruct,  Vec<bool>&is_active, int *strucOrientation);
 	template<int dim,int dimLS>
 	  void computeEMBNodeScalarQuantity_e(SVec<double,3> &X, SVec<double,dim> &V, 
 													  PostFcn *postFcn, VarFcn *varFcn, 

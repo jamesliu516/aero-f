@@ -1487,7 +1487,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
 					 DistExactRiemannSolver<dim> *riemann, int Nriemann, 
 													  int it, DistVec<GhostPoint<dim>*> *ghostPoints,  bool compatF3D)
 {
-  R = 0.0;
+    R = 0.0;
 	Wext = 0.0;
 
 	varFcn->conservativeToPrimitive(U, *V, distLSS, &fluidId);
@@ -1504,6 +1504,8 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
     timer->addNodalGradTime(t0);
 
   }
+
+  this->updateStencil(X, distLSS, fluidId, U); // d2d this is for update stencil in algorithom involving closest points
 
   if (fet)
     this->populateGhostPoints(ghostPoints,X,U,varFcn,distLSS,viscSecOrder,fluidId);
@@ -1921,6 +1923,26 @@ void SpaceOperator<dim>::setFEMstencil(DistSVec<double,3> &X, DistLevelSetStruct
 		exit(-1);
 	}
 	domain->setFEMstencil(X, distLSS, fluidId, U);
+}
+
+//------------------------------------------------------------------------------
+//For FSI problem , if the method involves closest point, like Dante's method or FIVER2 with closest point, we need to
+//update stencil for each time step.
+template<int dim>
+void SpaceOperator<dim>::updateStencil(DistSVec<double,3> &X, DistLevelSetStructure *distLSS, DistVec<int> &fluidId, DistSVec<double,dim> &U)
+{
+  if(iod->problem.type[ProblemData::FORCED] || iod->problem.type[ProblemData::AERO] ) {// only those, the structure if moving, we need to update the stencil, todo,
+    if (iod->embed.surrogateinterface == EmbeddedFramework::EXTERNAL) {
+      this->setSIstencil(X, distLSS, fluidId, U);
+
+      if (iod->eqs.type == EquationsData::NAVIER_STOKES)
+        this->setFEMstencil(X, distLSS, fluidId, U);
+    } else if (iod->embed.interfaceAlg == EmbeddedFramework::INTERSECTION &&
+               iod->embed.secondOrderEulerFlux == EmbeddedFramework::CLOSESTPOINT) {
+      // If use original FIVER but choose to compute second order Euler flux based on Closest Point;
+      this->setSIstencil(X, distLSS, fluidId, U);
+    }
+  }
 }
 
 //-------------------------------------------------------------------------

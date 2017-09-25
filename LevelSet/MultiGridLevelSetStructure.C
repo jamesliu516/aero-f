@@ -295,7 +295,6 @@ initialize(Domain * d, DistSVec<double,3> &X, DistSVec<double,3> &Xn,
   edge_intersects_constraint = new DistVec<bool>(myLevel->getEdgeDistInfo());
   //Embedded_Constraint_Alpha = new DistVec<double>(myLevel->getEdgeDistInfo());
   surfaceNormals = new DistVec<Vec3D>(myLevel->getEdgeDistInfo());
-    strucOrientation = 0;
 
 #pragma omp parallel for
   for(int i = 0; i < numLocSub; ++i)

@@ -6625,7 +6625,7 @@ bool SubDomain::getSIstencil(int Ni, int Nj, SVec<double,3> &X, LevelSetStructur
       if (norm != 0.0) dir *= 1.0 / norm;
       ve = X_si + 1000.0 * dir;
     }else {
-      //Original FIVER's ghost node definition
+      //Original FIVER's ghost node definition, todo so far, we cannot handle shell
 
       if (N_act == N_inact) {
         std::cout << "ERROR in SubDomain::getSIstencil, one node is active and the other is inactive" << std::endl;
@@ -6765,7 +6765,7 @@ bool SubDomain::getSIstencil(int Ni, int Nj, SVec<double,3> &X, LevelSetStructur
 		SiStencilData.face = -1;
 		SiStencilData.r    = -1.0;
 		SiStencilData.t    = -1.0;
-        fprintf(stderr, "*** Error: Edge(Node %d -> Node %d) does not have stencil to compute second order Euler flux based on the closest point\n", Ni,Nj);
+       //fprintf(stderr, "*** Warning: Edge(Node %d -> Node %d) does not have stencil to compute second order Euler flux based on the closest point\n", Ni,Nj);
 	}
 
 	return Wmode0 || Wmode1;
@@ -6773,163 +6773,165 @@ bool SubDomain::getSIstencil(int Ni, int Nj, SVec<double,3> &X, LevelSetStructur
 }
 
 // ----------------------------------------
-
-bool SubDomain::getFEMstencil(int Ni, SVec<double,3> &X, 
-										LevelSetStructure &LSS, Vec<int> &fluidId,
-										Vec3D &normWall, Vec3D &xWall, 
-										V6NodeData &NodeStencilData)
-{
-
-	double min_dist0 = bigNum;
-	double min_dist1 = bigNum;
-
-	bool Wmode1 = false;
-	bool Wmode0 = false;
-
-	int ele1, ele0, face1, face0;
-	ele1 = ele0 = face1 = face0 = -1;
-
-	double r1, r0, t1, t0;
-	r1 = r0 = t1 = t0 = 0.0;
-
-	Vec3D X_i = X[Ni]; 
-
-	Vec3D dir;
-	if(LSS.isOccluded(0.0, Ni))
-		dir = xWall - X_i;
-	else
-		dir = X_i - xWall;
-		
-	double norm = sqrt(dir * dir);
-	if(norm != 0.0) dir *= 1.0 / norm;
-
-	Vec3D ve = X_i + 1000.0*dir;
-
-	int Esize;
-	int* Elist;
-	Elist = getNeiElemOfNode(Ni, 2, Esize);
-
-	for(int n=0; n<Esize; ++n) 
-	{	
-		int nE = Elist[n];
-
-		// Loop over the faces of the current element
-		for(int tf=0; tf<4; ++tf)
-		{				
-			int n0_ = elems[nE].faceDef(tf,0); int N0 = elems[nE].nodeNum(n0_);
-			int n1_ = elems[nE].faceDef(tf,1); int N1 = elems[nE].nodeNum(n1_);
-			int n2_ = elems[nE].faceDef(tf,2); int N2 = elems[nE].nodeNum(n2_);
-				
-			// Coordinates of the 3 vertices of the current face
-			Vec3D va(X[N0]); Vec3D vb(X[N1]); Vec3D vc(X[N2]);
-
-			double r=0, t=0;
-			bool newPoint = getPiercedPoint(va, vb, vc, X_i, ve, r, t);
-
-			int mode = 0;
-			if(LSS.isActive(0.0, N0) && 
-				LSS.isActive(0.0, N1) && 
-				LSS.isActive(0.0, N2) &&				
-				fluidId[N0] == fluidId[Ni] &&	
-				fluidId[N1] == fluidId[Ni] && 
-				fluidId[N2] == fluidId[Ni]) mode = 1;
-
-				if(newPoint && mode == 1)
-				{
-					/* 
-						--- mode1 ---
-						the line (Xwall - Xi) pierces a face which
-						has only active nodes; Xp is the true pierced point
-					*/	
-
-					Vec3D Xp;
-					for(int k=0; k<3; ++k)
-				 		Xp[k] = X[N2][k] + r*(X[N0][k] - X[N2][k])+
-						                   t*(X[N1][k] - X[N2][k]);
-
-					Vec3D vDist = Xp - X_i;
-					double dist = sqrt(vDist * vDist);
-					
-					if(dist < min_dist1)
-					{
-						min_dist1 = dist;
-
-						ele1 = nE; face1 = tf;
-
-						r1 = r; t1 = t;
-
-						Wmode1 = true;
-					}
-				}
-				else if(newPoint && mode == 0)
-				{
-					/* 
-						--- mode0 ---
-						the line (Xwall - Xi) pierces a face which
-						has some inactive nodes; Xp is the active node
-						closest to Xi
-					*/	
-					
-					Vec3D vDista = va - X_i; double dista = sqrt(vDista * vDista);
-					Vec3D vDistb = vb - X_i; double distb = sqrt(vDistb * vDistb);
-					Vec3D vDistc = vc - X_i; double distc = sqrt(vDistc * vDistc);
-
-					// To exclude nodes with a different fluidId...
-					if(fluidId[N0] != fluidId[Ni]) dista = bigNum;
-					if(fluidId[N1] != fluidId[Ni]) distb = bigNum;
-					if(fluidId[N2] != fluidId[Ni]) distc = bigNum;
-               //... or inactive nodes
-					if(!LSS.isActive(0.0, N0)) dista = bigNum;
-					if(!LSS.isActive(0.0, N1)) distb = bigNum;
-					if(!LSS.isActive(0.0, N2)) distc = bigNum;
-
-					double dist = std::min(dista, std::min(distb, distc));
-					
-					if(dist < min_dist0)
-					{						
-						min_dist0 = dist;
-
-						ele0 = nE; face0 = tf;
-
-						if(     fabs(dist - dista) < geomTol) {r0 = 1.0; t0 = 0.0;}
-						else if(fabs(dist - distb) < geomTol) {r0 = 0.0; t0 = 1.0;}
-						else                                  {r0 = 0.0; t0 = 0.0;}
-
-						Wmode0 = true;
-					}
-				}
-			}
-		}
-
-
-	if(Wmode1)
-	{
-		NodeStencilData.tet  = ele1;
-		NodeStencilData.face = face1;
-		NodeStencilData.r    = r1;
-		NodeStencilData.t    = t1;
-	}
-	else if(Wmode0 && !Wmode1) 
-	{
-		NodeStencilData.tet  = ele0;
-		NodeStencilData.face = face0;
-		NodeStencilData.r    = r0;
-		NodeStencilData.t    = t0;
-	}
-	else
-	{
-		NodeStencilData.tet  = -1;
-		NodeStencilData.face = -1;
-		NodeStencilData.r    = -1.0;
-		NodeStencilData.t    = -1.0;
-	}
-
-	return Wmode0 || Wmode1;
-
-}
+//
+//bool SubDomain::getFEMstencil(int Ni, SVec<double,3> &X,
+//										LevelSetStructure &LSS, Vec<int> &fluidId,
+//										Vec3D &normWall, Vec3D &xWall,
+//										V6NodeData &NodeStencilData)
+//{
+//
+//	double min_dist0 = bigNum;
+//	double min_dist1 = bigNum;
+//
+//	bool Wmode1 = false;
+//	bool Wmode0 = false;
+//
+//	int ele1, ele0, face1, face0;
+//	ele1 = ele0 = face1 = face0 = -1;
+//
+//	double r1, r0, t1, t0;
+//	r1 = r0 = t1 = t0 = 0.0;
+//
+//	Vec3D X_i = X[Ni];
+//
+//	Vec3D dir;
+//	if(LSS.isOccluded(0.0, Ni))
+//		dir = xWall - X_i;
+//	else
+//		dir = X_i - xWall;
+//
+//	double norm = sqrt(dir * dir);
+//	if(norm != 0.0) dir *= 1.0 / norm;
+//
+//	Vec3D ve = X_i + 1000.0*dir;
+//
+//	int Esize;
+//	int* Elist;
+//	Elist = getNeiElemOfNode(Ni, 2, Esize);
+//
+//	for(int n=0; n<Esize; ++n)
+//	{
+//		int nE = Elist[n];
+//
+//		// Loop over the faces of the current element
+//		for(int tf=0; tf<4; ++tf)
+//		{
+//			int n0_ = elems[nE].faceDef(tf,0); int N0 = elems[nE].nodeNum(n0_);
+//			int n1_ = elems[nE].faceDef(tf,1); int N1 = elems[nE].nodeNum(n1_);
+//			int n2_ = elems[nE].faceDef(tf,2); int N2 = elems[nE].nodeNum(n2_);
+//
+//			// Coordinates of the 3 vertices of the current face
+//			Vec3D va(X[N0]); Vec3D vb(X[N1]); Vec3D vc(X[N2]);
+//
+//			double r=0, t=0;
+//			bool newPoint = getPiercedPoint(va, vb, vc, X_i, ve, r, t);
+//
+//			int mode = 0;
+//			if(LSS.isActive(0.0, N0) &&
+//				LSS.isActive(0.0, N1) &&
+//				LSS.isActive(0.0, N2) &&
+//				fluidId[N0] == fluidId[Ni] &&
+//				fluidId[N1] == fluidId[Ni] &&
+//				fluidId[N2] == fluidId[Ni]) mode = 1;
+//
+//				if(newPoint && mode == 1)
+//				{
+//					/*
+//						--- mode1 ---
+//						the line (Xwall - Xi) pierces a face which
+//						has only active nodes; Xp is the true pierced point
+//					*/
+//
+//					Vec3D Xp;
+//					for(int k=0; k<3; ++k)
+//				 		Xp[k] = X[N2][k] + r*(X[N0][k] - X[N2][k])+
+//						                   t*(X[N1][k] - X[N2][k]);
+//
+//					Vec3D vDist = Xp - X_i;
+//					double dist = sqrt(vDist * vDist);
+//
+//					if(dist < min_dist1)
+//					{
+//						min_dist1 = dist;
+//
+//						ele1 = nE; face1 = tf;
+//
+//						r1 = r; t1 = t;
+//
+//						Wmode1 = true;
+//					}
+//				}
+//				else if(newPoint && mode == 0)
+//				{
+//					/*
+//						--- mode0 ---
+//						the line (Xwall - Xi) pierces a face which
+//						has some inactive nodes; Xp is the active node
+//						closest to Xi
+//					*/
+//
+//					Vec3D vDista = va - X_i; double dista = sqrt(vDista * vDista);
+//					Vec3D vDistb = vb - X_i; double distb = sqrt(vDistb * vDistb);
+//					Vec3D vDistc = vc - X_i; double distc = sqrt(vDistc * vDistc);
+//
+//					// To exclude nodes with a different fluidId...
+//					if(fluidId[N0] != fluidId[Ni]) dista = bigNum;
+//					if(fluidId[N1] != fluidId[Ni]) distb = bigNum;
+//					if(fluidId[N2] != fluidId[Ni]) distc = bigNum;
+//               //... or inactive nodes
+//					if(!LSS.isActive(0.0, N0)) dista = bigNum;
+//					if(!LSS.isActive(0.0, N1)) distb = bigNum;
+//					if(!LSS.isActive(0.0, N2)) distc = bigNum;
+//
+//					double dist = std::min(dista, std::min(distb, distc));
+//
+//					if(dist < min_dist0)
+//					{
+//						min_dist0 = dist;
+//
+//						ele0 = nE; face0 = tf;
+//
+//						if(     fabs(dist - dista) < geomTol) {r0 = 1.0; t0 = 0.0;}
+//						else if(fabs(dist - distb) < geomTol) {r0 = 0.0; t0 = 1.0;}
+//						else                                  {r0 = 0.0; t0 = 0.0;}
+//
+//						Wmode0 = true;
+//					}
+//				}
+//			}
+//		}
+//
+//
+//	if(Wmode1)
+//	{
+//		NodeStencilData.tet  = ele1;
+//		NodeStencilData.face = face1;
+//		NodeStencilData.r    = r1;
+//		NodeStencilData.t    = t1;
+//	}
+//	else if(Wmode0 && !Wmode1)
+//	{
+//		NodeStencilData.tet  = ele0;
+//		NodeStencilData.face = face0;
+//		NodeStencilData.r    = r0;
+//		NodeStencilData.t    = t0;
+//	}
+//	else
+//	{
+//		NodeStencilData.tet  = -1;
+//		NodeStencilData.face = -1;
+//		NodeStencilData.r    = -1.0;
+//		NodeStencilData.t    = -1.0;
+//	}
+//
+//	return Wmode0 || Wmode1;
+//
+//}
 
 // ------------------------------------------------------------
-
+//d2d get the ghost(inactive) node stencil in Dante's method
+// p is the same side as node i , as the wall normal
+// m is the other sideside
 bool SubDomain::getFEMstencil2(int Ni, SVec<double,3> &X, 
 										LevelSetStructure &LSS, Vec<int> &fluidId,
 										Vec3D &normWall, Vec3D &xWall, 
@@ -6963,25 +6965,20 @@ bool SubDomain::getFEMstencil2(int Ni, SVec<double,3> &X,
 
 
       if (norm > geomTol) {
-
-
+        
         dir *= 1.0 / norm;
       }
 	else
 	{
 	    std::cout << "WARNING***, in SubDomain::getFEMstencil2 too close to the surface" << std::endl;
 		// X_i and xWall coincide: use nWall as searching direction
-      //dzh
-      //std::cout << "Ni is occluded" << Ni << std::endl;
 
 	   norm = sqrt(normWall * normWall);
 		dir = normWall * (1.0/norm);
 	}
-  //dzh
-  //std::cout << "Ni " << Ni << "xx "<<" " << X_i[0]<<" " <<X_i[1] <<" xx "  <<  xWall[0] << " " <<xWall[1] << " dir " << dir[0] <<" "<< dir[1]<<" " << dir[2] << std::endl;
 
 
-  Vec3D ve_p = X_i + 1000.0*dir;
+    Vec3D ve_p = X_i + 1000.0*dir;
 	Vec3D ve_m = X_i - 1000.0*dir;
 
 	int Esize;
@@ -7155,8 +7152,8 @@ bool SubDomain::getFEMstencil2(int Ni, SVec<double,3> &X,
  
 	bool Wmode = (Wmode0_m || Wmode1_m) || (Wmode0_p || Wmode1_p);
 
-    if(!Wmode)
-      std::cout <<"Warning: fail to find edge center stencil in SubDomain::getFEMstencil2" << std::endl;
+//    if(!Wmode)
+//      std::cout <<"Warning: fail to find edge center stencil in SubDomain::getFEMstencil2" << std::endl;
 
 	return Wmode;
 
@@ -7262,62 +7259,3 @@ void SubDomain::computeInterfaceFluidMeshSize(IoData &iod,SVec<double,3> &X,
   }
 }
 
-/**************************
- *
- * output: strucOrientation, 1 the outward normal is  (Xst[1]-Xst[0])^(Xst[2]-Xst[0])
- * -1 means its outward normal is -(Xst[1]-Xst[0])^(Xst[2]-Xst[0])
- * warning : there is problem for unresolve case, namely fluid mesh size is too large
- * Daniel Huang
- */
-void SubDomain::computeStrucOrientation(SVec<double,3> &X,
-                                        int numStructElems, int (*stElem)[3],
-                                        Vec<Vec3D>& Xstruct, Vec<bool>&is_active,
-                                        int *strucOrientation) {
-
-  int stNode[3];
-  Vec3D Xst[3],Xl,Xr;
-  Vec3D Xp, normal;
-  int T[6];       //nodes in a tet.
-  double max_edge_len = 0.0, dh =0.0;
-  int (*ptr)[2] = edges.getPtr();
-
-  for (int nSt = 0; nSt < numStructElems; ++nSt) {//loop all structure surface elements(triangle)
-
-    for (int j = 0; j < 3; ++j) {
-      stNode[j] = stElem[nSt][j]; // get element node numbers
-      Xst[j] = Xstruct[stNode[j]]; //get node coordinates
-    }
-    Xp = (Xst[0] + Xst[1] + Xst[2])/3.0;
-    ElemForceCalcValid myObj;
-    Elem *E = myTree->search<&Elem::isPointInside, ElemForceCalcValid,
-            &ElemForceCalcValid::Valid>(&myObj, X, Xp);
-
-    if (!E)
-      continue;
-
-    normal = (Xst[1]-Xst[0])^(Xst[2]-Xst[0]);
-    normal  = normal /normal.norm();
-
-    for (int i = 0; i < 6; i++) T[i] = E->edgeNum(i);//loop fluid element E 4 nodes
-
-
-    for (int i = 0; i < 6; i++) {
-
-      int node_l= ptr[T[i]][0], node_r = ptr[T[i]][1];
-      for (int j = 0; j < 3; ++j) {
-        Xl[j] = X[node_l][j];
-        Xr[j] = X[node_r][j];
-      } // fluid element 4 nodes coordinates
-      if((is_active[node_l] &&(Xl - Xp)*normal > 0.0 && !is_active[node_r]) || (is_active[node_r] &&(Xr - Xp)*normal > 0.0 && !is_active[node_l])) {
-        strucOrientation[nSt] = 1;
-      }
-
-
-    }
-
-
-  }
-
-
-
-}

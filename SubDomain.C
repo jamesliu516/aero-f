@@ -8391,6 +8391,9 @@ void SubDomain::checkGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<double
 //--------------------------------------------------------------------------
 
 //d2d
+// Set the stencil, for these edges cross the surrogate interface, P, we have its closest point on the structure Q,
+// Find the QP intersects a fluid tet, and its face, and the barycentric coordinate of the intersection on the face
+
 template<int dim>
 void SubDomain::setSIstencil(SVec<double,3> &X, LevelSetStructure &LSS, 
 									  Vec<int> &fluidId, SVec<double,dim> &U, bool externalSI)
@@ -9922,7 +9925,7 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
                                              double pInfty,
                                              Vec<GhostPoint<dim>*> *ghostPoints,
                                              NodalGrad<dim, double> &ngrad, double* interfaceFluidMeshSize,
-                                             int* strucOrientation, double (*Qnty)[4])
+                                             double (*Qnty)[4])
 {
     if (iod.problem.framework == ProblemData::EMBEDDEDALE)
         myTree->reconstruct<&Elem::computeBoundingBox>(X, elems.getPointer(), elems.size());
@@ -9978,7 +9981,7 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
 
             //step 1. find the fluid velocity at Xp + dh *normal
 
-            Vec3D unit_nf = normal / S * strucOrientation[nSt];
+            Vec3D unit_nf = normal / S;
             Vec3D Xpp = Xp + dh * unit_nf;
             Elem *E = myTree->search<&Elem::isPointInside, ElemForceCalcValid,
                     &ElemForceCalcValid::Valid>(&myObj, X, Xpp);
@@ -10022,7 +10025,7 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
                     }
                 }
             }
-            if(activeNodes == 0)                std::cout  <<" Error in pressure coefficient computation " << std::endl;
+            if(activeNodes == 0)                std::cout  <<" Error in pressure coefficient computation, make sure the normal of structure surface is toward the fluid " << std::endl;
             else                for (int k = 0; k < dim; ++k) Vext[k] /= activeNodes;
 
 
