@@ -1498,7 +1498,6 @@ DistIntersectorFRG::initialize(Domain *d, DistSVec<double,3> &X, DistSVec<double
     eta_node = new DistVec<double>(domain->getNodeDistInfo());
   TriID_node = new DistVec<int>(domain->getNodeDistInfo());
   nWall_node = new DistVec<Vec3D>(domain->getNodeDistInfo());
-  strucOrientation = new int[numStElems];
   poly = new DistVec<bool>(domain->getNodeDistInfo());
   findPoly();
 
@@ -1564,11 +1563,6 @@ DistIntersectorFRG::initialize(Domain *d, DistSVec<double,3> &X, DistSVec<double
 	  
   }
 
-  //Daniel Huang, initialize structure information
-  for(int i = 0 ; i < numStElems; i++) strucOrientation[i] = -1;
-  domain->computeStrucOrientation(X,numStElems,stElem,*solidX,*is_active, strucOrientation);
-
-  com->globalMax(numStElems, strucOrientation);
 
   ///////////////////////////////////////////////////////
 
