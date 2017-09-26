@@ -7267,7 +7267,7 @@ void SubDomain::computeInterfaceFluidMeshSize(IoData &iod,SVec<double,3> &X,
 void SubDomain::setSIstencil(SVec<double,3> &X, LevelSetStructure &LSS,
                              Vec<int> &fluidId,  bool externalSI)
 {
-    std::cout  <<" ****H  In SetSI Stencil " <<std::endl;
+    //std::cout  <<" ****H  In SetSI Stencil " <<std::endl;
 
     int i, j;
 
@@ -7277,12 +7277,7 @@ void SubDomain::setSIstencil(SVec<double,3> &X, LevelSetStructure &LSS,
     Vec3D xWall, normWall;
 
     V6NodeData (*SiStencilData) = higherOrderFSI->getAllocatedSIData(edges.size());
-    //SiStencilData = 0;
 
-    if(!SiStencilData) {
-      std::cout  <<" ****H  new SiStencilData " <<std::endl;
-      SiStencilData = new V6NodeData[edges.size()];
-    }
     bool withSI = false;
 
     for(int l=0; l<edges.size(); l++)
@@ -7307,7 +7302,7 @@ void SubDomain::setSIstencil(SVec<double,3> &X, LevelSetStructure &LSS,
 //        higherOrderFSI->setSIstencil(SiStencilData);
 //    else
 //        delete [] SiStencilData;
-  std::cout  <<" ****H  Finish SetSI Stencil " <<std::endl;
+  //std::cout  <<" ****H  Finish SetSI Stencil " <<std::endl;
 
 }
 
@@ -7316,7 +7311,7 @@ void SubDomain::setSIstencil(SVec<double,3> &X, LevelSetStructure &LSS,
 void SubDomain::setFEMstencil(SVec<double,3> &X, LevelSetStructure &LSS,
                               Vec<int> &fluidId)
 {
-  std::cout  <<" ****H  In Set FEM Stencil " <<std::endl;
+  //std::cout  <<" ****H  In Set FEM Stencil " <<std::endl;
     Vec3D xWall, normWall;
 
 //    V6NodeData (*NodeStencilData_p);
@@ -7357,6 +7352,6 @@ void SubDomain::setFEMstencil(SVec<double,3> &X, LevelSetStructure &LSS,
 //        delete [] NodeStencilData_m;
 //    }
 
-  std::cout  <<" ****H  Finish FEM Stencil " <<std::endl;
+  //std::cout  <<" ****H  Finish FEM Stencil " <<std::endl;
 
 }

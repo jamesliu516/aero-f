@@ -413,13 +413,13 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
       this->spaceOp->setSIstencil(*this->X, distLSS, this->nodeTag);
     }
 
-    std::cout <<" ****H in setupTimeStepping, finish setting stencil " << std::endl;
+    //std::cout <<" ****H in setupTimeStepping, finish setting stencil " << std::endl;
 
   // Initialize fluid state vector
   this->timeState->setup(this->input->solutions, *this->X, this->bcData->getInletBoundaryVector(),
                          *U, ioData, &point_based_id); //populate U by i.c. or restart data.
 
-    std::cout <<" ****H in setupTimeStepping, finish timeState setup " << std::endl;
+    //std::cout <<" ****H in setupTimeStepping, finish timeState setup " << std::endl;
 
 /*////////////////////////// debug
   int isubd;
@@ -441,11 +441,11 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
 /////////////////////////// test */
 
   this->spaceOp->applyBCsToTurbSolutionVector(*U,distLSS);
-    std::cout <<" ****H in setupTimeStepping, finish applyBCsToTurbSolutionVector setup " << std::endl;
+    //std::cout <<" ****H in setupTimeStepping, finish applyBCsToTurbSolutionVector setup " << std::endl;
   // Initialize fluid Ids (not on restart)
   if (ioData.input.fluidId[0] == 0 && ioData.input.restart_file_package[0] == 0)
     nodeTag0 = nodeTag = distLSS->getStatus();
-    std::cout <<" ****H in setupTimeStepping, finish fluid Ids setup " << std::endl;
+    //std::cout <<" ****H in setupTimeStepping, finish fluid Ids setup " << std::endl;
   // Initialize the embedded FSI handler
   EmbeddedMeshMotionHandler* _emmh = dynamic_cast<EmbeddedMeshMotionHandler*>(this->emmh);
 	if(_emmh) 
@@ -462,7 +462,7 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
   
   *(this->Xs) = *(this->X);
 
-    std::cout <<" ****H in setupTimeStepping, finish meshmotion setup " << std::endl;
+    //std::cout <<" ****H in setupTimeStepping, finish meshmotion setup " << std::endl;
 
   this->initializeFarfieldCoeffs();
 
@@ -472,7 +472,7 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
     increasingPressure = true;
     this->domain->IncreasePressure(currentPressure(this->getInitialTime()), this->varFcn, *U, nodeTag);
   }
-    std::cout <<" ****H in setupTimeStepping, finish IncreasePressure setup " << std::endl;
+    //std::cout <<" ****H in setupTimeStepping, finish IncreasePressure setup " << std::endl;
   //compute force
   DistSVec<double,dim> *Wij = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
   DistSVec<double,dim> *Wji = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
@@ -513,16 +513,16 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
   }
 
 	this->spaceOp->computeNodalGrad(*this->X, *this->A, *U, &nodeTag, this->distLSS);
-    std::cout <<" ****H in setupTimeStepping, finish computeNodalGrad setup " << std::endl;
+    //std::cout <<" ****H in setupTimeStepping, finish computeNodalGrad setup " << std::endl;
 
   // Ghost-Points Population
   if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
       this->spaceOp->populateGhostPoints(this->ghostPoints,*this->X,*U,this->varFcn, this->distLSS,this->viscSecOrder,this->nodeTag);
-    std::cout  <<" ****H Finish populateGhostPoints " <<std::endl;
+    //std::cout  <<" ****H Finish populateGhostPoints " <<std::endl;
   // Population of spaceOp->V for the force computation
 	this->spaceOp->conservativeToPrimitive(*U, this->distLSS, &this->nodeTag);
 
-    std::cout  <<" ****H Finish conservativeToPrimitive " <<std::endl;
+    //std::cout  <<" ****H Finish conservativeToPrimitive " <<std::endl;
 
   computeForceLoad(Wij, Wji);
   delete Wij;
@@ -540,7 +540,7 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
 
 	if(this->modifiedGhidaglia) this->timeState->attachHH(*this->bcData->getBoundaryStateHH());
 
-    std::cout  <<" ****H Finish Time stepping " <<std::endl;
+    //std::cout  <<" ****H Finish Time stepping " <<std::endl;
 
 }
 

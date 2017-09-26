@@ -286,7 +286,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
 
         if(probDesc->getErrorHandler()) probDesc->getErrorHandler()->clearError(ErrorHandler::ALL);
         probDesc->checkLocalRomStatus(U, it);
-        std::cout  <<" ****H before solveNon linear System " <<std::endl;
+        //std::cout  <<" ****H before solveNon linear System " <<std::endl;
         stat = probDesc->solveNonLinearSystem(U, it);
         if(probDesc->getErrorHandler()) probDesc->getErrorHandler()->reduceError();
 
