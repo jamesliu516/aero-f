@@ -4747,17 +4747,17 @@ void Domain::populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints, DistSVe
 	  for (iSub = 0; iSub < numLocSub; ++iSub)
 		  subDomain[iSub]->populateGhostPoints_e((*ghostPoints)(iSub), X(iSub), U(iSub), (*ngrad)(iSub),
 															varFcn, (*distLSS)(iSub), tag(iSub), fet);
-      std::cout << "****H finish populating GhostPoints" <<std::endl;
+      //std::cout << "****H finish populating GhostPoints" <<std::endl;
 	  assembleGhostPoints(*ghostPoints, varFcn);
-      std::cout << "****H finish assembleGhostPoints" <<std::endl;
+      //std::cout << "****H finish assembleGhostPoints" <<std::endl;
 	  for (iSub = 0; iSub < numLocSub; ++iSub) 
 		  subDomain[iSub]->reduceGhostPoints((*ghostPoints)(iSub), X(iSub));
       //Some times canot populate ghost point become of domain decomposition, we need to check it
-      std::cout << "****H finish reducing GhostPoints" <<std::endl;
+      //std::cout << "****H finish reducing GhostPoints" <<std::endl;
 	  for (iSub = 0; iSub < numLocSub; ++iSub) 
 		  subDomain[iSub]->checkGhostPoints((*ghostPoints)(iSub), X(iSub), U(iSub), (*ngrad)(iSub),
 														varFcn, (*distLSS)(iSub), tag(iSub));
-      std::cout << "****H finish checking GhostPoints" <<std::endl;
+      //std::cout << "****H finish checking GhostPoints" <<std::endl;
   }
 
 }
