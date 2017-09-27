@@ -1702,7 +1702,9 @@ int DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts, bo
 	}
 
 	if(findStatus) 
-	{
+	{   // Find active nodes will update status vector, which is the status in the original FIVER
+        // active/inactive definition, and Dante's method will only have more ghost points
+        //
     findActiveNodes(tId);
 #pragma omp parallel for
     for(int iSub = 0; iSub < numLocSub; ++iSub)
