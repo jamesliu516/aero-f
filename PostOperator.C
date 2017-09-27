@@ -1374,7 +1374,7 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
                                                  DistLevelSetStructure *distLSS,
                                                  DistVec<GhostPoint<dim>*> *ghostPoints, bool externalSI)
 {
-  externalSI = false;
+
   int iSub;
 
   varFcn->conservativeToPrimitive(U, *V, &fluidId);
@@ -1430,123 +1430,123 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
    *          gaussian point
    *         ___*___interface
    */
-  if(externalSI)
-  { //Dante's method because the first layer has only ghost nodes
-    StNodeDir = new int*    [numStructElems]; // for both side, stencil triagle id
-    StX1      = new double* [numStructElems]; // barycenter coordinates
-    StX2      = new double* [numStructElems];
-
-    for(int i=0; i<numStructElems; ++i)
-    {
-      StNodeDir[i] = new int    [2];
-      StX1[i]      = new double [3];
-      StX2[i]      = new double [3];
-
-      StNodeDir[i][0] = StNodeDir[i][1] = 0;
-      StX1[i][0] = StX1[i][1] = StX1[i][2] = 0.0;
-      StX2[i][0] = StX2[i][1] = StX2[i][2] = 0.0;
-    }
-
-
-#pragma omp parallel for
-    for (int iSub=0; iSub<numLocSub; iSub++)
-    {
-      for (int is=0; is<numStructNodes; is++)
-      {
-        subEmbQ[iSub][is][0] = 0.0;
-        subEmbQ[iSub][is][1] = 0.0;
-        subEmbQ[iSub][is][2] = 0.0;
-        subEmbQ[iSub][is][3] = 0.0;
-      }
-      subDomain[iSub]->computeEMBNodeScalarQuantity_step1(X(iSub), (*V)(iSub),
-                                                          numStructElems, stElem, Xstruct,
-                                                          (*distLSS)(iSub),
-                                                          StNodeDir, StX1, StX2, true);
-    }
-
-
-
-    tmp1 = new double[numStructElems];
-    tmp2 = new double[numStructElems];
-
-    for(int i=0; i<numStructElems; ++i)
-    {
-      tmp1[i] = (double) StNodeDir[i][0];
-      tmp2[i] = (double) StNodeDir[i][1];
-    }
-
-    com->globalSum(numStructElems, tmp1);
-    com->globalSum(numStructElems, tmp2);
-
-    for(int i=0; i<numStructElems; ++i)
-    {
-      StNodeDir[i][0] = (int) tmp1[i];
-      StNodeDir[i][1] = (int) tmp2[i];
-    }
-
-    for(int k=0; k<3; ++k)
-    {
-      for(int i=0; i<numStructElems; ++i)
-      {
-        tmp1[i] = StX1[i][k];
-        tmp2[i] = StX2[i][k];
-      }
-
-      com->globalSum(numStructElems, tmp1);
-      com->globalSum(numStructElems, tmp2);
-
-      for(int i=0; i<numStructElems; ++i)
-      {
-        StX1[i][k] = tmp1[i];
-        StX2[i][k] = tmp2[i];
-      }
-    }
-
-#pragma omp parallel for
-    for (int iSub=0; iSub<numLocSub; iSub++)
-    {
-
-      if(ghostPoints) gp = ghostPoints->operator[](iSub);
-
-      subDomain[iSub]->computeEMBNodeScalarQuantity_step2(X(iSub), (*V)(iSub), postFcn, varFcn,
-                                                          fluidId(iSub),
-                                                          subEmbQ[iSub], numStructNodes, numStructElems, stElem, Xstruct,
-                                                          (*distLSS)(iSub), 1.0, gp, (*ngrad)(iSub),
-                                                          StNodeDir, StX1, StX2);
-
-      // Assembly of local contributions
-      for(int is=0; is<numStructNodes; is++)
-      {
-
-
-          EmbQs[is][0] += subEmbQ[iSub][is][0]; //Cp weight
-          EmbQs[is][1] += subEmbQ[iSub][is][1]; //Cp
-          EmbQs[is][2] += subEmbQ[iSub][is][2]; //Cf weight
-          EmbQs[is][3] += subEmbQ[iSub][is][3]; //Cf
-
-      }
-
-    }
-
-
-
-
-
-    for(int i=0; i<numStructElems; ++i)
-    {
-      delete [] StNodeDir[i];
-      delete [] StX1[i];
-      delete [] StX2[i];
-    }
-
-    delete [] StNodeDir;
-    delete [] StX1;
-    delete [] StX2;
-    delete [] tmp1;
-    delete [] tmp2;
-  }
-
-  else {
+//  if(externalSI)
+//  { //Dante's method because the first layer has only ghost nodes
+//    StNodeDir = new int*    [numStructElems]; // for both side, stencil triagle id
+//    StX1      = new double* [numStructElems]; // barycenter coordinates
+//    StX2      = new double* [numStructElems];
+//
+//    for(int i=0; i<numStructElems; ++i)
+//    {
+//      StNodeDir[i] = new int    [2];
+//      StX1[i]      = new double [3];
+//      StX2[i]      = new double [3];
+//
+//      StNodeDir[i][0] = StNodeDir[i][1] = 0;
+//      StX1[i][0] = StX1[i][1] = StX1[i][2] = 0.0;
+//      StX2[i][0] = StX2[i][1] = StX2[i][2] = 0.0;
+//    }
+//
+//
+//#pragma omp parallel for
+//    for (int iSub=0; iSub<numLocSub; iSub++)
+//    {
+//      for (int is=0; is<numStructNodes; is++)
+//      {
+//        subEmbQ[iSub][is][0] = 0.0;
+//        subEmbQ[iSub][is][1] = 0.0;
+//        subEmbQ[iSub][is][2] = 0.0;
+//        subEmbQ[iSub][is][3] = 0.0;
+//      }
+//      subDomain[iSub]->computeEMBNodeScalarQuantity_step1(X(iSub), (*V)(iSub),
+//                                                          numStructElems, stElem, Xstruct,
+//                                                          (*distLSS)(iSub),
+//                                                          StNodeDir, StX1, StX2, true);
+//    }
+//
+//
+//
+//    tmp1 = new double[numStructElems];
+//    tmp2 = new double[numStructElems];
+//
+//    for(int i=0; i<numStructElems; ++i)
+//    {
+//      tmp1[i] = (double) StNodeDir[i][0];
+//      tmp2[i] = (double) StNodeDir[i][1];
+//    }
+//
+//    com->globalSum(numStructElems, tmp1);
+//    com->globalSum(numStructElems, tmp2);
+//
+//    for(int i=0; i<numStructElems; ++i)
+//    {
+//      StNodeDir[i][0] = (int) tmp1[i];
+//      StNodeDir[i][1] = (int) tmp2[i];
+//    }
+//
+//    for(int k=0; k<3; ++k)
+//    {
+//      for(int i=0; i<numStructElems; ++i)
+//      {
+//        tmp1[i] = StX1[i][k];
+//        tmp2[i] = StX2[i][k];
+//      }
+//
+//      com->globalSum(numStructElems, tmp1);
+//      com->globalSum(numStructElems, tmp2);
+//
+//      for(int i=0; i<numStructElems; ++i)
+//      {
+//        StX1[i][k] = tmp1[i];
+//        StX2[i][k] = tmp2[i];
+//      }
+//    }
+//
+//#pragma omp parallel for
+//    for (int iSub=0; iSub<numLocSub; iSub++)
+//    {
+//
+//      if(ghostPoints) gp = ghostPoints->operator[](iSub);
+//
+//      subDomain[iSub]->computeEMBNodeScalarQuantity_step2(X(iSub), (*V)(iSub), postFcn, varFcn,
+//                                                          fluidId(iSub),
+//                                                          subEmbQ[iSub], numStructNodes, numStructElems, stElem, Xstruct,
+//                                                          (*distLSS)(iSub), 1.0, gp, (*ngrad)(iSub),
+//                                                          StNodeDir, StX1, StX2);
+//
+//      // Assembly of local contributions
+//      for(int is=0; is<numStructNodes; is++)
+//      {
+//
+//
+//          EmbQs[is][0] += subEmbQ[iSub][is][0]; //Cp weight
+//          EmbQs[is][1] += subEmbQ[iSub][is][1]; //Cp
+//          EmbQs[is][2] += subEmbQ[iSub][is][2]; //Cf weight
+//          EmbQs[is][3] += subEmbQ[iSub][is][3]; //Cf
+//
+//      }
+//
+//    }
+//
+//
+//
+//
+//
+//    for(int i=0; i<numStructElems; ++i)
+//    {
+//      delete [] StNodeDir[i];
+//      delete [] StX1[i];
+//      delete [] StX2[i];
+//    }
+//
+//    delete [] StNodeDir;
+//    delete [] StX1;
+//    delete [] StX2;
+//    delete [] tmp1;
+//    delete [] tmp2;
+//  }
+//
+//  else {
 //original method,
 #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; iSub++) {
@@ -1562,7 +1562,7 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
                                                     fluidId(iSub), Phi ? &((*Phi)(iSub)) : (SVec<double, 1> *) 0,
                                                     numStructNodes, numStructElems, stElem, Xstruct, Xdotstruct, (*distLSS)(iSub),
                                                     1.0, gp, (*ngrad)(iSub), interfaceFluidMeshSize,
-                                                    subEmbQ[iSub]);
+                                                    subEmbQ[iSub], externalSI);
 
     }
 #pragma omp parallel for
@@ -1579,7 +1579,7 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
       }
 
     }
-  }
+//  }
   // Cleaning  
   for(int i=0; i<numLocSub; ++i) delete [] subEmbQ[i];
   delete [] subEmbQ;

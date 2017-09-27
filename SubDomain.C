@@ -9831,7 +9831,7 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
                                              double pInfty,
                                              Vec<GhostPoint<dim>*> *ghostPoints,
                                              NodalGrad<dim, double> &ngrad, double* interfaceFluidMeshSize,
-                                             double (*Qnty)[4])
+                                             double (*Qnty)[4], bool externalSI)
 {
     if (iod.problem.framework == ProblemData::EMBEDDEDALE)
         myTree->reconstruct<&Elem::computeBoundingBox>(X, elems.getPointer(), elems.size());
@@ -9957,7 +9957,8 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
                     vtet_pp[i] = V[T[i]];
                     GhostPoint<dim> *gp = (*ghostPoints)[T[i]];
                     if (gp) {
-                        vtet_pp[i] = gp->getPrimitiveState();
+                        vtet_pp[i] = externalSI?  gp->getPrimitiveState(1): gp->getPrimitiveState();
+                        //if Dante's method, compute the Cf, Cp in the wall normal side for shell
                     }
                 }
 

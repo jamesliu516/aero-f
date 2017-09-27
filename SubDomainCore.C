@@ -6955,8 +6955,8 @@ bool SubDomain::getSIstencil(int Ni, int Nj, SVec<double,3> &X, LevelSetStructur
 
 // ------------------------------------------------------------
 //d2d get the ghost(inactive) node stencil in Dante's method
-// p is the same side as node i , as the wall normal
-// m is the other sideside
+// p is the wall normal side
+// m is the other side
 bool SubDomain::getFEMstencil2(int Ni, SVec<double,3> &X, 
 										LevelSetStructure &LSS, Vec<int> &fluidId,
 										Vec3D &normWall, Vec3D &xWall, 
