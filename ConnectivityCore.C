@@ -147,7 +147,7 @@ Connectivity::offset(int i, int j)
 
 Connectivity* 
 Connectivity::transcon( Connectivity* tc)
-{
+{// a->b and b->c , compute get a->c
  int i,j,k;
 
  // First find the biggest target so we can size arrays correctly

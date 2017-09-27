@@ -97,8 +97,8 @@ class HigherOrderFSI {
 	template<int dim>
 		void extrapolateToWall_1(int l, int n, int Fid, VarFcn *varFun, 
 										 SVec<double,dim>& V, NodalGrad<dim>& dV, double* V_n, 
-										 SVec<double,3>& X, Vec3D &xWall, Vec3D &Xij,
-										 double* V_ext);
+										 SVec<double,3>& X, Vec3D &xWall, Vec3D &nWall, Vec3D &Xij,
+										 double* V_ext, bool externalSI);
 
 	template<int dim>
 		void extrapolateToWall_2(int l, int n, int Fid, VarFcn *varFun, 
@@ -109,8 +109,8 @@ class HigherOrderFSI {
 	template<int dim>
 		void interpolateToSI(int l, int n, int Fid, VarFcn *varFun, 
 									SVec<double,dim>& V, double* Vstar, NodalGrad<dim>& dV,
-									SVec<double,3>& X, Vec3D &xWall, Vec3D &Xij, 
-									double* Vsi, double limiter = 0.5);
+									SVec<double,3>& X, Vec3D &xWall, Vec3D &nWall, Vec3D &Xij,
+									double* Vsi, double limiter = 0.5, bool externalSI = true);
 	template<int dim>
 		bool setFEGhostPoint(int dir, int i, VarFcn *varFun, SVec<double,dim>& U, 
 									 NodalGrad<dim>& dV, SVec<double,3>& X, Vec<int> &fluidId,
@@ -134,19 +134,21 @@ private:
 
     V6NodeData (*v6data)[2];
 
-    V6NodeData (*SIData);
+    V6NodeData (*SIData_p);
+	V6NodeData (*SIData_m);
     V6NodeData (*FEMData_p);
     V6NodeData (*FEMData_m);
 
 
-
+	double geomTol;
 	bool limitExtrap;
 
 	bool HOtreatment;
 	bool viscQuadRcn;
 public:
 	//todo here we assume the node or edge numbers in each subdomain is fixed, need more for AMR
-	V6NodeData* getAllocatedSIData(int len)    {if(!SIData) SIData = new V6NodeData[len];  return SIData;}
+	V6NodeData* getAllocatedSIData_p(int len)  {if(!SIData_p) SIData_p = new V6NodeData[len];  return SIData_p;}
+	V6NodeData* getAllocatedSIData_m(int len)  {if(!SIData_m) SIData_m = new V6NodeData[len];  return SIData_m;}
 	V6NodeData* getAllocatedFEMData_p(int len) {if(!FEMData_p) FEMData_p = new V6NodeData[len];  return FEMData_p;}
 	V6NodeData* getAllocatedFEMData_m(int len) {if(!FEMData_m) FEMData_m = new V6NodeData[len];  return FEMData_m;}
 

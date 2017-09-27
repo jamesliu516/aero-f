@@ -8332,9 +8332,9 @@ void SubDomain::checkGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<double
 
 			Vec3D Xi = X[i];
 				
-			int Nsize;
-			int* Nlist;
-			Nlist = getNeiNodeOfNode(i, Nsize);
+			int Nsize = NodeToNode->num(i);
+			int* Nlist = new int[Nsize];
+			getNeiNodeOfNode(i, Nsize, Nlist);
 			
 			double minDist = FLT_MAX;
 			
@@ -8382,6 +8382,8 @@ void SubDomain::checkGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<double
 			if(dim>5) for(int k=5; k<dim; ++k) Vf[k] = 0.0;
 
 			ghostPoints[i]->set(Vf, tag);
+
+            delete [] Nlist;
 		}
 	}	
 
@@ -9905,6 +9907,7 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
             Vec3D bary;
             E->computeBarycentricCoordinates(X, Xpp, bary);
             if (bary[0] < 0.0 || bary[1] < 0.0 || bary[2] < 0.0 || bary[0] + bary[1] + bary[2] > 1.0) {
+                std::cout <<" Error in compute Cf Cp " << std::endl;
                 E = 0;
                 continue;
             }
@@ -9961,6 +9964,7 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
 
 
                 Cflocal = postFcn->computeSkinFriction(unit_nf, dh, Vwall, vtet_pp, bary);
+
 
                 Qnty[stNode[0]][2] += qweight[nq] * S; //aera of the structure element
                 Qnty[stNode[1]][2] += qweight[nq] * S;
