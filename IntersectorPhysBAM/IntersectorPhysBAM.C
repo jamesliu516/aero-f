@@ -1149,8 +1149,11 @@ void DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X,
      eta_node = new DistVec<double>(domain->getNodeDistInfo());
 	TriID_node = new DistVec<int>(domain->getNodeDistInfo());
 	nWall_node = new DistVec<Vec3D>(domain->getNodeDistInfo());
-//    strucOrientation = new int[numStElems];
-  // for hasCloseTriangle
+
+    bk_is_active = new DistVec<bool>(domain->getNodeDistInfo());
+    int_is_active = new DistVec<int>(domain->getNodeDistInfo());
+    int_swept = new DistVec<int>(domain->getNodeDistInfo());
+
   DistVec<bool> tId(domain->getNodeDistInfo());
 
 #pragma omp parallel for
@@ -1244,7 +1247,6 @@ void DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X,
   ///////////////////////////////////////////////////////
   if(externalSI)
   {
-	  DistVec<int> intISactive(domain->getNodeDistInfo());
 
 #pragma omp parallel for
 	  for(int iSub = 0; iSub < numLocSub; ++iSub)
@@ -1253,18 +1255,19 @@ void DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X,
 
 		  for(int i=0; i<X(iSub).size(); ++i)
 		  {
-			  intISactive(iSub)[i] = (*is_active)(iSub)[i] ? 1 : 0;
+              (*int_is_active)(iSub)[i] = (*is_active)(iSub)[i] ? 1 : 0;
 			  (*TriID_node)(iSub)[i] = -1;
 		  }
 	  }
 
 	  operMin<int> minOp;
-	  domain->assemble(domain->getLevelPat(), intISactive, minOp);
+      domain->assemble(domain->getLevelPat(), *int_is_active, minOp);
 
 #pragma omp parallel for
 	  for(int iSub = 0; iSub < numLocSub; ++iSub)
-		   for(int i=0; i<X(iSub).size(); ++i)
-				(*is_active)(iSub)[i] = (intISactive(iSub)[i] == 1) ? true : false;
+		   for(int i=0; i<X(iSub).size(); ++i) {
+               (*is_active)(iSub)[i] = ((*int_is_active)(iSub)[i] == 1) ? true : false;
+           }
 
 #pragma omp parallel for
 	  for(int iSub = 0; iSub < numLocSub; ++iSub)
@@ -1677,7 +1680,7 @@ int DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts, bo
   buildSolidNormals();
   domain->findNodeBoundingBoxes(*X,*boxMin,*boxMax);
 
-	DistVec<bool> bk_ISactive(domain->getNodeDistInfo());
+
 
 	if(externalSI)
 	{
@@ -1685,7 +1688,7 @@ int DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts, bo
 		for(int iSub = 0; iSub < numLocSub; ++iSub)
 		{
 			for(int i = 0; i < (*is_active)(iSub).size(); ++i)
-				bk_ISactive(iSub)[i] = (*is_active)(iSub)[i];
+                (*bk_is_active)(iSub)[i] = (*is_active)(iSub)[i];
 		}
 	}
 
@@ -1711,38 +1714,37 @@ int DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts, bo
 		///////////////////////////////////////////////////////
 		if(externalSI)
 		{
-			DistVec<int> intISactive(domain->getNodeDistInfo());
-			DistVec<int>    intSwept(domain->getNodeDistInfo());
 
 #pragma omp parallel for
 			for(int iSub = 0; iSub < numLocSub; ++iSub)
 			{   // based on the active nodes results, check all intersection edges,
                 // mark these active nodes to ghost, if the control volume is partially covered
                 // and also mark these swept nodes
-				intersector[iSub]->reFlagRealNodes((*X)(iSub), &bk_ISactive(iSub));
+				intersector[iSub]->reFlagRealNodes((*X)(iSub), &((*bk_is_active)(iSub)));
 
 				for(int i=0; i<(*X)(iSub).size(); ++i)
 				{
-					intISactive(iSub)[i] = (*is_active)(iSub)[i] ? 1 : 0;
-					   intSwept(iSub)[i] = (*is_swept)(iSub)[i]  ? 1 : 0;
+                    (*int_is_active)(iSub)[i] = (*is_active)(iSub)[i] ? 1 : 0;
+                    (*int_swept)(iSub)[i] = (*is_swept)(iSub)[i]  ? 1 : 0;
+
 					(*TriID_node)(iSub)[i] = -1;
 				}
 			}
 
 			operMin<int> minOp;
             //any subdomain marks it is inactive, then it is inactive
-			domain->assemble(domain->getLevelPat(), intISactive, minOp);
+            domain->assemble(domain->getLevelPat(), *int_is_active, minOp);
 
 			operMax<int> maxOp;
             //any subdomain marks it is swept, then it is swept
-			domain->assemble(domain->getLevelPat(), intSwept, maxOp);
+            domain->assemble(domain->getLevelPat(), *int_swept, maxOp);
 
 #pragma omp parallel for
 			for(int iSub = 0; iSub < numLocSub; ++iSub)
 				for(int i=0; i<(*X)(iSub).size(); ++i) 
 				{
-					(*is_active)(iSub)[i] = (intISactive(iSub)[i] == 1) ? true : false;
-					(*is_swept)(iSub)[i]  = (intSwept(iSub)[i]    == 1) ? true : false;
+					(*is_active)(iSub)[i] = ((*int_is_active)(iSub)[i] == 1) ? true : false;
+					(*is_swept)(iSub)[i]  = ((*int_swept)(iSub)[i]    == 1) ? true : false;
 				}
 
 #pragma omp parallel for

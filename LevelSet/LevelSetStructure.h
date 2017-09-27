@@ -239,6 +239,10 @@ class DistLevelSetStructure {
 	 DistVec<double> *eta_node;
 	 DistVec<Vec3D> *nWall_node;
 
+	 DistVec<bool> *bk_is_active;
+	 DistVec<int>  *int_is_active;
+	 DistVec<int>  *int_swept;
+
 
   protected:
     int numLocSub;
@@ -248,12 +252,12 @@ class DistLevelSetStructure {
   public:
     DistLevelSetStructure()
 		 : status(0), distance(0), is_swept(0), is_active(0), is_occluded(0), edge_intersects(0),edge_intersects_constraint(0), /*edge_intersects_embedded_constraint(0),Embedded_Constraint_Alpha(0),*/
-		 edge_SI(0), xi_SI(0), eta_SI(0), nWall_SI(0), TriID_SI(0), xi_node(0), eta_node(0), nWall_node(0), TriID_node(0)
+		 edge_SI(0), xi_SI(0), eta_SI(0), nWall_SI(0), TriID_SI(0), xi_node(0), eta_node(0), nWall_node(0), TriID_node(0), bk_is_active(0), int_is_active(0), int_swept(0)
     {}
     virtual ~DistLevelSetStructure()
     {delete status;delete distance;delete is_swept;delete is_active;delete is_occluded;delete edge_intersects;delete edge_intersects_constraint; /*delete edge_intersects_embedded_constraint; delete Embedded_Constraint_Alpha;*/
 	  delete edge_SI; delete nWall_SI; delete xi_SI; delete eta_SI; delete TriID_SI; 
-	  delete nWall_node; delete xi_node; delete eta_node; delete TriID_node;}
+	  delete nWall_node; delete xi_node; delete eta_node; delete TriID_node; if(bk_is_active) delete bk_is_active; if(int_is_active) delete int_is_active; if(int_swept) delete int_swept;}
 
     int numOfFluids() {return numFluid;}
     void setNumOfFluids(int nf) {numFluid = nf;}

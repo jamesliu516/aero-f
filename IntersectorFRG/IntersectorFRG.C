@@ -1499,6 +1499,11 @@ DistIntersectorFRG::initialize(Domain *d, DistSVec<double,3> &X, DistSVec<double
   TriID_node = new DistVec<int>(domain->getNodeDistInfo());
   nWall_node = new DistVec<Vec3D>(domain->getNodeDistInfo());
   poly = new DistVec<bool>(domain->getNodeDistInfo());
+
+  bk_is_active = new DistVec<bool>(domain->getNodeDistInfo());
+  int_is_active = new DistVec<int>(domain->getNodeDistInfo());
+  int_swept = new DistVec<int>(domain->getNodeDistInfo());
+
   findPoly();
 
   buildSolidNormals();
