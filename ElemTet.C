@@ -1255,9 +1255,13 @@ void ElemTet::computeWaleLESTerm_e(WaleLESTerm *wale, SVec<double,3> &X,
 						}
 					}
 
-					int dir = LSS->edgeIntersectsWall(0.0,edgeNum(e)) ? -1 : 1;
+					//int dir = LSS->edgeIntersectsWall(0.0,edgeNum(e)) ? -1 : 1;
 
-					Ve[j] = gp->getPrimitiveState(dir);
+                    Vec3D xWall; LSS->xWallNode(Nj,xWall);
+                    Vec3D edge(X[Ni][0] - xWall[0], X[Ni][1] - xWall[1], X[Ni][2] - xWall[2]);
+                    Vec3D normWall; LSS->nWallNode(Nj, normWall);
+                    int dir = (edge*normWall>=0 ? 1: -1);
+                    Ve[j] = gp->getPrimitiveState(dir);
 				}				
 				else
 					Ve[j] = V[Nj];

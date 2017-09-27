@@ -1714,7 +1714,7 @@ public:
 				    double pInfty,
 				    Vec<GhostPoint<dim>*> *ghostPoints,
 				    NodalGrad<dim, double> &ngrad,double* interfaceFluidMeshSize,
-									double (*Qnty)[4]);
+									double (*Qnty)[4], bool externalSI);
 
 
     void computeInterfaceFluidMeshSize(IoData &iod,SVec<double,3> &X,
