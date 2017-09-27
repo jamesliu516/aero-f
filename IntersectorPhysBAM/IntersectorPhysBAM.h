@@ -77,6 +77,11 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
   using DistLevelSetStructure::nWall_node;
   using DistLevelSetStructure::TriID_node;
 
+  using DistLevelSetStructure::bk_is_active;
+  using DistLevelSetStructure::int_is_active;
+  using DistLevelSetStructure::int_swept;
+
+
   protected:
 
     IoData &iod;
