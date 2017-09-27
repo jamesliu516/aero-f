@@ -3442,7 +3442,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
 
 
-                    higherOrderFSI->extrapolateToWall_1(l, i, fluidId[i], varFcn, V, ngrad, Vi_Recon, X, xWall, Xij, V_e);
+                    higherOrderFSI->extrapolateToWall_1(l, i, fluidId[i], varFcn, V, ngrad, Vi_Recon, X, xWall, nWall, Xij, V_e, false);
 
                     if (structureType == BoundaryData::SYMMETRYPLANE)
                       riemann.computeSymmetryPlaneRiemannSolution(V_e, vWall, nWall_o, varFcn, Wstar, j, fluidId[i]);
@@ -3452,7 +3452,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
                     if (it > 0) for (int k = 0; k < dim; k++) Wstarij[l][k] = Wstar[k];
 
-                    higherOrderFSI->interpolateToSI(l, i, fluidId[i], varFcn, V, Wstar, ngrad, X, xWall, Xij, V_si, alpha);
+                    higherOrderFSI->interpolateToSI(l, i, fluidId[i], varFcn, V, Wstar, ngrad, X, xWall, nWall, Xij, V_si, alpha, false);
 
                     fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi_Recon, V_si, fluxi, fluidId[i],
                                                   false);
@@ -3618,7 +3618,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                                                                                                       : -1.0*nWall;
 
 
-                      higherOrderFSI->extrapolateToWall_1(l, j, fluidId[j], varFcn, V, ngrad, Vj_Recon, X, xWall, Xij, V_e);
+                      higherOrderFSI->extrapolateToWall_1(l, j, fluidId[j], varFcn, V, ngrad, Vj_Recon, X, xWall, nWall,  Xij, V_e, false);
 
                       if (structureType == BoundaryData::SYMMETRYPLANE)
                           riemann.computeSymmetryPlaneRiemannSolution(V_e, vWall, nWall_o, varFcn, Wstar, i, fluidId[j]);
@@ -3628,7 +3628,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
                       if (it > 0) for (int k = 0; k < dim; k++) Wstarji[l][k] = Wstar[k];
 
-                      higherOrderFSI->interpolateToSI(l, j, fluidId[j], varFcn, V, Wstar, ngrad, X, xWall, Xij, V_si, alpha);
+                      higherOrderFSI->interpolateToSI(l, j, fluidId[j], varFcn, V, Wstar, ngrad, X, xWall, nWall, Xij, V_si, alpha, false);
 
                       fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], V_si, Vj_Recon, fluxj, fluidId[j], false);
 
@@ -3882,7 +3882,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                 higherOrderFSI->safeExtrapolation(2*dim, V[i],ddVij, 0.5, Vi_);
                 //std::cout << "****H finish i safeExtrapolation" <<std::endl;
 
-				higherOrderFSI->extrapolateToWall_1(l, i, fluidId[i], varFcn, V, ngrad, Vi_, X, xWall, Xij, V_e);
+				higherOrderFSI->extrapolateToWall_1(l, i, fluidId[i], varFcn, V, ngrad, Vi_, X, xWall, nWall, Xij, V_e, true);
                 //std::cout << "****H finish  i extrapolateToWall_1" <<std::endl;
 
 				riemann.computeFSIRiemannSolution(V_e, vWall, nWall_o, varFcn, Vstar, j, fluidId[i]);
@@ -3892,7 +3892,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
 				if(it > 0) for(int k=0; k<dim; k++) Vstarij[l][k] = Vstar[k];
 				
-				higherOrderFSI->interpolateToSI(l, i, fluidId[i], varFcn, V, Vstar, ngrad, X, xWall, Xij, V_si);
+				higherOrderFSI->interpolateToSI(l, i, fluidId[i], varFcn, V, Vstar, ngrad, X, xWall, nWall,  Xij, V_si, true);
                 //std::cout << "****H finish i interpolateToSI" <<std::endl;
 
 				if(masterFlag[l])
@@ -3912,7 +3912,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                 higherOrderFSI->safeExtrapolation(2*dim, V[j],ddVji,-0.5, Vj_);
                 //std::cout << "****H finish j safeExtrapolation" <<std::endl;
 
-				higherOrderFSI->extrapolateToWall_1(l, j, fluidId[j], varFcn, V, ngrad, Vj_, X, xWall, Xij, V_e);
+				higherOrderFSI->extrapolateToWall_1(l, j, fluidId[j], varFcn, V, ngrad, Vj_, X, xWall,nWall, Xij, V_e, true);
                 //std::cout << "****H finish  j extrapolateToWall_1" <<std::endl;
 
 				riemann.computeFSIRiemannSolution(V_e, vWall, nWall_o, varFcn, Vstar, i, fluidId[j]);
@@ -3922,7 +3922,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
 				if(it > 0) for(int k=0; k<dim; k++)	Vstarji[l][k] = Vstar[k];
 			
-				higherOrderFSI->interpolateToSI(l, j, fluidId[j], varFcn, V, Vstar, ngrad, X, xWall, Xij, V_si);
+				higherOrderFSI->interpolateToSI(l, j, fluidId[j], varFcn, V, Vstar, ngrad, X, xWall, nWall, Xij, V_si, true);
                 //std::cout << "****H finish j interpolateToSI" <<std::endl;
 
 

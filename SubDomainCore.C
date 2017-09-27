@@ -5662,74 +5662,83 @@ void SubDomain::localCoord(Vec3D image, int iTet, SVec<double,3> &X, Vec3D& loca
 
 //-------------------------------------------------------------------------------------
 
-int* SubDomain::getNeiElemOfNode(int iNode, int depth, int& size )
+void SubDomain::getNeiElemOfNode(int iNode, int depth, int& size , int* finalList)
 {
+  // finallist contains all elements neighbor of a node,
+  // if depth = k, its neighbor of distance <= k
   if (!NodeToElem)  NodeToElem = createNodeToElementConnectivity();
   size = NodeToElem->num(iNode);
 
-  int *list = new int[elems.size()];
+
 
   for (int i=0; i<size; i++){
-    list[i] = (*NodeToElem)[iNode][i];
-  }
-  if (depth == 1){
-    int *finalList = new int[size];
-    for (int i=0; i<size; i++)  finalList[i] = list[i];
-
-    delete[] list;
-    return finalList;
+    finalList[i] = (*NodeToElem)[iNode][i];
   }
 
-  int *list2 = new int[elems.size()];
-  int size2 = 0;
+
+
+//  int *list2 = new int[elems.size()];
+//  int size2 = 0;
+//  if (!ElemToElem) ElemToElem = createElementToElementConnectivity();
+//
+//  for (int count=0; count<depth-1; count++){
+//    size2 = 0;
+//    for (int i=0; i<size; i++){
+//      if (size2>0){
+//        for (int j=0; j<ElemToElem->num(list[i]); j++){
+//          bool newElem = true;
+//          for (int listNode=0; listNode<size2; listNode++){
+//            if (list2[listNode] ==(* ElemToElem)[list[i]][j]) {newElem = false;  break;}
+//          }
+//          if (newElem == true)  list2[size2++] = (*ElemToElem)[list[i]][j];
+//        }
+//      }
+//      else {for (int l=0; l<ElemToElem->num(list[i]); l++)  list2[size2++] = (*ElemToElem)[list[i]][l]; }
+//    }
+//    int *list_temp = list;
+//    list = list2;
+//    delete[] list_temp;
+//    size = size2;
+//  }
+//
+//  for (int i=0; i<size; i++)
+//    finalList[i] = list[i];
+//  delete[] list;
+
+
   if (!ElemToElem) ElemToElem = createElementToElementConnectivity();
-
-  for (int count=0; count<depth-1; count++){
-    size2 = 0;
-    for (int i=0; i<size; i++){
-      if (size2>0){
-        for (int j=0; j<ElemToElem->num(list[i]); j++){
+  int size_old;
+  for (int count = 1; count<depth; count++){
+    size_old = size;
+    for (int i=0; i<size_old; i++){//loop all element in the list
+        for (int j=0; j< ElemToElem->num(finalList[i]); j++){ // loop this element's neighbor
           bool newElem = true;
-          for (int listNode=0; listNode<size2; listNode++){
-            if (list2[listNode] ==(* ElemToElem)[list[i]][j]) {newElem = false;  break;}
+          for (int listNode=0; listNode<size_old; listNode++){
+            if (finalList[listNode] == (* ElemToElem)[finalList[i]][j]) {newElem = false;  break;}
           }
-          if (newElem == true)  list2[size2++] = (*ElemToElem)[list[i]][j];
+          if (newElem == true)  finalList[size++] = (*ElemToElem)[finalList[i]][j];
         }
-      }
-      else {for (int l=0; l<ElemToElem->num(list[i]); l++)  list2[size2++] = (*ElemToElem)[list[i]][l]; }
+
     }
-    int *list_temp = list;
-    list = list2;
-    delete[] list_temp;
-    size = size2;
   }
 
-  int *finalList = new int[size];
-  for (int i=0; i<size; i++)
-    finalList[i] = list[i];
-  delete[] list;
-  return finalList;
+
+
+
+
+
+
 }
 
 //--------------------------------------------------------------------------------
-int* SubDomain::getNeiNodeOfNode(int iNode, int& size)
+void SubDomain::getNeiNodeOfNode(int iNode, int size, int* finalList)
 {
 
 	if(!NodeToNode) NodeToNode = createEdgeBasedConnectivity();
-
-	size = NodeToNode->num(iNode);
-
-	int *list = new int[nodes.size()];
 	
-	for(int i=0; i<size; i++)	list[i] = (*NodeToNode)[iNode][i];
+	for(int i=0; i<size; i++)	finalList[i] = (*NodeToNode)[iNode][i];
 
-	int *finalList = new int[size];
 
-   for(int i=0; i<size; i++) finalList[i] = list[i];
-
-	delete[] list;
-
-	return finalList;
 	
 }
 
@@ -6595,7 +6604,7 @@ bool SubDomain::getPiercedPoint(Vec3D va, Vec3D vb, Vec3D vc, Vec3D vd, Vec3D ve
 // ----------------------------------------
 
 bool SubDomain::getSIstencil(int Ni, int Nj, SVec<double,3> &X, LevelSetStructure &LSS, Vec<int> &fluidId,
-									  Vec3D &normWall, Vec3D &xWall, V6NodeData &SiStencilData, bool externalSI)
+									  Vec3D &normWall, Vec3D &xWall, V6NodeData &SiStencilData, bool pOrNot)
 {
 
 	double min_dist0 = bigNum;
@@ -6618,39 +6627,53 @@ bool SubDomain::getSIstencil(int Ni, int Nj, SVec<double,3> &X, LevelSetStructur
     int N_act = LSS.isActive(0.0, Ni) ? Ni : Nj;
     int N_inact = LSS.isActive(0.0, Ni) ? Nj : Ni;
 
-    if(externalSI) {
-      // Dante's ghost node definition
-      Vec3D dir = X_si - xWall;
-      double norm = sqrt(dir * dir);
-      if (norm != 0.0) dir *= 1.0 / norm;
-      ve = X_si + 1000.0 * dir;
-    }else {
-      //Original FIVER's ghost node definition, todo so far, we cannot handle shell
+//    if(externalSI) {
+//      // Dante's ghost node definition
+//      Vec3D dir = X_si - xWall;
+//      double norm = sqrt(dir * dir);
+//      if (norm != 0.0) dir *= 1.0 / norm;
+//      ve = X_si + 1000.0 * dir;
+//    }else {
+//      //Original FIVER's ghost node definition, todo so far, we cannot handle shell
+//
+//      if (N_act == N_inact) {
+//        std::cout << "ERROR in SubDomain::getSIstencil, one node is active and the other is inactive" << std::endl;
+//        exit(1);
+//      }
+//      Vec3D dir = (normWall[0] * (X[N_act][0] - X[N_inact][0]) + normWall[1] * (X[N_act][1] - X[N_inact][1]) +
+//                   normWall[2] * (X[N_act][2] - X[N_inact][2]) >= 0 ? normWall : -normWall);
+//      double norm = sqrt(dir * dir);
+//
+//      if (norm != 0.0) dir *= 1.0 / norm;
+//      ve = X_si + 1000.0 * dir;
+//    }
+  Vec3D dir = X_si - xWall;
+  double norm = sqrt(dir*dir);
+  if(norm > geomTol){
+    if(pOrNot)
+      dir = (dir*normWall >= 0? dir/norm : -dir/norm);
+    else
+      dir = (dir*normWall >= 0? -dir/norm : dir/norm);
+  }else{
+    if(pOrNot)
+      dir =  normWall/normWall.norm();
+    else
+      dir = -normWall/normWall.norm();
 
-      if (N_act == N_inact) {
-        std::cout << "ERROR in SubDomain::getSIstencil, one node is active and the other is inactive" << std::endl;
-        exit(1);
-      }
-      Vec3D dir = (normWall[0] * (X[N_act][0] - X[N_inact][0]) + normWall[1] * (X[N_act][1] - X[N_inact][1]) +
-                   normWall[2] * (X[N_act][2] - X[N_inact][2]) >= 0 ? normWall : -normWall);
-      double norm = sqrt(dir * dir);
-
-      if (norm != 0.0) dir *= 1.0 / norm;
-      ve = X_si + 1000.0 * dir;
-    }
+  }
+  ve = X_si + 1000.0*dir;
 
 
 
-
-
+  int Esize = 0;
+  int* Elist = new int[elems.size()];
 	// Loop over the elements connected to nodes Ni and Nj
 	for(int idN=0; idN<2; ++idN)
 	{
 		int Nnode = (idN == 0) ? Ni : Nj;
 
-		int Esize;
-		int* Elist;
-		Elist = getNeiElemOfNode(Nnode, 1, Esize);
+
+		getNeiElemOfNode(Nnode, 1, Esize, Elist);
 
 		for(int n=0; n<Esize; ++n)
 		{	
@@ -6767,6 +6790,8 @@ bool SubDomain::getSIstencil(int Ni, int Nj, SVec<double,3> &X, LevelSetStructur
 		SiStencilData.t    = -1.0;
        //fprintf(stderr, "*** Warning: Edge(Node %d -> Node %d) does not have stencil to compute second order Euler flux based on the closest point\n", Ni,Nj);
 	}
+
+  delete [] Elist;
 
 	return Wmode0 || Wmode1;
 
@@ -6980,9 +7005,9 @@ bool SubDomain::getFEMstencil2(int Ni, SVec<double,3> &X,
     Vec3D ve_p = X_i + 1000.0*dir;
 	Vec3D ve_m = X_i - 1000.0*dir;
 
-	int Esize;
-	int* Elist;
-	Elist = getNeiElemOfNode(Ni, 2, Esize);
+	int Esize = 0;
+	int* Elist = new int[elems.size()];
+	getNeiElemOfNode(Ni, 2, Esize, Elist);
 	
 	bool newPoint_p, newPoint_m;
 
@@ -7150,7 +7175,7 @@ bool SubDomain::getFEMstencil2(int Ni, SVec<double,3> &X,
 	}
  
 	bool Wmode = (Wmode0_m || Wmode1_m) || (Wmode0_p || Wmode1_p);
-
+    delete [] Elist;
 //    if(!Wmode)
 //      std::cout <<"Warning: fail to find edge center stencil in SubDomain::getFEMstencil2" << std::endl;
 
@@ -7276,7 +7301,8 @@ void SubDomain::setSIstencil(SVec<double,3> &X, LevelSetStructure &LSS,
 
     Vec3D xWall, normWall;
 
-    V6NodeData (*SiStencilData) = higherOrderFSI->getAllocatedSIData(edges.size());
+    V6NodeData (*SiStencilData_p) = higherOrderFSI->getAllocatedSIData_p(edges.size());
+    V6NodeData (*SiStencilData_m) = higherOrderFSI->getAllocatedSIData_m(edges.size());
 
     bool withSI = false;
 
@@ -7293,9 +7319,10 @@ void SubDomain::setSIstencil(SVec<double,3> &X, LevelSetStructure &LSS,
         LSS.xWallWithSI(l, xwall);
         LSS.nWallWithSI(l, nwall);
 
-        bool gotIt = getSIstencil(i, j, X, LSS, fluidId, nwall, xwall, SiStencilData[l], externalSI);
+        getSIstencil(i, j, X, LSS, fluidId, nwall, xwall, SiStencilData_p[l], true);
+        getSIstencil(i, j, X, LSS, fluidId, nwall, xwall, SiStencilData_m[l], false);
 
-        withSI = withSI || gotIt;
+
     }
 
 //    if(withSI)

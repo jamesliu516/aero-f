@@ -42,6 +42,9 @@ class Connectivity {
   int *pointer;       // pointer to target
   int *target;        // value of the connectivity
   float *weight;      // weights of pointer (or NULL)
+  // target is like a01, a02 ... a0k0,  a11, a12...a1k1 .....
+  // pointer is like 0, k0, k0+k1 ...
+  // it has size number of block
 
 protected:
 

@@ -9,8 +9,10 @@ inline
 HigherOrderFSI::HigherOrderFSI(const IoData & iod)
 {
   secondOrderEulerFlux = iod.embed.secondOrderEulerFlux;
+  geomTol = 1.0e-10;
   lastPhaseChangeState = NULL;
-  SIData = NULL;
+  SIData_p = NULL;
+  SIData_m = NULL;
   FEMData_p = NULL;
   FEMData_m = NULL;
   limitExtrap = false;
@@ -19,9 +21,11 @@ HigherOrderFSI::HigherOrderFSI(const IoData & iod)
 inline
 HigherOrderFSI::~HigherOrderFSI() {
     std::cout <<" HigherOrderFSI desctructor " << std::endl;
-	if(SIData)    delete[] SIData;
+	if(SIData_p)  delete[] SIData_p;
+    if(SIData_m)  delete[] SIData_m;
     if(FEMData_p) delete[] FEMData_p;
     if(FEMData_m) delete[] FEMData_m;
+    if(lastPhaseChangeState) delete lastPhaseChangeState;
 }
 
 inline 
@@ -641,8 +645,8 @@ void HigherOrderFSI::derivativeofHOFSI(int l, int vertex, int i,
 template <int dim>
 void HigherOrderFSI::extrapolateToWall_1(int l, int n, int Fid, VarFcn *varFun, 
 													  SVec<double,dim>& V, NodalGrad<dim>& dV, double* V_n, 
-													  SVec<double,3>& X, Vec3D &xWall, Vec3D &Xij,
-													  double* V_ext)
+													  SVec<double,3>& X, Vec3D &xWall, Vec3D &normWall,Vec3D &Xij,
+													  double* V_ext, bool externalSI)
 {	
 
 	//	Extrapolate the solution from Xf to xWall using Vf and dVf 
@@ -661,14 +665,38 @@ void HigherOrderFSI::extrapolateToWall_1(int l, int n, int Fid, VarFcn *varFun,
 
 	double dVf[dim][3];
 
-	int    idxTet  = SIData[l].tet;
-	int    idxFace = SIData[l].face;
-	double face_r  = SIData[l].r;
-	double face_t  = SIData[l].t;
+    int idxTet = -1, idxFace =  -1, face_r = 0.0, face_t = 0.0;
+    bool pOrNot;
+    Vec3D dir1 = Xij - xWall, dir2(X[n][0] - xWall[0], X[n][1] - xWall[1], X[n][2] - xWall[2]);
+    double norm = sqrt(dir1*dir1);
+    if(norm > geomTol && externalSI){
+        pOrNot = dir1*normWall >= 0;
+    }else {
+        pOrNot = dir2 * normWall >= 0;
+    }
+
+    if(!pOrNot){std::cout << "****H interpolateToWall_1 pOrNot, node "<< n << " l " << l << " norm " << norm
+                          << "\n x[n] " << X[n][0] << " " << X[n][1] << " "  << X[n][2]
+                          << "\n dir2 "<< dir2[0] << " " << dir2[1] << " " << dir2[2]
+                          << "\n dir1 "<< dir1[0] << " " << dir1[1] << " " << dir1[2]
+                          << "\n norm "<< normWall[0] << " " << normWall[1] << " " << normWall[2]
+                          << "\n xWall"<< xWall[0] << " " << xWall[1] << " " << xWall[2]<< std::endl;}
+
+    if(pOrNot) {
+        idxTet = SIData_p[l].tet;
+        idxFace = SIData_p[l].face;
+        face_r = SIData_p[l].r;
+        face_t = SIData_p[l].t;
+    }else{
+        idxTet = SIData_m[l].tet;
+        idxFace = SIData_m[l].face;
+        face_r = SIData_m[l].r;
+        face_t = SIData_m[l].t;
+    }
 
 	if(idxTet < 0) 
 	{
-        //fprintf(stderr, "*** Warning: edge %d does not have stencil to compute second order Euler flux based on the closest point\n", l);
+        //std::cout << "*** Warning: edge "<< l << " does not have stencil to compute second order Euler flux based on the closest point " << std::endl;
 		return;
 
 /*
@@ -827,8 +855,8 @@ void HigherOrderFSI::extrapolateToWall_2(int l, int n, int Fid, VarFcn *varFun,
 template <int dim>
 void HigherOrderFSI::interpolateToSI(int l, int n, int Fid, VarFcn *varFun, 
 												 SVec<double,dim>& V, double* Vstar, NodalGrad<dim>& dV,
-												 SVec<double,3>& X, Vec3D &xWall, Vec3D &Xij, 
-												 double* Vsi, double limiter)
+												 SVec<double,3>& X, Vec3D &xWall, Vec3D &normWall, Vec3D &Xij,
+												 double* Vsi, double limiter, bool externalSI)
 {
 
 	if(Vstar[0] < 0 || Vstar[4] < 0)
@@ -841,10 +869,28 @@ void HigherOrderFSI::interpolateToSI(int l, int n, int Fid, VarFcn *varFun,
 
 	if(!HOtreatment) return;
 
-	int    idxTet  = SIData[l].tet;
-	int    idxFace = SIData[l].face;
-	double face_r  = SIData[l].r;
-	double face_t  = SIData[l].t;
+    int idxTet = -1, idxFace =  -1, face_r = 0.0, face_t = 0.0;
+    bool pOrNot;
+    Vec3D dir1 = Xij - xWall, dir2(X[n][0] - xWall[0], X[n][1] - xWall[1], X[n][2] - xWall[2]);
+    double norm = sqrt(dir1*dir1);
+    if(norm > geomTol && externalSI){
+       pOrNot = dir1*normWall >= 0;
+    }else {
+       pOrNot = dir2 * normWall >= 0;
+    }
+    if(pOrNot) {
+        idxTet = SIData_p[l].tet;
+        idxFace = SIData_p[l].face;
+        face_r = SIData_p[l].r;
+        face_t = SIData_p[l].t;
+    }else{
+        idxTet = SIData_m[l].tet;
+        idxFace = SIData_m[l].face;
+        face_r = SIData_m[l].r;
+        face_t = SIData_m[l].t;
+    }
+
+
 
 	if(idxTet < 0)	return;
 

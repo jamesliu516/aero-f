@@ -1681,8 +1681,8 @@ public:
   void getGhostNodes(double*, int*, int&);
   bool isINodeinITet(Vec3D, int, SVec<double,3>&);
   void  localCoord(Vec3D, int, SVec<double, 3>&, Vec3D&);
-  int* getNeiElemOfNode(int, int, int&);
-  int* getNeiNodeOfNode(int, int&);
+  void getNeiElemOfNode(int, int, int&, int*);
+  void getNeiNodeOfNode(int, int, int*);
   void getNodeCoords(int, SVec<double,3> &, double&, double&, double&);
   void updateNodeTag(SVec<double,3>&, LevelSetStructure &, Vec<int>&, Vec<int>&);
 
