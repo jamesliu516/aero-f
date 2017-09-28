@@ -4779,9 +4779,9 @@ void Domain::setSIstencil(DistSVec<double,3> &X, DistLevelSetStructure *distLSS,
 	int iSub;
 
 #pragma omp parallel for
-	for (iSub = 0; iSub < numLocSub; ++iSub) 
+	for (iSub = 0; iSub < numLocSub; ++iSub)
 		subDomain[iSub]->setSIstencil(X(iSub), (*distLSS)(iSub), fluidId(iSub), U(iSub), externalSI);
-			
+
 }
 
 //------------------------------------------------------------------------------
@@ -5434,18 +5434,13 @@ void Domain::computeSADistSensitivity(FemEquationTerm *fet, DistGeoState &geoSta
   for (iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->sndData(*volPat,
       reinterpret_cast<double (*)[1]> (dS.subData(iSub)));
-    // subDomain[iSub]->sndData(*vecPat,
-    //   reinterpret_cast<double (*)[1]> (dS.subData(iSub)));
 
   volPat->exchange();
-  // vecPat->exchange();
 
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->addRcvData(*volPat,
       reinterpret_cast<double (*)[1]> (dS.subData(iSub)));
-    // subDomain[iSub]->addRcvData(*vecPat,
-    //   reinterpret_cast<double (*)[1]> (dS.subData(iSub)));
 
 }
 

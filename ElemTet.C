@@ -237,7 +237,7 @@ void ElemTet::computeGalerkinTerm_e(FemEquationTerm *fet, SVec<double,3> &X,
 			for(int j=0; j<4; ++j)
 			{
 				int Nj = nodeNum(j);
-			
+
 				bool isJGhost = LSS->xWallNode(Nj, xWall); //return ghost or not
 
 				if(isJGhost)
@@ -264,7 +264,7 @@ void ElemTet::computeGalerkinTerm_e(FemEquationTerm *fet, SVec<double,3> &X,
 
 					Ve[j] = gp->getPrimitiveState(dir);
 
-				}				
+				}
 				else
 					Ve[j] = V[Nj];
 			}
@@ -3132,7 +3132,7 @@ void ElemTet::computeSADistSensitivity(FemEquationTerm *fet, SVec<double,3> &X,
   double ds;
 
   // All the states are updated
-  fet->computeVolumeTermDistSens(dp1dxj, d2w, v, X, nodeNum(), ds);
+  fet->computeDistanceDerivativeOfVolumeTerm(dp1dxj, d2w, v, X, nodeNum(), ds);
 
   for (int j=0; j<4; ++j) {
     int idx = nodeNum(j);

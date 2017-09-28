@@ -593,10 +593,6 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
 
   double (*R)[6] = reinterpret_cast<double (*)[6]>(r);
 
-  double absmutilde = fabs(mutilde);
-  double maxmutilde = max(mutilde, 0.0);
-  double mu5 = oosigma * (mul + absmutilde);
-
   double dnutildedx = dp1dxj[0][0]*V[0][5]
 	                 + dp1dxj[1][0]*V[1][5]
 	                 + dp1dxj[2][0]*V[2][5]
@@ -612,6 +608,16 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
                    + dp1dxj[2][2]*V[2][5]
 	                 + dp1dxj[3][2]*V[3][5];
 
+  double mu5;
+  if (mutilde >= 0.0)
+    mu5 = oosigma * (mul + mutilde);  // sjg, 09/2017
+  else {
+    double chi = mutilde/mul;
+    double chi3 = chi*chi*chi;
+    double fn = (cn1+chi3)/(cn1-chi3);
+    mu5 = oosigma * (mul + fn*mutilde);
+  }
+
   R[0][5] = mu5 * dnutildedx;
   R[1][5] = mu5 * dnutildedy;
   R[2][5] = mu5 * dnutildedz;
@@ -624,53 +630,78 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
 
   double d2wall = 0.25 * (d2w[0] + d2w[1] + d2w[2] + d2w[3]);
 
-  if(d2wall >= 1.e-15)
-  {
-    double chi = max(mutilde/mul, 0.001);
-    double chi3 = chi*chi*chi;
-    double fv1 = chi3 / (chi3 + cv1_pow3);
-    double fv2  = 1.-chi/(1.+chi*fv1);
-    double fv3  = 1.0;
-
-    if(usefv3)
-	  {
-      fv2 = 1.0 + oocv2*chi;
-      fv2 = 1.0 / (fv2*fv2*fv2);
-      fv3 = (1.0 + chi*fv1) * (1.0 - fv2) / chi;
-    }
-    double ood2wall2 = 1.0 / (d2wall * d2wall);
+  if (d2wall >= 1.e-15) {
     double rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
     double oorho = 1.0 / rho;
-    double zz = ooreynolds_mu * oovkcst2 * maxmutilde * oorho * ood2wall2;
-    double s12 = dudxj[0][1] - dudxj[1][0];
-    double s23 = dudxj[1][2] - dudxj[2][1];
-    double s31 = dudxj[2][0] - dudxj[0][2];
-    double s = sqrt(s12*s12 + s23*s23 + s31*s31);
-    double Stilde = max(s*fv3 + zz*fv2,1.0e-12); // To avoid possible numerical problems, the term \tilde S must never be allowed to reach zero or go negative.
-    double rr = min(zz/Stilde, rlim);
-    double rr2 = rr*rr;
-    double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
-    double gg2 = gg*gg;
-    double fw = opcw3_pow * gg * pow(gg2*gg2*gg2 + cw3_pow6, -sixth);
+    double AA, BB, CC;
 
-    double AA = oosigma * cb2 * rho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
-    double BB = cb1 * Stilde * absmutilde;
-    double CC = - cw1 * fw * oorho * maxmutilde * maxmutilde * ood2wall2;
-    // S[5] = AA + BB + CC;
+    if (mutilde >= 0.0) {
+      double chi = mutilde/mul; // chi = 0 is OK except for fv3
+      double chi3 = chi*chi*chi;
+      double fv1 = chi3 / (chi3 + cv1_pow3);
+      double fv2  = 1.-chi/(1.+chi*fv1);
+      double fv3  = 1.0;
+      if(usefv3) {
+        fv2 = 1.0 + oocv2*chi;
+        fv2 = 1.0 / (fv2*fv2*fv2);
+        fv3 = (chi==0.0) ? 3.0*oocv2 : (1.0 + chi*fv1) * (1.0 - fv2) / chi;
+      }
+
+      double ood2wall2 = 1.0 / (d2wall * d2wall);
+      double zz = ooreynolds_mu * oovkcst2 * mutilde * oorho * ood2wall2;
+      double s12 = dudxj[0][1] - dudxj[1][0];
+      double s23 = dudxj[1][2] - dudxj[2][1];
+      double s31 = dudxj[2][0] - dudxj[0][2];
+      double s = sqrt(s12*s12 + s23*s23 + s31*s31);
+
+      // double Stilde = max(s*fv3 + zz*fv2,1.0e-12); // To avoid possible numerical problems, the term \tilde S must never be allowed to reach zero or go negative.
+      // double Stilde = max(s*fv3 + zz*fv2,0.3*s);
+      double Stilde, Sbar = zz*fv2;
+      if (Sbar >= -c2*s)
+        Stilde = s*fv3+Sbar;
+      else
+        Stilde = s*fv3+s*(c2*c2*s+c3*Sbar)/((c3-2.0*c2)*s-Sbar);
+
+      double rr;
+      if (Stilde == 0.0)
+        rr = rlim;
+      else
+        rr = min(zz/Stilde, rlim);
+
+      double rr2 = rr*rr;
+      double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
+      double gg2 = gg*gg;
+      double fw = opcw3_pow * gg * pow(gg2*gg2*gg2 + cw3_pow6, -sixth);
+
+      AA = oosigma * cb2 * rho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
+      BB = cb1 * Stilde * mutilde;
+      CC = - cw1 * fw * oorho * mutilde * mutilde * ood2wall2;
+    }
+    else {
+      double ood2wall2 = 1.0 / (d2wall * d2wall);
+      double s12 = dudxj[0][1] - dudxj[1][0];
+      double s23 = dudxj[1][2] - dudxj[2][1];
+      double s31 = dudxj[2][0] - dudxj[0][2];
+      double s = sqrt(s12*s12 + s23*s23 + s31*s31);
+
+      AA = oosigma * cb2 * rho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
+      BB = cb1 * s * mutilde;
+      CC = cw1 * oorho * mutilde *mutilde * ood2wall2;
+    }
 
     // sjg, 06/2017: forgotten term in conversion to conservation form
     double drhodx = dp1dxj[0][0]*V[0][0] + dp1dxj[1][0]*V[1][0]
-	                 + dp1dxj[2][0]*V[2][0] + dp1dxj[3][0]*V[3][0];
+                   + dp1dxj[2][0]*V[2][0] + dp1dxj[3][0]*V[3][0];
     double drhody = dp1dxj[0][1]*V[0][0] + dp1dxj[1][1]*V[1][0]
                    + dp1dxj[2][1]*V[2][0] + dp1dxj[3][1]*V[3][0];
     double drhodz = dp1dxj[0][2]*V[0][0] + dp1dxj[1][2]*V[1][0]
                    + dp1dxj[2][2]*V[2][0] + dp1dxj[3][2]*V[3][0];
-
     double DD = - oorho * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz);
+
+    // S[5] = AA + BB + CC;
     S[5] = AA + BB + CC + DD;
   }
-  else
-  {
+  else {
     S[5] = 0.0;
   }
 
@@ -707,7 +738,7 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
 //------------------------------------------------------------------------------
 
 // Compute SA equation residual distance sensitivity (sjg, 08/2017)
-void FemEquationTermSA::computeVolumeTermDistSens(double dp1dxj[4][3], double d2w[4],
+void FemEquationTermSA::computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3], double d2w[4],
             double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS)
 {
 
@@ -738,46 +769,61 @@ void FemEquationTermSA::computeVolumeTermDistSens(double dp1dxj[4][3], double d2
   double mut, lambdat, kappat;
   computeTurbulentTransportCoefficients(V, nodeNum, X, mul, lambdal, kappal, mutilde, mut, lambdat, kappat);
 
-  mutilde = max(mutilde, 0.0);
-
-  double chi = max(mutilde/mul, 0.001);
-  double chi3 = chi*chi*chi;
-  double fv1 = chi3 / (chi3 + cv1_pow3);
-  double fv2  = 1.-chi/(1.+chi*fv1);
-  double fv3  = 1.0;
-
-  if(usefv3)
-  {
-    fv2 = 1.0 + oocv2*chi;
-    fv2 = 1.0 / (fv2*fv2*fv2);
-    fv3 = (1.0 + chi*fv1) * (1.0 - fv2) / chi;
-  }
   double ood2wall = 1.0 / d2wall;
   double ood2wall2 = ood2wall * ood2wall;
   double rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
-  double nutilde = mutilde / rho;
-  double zz = ooreynolds_mu * oovkcst2 * nutilde * ood2wall2;
-  double s12 = dudxj[0][1] - dudxj[1][0];
-  double s23 = dudxj[1][2] - dudxj[2][1];
-  double s31 = dudxj[2][0] - dudxj[0][2];
-  double s = sqrt(s12*s12 + s23*s23 + s31*s31);
-  double Stilde = max(s*fv3 + zz*fv2,1.0e-12); // To avoid possible numerical problems, the term \tilde S must never be allowed to reach zero or go negative.
-  double ooStilde = 1.0/Stilde;
-  double rr = min(zz * ooStilde, rlim);
-  double rr2 = rr*rr;
-  double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
-  double gg2 = gg*gg;
-  double fw = opcw3_pow * gg * pow(gg2*gg2*gg2 + cw3_pow6, -sixth);
+  double oorho = 1.0 / rho;
 
-  double drdStilde = (rr>rlim) ? -zz * ooStilde * ooStilde : 0.0;
-  double dgdr = 1.0 + cw2 * (6.0 * rr * rr2 * rr2 - 1.0);
-  double dfwdg = cw3_pow6 * pow(gg2*gg2*gg2 + cw3_pow6, -7.0*sixth) * opcw3_pow;
-  double dStildedd = -2.0 * fv2 * zz * ood2wall;
-  double Lambda = cb1 * nutilde - cw1 * nutilde * nutilde * ood2wall2
-    * dfwdg * dgdr * drdStilde;
+  if (mutilde >= 0.0) {
+    double chi = mutilde/mul;
+    double chi3 = chi*chi*chi;
+    double fv1 = chi3 / (chi3 + cv1_pow3);
+    double fv2  = 1.-chi/(1.+chi*fv1);
+    double fv3  = 1.0;
+    if(usefv3) {
+      fv2 = 1.0 + oocv2*chi;
+      fv2 = 1.0 / (fv2*fv2*fv2);
+      fv3 = (chi==0.0) ? 3.0*oocv2 : (1.0 + chi*fv1) * (1.0 - fv2) / chi;
+    }
 
-  dS = rho * (2.0 * cw1 * fw * mutilde * nutilde * ood2wall2 * ood2wall
-    + Lambda * dStildedd);
+    double zz = ooreynolds_mu * oovkcst2 * mutilde * oorho * ood2wall2;
+    double s12 = dudxj[0][1] - dudxj[1][0];
+    double s23 = dudxj[1][2] - dudxj[2][1];
+    double s31 = dudxj[2][0] - dudxj[0][2];
+    double s = sqrt(s12*s12 + s23*s23 + s31*s31);
+
+    // double Stilde = max(s*fv3 + zz*fv2,1.0e-12); // To avoid possible numerical problems, the term \tilde S must never be allowed to reach zero or go negative.
+    // double Stilde = max(s*fv3 + zz*fv2,0.3*s);
+    double Stilde, Sbar = zz*fv2;
+    if (Sbar >= -c2*s)
+      Stilde = s*fv3+Sbar;
+    else
+      Stilde = s*fv3+s*(c2*c2*s+c3*Sbar)/((c3-2.0*c2)*s-Sbar);
+
+    double rr;
+    if (Stilde == 0.0)
+      rr = rlim;
+    else
+      rr = min(zz/Stilde, rlim);
+
+    double rr2 = rr*rr;
+    double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
+    double gg2 = gg*gg;
+    double fw = opcw3_pow * gg * pow(gg2*gg2*gg2 + cw3_pow6, -sixth);
+
+    double drdStilde = (rr>rlim) ? -zz / (Stilde*Stilde) : 0.0;
+    double dgdr = 1.0 + cw2 * (6.0 * rr * rr2 * rr2 - 1.0);
+    double dfwdg = cw3_pow6 * pow(gg2*gg2*gg2 + cw3_pow6, -7.0*sixth) * opcw3_pow;
+
+    double Lambda = cb1 * mutilde - cw1 * mutilde * mutilde * oorho * ood2wall2
+      * dfwdg * dgdr * drdStilde;
+    double dStildedd = -2.0 * fv2 * zz * ood2wall;
+
+    dS = 2.0 * cw1 * fw * mutilde * mutilde * oorho * ood2wall2 * ood2wall
+      + Lambda * dStildedd;
+  }
+  else
+    dS = - 2.0 * cw1 * mutilde * mutilde * oorho * ood2wall2 * ood2wall;
 
 }
 
@@ -974,39 +1020,13 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
 
   double (*dR)[6] = reinterpret_cast<double (*)[6]>(dr);
 
-  double absmutilde = fabs(mutilde);
-  double dabsmutilde;
-  if  (mutilde != 0.0)
-    dabsmutilde = ( fabs(mutilde) / mutilde ) * dmutilde;
-  else {
-    fprintf(stderr, "***** Inside the file FemEquationTermDesc.C the varible mutilde is zero *****\n");
-    //exit(1);
-    dabsmutilde = 0.0;
-  }
-
-  if (mutilde == 0.0) {
-    fprintf(stderr, "***** Inside the file FemEquationTermDesc.C the varibles in the function max are equal *****\n");
-    //exit(1);
-  }
-  double maxmutilde = max(mutilde, 0.0);
-  double dmaxmutilde;
-  if ( maxmutilde == 0.0 )  {
-    dmaxmutilde = 0.0;
-  }
-  else {
-    dmaxmutilde = dmutilde;
-  }
-
-  double mu5 = oosigma * (mul + absmutilde);
-
   // These values can be non-zero.
   double d_oosigma = (SATerm::oosigma / NavierStokesTerm::ooreynolds) * dooreynolds_mu;
   double d_cw1 = 0.0;
   d_cw1 += ((1.0 + cb2) * d_oosigma) * NavierStokesTerm::ooreynolds;
   d_cw1 += (cb1*oovkcst2 + (1.0 + cb2) * SATerm::oosigma) * dooreynolds_mu;
-  //----
 
-  double dmu5 = oosigma * (dmul + dabsmutilde) + d_oosigma * (mul + absmutilde);
+  //----
 
   double dnutildedx = dp1dxj[0][0]*V[0][5] + dp1dxj[1][0]*V[1][5] +
     dp1dxj[2][0]*V[2][5] + dp1dxj[3][0]*V[3][5];
@@ -1021,6 +1041,24 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
   double ddnutildedz = ddp1dxj[0][2]*V[0][5] + dp1dxj[0][2]*dV[0][5] + ddp1dxj[1][2]*V[1][5] + dp1dxj[1][2]*dV[1][5] +
     ddp1dxj[2][2]*V[2][5] + dp1dxj[2][2]*dV[2][5] + ddp1dxj[3][2]*V[3][5] + dp1dxj[3][2]*dV[3][5];
 
+  double mu5, dmu5;
+  if (mutilde >= 0.0) {
+    mu5 = oosigma * (mul + mutilde); // sjg, 09/2017
+    dmu5 = oosigma * (dmul + dmutilde) + d_oosigma * (mul + mutilde);
+  }
+  else {
+    double chi = mutilde/mul;
+
+    double dchi = dmutilde/mul - mutilde/(mul*mul)*dmul;
+    double chi2 = chi*chi;
+    double chi3 = chi*chi*chi;
+    double fn = (cn1+chi3)/(cn1-chi3);
+    double dfn = 6.0*chi2*cn1/((cn1-chi3)*(cn1-chi3))*dchi;
+
+    mu5 = oosigma * (mul + fn*mutilde);
+    dmu5 = oosigma * (dmul + fn*dmutilde + dfn*mutilde) + d_oosigma * (mul + fn*mutilde);
+  }
+
   dR[0][5] = dmu5 * dnutildedx + mu5 * ddnutildedx;
   dR[1][5] = dmu5 * dnutildedy + mu5 * ddnutildedy;
   dR[2][5] = dmu5 * dnutildedz + mu5 * ddnutildedz;
@@ -1033,80 +1071,134 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
   dS[5] = 0.0;
 
   double d2wall = 0.25 * (d2w[0] + d2w[1] + d2w[2] + d2w[3]);
-  if (d2wall >= 1.e-15) {
-    if (mutilde/mul == 0.001) {
-      fprintf(stderr, "***** Inside the file FemEquationTermDesc.C the varibles in the function max are equal *****\n");
-      //exit(1);
-    }
-    double chi = max(mutilde/mul, 0.001);
-    double dchi;
-    if (chi == 0.001)
-      dchi = 0.0;
-    else
-      dchi = ( dmutilde * mul - mutilde * dmul ) / ( mul * mul );
-    double chi3 = chi*chi*chi;
-    double fv1 = chi3 / (chi3 + cv1_pow3);
-    double dfv1 = ( 3.0*chi*chi*dchi*(chi3 + cv1_pow3) - chi3 * 3.0*chi*chi*dchi ) / ( (chi3 + cv1_pow3) * (chi3 + cv1_pow3) );
-
-    double fv2  = 1.-chi/(1.+chi*fv1);
-    double dfv2 = (fv2-1.)*dchi/chi+(1.-fv2)*(1-fv2)*(dfv1+fv1*dchi/chi);
-    double fv3 = 1.0;
-    double dfv3 = 0.0;
-    if (usefv3) {
-      fv2 = 1.0 + oocv2*chi;
-      dfv2 = oocv2*dchi;
-      dfv2 = -3.0 / (fv2*fv2*fv2*fv2)*dfv2;
-      fv2 = 1.0 / (fv2*fv2*fv2);
-      fv3 = (1.0 + chi*fv1) * (1.0 - fv2) / chi;
-      dfv3 = ( ( dchi*fv1 + chi*dfv1 ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi ) / ( chi * chi );
-    }
-
-    double ood2wall2 = 1.0 / (d2wall * d2wall);
+  if (d2wall >= 1.e-15) { // RANS contribution only for nodes closest to the surface
     double rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
     double drho = 0.25 * (dV[0][0] + dV[1][0] + dV[2][0] + dV[3][0]);
     double oorho = 1.0 / rho;
     double doorho = -1.0 / ( rho * rho ) * drho;
-    double zz = ooreynolds * oovkcst2 * mutilde * oorho * ood2wall2;
-    double dzz = dooreynolds_mu * oovkcst2 * mutilde * oorho * ood2wall2 + ooreynolds_mu * oovkcst2 * dmutilde * oorho * ood2wall2 + ooreynolds * oovkcst2 * mutilde * doorho * ood2wall2;
-    double s12 = dudxj[0][1] - dudxj[1][0];
-    double ds12 = ddudxj[0][1] - ddudxj[1][0];
-    double s23 = dudxj[1][2] - dudxj[2][1];
-    double ds23 = ddudxj[1][2] - ddudxj[2][1];
-    double s31 = dudxj[2][0] - dudxj[0][2];
-    double ds31 = ddudxj[2][0] - ddudxj[0][2];
-    double s = sqrt(s12*s12 + s23*s23 + s31*s31);
-    double ds = 1.0 / ( 2.0*s ) * (2.0*s12*ds12 + 2.0*s23*ds23 + 2.0*s31*ds31);
-    double Stilde = s*fv3 + zz*fv2;
-    double dStilde = ds*fv3 + s*dfv3 + dzz*fv2 + zz*dfv2;
-    double rr = min(zz/Stilde, rlim);
-    double drr;
-    if (rr==rlim)
-      drr = 0.0;
-    else
-      drr = ( dzz * Stilde - zz*dStilde ) / ( Stilde * Stilde );
-    double rr2 = rr*rr;
-    double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
-    double dgg = drr + cw2 * (6.0*rr*rr2*rr2*drr - drr);
-    double gg2 = gg*gg;
-    double fw = opcw3_pow * gg * pow(gg2*gg2*gg2 + cw3_pow6, -sixth);
-    double dfw = opcw3_pow * dgg * pow(gg2*gg2*gg2 + cw3_pow6, -sixth) + opcw3_pow * gg * (-sixth) * pow(gg2*gg2*gg2 + cw3_pow6, (-sixth - 1.0) ) * 6.0*gg*gg2*gg2*dgg;
+    double dAA, dBB, dCC;
 
-//  double AA = oosigma * cb2 * rho *
-//    (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
-    double dAA = 0.0;
-    dAA += d_oosigma * cb2 * rho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
-    dAA += oosigma * cb2 * drho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
-    dAA += oosigma * cb2 * rho * (2.0*dnutildedx*ddnutildedx + 2.0*dnutildedy*ddnutildedy + 2.0*dnutildedz*ddnutildedz);
-//  double BB = cb1 * Stilde * absmutilde;
-    double dBB = cb1 * dStilde * absmutilde + cb1 * Stilde * dabsmutilde;
-//  double CC = - cw1 * fw * oorho * maxmutilde*maxmutilde * ood2wall2;
-    double dCC = 0.0;
-    dCC -= d_cw1 * fw * oorho * maxmutilde * maxmutilde * ood2wall2;
-    dCC -= cw1 * dfw * oorho * maxmutilde * maxmutilde * ood2wall2;
-    dCC -= cw1 * fw * doorho * maxmutilde * maxmutilde * ood2wall2;
-    dCC -= cw1 * fw * oorho * 2.0 * maxmutilde * dmaxmutilde * ood2wall2;
-    //-----
-    // dS[5] = dAA + dBB + dCC;
+    if (mutilde >= 0.0) {
+      double chi = mutilde/mul;
+      double dchi = ( dmutilde * mul - mutilde * dmul ) / ( mul * mul );
+
+      double chi3 = chi*chi*chi;
+      double fv1 = chi3 / (chi3 + cv1_pow3);
+      double dfv1 = ( 3.0*chi*chi*dchi*(chi3 + cv1_pow3) - chi3 * 3.0*chi*chi*dchi ) / ( (chi3 + cv1_pow3) * (chi3 + cv1_pow3) );
+
+      double fv2  = 1.-chi/(1.+chi*fv1);
+      double dfv2 = (chi==0.0) ?
+        -dchi : (fv2-1.)*dchi/chi+(1.-fv2)*(1.-fv2)*(dfv1+fv1*dchi/chi);
+
+      double fv3 = 1.0;
+      double dfv3 = 0.0;
+      if (usefv3) {
+        fv2 = 1.0 + oocv2*chi;
+        dfv2 = oocv2*dchi;
+        dfv2 = -3.0 / (fv2*fv2*fv2*fv2)*dfv2;
+        fv2 = 1.0 / (fv2*fv2*fv2);
+        if (chi == 0.0) {
+          fv3 = 3.0*oocv2;
+          dfv3 = 0.0;
+        }
+        else {
+          fv3 = (1.0 + chi*fv1) * (1.0 - fv2) / chi;
+          dfv3 = ( ( dchi*fv1 + chi*dfv1 ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi ) / ( chi * chi );
+        }
+      }
+
+      // WTF this is ugly
+      double ood2wall2 = 1.0 / (d2wall * d2wall);
+      double zz = ooreynolds * oovkcst2 * mutilde * oorho * ood2wall2;
+      double dzz = dooreynolds_mu * oovkcst2 * mutilde * oorho * ood2wall2 + ooreynolds_mu * oovkcst2 * dmutilde * oorho * ood2wall2 + ooreynolds * oovkcst2 * mutilde * doorho * ood2wall2;
+      double s12 = dudxj[0][1] - dudxj[1][0];
+      double ds12 = ddudxj[0][1] - ddudxj[1][0];
+      double s23 = dudxj[1][2] - dudxj[2][1];
+      double ds23 = ddudxj[1][2] - ddudxj[2][1];
+      double s31 = dudxj[2][0] - dudxj[0][2];
+      double ds31 = ddudxj[2][0] - ddudxj[0][2];
+      double s = sqrt(s12*s12 + s23*s23 + s31*s31);
+      double ds = 1.0 / ( 2.0*s ) * (2.0*s12*ds12 + 2.0*s23*ds23 + 2.0*s31*ds31);
+
+      // double Stilde = s*fv3 + zz*fv2;
+      // double dStilde = ds*fv3 + s*dfv3 + dzz*fv2 + zz*dfv2;
+      double dStilde, Stilde, Sbar = zz*fv2, dSbar = dzz*fv2 + zz*dfv2;
+      if (Sbar >= -c2*s) {
+        Stilde = s*fv3+Sbar; // avoid divide by zero
+        dStilde = ds*fv3 + s*dfv3 + dzz*fv2 + zz*dfv2;
+      }
+      else {
+        Stilde = s*fv3+s*(c2*c2*s+c3*Sbar)/((c3-2.0*c2)*s-Sbar);
+        dStilde = ds*fv3 + s*dfv3 + ds*(c2*c2*s+c3*Sbar)/((c3-2.0*c2)*s-Sbar)
+          + s*(c2*c2*ds+c3*dSbar)/((c3-2.0*c2)*s-Sbar)
+          - s*(c2*c2*s+c3*Sbar)/(((c3-2.0*c2)*s-Sbar)*((c3-2.0*c2)*s-Sbar))*((c3-2.0*c2)*ds-dSbar);
+      }
+
+      double rr, drr;
+      if (Stilde == 0.0)
+        rr = rlim;
+      else
+        rr = min(zz/Stilde, rlim);
+
+      if (rr==rlim)
+        drr = 0.0;
+      else
+        drr = ( dzz * Stilde - zz*dStilde ) / ( Stilde * Stilde );
+
+      double rr2 = rr*rr;
+      double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
+      double dgg = drr + cw2 * (6.0*rr*rr2*rr2*drr - drr);
+      double gg2 = gg*gg;
+      double fw = opcw3_pow * gg * pow(gg2*gg2*gg2 + cw3_pow6, -sixth);
+      double dfw = opcw3_pow * dgg * pow(gg2*gg2*gg2 + cw3_pow6, -sixth) + opcw3_pow * gg * (-sixth) * pow(gg2*gg2*gg2 + cw3_pow6, (-sixth - 1.0) ) * 6.0*gg*gg2*gg2*dgg;
+
+  //  double AA = oosigma * cb2 * rho *
+  //    (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
+      dAA = 0.0;
+      dAA += d_oosigma * cb2 * rho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
+      dAA += oosigma * cb2 * drho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
+      dAA += oosigma * cb2 * rho * (2.0*dnutildedx*ddnutildedx + 2.0*dnutildedy*ddnutildedy + 2.0*dnutildedz*ddnutildedz);
+
+  //  double BB = cb1 * Stilde * mutilde;
+      dBB = cb1 * dStilde * mutilde + cb1 * Stilde * dmutilde;
+
+  //  double CC = - cw1 * fw * oorho * mutilde * mutilde * ood2wall2;
+      dCC = 0.0;
+      dCC -= d_cw1 * fw * oorho * mutilde * mutilde * ood2wall2;
+      dCC -= cw1 * dfw * oorho * mutilde * mutilde * ood2wall2;
+      dCC -= cw1 * fw * doorho * mutilde * mutilde * ood2wall2;
+      dCC -= cw1 * fw * oorho * 2.0 * mutilde * dmutilde * ood2wall2;
+    }
+    else {
+      // WTF this is ugly
+      double ood2wall2 = 1.0 / (d2wall * d2wall);
+      double zz = ooreynolds * oovkcst2 * mutilde * oorho * ood2wall2;
+      double dzz = dooreynolds_mu * oovkcst2 * mutilde * oorho * ood2wall2 + ooreynolds_mu * oovkcst2 * dmutilde * oorho * ood2wall2 + ooreynolds * oovkcst2 * mutilde * doorho * ood2wall2;
+      double s12 = dudxj[0][1] - dudxj[1][0];
+      double ds12 = ddudxj[0][1] - ddudxj[1][0];
+      double s23 = dudxj[1][2] - dudxj[2][1];
+      double ds23 = ddudxj[1][2] - ddudxj[2][1];
+      double s31 = dudxj[2][0] - dudxj[0][2];
+      double ds31 = ddudxj[2][0] - ddudxj[0][2];
+      double s = sqrt(s12*s12 + s23*s23 + s31*s31);
+      double ds = 1.0 / ( 2.0*s ) * (2.0*s12*ds12 + 2.0*s23*ds23 + 2.0*s31*ds31);
+
+  //  double AA = oosigma * cb2 * rho *
+  //    (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
+      dAA = 0.0;
+      dAA += d_oosigma * cb2 * rho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
+      dAA += oosigma * cb2 * drho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
+      dAA += oosigma * cb2 * rho * (2.0*dnutildedx*ddnutildedx + 2.0*dnutildedy*ddnutildedy + 2.0*dnutildedz*ddnutildedz);
+
+  //  double BB = cb1 * s * mutilde
+      dBB = cb1 * ds * mutilde + cb1 * s * dmutilde;
+
+  //  double CC = cw1 * oorho * mutilde * mutilde * ood2wall2;
+      dCC = 0.0;
+      dCC += d_cw1 * oorho * mutilde * mutilde * ood2wall2;
+      dCC += cw1 * doorho * mutilde * mutilde * ood2wall2;
+      dCC += cw1 * oorho * 2.0 * mutilde * dmutilde * ood2wall2;
+    }
 
     // sjg, 06/2017: forgotten term in conversion to conservation form
     double drhodx = dp1dxj[0][0]*V[0][0] + dp1dxj[1][0]*V[1][0] +
@@ -1129,6 +1221,7 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
       + ddnutildedy*drhody + dnutildedy*ddrhody
       + ddnutildedz*drhodz + dnutildedz*ddrhodz);
 
+    // dS[5] = dAA + dBB + dCC;
     dS[5] = dAA + dBB + dCC + dDD;
   }
   else {
@@ -1834,15 +1927,30 @@ bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
 
   double (*R)[6] = reinterpret_cast<double (*)[6]>(r);
 
-  double absmutilde = fabs(mutilde);
-  double maxmutilde = max(mutilde, 0.0);
-  double mu5 = oosigma * (mul + absmutilde);
-  double dnutildedx = dp1dxj[0][0]*V[0][5] + dp1dxj[1][0]*V[1][5] +
-    dp1dxj[2][0]*V[2][5] + dp1dxj[3][0]*V[3][5];
-  double dnutildedy = dp1dxj[0][1]*V[0][5] + dp1dxj[1][1]*V[1][5] +
-    dp1dxj[2][1]*V[2][5] + dp1dxj[3][1]*V[3][5];
-  double dnutildedz = dp1dxj[0][2]*V[0][5] + dp1dxj[1][2]*V[1][5] +
-    dp1dxj[2][2]*V[2][5] + dp1dxj[3][2]*V[3][5];
+  double dnutildedx = dp1dxj[0][0]*V[0][5]
+                   + dp1dxj[1][0]*V[1][5]
+                   + dp1dxj[2][0]*V[2][5]
+                   + dp1dxj[3][0]*V[3][5];
+
+  double dnutildedy = dp1dxj[0][1]*V[0][5]
+                   + dp1dxj[1][1]*V[1][5]
+                    + dp1dxj[2][1]*V[2][5]
+                    + dp1dxj[3][1]*V[3][5];
+
+  double dnutildedz = dp1dxj[0][2]*V[0][5]
+                   + dp1dxj[1][2]*V[1][5]
+                    + dp1dxj[2][2]*V[2][5]
+                   + dp1dxj[3][2]*V[3][5];
+
+  double mu5;
+  if (mutilde >= 0.0)
+    mu5 = oosigma * (mul + mutilde);  // sjg, 09/2017
+  else {
+    double chi = mutilde/mul;
+    double chi3 = chi*chi*chi;
+    double fn = (cn1+chi3)/(cn1-chi3);
+    mu5 = oosigma * (mul + fn*mutilde);
+  }
 
   R[0][5] = mu5 * dnutildedx;
   R[1][5] = mu5 * dnutildedy;
@@ -1869,47 +1977,75 @@ bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
   double d2wall = 0.25 * (d2w[0] + d2w[1] + d2w[2] + d2w[3]);
   d2wall = min(d2wall,cdes*maxl);
 
-  if  (d2wall >= 1.e-15) {
-    double chi = max(mutilde/mul, 0.001);
-    double chi3 = chi*chi*chi;
-    double fv1 = chi3 / (chi3 + cv1_pow3);
-    double fv2  = 1.-chi/(1.+chi*fv1);
-    double fv3  = 1.0;
-    if (usefv3) {
-      fv2 = 1.0 + oocv2*chi;
-      fv2 = 1.0 / (fv2*fv2*fv2);
-      fv3 = (1.0 + chi*fv1) * (1.0 - fv2) / chi;
-    }
-    double ood2wall2 = 1.0 / (d2wall * d2wall);
+  if (d2wall >= 1.e-15) {
     double rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
     double oorho = 1.0 / rho;
-    double zz = ooreynolds_mu * oovkcst2 * maxmutilde * oorho * ood2wall2;
-    double s12 = dudxj[0][1] - dudxj[1][0];
-    double s23 = dudxj[1][2] - dudxj[2][1];
-    double s31 = dudxj[2][0] - dudxj[0][2];
-    double s = sqrt(s12*s12 + s23*s23 + s31*s31);
-    double Stilde = max(s*fv3 + zz*fv2,1.0e-12); // To avoid possible numerical problems, the term \tilde S must never be allowed to reach zero or go negative.
-    double rr = min(zz/Stilde, rlim);
-    double rr2 = rr*rr;
-    double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
-    double gg2 = gg*gg;
-    double fw = opcw3_pow * gg * pow(gg2*gg2*gg2 + cw3_pow6, -sixth);
+    double AA, BB, CC;
 
-    double AA = oosigma * cb2 * rho *
-      (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
-    double BB = cb1 * Stilde * absmutilde;
-    double CC = - cw1 * fw * oorho * maxmutilde*maxmutilde * ood2wall2;
-    // S[5] = AA + BB + CC;
+    if (mutilde >= 0.0) {
+      double chi = mutilde/mul; // chi = 0 is OK except for fv3
+      double chi3 = chi*chi*chi;
+      double fv1 = chi3 / (chi3 + cv1_pow3);
+      double fv2  = 1.-chi/(1.+chi*fv1);
+      double fv3  = 1.0;
+      if(usefv3) {
+        fv2 = 1.0 + oocv2*chi;
+        fv2 = 1.0 / (fv2*fv2*fv2);
+        fv3 = (chi==0.0) ? 3.0*oocv2 : (1.0 + chi*fv1) * (1.0 - fv2) / chi;
+      }
+
+      double ood2wall2 = 1.0 / (d2wall * d2wall);
+      double zz = ooreynolds_mu * oovkcst2 * mutilde * oorho * ood2wall2;
+      double s12 = dudxj[0][1] - dudxj[1][0];
+      double s23 = dudxj[1][2] - dudxj[2][1];
+      double s31 = dudxj[2][0] - dudxj[0][2];
+      double s = sqrt(s12*s12 + s23*s23 + s31*s31);
+
+      // double Stilde = max(s*fv3 + zz*fv2,1.0e-12); // To avoid possible numerical problems, the term \tilde S must never be allowed to reach zero or go negative.
+      // double Stilde = max(s*fv3 + zz*fv2,0.3*s);
+      double Stilde, Sbar = zz*fv2;
+      if (Sbar >= -c2*s)
+        Stilde = s*fv3+Sbar;
+      else
+        Stilde = s*fv3+s*(c2*c2*s+c3*Sbar)/((c3-2.0*c2)*s-Sbar);
+
+      double rr;
+      if (Stilde == 0.0)
+        rr = rlim;
+      else
+        rr = min(zz/Stilde, rlim);
+
+      double rr2 = rr*rr;
+      double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
+      double gg2 = gg*gg;
+      double fw = opcw3_pow * gg * pow(gg2*gg2*gg2 + cw3_pow6, -sixth);
+
+      AA = oosigma * cb2 * rho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
+      BB = cb1 * Stilde * mutilde;
+      CC = - cw1 * fw * oorho * mutilde * mutilde * ood2wall2;
+    }
+    else {
+      double ood2wall2 = 1.0 / (d2wall * d2wall);
+      double s12 = dudxj[0][1] - dudxj[1][0];
+      double s23 = dudxj[1][2] - dudxj[2][1];
+      double s31 = dudxj[2][0] - dudxj[0][2];
+      double s = sqrt(s12*s12 + s23*s23 + s31*s31);
+
+      AA = oosigma * cb2 * rho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
+      BB = cb1 * s * mutilde;
+      CC = cw1 * oorho * mutilde *mutilde * ood2wall2;
+    }
 
     // sjg, 06/2017: forgotten term in conversion to conservation form
     double drhodx = dp1dxj[0][0]*V[0][0] + dp1dxj[1][0]*V[1][0]
-	                 + dp1dxj[2][0]*V[2][0] + dp1dxj[3][0]*V[3][0];
+                   + dp1dxj[2][0]*V[2][0] + dp1dxj[3][0]*V[3][0];
     double drhody = dp1dxj[0][1]*V[0][0] + dp1dxj[1][1]*V[1][0]
                    + dp1dxj[2][1]*V[2][0] + dp1dxj[3][1]*V[3][0];
     double drhodz = dp1dxj[0][2]*V[0][0] + dp1dxj[1][2]*V[1][0]
                    + dp1dxj[2][2]*V[2][0] + dp1dxj[3][2]*V[3][0];
-
     double DD = - oorho * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz);
+
+    // S[5] = AA + BB + CC;
     S[5] = AA + BB + CC + DD;
   }
   else {
@@ -1946,11 +2082,24 @@ bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
 //------------------------------------------------------------------------------
 
 // Compute SA equation residual distance sensitivity (sjg, 08/2017)
-void FemEquationTermDES::computeVolumeTermDistSens(double dp1dxj[4][3], double d2w[4],
+void FemEquationTermDES::computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3], double d2w[4],
             double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS)
 {
 
+  double maxl,sidel;
+  maxl=-1.0;
+
+  for (int i=0; i<4; i++) {
+    for (int j=i+1; j<4; j++){
+      sidel=sqrt((X[nodeNum[i]][0]-X[nodeNum[j]][0])*(X[nodeNum[i]][0]-X[nodeNum[j]][0]) +
+       (X[nodeNum[i]][1]-X[nodeNum[j]][1])*(X[nodeNum[i]][1]-X[nodeNum[j]][1]) +
+        (X[nodeNum[i]][2]-X[nodeNum[j]][2])*(X[nodeNum[i]][2]-X[nodeNum[j]][2]));
+      maxl = max(maxl,sidel);
+    }
+  }
+
   double d2wall = 0.25 * (d2w[0] + d2w[1] + d2w[2] + d2w[3]);
+  d2wall = min(d2wall,cdes*maxl);
   if (d2wall < 1.e-15) {
     dS = 0.0;
     return;
@@ -1977,46 +2126,61 @@ void FemEquationTermDES::computeVolumeTermDistSens(double dp1dxj[4][3], double d
   double mut, lambdat, kappat;
   computeTurbulentTransportCoefficients(V, nodeNum, X, mul, lambdal, kappal, mutilde, mut, lambdat, kappat);
 
-  mutilde = max(mutilde, 0.0);
-
-  double chi = max(mutilde/mul, 0.001);
-  double chi3 = chi*chi*chi;
-  double fv1 = chi3 / (chi3 + cv1_pow3);
-  double fv2  = 1.-chi/(1.+chi*fv1);
-  double fv3  = 1.0;
-
-  if(usefv3)
-  {
-    fv2 = 1.0 + oocv2*chi;
-    fv2 = 1.0 / (fv2*fv2*fv2);
-    fv3 = (1.0 + chi*fv1) * (1.0 - fv2) / chi;
-  }
   double ood2wall = 1.0 / d2wall;
   double ood2wall2 = ood2wall * ood2wall;
   double rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
-  double nutilde = mutilde / rho;
-  double zz = ooreynolds_mu * oovkcst2 * nutilde * ood2wall2;
-  double s12 = dudxj[0][1] - dudxj[1][0];
-  double s23 = dudxj[1][2] - dudxj[2][1];
-  double s31 = dudxj[2][0] - dudxj[0][2];
-  double s = sqrt(s12*s12 + s23*s23 + s31*s31);
-  double Stilde = max(s*fv3 + zz*fv2,1.0e-12); // To avoid possible numerical problems, the term \tilde S must never be allowed to reach zero or go negative.
-  double ooStilde = 1.0/Stilde;
-  double rr = min(zz * ooStilde, rlim);
-  double rr2 = rr*rr;
-  double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
-  double gg2 = gg*gg;
-  double fw = opcw3_pow * gg * pow(gg2*gg2*gg2 + cw3_pow6, -sixth);
+  double oorho = 1.0 / rho;
 
-  double drdStilde = (rr>rlim) ? -zz * ooStilde * ooStilde : 0.0;
-  double dgdr = 1.0 + cw2 * (6.0 * rr * rr2 * rr2 - 1.0);
-  double dfwdg = cw3_pow6 * pow(gg2*gg2*gg2 + cw3_pow6, -7.0*sixth) * opcw3_pow;
-  double dStildedd = -2.0 * fv2 * zz * ood2wall;
-  double Lambda = cb1 * nutilde - cw1 * nutilde * nutilde * ood2wall2
-    * dfwdg * dgdr * drdStilde;
+  if (mutilde >= 0.0) {
+    double chi = mutilde/mul;
+    double chi3 = chi*chi*chi;
+    double fv1 = chi3 / (chi3 + cv1_pow3);
+    double fv2  = 1.-chi/(1.+chi*fv1);
+    double fv3  = 1.0;
+    if(usefv3) {
+      fv2 = 1.0 + oocv2*chi;
+      fv2 = 1.0 / (fv2*fv2*fv2);
+      fv3 = (chi==0.0) ? 3.0*oocv2 : (1.0 + chi*fv1) * (1.0 - fv2) / chi;
+    }
 
-  dS = rho * (2.0 * cw1 * fw * mutilde * nutilde * ood2wall2 * ood2wall
-    + Lambda * dStildedd);
+    double zz = ooreynolds_mu * oovkcst2 * mutilde * oorho * ood2wall2;
+    double s12 = dudxj[0][1] - dudxj[1][0];
+    double s23 = dudxj[1][2] - dudxj[2][1];
+    double s31 = dudxj[2][0] - dudxj[0][2];
+    double s = sqrt(s12*s12 + s23*s23 + s31*s31);
+
+    // double Stilde = max(s*fv3 + zz*fv2,1.0e-12); // To avoid possible numerical problems, the term \tilde S must never be allowed to reach zero or go negative.
+    // double Stilde = max(s*fv3 + zz*fv2,0.3*s);
+    double Stilde, Sbar = zz*fv2;
+    if (Sbar >= -c2*s)
+      Stilde = s*fv3+Sbar;
+    else
+      Stilde = s*fv3+s*(c2*c2*s+c3*Sbar)/((c3-2.0*c2)*s-Sbar);
+
+    double rr;
+    if (Stilde == 0.0)
+      rr = rlim;
+    else
+      rr = min(zz/Stilde, rlim);
+
+    double rr2 = rr*rr;
+    double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
+    double gg2 = gg*gg;
+    double fw = opcw3_pow * gg * pow(gg2*gg2*gg2 + cw3_pow6, -sixth);
+
+    double drdStilde = (rr>rlim) ? -zz / (Stilde*Stilde) : 0.0;
+    double dgdr = 1.0 + cw2 * (6.0 * rr * rr2 * rr2 - 1.0);
+    double dfwdg = cw3_pow6 * pow(gg2*gg2*gg2 + cw3_pow6, -7.0*sixth) * opcw3_pow;
+
+    double Lambda = cb1 * mutilde - cw1 * mutilde * mutilde * oorho * ood2wall2
+      * dfwdg * dgdr * drdStilde;
+    double dStildedd = -2.0 * fv2 * zz * ood2wall;
+
+    dS = 2.0 * cw1 * fw * mutilde * mutilde * oorho * ood2wall2 * ood2wall
+      + Lambda * dStildedd;
+  }
+  else
+    dS = - 2.0 * cw1 * mutilde * mutilde * oorho * ood2wall2 * ood2wall;
 
 }
 
