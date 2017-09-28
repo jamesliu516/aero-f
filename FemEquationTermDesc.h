@@ -35,12 +35,6 @@ public:
                          double *, double *, double *, double,
                          SVec<double,3> &, int [4], int);
 
-  void computeVolumeTermDistSens(double dp1dxj[4][3], double d2w[4],
-    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS) {
-    fprintf(stderr, "*** Error: computeVolumeTermDistSens should not be called\n");
-    exit(1);
-  }
-
   bool computeJacobianVolumeTerm(double [4][3], double [4], double *[4],
                                  double *, double *, double *, double,
                                  SVec<double,3> &, int [4], int);
@@ -63,19 +57,23 @@ public:
    double, double *, double *, double *, double, SVec<double,3> &, int [4], int
    );
 
-
   void computeDerivativeOfSurfaceTerm
   (
    int, Vec3D &, Vec3D &, double [3], double *, double *, double *[3],
    double *[3], double, double *
    );
 
-
   void computeDerivativeOfSurfaceTerm
   (
    double [4][3], double [4][3], int, Vec3D &, Vec3D &, double [4],
    double *, double *, double *[4], double *[4], double, double *
    );
+
+  void computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3], double d2w[4],
+    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS) {
+    fprintf(stderr, "*** Error: computeDistanceDerivativeOfVolumeTerm should not be called\n");
+    exit(1);
+  }
 
   void rstVar
   (IoData &ioData, Communicator *com)
@@ -143,9 +141,6 @@ public:
    int nodeNum[4], int material_id
    );
 
-  void computeVolumeTermDistSens(double dp1dxj[4][3], double d2w[4],
-    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS);
-
   bool computeJacobianVolumeTerm(double [4][3], double [4], double *[4], double *, double *, double *, double,
                                  SVec<double,3> &, int [4], int);
   void computeSurfaceTerm(int, Vec3D &, double [3],
@@ -175,9 +170,12 @@ public:
   void computeDerivativeOfSurfaceTerm(double [4][3], double [4][3], int, Vec3D &, Vec3D &, double [4],
                                       double *, double *, double *[4], double *[4], double, double *);
 
-  // sjg, 06/2017: this method is no longer used
+  void computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3], double d2w[4],
+    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS);
+
+  // no longer called from MultiGridOperator.C
   // void computeSourceTerm(double dudxj[3][3],double dnudx[3],double d2wall,
-	// 		 double *V,  double *S);
+  //     double *V,  double *S);
 
   void rstVar(IoData &ioData, Communicator *com)
   {
@@ -239,9 +237,6 @@ public:
   bool computeVolumeTerm(double [4][3], double [4], double *[4],
                          double *, double *, double *, double, SVec<double,3> &, int [4], int);
 
-  void computeVolumeTermDistSens(double dp1dxj[4][3], double d2w[4],
-    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS);
-
   bool computeJacobianVolumeTerm(double [4][3], double [4], double *[4], double *, double *, double *, double,
                                  SVec<double,3> &, int [4], int);
   void computeSurfaceTerm(int, Vec3D &, double [3],
@@ -265,14 +260,12 @@ public:
    double, double *, double *, double *, double, SVec<double,3> &, int [4], int
    );
 
-
   /// UH (08/10) The following function results in exit (Not Implemented).
   void computeDerivativeOfSurfaceTerm
   (
    int, Vec3D &, Vec3D &, double [3], double *, double *,
    double *[3], double *[3], double, double *
    );
-
 
   /// UH (08/10) The following function results in exit (Not Implemented).
   void computeDerivativeOfSurfaceTerm
@@ -281,6 +274,8 @@ public:
    double *, double *, double *[4], double *[4], double, double *
    );
 
+  void computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3], double d2w[4],
+    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS);
 
   void rstVar(IoData &ioData, Communicator *com)
   {
@@ -354,11 +349,6 @@ public:
     fprintf(stderr, "*** Error: computeVolumeTerm should not be called\n");
     exit(1);
   }
-  void computeVolumeTermDistSens(double dp1dxj[4][3], double d2w[4],
-    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS) {
-    fprintf(stderr, "*** Error: computeVolumeTermDistSens should not be called\n");
-    exit(1);
-  }
   void computeSurfaceTerm(int c, Vec3D &n, double d2w[3],
                           double *vw, double *v[3], double *r) {
     fprintf(stderr, "*** Error: computeSurfaceTerm should not be called\n");
@@ -390,7 +380,6 @@ public:
     exit(1);
   }
 
-
   void computeDerivativeOfSurfaceTerm
   (
    int c, Vec3D &n, Vec3D &dn, double d2w[3],
@@ -400,7 +389,6 @@ public:
     fprintf(stderr, "*** Error: FemEquationTermSAmean::computeDerivativeOfSurfaceTerm should not be called\n");
     exit(1);
   }
-
 
   void computeDerivativeOfSurfaceTerm
   (
@@ -413,6 +401,11 @@ public:
     exit(1);
   }
 
+  void computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3], double d2w[4],
+    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS) {
+    fprintf(stderr, "*** Error: computeDistanceDerivativeOfVolumeTerm should not be called\n");
+    exit(1);
+  }
 
   /// \note (09/10)
   /// This function is only called with weak turbulence model coupling
@@ -483,11 +476,6 @@ public:
     fprintf(stderr, "*** Error: computeVolumeTerm should not be called\n");
     exit(1);
   }
-  void computeVolumeTermDistSens(double dp1dxj[4][3], double d2w[4],
-    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS) {
-    fprintf(stderr, "*** Error: computeVolumeTermDistSens should not be called\n");
-    exit(1);
-  }
   void computeSurfaceTerm(int c, Vec3D &n, double d2w[3],
                           double *vw, double *v[3], double *r) {
     fprintf(stderr, "*** Error: computeSurfaceTerm should not be called\n");
@@ -519,7 +507,6 @@ public:
     exit(1);
   }
 
-
   void computeDerivativeOfSurfaceTerm
   (
    int c, Vec3D &n, Vec3D &dn, double d2w[3],
@@ -529,7 +516,6 @@ public:
     fprintf(stderr, "*** Error: FemEquationTermDESmean::computeDerivativeOfSurfaceTerm should not be called\n");
     exit(1);
   }
-
 
   void computeDerivativeOfSurfaceTerm
   (
@@ -542,6 +528,11 @@ public:
     exit(1);
   }
 
+  void computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3], double d2w[4],
+    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS) {
+    fprintf(stderr, "*** Error: computeDistanceDerivativeOfVolumeTerm should not be called\n");
+    exit(1);
+  }
 
   void rstVar(IoData &ioData, Communicator *com) {
     fprintf(stderr, "*** Error: FemEquationTermDESmean::rstVar should not be called\n");
@@ -602,11 +593,6 @@ public:
     fprintf(stderr, "*** Error: computeVolumeTerm should not be called\n");
     exit(1);
   }
-  void computeVolumeTermDistSens(double dp1dxj[4][3], double d2w[4],
-    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS) {
-    fprintf(stderr, "*** Error: computeVolumeTermDistSens should not be called\n");
-    exit(1);
-  }
   void computeSurfaceTerm(int c, Vec3D &n, double d2w[3],
                           double *vw, double *v[3], double *r) {
     fprintf(stderr, "*** Error: computeSurfaceTerm should not be called\n");
@@ -659,7 +645,6 @@ public:
     exit(1);
   }
 
-
   void computeDerivativeOfSurfaceTerm
   (
    double dp1dxj[4][3], double ddp1dxj[4][3], int c, Vec3D &n, Vec3D &dn,
@@ -671,6 +656,11 @@ public:
     exit(1);
   }
 
+  void computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3], double d2w[4],
+    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS) {
+    fprintf(stderr, "*** Error: computeDistanceDerivativeOfVolumeTerm should not be called\n");
+    exit(1);
+  }
 
   void rstVar(IoData &ioData, Communicator *com) {
     fprintf(stderr, "*** Error: FemEquationTermSAturb::rstVar should not be called\n");
@@ -734,11 +724,6 @@ public:
     fprintf(stderr, "*** Error: computeVolumeTerm should not be called\n");
     exit(1);
   }
-  void computeVolumeTermDistSens(double dp1dxj[4][3], double d2w[4],
-    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS) {
-    fprintf(stderr, "*** Error: computeVolumeTermDistSens should not be called\n");
-    exit(1);
-  }
   void computeSurfaceTerm(int c, Vec3D &n, double d2w[3],
                           double *vw, double *v[3], double *r) {
     fprintf(stderr, "*** Error: computeSurfaceTerm should not be called\n");
@@ -780,7 +765,6 @@ public:
     exit(1);
   }
 
-
   void computeDerivativeOfSurfaceTerm
   (
    int c, Vec3D &n, Vec3D &dn, double d2w[3],
@@ -790,7 +774,6 @@ public:
     fprintf(stderr, "*** Error: FemEquationTermDESturb::computeDerivativeOfSurfaceTerm should not be called\n");
     exit(1);
   }
-
 
   void computeDerivativeOfSurfaceTerm
   (
@@ -803,6 +786,11 @@ public:
     exit(1);
   }
 
+  void computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3], double d2w[4],
+    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS) {
+    fprintf(stderr, "*** Error: computeDistanceDerivativeOfVolumeTerm should not be called\n");
+    exit(1);
+  }
 
   void rstVar(IoData &ioData, Communicator *com) {
     fprintf(stderr, "*** Error: FemEquationTermDESturb::rstVar should not be called\n");
@@ -866,11 +854,6 @@ public:
   bool computeVolumeTerm(double [4][3], double [4], double *[4],
                          double *, double *, double *, double,
                          SVec<double,3> &, int [4], int);
-  void computeVolumeTermDistSens(double dp1dxj[4][3], double d2w[4],
-    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS) {
-    fprintf(stderr, "*** Error: computeVolumeTermDistSens should not be called\n");
-    exit(1);
-  }
   bool computeJacobianVolumeTerm(double [4][3], double [4], double *[4], double *, double *,
                                  double *, double, SVec<double,3> &, int [4], int);
   void computeSurfaceTerm(int, Vec3D &, double [3],
@@ -899,13 +882,11 @@ public:
    double, double *, double *, double *, double, SVec<double,3> &, int [4], int
    );
 
-
   void computeDerivativeOfSurfaceTerm
   (
    int c, Vec3D &, Vec3D &, double [3],
    double *, double *, double *[3], double *[3], double, double *
    );
-
 
   void computeDerivativeOfSurfaceTerm
   (
@@ -915,6 +896,12 @@ public:
    )
   {
     fprintf(stderr, "*** Error: FemEquationTermKE::computeDerivativeOfSurfaceTerm should not be called\n");
+    exit(1);
+  }
+
+  void computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3], double d2w[4],
+    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS) {
+    fprintf(stderr, "*** Error: computeDistanceDerivativeOfVolumeTerm should not be called\n");
     exit(1);
   }
 
@@ -986,11 +973,6 @@ public:
     fprintf(stderr, "*** Error: computeVolumeTerm should not be called\n");
     exit(1);
   }
-  void computeVolumeTermDistSens(double dp1dxj[4][3], double d2w[4],
-    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS) {
-    fprintf(stderr, "*** Error: computeVolumeTermDistSens should not be called\n");
-    exit(1);
-  }
   void computeSurfaceTerm(int c, Vec3D &n, double d2w[3],
                           double *vw, double *v[3], double *r) {
     fprintf(stderr, "*** Error: computeSurfaceTerm should not be called\n");
@@ -1030,13 +1012,6 @@ public:
     exit(1);
   }
 
-  double computeNormDerivWallFcn(double rho, double T, double Du1, double DT1,
-										 double d2w, double &dudn, double &dTdn)
-  {
-    fprintf(stderr, "*** Error: computeNormDerivWallFcn should not be called\n");
-    exit(1);
-  }
-
   void computeDerivativeOfSurfaceTerm
   (
    double dp1dxj[4][3], double ddp1dxj[4][3], int c, Vec3D &n, Vec3D &dn,
@@ -1048,12 +1023,23 @@ public:
     exit(1);
   }
 
+  void computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3], double d2w[4],
+    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS) {
+    fprintf(stderr, "*** Error: computeDistanceDerivativeOfVolumeTerm should not be called\n");
+    exit(1);
+  }
+
+  double computeNormDerivWallFcn(double rho, double T, double Du1, double DT1,
+										 double d2w, double &dudn, double &dTdn)
+  {
+    fprintf(stderr, "*** Error: computeNormDerivWallFcn should not be called\n");
+    exit(1);
+  }
 
   void rstVar(IoData &ioData, Communicator *com) {
     fprintf(stderr, "*** Error: FemEquationTermKEmean::rstVar should not be called\n");
     exit(1);
   }
-
 
   void computeBCsJacobianWallValues
   (
@@ -1109,11 +1095,6 @@ public:
     fprintf(stderr, "*** Error: computeVolumeTerm should not be called\n");
     exit(1);
   }
-  void computeVolumeTermDistSens(double dp1dxj[4][3], double d2w[4],
-    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS) {
-    fprintf(stderr, "*** Error: computeVolumeTermDistSens should not be called\n");
-    exit(1);
-  }
   void computeSurfaceTerm(int c, Vec3D &n, double d2w[3],
                           double *vw, double *v[3], double *r) {
     fprintf(stderr, "*** Error: computeSurfaceTerm should not be called\n");
@@ -1148,7 +1129,6 @@ public:
     exit(1);
   }
 
-
   void computeDerivativeOfSurfaceTerm
   (
    int c, Vec3D &n, Vec3D &dn, double d2w[3],
@@ -1177,6 +1157,11 @@ public:
     exit(1);
   }
 
+  void computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3], double d2w[4],
+    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS) {
+    fprintf(stderr, "*** Error: computeDistanceDerivativeOfVolumeTerm should not be called\n");
+    exit(1);
+  }
 
   void rstVar(IoData &ioData, Communicator *com) {
     fprintf(stderr, "*** Error: FemEquationTermKEturb::rstVar should not be called\n");
