@@ -36,7 +36,6 @@ protected:
   double oovkcst2;
   bool usefv3;
 
-  // sjg
   double rlim;
   double cn1;
   double c2;
@@ -95,7 +94,7 @@ DESTerm::DESTerm(IoData &iod)
   cw1 /= iod.ref.reynolds_mu;
   oosigma /= iod.ref.reynolds_mu;
 
-  rlim = 2.0;
+  rlim = 10.0;
 
   // sjg: negative SA model and new Stilde definition (2012 paper)
   cn1 = 16.0;
@@ -152,7 +151,7 @@ double DESTerm::computeTurbulentViscosity(double *V[4], double mul, double &muti
   double fv1 = chi3 / (chi3 + cv1_pow3);
 
   // return mutilde*fv1;
-  return std::max(mutilde*fv1,0.0); // sjg
+  return std::max(mutilde*fv1,0.0);
 
 }
 
@@ -168,7 +167,7 @@ double DESTerm::computeTurbulentViscosity(double *V, double mul)
   double fv1 = chi3 / (chi3 + cv1_pow3);
 
   // return mutilde*fv1;
-  return std::max(mutilde*fv1,0.0); // sjg
+  return std::max(mutilde*fv1,0.0);
 
 }
 
@@ -264,12 +263,13 @@ void DESTerm::computeJacobianVolumeTermDES(double dp1dxj[4][3], double d2w[4],
     dp1dxj[2][2]*V[2][5] + dp1dxj[3][2]*V[3][5];
 
   double mu5, drdx, drdy, drdz;
-  if (mutilde >= 0.0) {
+  bool negSA = (V[0][5]<0.0 || V[1][5]<0.0 || V[2][5]<0.0 || V[3][5]<0.0);
+  if (!negSA) {
     drdx = oosigma * 0.25 * dnutildedx;
     drdy = oosigma * 0.25 * dnutildedy;
     drdz = oosigma * 0.25 * dnutildedz;
 
-    mu5 = oosigma * (mul + mutilde); // sjg, 09/2017
+    mu5 = oosigma * (mul + mutilde);
   }
   else {
     double chi = mutilde/mul;
@@ -318,7 +318,7 @@ void DESTerm::computeJacobianVolumeTermDES(double dp1dxj[4][3], double d2w[4],
   double rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
   double P, D, dP, dD;
 
-  if (mutilde >= 0.0) {
+  if (!negSA) {
     double chi = mutilde/mul;
     double chi3 = chi*chi*chi;
     double fv1 = chi3 / (chi3 + cv1_pow3);
@@ -408,7 +408,7 @@ void DESTerm::computeJacobianVolumeTermDES(double dp1dxj[4][3], double d2w[4],
   }
 
   // these terms are identical for negative and standard model (double negative accounted for below)
-  // double s00 = 0.25 * (max(D - P, 0.0) + max(dD - dP, 0.0)); // sjg: why the max?
+  // double s00 = 0.25 * (max(D - P, 0.0) + max(dD - dP, 0.0)); // why the max?
   double s00 = 0.25 * (D + dP - (P + dP));
   double coef4 = oosigma * cb2 * rho * 2.0;
 
