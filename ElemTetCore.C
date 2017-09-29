@@ -22,7 +22,7 @@ const int ElemTet::faceDefTet[4][3]  = { {0,1,2}, {0,3,1}, {0,2,3}, {1,3,2} };
 
 extern "C" {
   void F77NAME(dgeev)(const char &, const char &, const int &, double *, const int &,
-             double *, double *, double *, const int &, double *, 
+             double *, double *, double *, const int &, double *,
              const int &, double *, const int &, int &);
 }
 
@@ -68,8 +68,8 @@ double ElemTet::computeDerivativeOfVolume(SVec<double,3> &X, SVec<double,3> &dX 
 //------------------------------------------------------------------------------
 
 // Included (YC)
-void ElemTet::computeDerivativeOperatorsOfVolume(SVec<double,3> &X, 
-                                                 double dVolumedX0[][3], 
+void ElemTet::computeDerivativeOperatorsOfVolume(SVec<double,3> &X,
+                                                 double dVolumedX0[][3],
                                                  double dVolumedX1[][3],
                                                  double dVolumedX2[][3],
                                                  double dVolumedX3[][3])
@@ -83,18 +83,18 @@ void ElemTet::computeDerivativeOperatorsOfVolume(SVec<double,3> &X,
   Vec3D v12 = v1 ^ v2;
 
   dVolumedX0[0][0] = 0.25 * sixth * ( v3[1]*(v2[2]-v1[2]) + v3[2]*(v1[1]-v2[1]) - v12[0] );
-  dVolumedX0[0][1] = 0.25 * sixth * ( v3[2]*(v2[0]-v1[0]) + v3[0]*(v1[2]-v2[2]) - v12[1] ); 
+  dVolumedX0[0][1] = 0.25 * sixth * ( v3[2]*(v2[0]-v1[0]) + v3[0]*(v1[2]-v2[2]) - v12[1] );
   dVolumedX0[0][2] = 0.25 * sixth * ( v3[0]*(v2[1]-v1[1]) + v3[1]*(v1[0]-v2[0]) - v12[2] );
   dVolumedX0[1][0] = 0.25 * sixth * ( v3[2]*v2[1] - v3[1]*v2[2] );
   dVolumedX0[1][1] = 0.25 * sixth * ( v3[0]*v2[2] - v3[2]*v2[0] );
   dVolumedX0[1][2] = 0.25 * sixth * ( v3[1]*v2[0] - v3[0]*v2[1] );
-  dVolumedX0[2][0] = 0.25 * sixth * ( v3[1]*v1[2] - v3[2]*v1[1] ); 
+  dVolumedX0[2][0] = 0.25 * sixth * ( v3[1]*v1[2] - v3[2]*v1[1] );
   dVolumedX0[2][1] = 0.25 * sixth * ( v3[2]*v1[0] - v3[0]*v1[2] );
   dVolumedX0[2][2] = 0.25 * sixth * ( v3[0]*v1[1] - v3[1]*v1[0] );
-  dVolumedX0[3][0] = 0.25 * sixth * ( v12[0] ); 
+  dVolumedX0[3][0] = 0.25 * sixth * ( v12[0] );
   dVolumedX0[3][1] = 0.25 * sixth * ( v12[1] );
   dVolumedX0[3][2] = 0.25 * sixth * ( v12[2] );
-  
+
 }
 
 //------------------------------------------------------------------------------
@@ -104,7 +104,7 @@ double ElemTet::computeControlVolumes(SVec<double,3> &X, Vec<double> &ctrlVol)
 
   double volume = computeVolume(X);
 
-  for (int j=0; j<4; ++j) 
+  for (int j=0; j<4; ++j)
     ctrlVol[ nodeNum(j) ] += 0.25 * volume;
 
   return volume;
@@ -146,7 +146,7 @@ void ElemTet::computeDerivativeOperatorsOfControlVolumes(SVec<double,3> &X, Rect
 
 //------------------------------------------------------------------------------
 
-void ElemTet::printInvalidElement(int numInvElem, double lscale, int i, int *nodeMap, 
+void ElemTet::printInvalidElement(int numInvElem, double lscale, int i, int *nodeMap,
 			      int *tetMap, SVec<double,3> &x0, SVec<double,3> &x)
 {
 
@@ -166,11 +166,11 @@ void ElemTet::printInvalidElement(int numInvElem, double lscale, int i, int *nod
   else {
     int j;
     fprintf(fp, "Nodes Nodes%d\n", glno);
-    for (j=0; j<4; ++j) 
-      fprintf(fp, "%d %e %e %e\n", j+1, lscale*x0[ nodeNum(j) ][0], 
+    for (j=0; j<4; ++j)
+      fprintf(fp, "%d %e %e %e\n", j+1, lscale*x0[ nodeNum(j) ][0],
 	      lscale*x0[ nodeNum(j) ][1], lscale*x0[ nodeNum(j) ][2]);
-    for (j=0; j<4; ++j) 
-      fprintf(fp, "%d %e %e %e\n", j+5, lscale*x[ nodeNum(j) ][0], 
+    for (j=0; j<4; ++j)
+      fprintf(fp, "%d %e %e %e\n", j+5, lscale*x[ nodeNum(j) ][0],
 	      lscale*x[ nodeNum(j) ][1], lscale*x[ nodeNum(j) ][2]);
     fprintf(fp, "Elements Element%d using Nodes%d\n", glno, glno);
     fprintf(fp, "1 5 1 2 3 4\n");
@@ -187,7 +187,7 @@ void ElemTet::printInvalidElement(int numInvElem, double lscale, int i, int *nod
 //------------------------------------------------------------------------------
 // define the calculation of edge normal for each tetrahedron
 /*
-              
+
        g__________ 0
        /\        /
       /  \      /
@@ -200,7 +200,7 @@ void ElemTet::printInvalidElement(int numInvElem, double lscale, int i, int *nod
    e = mid-edge
    0 = CG of face 0
    1 = CG of face 1
-	     
+
 */
 /*
 @ARTICLE{koobus-farhat-99a,
@@ -221,7 +221,7 @@ void ElemTet::printInvalidElement(int numInvElem, double lscale, int i, int *nod
   number = 1,
   pages = "206--227",
   year = 2003,
-} 
+}
 */
 
 void ElemTet::computeEdgeNormalsConfig(SVec<double,3> &Xconfig, SVec<double,3> &Xdot,
@@ -278,18 +278,18 @@ void ElemTet::computeEdgeNormalsConfig(SVec<double,3> &Xconfig, SVec<double,3> &
 
 //------------------------------------------------------------------------------
 
-void ElemTet::computeEdgeNormalsGCL1(SVec<double,3> &Xn, SVec<double,3> &Xnp1, 
-				 SVec<double,3> &Xdot, Vec<Vec3D> &edgeNorm, 
+void ElemTet::computeEdgeNormalsGCL1(SVec<double,3> &Xn, SVec<double,3> &Xnp1,
+				 SVec<double,3> &Xdot, Vec<Vec3D> &edgeNorm,
 				 Vec<double> &edgeNormVel)
 {
   static const double c0 = 13.0/36.0, c1 = 5.0/36.0;
   static const int edgeOpEnd[6][2] = { {2,3}, {3,1}, {1,2}, {0,3}, {2,0}, {0,1} };
 
-  Vec3D x_n[4] = {Xn[ nodeNum(0) ], Xn[ nodeNum(1) ], 
+  Vec3D x_n[4] = {Xn[ nodeNum(0) ], Xn[ nodeNum(1) ],
 		  Xn[ nodeNum(2) ], Xn[ nodeNum(3) ]};
-  Vec3D x_np1[4] = {Xnp1[ nodeNum(0) ], Xnp1[ nodeNum(1) ], 
+  Vec3D x_np1[4] = {Xnp1[ nodeNum(0) ], Xnp1[ nodeNum(1) ],
 		    Xnp1[ nodeNum(2) ], Xnp1[ nodeNum(3) ]};
-  Vec3D xdot[4] = {Xdot[ nodeNum(0) ], Xdot[ nodeNum(1) ], 
+  Vec3D xdot[4] = {Xdot[ nodeNum(0) ], Xdot[ nodeNum(1) ],
 		   Xdot[ nodeNum(2) ], Xdot[ nodeNum(3) ]};
 
   Vec3D f_n[4];
@@ -314,11 +314,11 @@ void ElemTet::computeEdgeNormalsGCL1(SVec<double,3> &Xn, SVec<double,3> &Xnp1,
     Vec3D xg0_np1 = f_np1[ edgeFace(l,0) ] - g_np1;
     Vec3D xg1_np1 = f_np1[ edgeFace(l,1) ] - g_np1;
 
-    Vec3D n = 
-      0.5  * ((xg1_np1 ^ xg0_np1) + (xg1_n ^ xg0_n  )) + 
+    Vec3D n =
+      0.5  * ((xg1_np1 ^ xg0_np1) + (xg1_n ^ xg0_n  )) +
       0.25 * ((xg1_np1 ^ xg0_n  ) + (xg1_n ^ xg0_np1));
 
-    double ndot = ( c0 * (xdot[ edgeEnd(l,0) ] + xdot[ edgeEnd(l,1) ]) + 
+    double ndot = ( c0 * (xdot[ edgeEnd(l,0) ] + xdot[ edgeEnd(l,1) ]) +
 		    c1 * (xdot[ edgeOpEnd[l][0] ] + xdot[ edgeOpEnd[l][1] ]) ) * n;
 
     if (nodeNum( edgeEnd(l,0) ) < nodeNum( edgeEnd(l,1) )) {
@@ -497,14 +497,14 @@ void ElemTet::computeDerivativeOperatorsOfEdgeNormals(SVec<double,3> &X, Rectang
     df_np1dx_np1[9+k][3+k] = third;
     df_np1dx_np1[9+k][6+k] = third;
     df_np1dx_np1[9+k][9+k] = third;
-    dg_ndx_n[k][k] = 0.25; 
-    dg_ndx_n[k][3+k] = 0.25; 
-    dg_ndx_n[k][6+k] = 0.25; 
-    dg_ndx_n[k][9+k] = 0.25; 
-    dg_np1dx_np1[k][k] = 0.25; 
-    dg_np1dx_np1[k][3+k] = 0.25; 
-    dg_np1dx_np1[k][6+k] = 0.25; 
-    dg_np1dx_np1[k][9+k] = 0.25; 
+    dg_ndx_n[k][k] = 0.25;
+    dg_ndx_n[k][3+k] = 0.25;
+    dg_ndx_n[k][6+k] = 0.25;
+    dg_ndx_n[k][9+k] = 0.25;
+    dg_np1dx_np1[k][k] = 0.25;
+    dg_np1dx_np1[k][3+k] = 0.25;
+    dg_np1dx_np1[k][6+k] = 0.25;
+    dg_np1dx_np1[k][9+k] = 0.25;
   }
 
   Vec3D f_n[4];
@@ -555,14 +555,14 @@ void ElemTet::computeDerivativeOperatorsOfEdgeNormals(SVec<double,3> &X, Rectang
     dndxg0_np1[1][2] = -0.5*xg1_np1[0] - 0.25*xg1_n[0];
     dndxg0_np1[2][0] = -0.5*xg1_np1[1] - 0.25*xg1_n[1];
     dndxg0_np1[2][1] =  0.5*xg1_np1[0] + 0.25*xg1_n[0];
-    
+
     dndxg1_n[0][1] =  0.5*xg0_n[2] + 0.25*xg0_np1[2];
     dndxg1_n[0][2] = -0.5*xg0_n[1] - 0.25*xg0_np1[1];
     dndxg1_n[1][0] = -0.5*xg0_n[2] - 0.25*xg0_np1[2];
     dndxg1_n[1][2] =  0.5*xg0_n[0] + 0.25*xg0_np1[0];
     dndxg1_n[2][0] =  0.5*xg0_n[1] + 0.25*xg0_np1[1];
     dndxg1_n[2][1] = -0.5*xg0_n[0] - 0.25*xg0_np1[0];
-    
+
     dndxg0_n[0][1] = -0.5*xg1_n[2] - 0.25*xg1_np1[2];
     dndxg0_n[0][2] =  0.5*xg1_n[1] + 0.25*xg1_np1[1];
     dndxg0_n[1][0] =  0.5*xg1_n[2] + 0.25*xg1_np1[2];
@@ -572,12 +572,12 @@ void ElemTet::computeDerivativeOperatorsOfEdgeNormals(SVec<double,3> &X, Rectang
 
     double dndX0[3][3] = {0}, dndX1[3][3] = {0}, dndX2[3][3] = {0}, dndX3[3][3] = {0};
     if (nodeNum( edgeEnd(l,0) ) < nodeNum( edgeEnd(l,1) )) {
-      for(int k=0; k<3; ++k) 
-        for(int n=0; n<3; ++n) 
+      for(int k=0; k<3; ++k)
+        for(int n=0; n<3; ++n)
           for(int m=0; m<3; ++m) {
-            for(int o=0; o<12; ++o) { 
+            for(int o=0; o<12; ++o) {
               dndX0[k][n] += ( dndxg1_np1[k][m] * dxg1_np1df_np1[m][o] + dndxg0_np1[k][m] * dxg0_np1df_np1[m][o]) * df_np1dx_np1[o][n]
-                           + ( dndxg1_n[k][m] * dxg1_ndf_n[m][o] + dndxg0_n[k][m] * dxg0_ndf_n[m][o]) * df_ndx_n[o][n]; 
+                           + ( dndxg1_n[k][m] * dxg1_ndf_n[m][o] + dndxg0_n[k][m] * dxg0_ndf_n[m][o]) * df_ndx_n[o][n];
               dndX1[k][n] += ( dndxg1_np1[k][m] * dxg1_np1df_np1[m][o] + dndxg0_np1[k][m] * dxg0_np1df_np1[m][o]) * df_np1dx_np1[o][3+n]
                            + ( dndxg1_n[k][m] * dxg1_ndf_n[m][o] + dndxg0_n[k][m] * dxg0_ndf_n[m][o]) * df_ndx_n[o][3+n];
               dndX2[k][n] += ( dndxg1_np1[k][m] * dxg1_np1df_np1[m][o] + dndxg0_np1[k][m] * dxg0_np1df_np1[m][o]) * df_np1dx_np1[o][6+n]
@@ -587,27 +587,27 @@ void ElemTet::computeDerivativeOperatorsOfEdgeNormals(SVec<double,3> &X, Rectang
             }
             for(int o=0; o<3; ++o) {
               dndX0[k][n] += ( dndxg1_np1[k][m] * dxg1_np1dg_np1[m][o] + dndxg0_np1[k][m] * dxg0_np1dg_np1[m][o]) * dg_np1dx_np1[o][n]
-                           + ( dndxg1_n[k][m] * dxg1_ndg_n[m][o] + dndxg0_n[k][m] * dxg0_ndg_n[m][o]) * dg_ndx_n[o][n]; 
+                           + ( dndxg1_n[k][m] * dxg1_ndg_n[m][o] + dndxg0_n[k][m] * dxg0_ndg_n[m][o]) * dg_ndx_n[o][n];
               dndX1[k][n] += ( dndxg1_np1[k][m] * dxg1_np1dg_np1[m][o] + dndxg0_np1[k][m] * dxg0_np1dg_np1[m][o]) * dg_np1dx_np1[o][3+n]
-                           + ( dndxg1_n[k][m] * dxg1_ndg_n[m][o] + dndxg0_n[k][m] * dxg0_ndg_n[m][o]) * dg_ndx_n[o][3+n]; 
+                           + ( dndxg1_n[k][m] * dxg1_ndg_n[m][o] + dndxg0_n[k][m] * dxg0_ndg_n[m][o]) * dg_ndx_n[o][3+n];
               dndX2[k][n] += ( dndxg1_np1[k][m] * dxg1_np1dg_np1[m][o] + dndxg0_np1[k][m] * dxg0_np1dg_np1[m][o]) * dg_np1dx_np1[o][6+n]
-                           + ( dndxg1_n[k][m] * dxg1_ndg_n[m][o] + dndxg0_n[k][m] * dxg0_ndg_n[m][o]) * dg_ndx_n[o][6+n]; 
+                           + ( dndxg1_n[k][m] * dxg1_ndg_n[m][o] + dndxg0_n[k][m] * dxg0_ndg_n[m][o]) * dg_ndx_n[o][6+n];
               dndX3[k][n] += ( dndxg1_np1[k][m] * dxg1_np1dg_np1[m][o] + dndxg0_np1[k][m] * dxg0_np1dg_np1[m][o]) * dg_np1dx_np1[o][9+n]
-                           + ( dndxg1_n[k][m] * dxg1_ndg_n[m][o] + dndxg0_n[k][m] * dxg0_ndg_n[m][o]) * dg_ndx_n[o][9+n]; 
+                           + ( dndxg1_n[k][m] * dxg1_ndg_n[m][o] + dndxg0_n[k][m] * dxg0_ndg_n[m][o]) * dg_ndx_n[o][9+n];
             }
-          }  
+          }
       dEdgeNormdX.addContrib(edgeNum(l),nodeNum(0),dndX0[0]);
       dEdgeNormdX.addContrib(edgeNum(l),nodeNum(1),dndX1[0]);
       dEdgeNormdX.addContrib(edgeNum(l),nodeNum(2),dndX2[0]);
       dEdgeNormdX.addContrib(edgeNum(l),nodeNum(3),dndX3[0]);
     }
     else {
-      for(int k=0; k<3; ++k) 
-        for(int n=0; n<3; ++n) 
-          for(int m=0; m<3; ++m) { 
-            for(int o=0; o<12; ++o) { 
+      for(int k=0; k<3; ++k)
+        for(int n=0; n<3; ++n)
+          for(int m=0; m<3; ++m) {
+            for(int o=0; o<12; ++o) {
               dndX0[k][n] -= ( dndxg1_np1[k][m] * dxg1_np1df_np1[m][o] + dndxg0_np1[k][m] * dxg0_np1df_np1[m][o]) * df_np1dx_np1[o][n]
-                           + ( dndxg1_n[k][m] * dxg1_ndf_n[m][o] + dndxg0_n[k][m] * dxg0_ndf_n[m][o]) * df_ndx_n[o][n]; 
+                           + ( dndxg1_n[k][m] * dxg1_ndf_n[m][o] + dndxg0_n[k][m] * dxg0_ndf_n[m][o]) * df_ndx_n[o][n];
               dndX1[k][n] -= ( dndxg1_np1[k][m] * dxg1_np1df_np1[m][o] + dndxg0_np1[k][m] * dxg0_np1df_np1[m][o]) * df_np1dx_np1[o][3+n]
                            + ( dndxg1_n[k][m] * dxg1_ndf_n[m][o] + dndxg0_n[k][m] * dxg0_ndf_n[m][o]) * df_ndx_n[o][3+n];
               dndX2[k][n] -= ( dndxg1_np1[k][m] * dxg1_np1df_np1[m][o] + dndxg0_np1[k][m] * dxg0_np1df_np1[m][o]) * df_np1dx_np1[o][6+n]
@@ -617,13 +617,13 @@ void ElemTet::computeDerivativeOperatorsOfEdgeNormals(SVec<double,3> &X, Rectang
             }
             for(int o=0; o<3; ++o) {
               dndX0[k][n] -= ( dndxg1_np1[k][m] * dxg1_np1dg_np1[m][o] + dndxg0_np1[k][m] * dxg0_np1dg_np1[m][o]) * dg_np1dx_np1[o][n]
-                           + ( dndxg1_n[k][m] * dxg1_ndg_n[m][o] + dndxg0_n[k][m] * dxg0_ndg_n[m][o]) * dg_ndx_n[o][n]; 
+                           + ( dndxg1_n[k][m] * dxg1_ndg_n[m][o] + dndxg0_n[k][m] * dxg0_ndg_n[m][o]) * dg_ndx_n[o][n];
               dndX1[k][n] -= ( dndxg1_np1[k][m] * dxg1_np1dg_np1[m][o] + dndxg0_np1[k][m] * dxg0_np1dg_np1[m][o]) * dg_np1dx_np1[o][3+n]
-                           + ( dndxg1_n[k][m] * dxg1_ndg_n[m][o] + dndxg0_n[k][m] * dxg0_ndg_n[m][o]) * dg_ndx_n[o][3+n]; 
+                           + ( dndxg1_n[k][m] * dxg1_ndg_n[m][o] + dndxg0_n[k][m] * dxg0_ndg_n[m][o]) * dg_ndx_n[o][3+n];
               dndX2[k][n] -= ( dndxg1_np1[k][m] * dxg1_np1dg_np1[m][o] + dndxg0_np1[k][m] * dxg0_np1dg_np1[m][o]) * dg_np1dx_np1[o][6+n]
-                           + ( dndxg1_n[k][m] * dxg1_ndg_n[m][o] + dndxg0_n[k][m] * dxg0_ndg_n[m][o]) * dg_ndx_n[o][6+n]; 
+                           + ( dndxg1_n[k][m] * dxg1_ndg_n[m][o] + dndxg0_n[k][m] * dxg0_ndg_n[m][o]) * dg_ndx_n[o][6+n];
               dndX3[k][n] -= ( dndxg1_np1[k][m] * dxg1_np1dg_np1[m][o] + dndxg0_np1[k][m] * dxg0_np1dg_np1[m][o]) * dg_np1dx_np1[o][9+n]
-                           + ( dndxg1_n[k][m] * dxg1_ndg_n[m][o] + dndxg0_n[k][m] * dxg0_ndg_n[m][o]) * dg_ndx_n[o][9+n]; 
+                           + ( dndxg1_n[k][m] * dxg1_ndg_n[m][o] + dndxg0_n[k][m] * dxg0_ndg_n[m][o]) * dg_ndx_n[o][9+n];
             }
           }
       dEdgeNormdX.addContrib(edgeNum(l),nodeNum(0),dndX0[0]);
@@ -636,13 +636,13 @@ void ElemTet::computeDerivativeOperatorsOfEdgeNormals(SVec<double,3> &X, Rectang
 
 //------------------------------------------------------------------------------
 
-void ElemTet::computeEdgeNormalsEZGCL1(double oodt, SVec<double,3> &Xn, SVec<double,3> &Xnp1, 
+void ElemTet::computeEdgeNormalsEZGCL1(double oodt, SVec<double,3> &Xn, SVec<double,3> &Xnp1,
 				   Vec<Vec3D> &edgeNorm, Vec<double> &edgeNormVel)
 {
 
-  Vec3D x_n[4] = {Xn[ nodeNum(0) ], Xn[ nodeNum(1) ], 
+  Vec3D x_n[4] = {Xn[ nodeNum(0) ], Xn[ nodeNum(1) ],
 		  Xn[ nodeNum(2) ], Xn[ nodeNum(3) ]};
-  Vec3D x_np1[4] = {Xnp1[ nodeNum(0) ], Xnp1[ nodeNum(1) ], 
+  Vec3D x_np1[4] = {Xnp1[ nodeNum(0) ], Xnp1[ nodeNum(1) ],
 		    Xnp1[ nodeNum(2) ], Xnp1[ nodeNum(3) ]};
 
   Vec3D e_n[6], f_n[4], g_n;
@@ -710,18 +710,18 @@ void ElemTet::computeEdgeNormalsEZGCL1(double oodt, SVec<double,3> &Xn, SVec<dou
 
 //------------------------------------------------------------------------------
 /*
-void ElemTet::computeEdgeNormalsLZGCL1(SVec<double,3> &Xn, SVec<double,3> &Xnp1, 
-				   SVec<double,3> &Xdot, Vec<Vec3D> &edgeNorm, 
+void ElemTet::computeEdgeNormalsLZGCL1(SVec<double,3> &Xn, SVec<double,3> &Xnp1,
+				   SVec<double,3> &Xdot, Vec<Vec3D> &edgeNorm,
 				   Vec<double> &edgeNormVel)
 {
 
   static double twelfth = 1.0/12.0;
 
-  Vec3D x_n[4] = {Xn[ nodeNum(0) ], Xn[ nodeNum(1) ], 
+  Vec3D x_n[4] = {Xn[ nodeNum(0) ], Xn[ nodeNum(1) ],
 		  Xn[ nodeNum(2) ], Xn[ nodeNum(3) ]};
-  Vec3D x_np1[4] = {Xnp1[ nodeNum(0) ], Xnp1[ nodeNum(1) ], 
+  Vec3D x_np1[4] = {Xnp1[ nodeNum(0) ], Xnp1[ nodeNum(1) ],
 		    Xnp1[ nodeNum(2) ], Xnp1[ nodeNum(3) ]};
-  Vec3D xdot[4] = {Xdot[ nodeNum(0) ], Xdot[ nodeNum(1) ], 
+  Vec3D xdot[4] = {Xdot[ nodeNum(0) ], Xdot[ nodeNum(1) ],
 		   Xdot[ nodeNum(2) ], Xdot[ nodeNum(3) ]};
 
   Vec3D midEdge_n[6], cgFace_n[4], cgTet_n;
@@ -784,7 +784,7 @@ void ElemTet::computeEdgeNormalsLZGCL1(SVec<double,3> &Xn, SVec<double,3> &Xnp1,
 
     Vec3D vel0 = third * (midEdgeVel[l] + cgTetVel + cgFaceVel[ edgeFace(l,0) ]);
     Vec3D vel1 = third * (midEdgeVel[l] + cgTetVel + cgFaceVel[ edgeFace(l,1) ]);
-    
+
     Vec3D n0 = twelfth * (((2.0*e0_np1 + e0_n) ^ eg_np1) + ((2.0*e0_n + e0_np1) ^ eg_n));
     Vec3D n1 = twelfth * (((2.0*eg_np1 + eg_n) ^ e1_np1) + ((2.0*eg_n + eg_np1) ^ e1_n));
 
@@ -833,7 +833,7 @@ void ElemTet::computeWeightsGalerkin(SVec<double,3> &X, SVec<double,3> &wii,
     if (nodeNum( edgeEnd(k,0) ) < nodeNum( edgeEnd(k,1) )) {
       i = edgeEnd(k,0);
       j = edgeEnd(k,1);
-    } 
+    }
     else {
       i = edgeEnd(k,1);
       j = edgeEnd(k,0);
@@ -909,7 +909,7 @@ void ElemTet::computeDerivativeOfWeightsGalerkin(SVec<double,3> &X, SVec<double,
 //------------------------------------------------------------------------------
 
 // Included (YC)
-void ElemTet::computeDerivativeTransposeOfWeightsGalerkin(SVec<double,3> &X, SVec<double,3> &dwii, SVec<double,3> &dwij, 
+void ElemTet::computeDerivativeTransposeOfWeightsGalerkin(SVec<double,3> &X, SVec<double,3> &dwii, SVec<double,3> &dwij,
                                                           SVec<double,3> &dwji, SVec<double,3> &dX)
 {
 
@@ -919,8 +919,8 @@ void ElemTet::computeDerivativeTransposeOfWeightsGalerkin(SVec<double,3> &X, SVe
 
   double vol = computeGradientP1Function(X, dp1dxj);
   double dvol = 0.0;
-  for (k=0; k<4; ++k) 
-    for (i=0; i<3; ++i) 
+  for (k=0; k<4; ++k)
+    for (i=0; i<3; ++i)
       ddp1dxj[k][i] = 0.0;
 
   for (k=0; k<6; ++k) {
@@ -971,9 +971,9 @@ void ElemTet::computeEdgeWeightsGalerkin(SVec<double,3> &X, SVec<double,9> &M)
 
   for (int l=0; l<6; ++l) {
 
-    Vec3D n0 = 0.5 * ((x[ faces[ edges[l][0] ][1] ] - x[ faces[ edges[l][0] ][0] ]) ^ 
+    Vec3D n0 = 0.5 * ((x[ faces[ edges[l][0] ][1] ] - x[ faces[ edges[l][0] ][0] ]) ^
 		      (x[ faces[ edges[l][0] ][2] ] - x[ faces[ edges[l][0] ][0] ]));
-    Vec3D n1 = 0.5 * ((x[ faces[ edges[l][1] ][1] ] - x[ faces[ edges[l][1] ][0] ]) ^ 
+    Vec3D n1 = 0.5 * ((x[ faces[ edges[l][1] ][1] ] - x[ faces[ edges[l][1] ][0] ]) ^
 		      (x[ faces[ edges[l][1] ][2] ] - x[ faces[ edges[l][1] ][0] ]));
 
     if (nodeNum( edgeEnd(l,0) ) > nodeNum( edgeEnd(l,1) )) {
@@ -988,7 +988,7 @@ void ElemTet::computeEdgeWeightsGalerkin(SVec<double,3> &X, SVec<double,9> &M)
     M[ edgeNum(l) ][3] += invvol * n1[1] * n0[1];
     M[ edgeNum(l) ][4] += invvol * n1[1] * n0[2];
     M[ edgeNum(l) ][5] += invvol * n1[2] * n0[2];
-    
+
     M[ edgeNum(l) ][6] += invvol * n1[1] * n0[0];
     M[ edgeNum(l) ][7] += invvol * n1[2] * n0[0];
     M[ edgeNum(l) ][8] += invvol * n1[2] * n0[1];
@@ -1012,11 +1012,11 @@ void ElemTet::computeStiffAndForce(double *force, double *Kspace,
   // casts to simplify loops:
   double (*K)[12] = reinterpret_cast<double (*)[12]> (Kspace);
 
-  // compute dN_i/dX_j, also obtain dOmega 
+  // compute dN_i/dX_j, also obtain dOmega
   // (actually 1/4th of it since we have a factor 2 on e and s
 
   double realVol = computeGradientP1Function(nodes, nGrad);
-  
+
   // Scaling of this stiffness for aeroelastic reasons:
   // dOmega = pow(dOmega, 2.0/3.0);
   // Remove volume scaling => This gives small elements more stiffness
@@ -1111,15 +1111,15 @@ void ElemTet::computeStiffAndForce(double *force, double *Kspace,
                 sigma[3]*(nGrad[i][0]*nGrad[k][1]+nGrad[i][1]*nGrad[k][0]) +
                 sigma[4]*(nGrad[i][0]*nGrad[k][2]+nGrad[i][2]*nGrad[k][0]) +
                 sigma[5]*(nGrad[i][1]*nGrad[k][2]+nGrad[i][2]*nGrad[k][1]);
-		
+
   if (volStiff > 0.0)  {
-    
+
     // Compute Volume
     static double sixth = 1.0/6.0;
 
     // compute factor of sixth divided by reference volume
     double invOmega = 1.0 / realVol;
- 
+
     Vec3D x[4] = {X[ nodeNum(0) ], X[ nodeNum(1) ], X[ nodeNum(2) ], X[ nodeNum(3) ]};
 
     Vec3D v1 = x[3] - x[1];
@@ -1128,8 +1128,8 @@ void ElemTet::computeStiffAndForce(double *force, double *Kspace,
 
     double volume = sixth * (v3 * (v1 ^ v2));
     if (volume < 0.0) {
-      fprintf(stderr,"print x...\n"); 
-						for(int i=0; i<4; ++i) { 
+      fprintf(stderr,"print x...\n");
+						for(int i=0; i<4; ++i) {
         x[i].print();
       }
 						fprintf(stderr,"volume of element is %6.3e.\n",volume);
@@ -1137,13 +1137,13 @@ void ElemTet::computeStiffAndForce(double *force, double *Kspace,
 //      exit(-1);
     }
 
-    // compute volume derivatives 
+    // compute volume derivatives
     // dV/dX0 OK
     Vec3D cross = (v1 ^ v2);
     V[0] = sixth * cross[0];
     V[1] = sixth * cross[1];
     V[2] = sixth * cross[2];
-  
+
     // dV/dX1
     v1 = x[2] - x[0];
     v2 = x[3] - x[0];
@@ -1151,7 +1151,7 @@ void ElemTet::computeStiffAndForce(double *force, double *Kspace,
     V[3] = sixth * (cross[0]);
     V[4] = sixth * (cross[1]);
     V[5] = sixth * (cross[2]);
-  
+
     // dV/dX2
     v1 = x[3] - x[0];
     v2 = x[1] - x[0];
@@ -1159,7 +1159,7 @@ void ElemTet::computeStiffAndForce(double *force, double *Kspace,
     V[6] = sixth * (cross[0]);
     V[7] = sixth * (cross[1]);
     V[8] = sixth * (cross[2]);
- 
+
     // dV/dX3
     v1 = x[1] - x[0];
     v2 = x[2] - x[0];
@@ -1167,7 +1167,7 @@ void ElemTet::computeStiffAndForce(double *force, double *Kspace,
     V[9] = sixth * (cross[0]);
     V[10] = sixth * (cross[1]);
     V[11] = sixth * (cross[2]);
-    
+
     // compute force contribution from volume energy function
     // dW(V)/dX == (2*(V/V0 - 1)*(1/V0)*(dV/dX)) / ((V/V0)*(V/V0)*(V/V0))
     double volRatio = volume * invOmega;
@@ -1183,7 +1183,7 @@ void ElemTet::computeStiffAndForce(double *force, double *Kspace,
       for (j=0;j<12;j++)
         VV[i][j] = 0.0;
 
-    v1 = sixth * (x[2]-x[3]); 
+    v1 = sixth * (x[2]-x[3]);
     VV[0][3] = 0;
     VV[0][4] = -v1[2];
     VV[0][5] = v1[1];
@@ -1249,7 +1249,7 @@ void ElemTet::computeStiffAndForce(double *force, double *Kspace,
     VV[8][10] =v1[0];
     VV[8][11] =0;
 
-    // Compute symmetric terms of K_ij 
+    // Compute symmetric terms of K_ij
 
     for (i = 0; i < 4; ++i)
       for (k = 0; k <= i; ++k)
@@ -1259,7 +1259,7 @@ void ElemTet::computeStiffAndForce(double *force, double *Kspace,
                             * ( (3.0 - 2.0*volRatio)*invOmega*V[3*k+j]*V[3*i+l]
                             +   (volRatio - 1.0)*volRatio* VV[3*k+j][3*i+l] );
 
-  }  
+  }
 
   // Symmetrize and multiply by the volume
   for (i = 0; i < 12; ++i)
@@ -1275,7 +1275,7 @@ void ElemTet::computeStiffAndForceBallVertex(double *force, double *Kspace,
   static const int ndFace[4][4] = { {0, 1, 2, 3}, {0, 3, 1, 2}, {1, 3, 2, 0}, {0, 2, 3, 1} };
   // X is the current position of nodes
   // X0 is the reference position of nodes
-  
+
   double (*K)[12] = reinterpret_cast<double (*)[12]> (Kspace);
 
   for(int i = 0; i < 12; ++i)
@@ -1317,7 +1317,7 @@ void ElemTet::computeStiffAndForceBallVertex(double *force, double *Kspace,
      // All derivatives can thus be obtained from having only the derivatives with respect
      // to the B and C variables.
 
-    for(int i = 0; i < 3; ++i) 
+    for(int i = 0; i < 3; ++i)
       for(int j = 0; j < 3; ++j) {
         S2.d(i,j) = eiAC[i]*eiAC[j]; // 1/2 d2S2dBidBj = (ei x AC). (ej x AC)
         S2.d(3+i, 3+j) = ABei[i]*ABei[j]; // 1/2 d2S2dCidCj = (AB x ei). (AB x ej)
@@ -1329,8 +1329,8 @@ void ElemTet::computeStiffAndForceBallVertex(double *force, double *Kspace,
      Taylor2<double,6> delta = S2;
      delta.val() = 0.0;
      double sqrv = sqrt(v);
-     Taylor2<double,6> invSqrS2 = 1.0/sqrv +(-(0.5/(sqrv*v)) + (3/(8*sqrv*v*v))*delta)*delta; 
-     
+     Taylor2<double,6> invSqrS2 = 1.0/sqrv +(-(0.5/(sqrv*v)) + (3/(8*sqrv*v*v))*delta)*delta;
+
      // Now we get the derivatives of S.AK
      Taylor2<double,9> S_AK;
      S_AK.val() = S*AK;
@@ -1439,7 +1439,7 @@ void ElemTet::computeStiffAndForceBallVertex(double *force, double *Kspace,
          K[oK+i][oK+j] += E.d(i+6,j+6);
          K[oK+i][oA+j] -= E.d(i+6,j)+E.d(i+6,j+3)+E.d(i+6,j+6);
          K[oA+j][oK+i] -= E.d(i+6,j)+E.d(i+6,j+3)+E.d(i+6,j+6);
-         K[oA+i][oA+j] += E.d(i,j) + E.d(i,j+3) + E.d(i,j+6) 
+         K[oA+i][oA+j] += E.d(i,j) + E.d(i,j+3) + E.d(i,j+6)
                         + E.d(i+3,j) + E.d(i+3,j+3) + E.d(i+3,j+6)
                         + E.d(i+6,j) + E.d(i+6,j+3) + E.d(i+6,j+6);
        }
@@ -1568,10 +1568,10 @@ void ElemTet::computeStiffTorsionSpring(double *Kspace, SVec<double,3> &X, doubl
 
   // Cast to simplify loops:
   double (*K)[12] = reinterpret_cast<double (*)[12]> (Kspace);
-  
+
   // Get "local" TorsionSpring stiffness matrix for tetrahedron
   F77NAME(torsionspring)(X.data()+1, nodeNum(), K, expansionStiffCoef);
-  
+
 }
 
 //------------------------------------------------------------------------------
@@ -1585,7 +1585,7 @@ double ElemTet::findRootPolynomialNewtonRaphson(double f1, double f2, double fp1
 
   double coeff[4] = { 2.0*(f1-f2)+fp1+fp2, -3.0*(f1-f2)-2.0*fp1-fp2, fp1, f1};
   double coeffp[3] = {3.0*coeff[0],2.0*coeff[1],coeff[2]};
-  
+
   double eps = 1.e-6;                  //precision
   double xn = 0.5;                     //initial guess
   bool notConverged = true;
@@ -1626,7 +1626,7 @@ int ElemTet::findRootPolynomialLaguerre(double f1, double f2, double fp1, double
 /* The Laguerre method (cf Numerical Recipes in C++) is used to find
 ** the roots of the polynomial we are considering.
 ** However we need only one solution that lies between 0 and 1.
-** We choose the one that fits, and if there are several of them, 
+** We choose the one that fits, and if there are several of them,
 ** we revert to a linear interpolation to find the interface location
 ** instead of Hermite interpolation polynomial.
 ** Function returns the number of real roots in [0,1]. If there are
@@ -1657,8 +1657,8 @@ int ElemTet::findRootPolynomialLaguerre(double f1, double f2, double fp1, double
       index = i;
     }
 
-  root = real(roots[index]); //we assume f1*f2<0 and 
-                             //thus there must be such a solution 
+  root = real(roots[index]); //we assume f1*f2<0 and
+                             //thus there must be such a solution
                              //and index should be well defined!
   delete [] coeff;
   delete [] roots;
@@ -1675,9 +1675,9 @@ bool ElemTet::computeDistancePlusPhiToOppFace(double phi[3], Vec3D Y0,
   double zero = 0.0;
   double tol1 = eps*Y1.norm();
   double tol2 = eps*Y2.norm();
-  // mini is assumed to already have some distance, usually set by 
+  // mini is assumed to already have some distance, usually set by
   // distance to vertices
-	
+
   // strategy is as follows:
   // find point on opposite face where minimum is attained
   // the point to find is defined by a vector originating on the node i
@@ -1711,7 +1711,7 @@ bool ElemTet::computeDistancePlusPhiToOppFace(double phi[3], Vec3D Y0,
     if(alpha>= zero && alpha <= one &&
        beta >= zero && beta  <= one &&
        alpha+beta<= one){
-      if(show) fprintf(stdout, "face1 - %e\n", phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm()); 
+      if(show) fprintf(stdout, "face1 - %e\n", phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm());
       mini = min(mini,phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm());
       return true;
     }
@@ -1734,7 +1734,7 @@ bool ElemTet::computeDistancePlusPhiToOppFace(double phi[3], Vec3D Y0,
     if(alpha>= zero && alpha <= one &&
        beta >= zero && beta  <= one &&
        alpha+beta<= one){
-      if(show) fprintf(stdout, "face2 - %e\n", phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm()); 
+      if(show) fprintf(stdout, "face2 - %e\n", phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm());
       mini = min(mini,phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm());
       found = true;
     }
@@ -1750,7 +1750,7 @@ bool ElemTet::computeDistancePlusPhiToOppFace(double phi[3], Vec3D Y0,
        beta >= zero && beta  <= one &&
        alpha+beta<= one){
       mini = min(mini,phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm());
-      if(show) fprintf(stdout, "face3 - %e\n", phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm()); 
+      if(show) fprintf(stdout, "face3 - %e\n", phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm());
       found = true;
     }
     return found;
@@ -1774,7 +1774,7 @@ bool ElemTet::computeDistancePlusPhiToOppFace(double phi[3], Vec3D Y0,
        beta >= zero && beta  <= one &&
        alpha+beta<= one){
       mini = min(mini,phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm());
-      if(show) fprintf(stdout, "face4 - %e\n", phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm()); 
+      if(show) fprintf(stdout, "face4 - %e\n", phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm());
       found = true;
     }
     //second solution
@@ -1788,7 +1788,7 @@ bool ElemTet::computeDistancePlusPhiToOppFace(double phi[3], Vec3D Y0,
     if(alpha>= zero && alpha <= one &&
        beta >= zero && beta  <= one &&
        alpha+beta<= one){
-      if(show) fprintf(stdout, "face5 - %e\n", phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm()); 
+      if(show) fprintf(stdout, "face5 - %e\n", phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm());
       mini = min(mini,phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm());
       found = true;
     }
@@ -1829,7 +1829,7 @@ bool ElemTet::computeDistancePlusPhiToOppFace(double phi[3], Vec3D Y0,
     if(alpha>= zero && alpha <= one &&
        beta >= zero && beta  <= one &&
        alpha+beta<= one){
-      if(show) fprintf(stdout, "face6 - %e %e %e\n", alpha, beta, phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm()); 
+      if(show) fprintf(stdout, "face6 - %e %e %e\n", alpha, beta, phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm());
       mini = min(mini,phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm());
       found = true;
     }
@@ -1845,7 +1845,7 @@ bool ElemTet::computeDistancePlusPhiToOppFace(double phi[3], Vec3D Y0,
     if(alpha>= zero && alpha <= one &&
        beta >= zero && beta  <= one &&
        alpha+beta<= one){
-      if(show) fprintf(stdout, "face7 - %e\n", phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm()); 
+      if(show) fprintf(stdout, "face7 - %e\n", phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm());
       mini = min(mini,phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm());
       found = true;
     }
@@ -1881,10 +1881,10 @@ bool ElemTet::computeDistancePlusPhiToEdge(double phi0, double phi1,
   bool found = false;
 	double eps = 1.0e-14;
   // same approach is used as in computeDistancePlusPhiToOppFace
-  // except that it is one dimensional (along an edge) and thus we 
+  // except that it is one dimensional (along an edge) and thus we
   // have only one parameter alpha (instead of two).
 
-  // normal to Y1 in (Y0,Y1)-plane can be written n = n0*Y0+n1*Y1 
+  // normal to Y1 in (Y0,Y1)-plane can be written n = n0*Y0+n1*Y1
   // note that Y0 and Y1 are not necessarily orthogonal.
   /*                                Y0
    *                                /
@@ -1910,7 +1910,7 @@ bool ElemTet::computeDistancePlusPhiToEdge(double phi0, double phi1,
   double Z1 = sqrt(Z1sq);
   double alpha = K_over_y1sq + phi1*Z1;
   if(alpha>=0.0 && alpha<=1.0){
-    if(show) fprintf(stdout, "edge1 -%e %e\n", alpha, phi0+alpha*phi1+ (Y0 - alpha*Y1).norm()); 
+    if(show) fprintf(stdout, "edge1 -%e %e\n", alpha, phi0+alpha*phi1+ (Y0 - alpha*Y1).norm());
     found = true;
     mini = min(mini,phi0+alpha*phi1 + sqrt(y1sq*(alpha*alpha -2*alpha*K_over_y1sq + y0sq_over_y1sq)));
   }
@@ -1919,7 +1919,7 @@ bool ElemTet::computeDistancePlusPhiToEdge(double phi0, double phi1,
   alpha = K_over_y1sq - phi1*Z1;
   if(alpha>=0.0 && alpha<=1.0){
     found = true;
-    if(show) fprintf(stdout, "edge2 -%e %e\n", alpha, phi0+alpha*phi1+ (Y0 - alpha*Y1).norm()); 
+    if(show) fprintf(stdout, "edge2 -%e %e\n", alpha, phi0+alpha*phi1+ (Y0 - alpha*Y1).norm());
     mini = min(mini,phi0+alpha*phi1 + sqrt(y1sq*(alpha*alpha -2*alpha*K_over_y1sq + y0sq_over_y1sq)));
   }
   return found;
@@ -2012,7 +2012,7 @@ double ElemTet::computeGradientP1Function(SVec<double,3> &nodes, double nGrad[4]
 //------------------------------------------------------------------------------
 
 inline
-double ElemTet::computeGradientP1Function(Vec3D &A, Vec3D &B, Vec3D &C, Vec3D &D, 
+double ElemTet::computeGradientP1Function(Vec3D &A, Vec3D &B, Vec3D &C, Vec3D &D,
                                       double nGrad[4][3])
 {
 
@@ -2020,7 +2020,7 @@ double ElemTet::computeGradientP1Function(Vec3D &A, Vec3D &B, Vec3D &C, Vec3D &D
   //fprintf(stdout, "B = %e %e %e\n", B[0],B[1],B[2]);
   //fprintf(stdout, "C = %e %e %e\n", C[0],C[1],C[2]);
   //fprintf(stdout, "D = %e %e %e\n", D[0],D[1],D[2]);
-  
+
   double jac[3][3];
 
   //Jacobian
@@ -2120,18 +2120,18 @@ void ElemTet::computeDerivativeTransposeOfGradientP1Function(SVec<double,3> &nod
   double q00 = (-p10-p20-p30+NGrad[0][0]*sixth);
   double q01 = (-p11-p21-p31+NGrad[0][1]*sixth);
   double q02 = (-p12-p22-p32+NGrad[0][2]*sixth);
-  double q10 =  p10+NGrad[1][0]*sixth; 
+  double q10 =  p10+NGrad[1][0]*sixth;
   double q11 =  p11+NGrad[1][1]*sixth;
   double q12 =  p12+NGrad[1][2]*sixth;
   double q20 =  p20+NGrad[2][0]*sixth;
   double q21 =  p21+NGrad[2][1]*sixth;
   double q22 =  p22+NGrad[2][2]*sixth;
   double q30 =  p30+NGrad[3][0]*sixth;
-  double q31 =  p31+NGrad[3][1]*sixth; 
+  double q31 =  p31+NGrad[3][1]*sixth;
   double q32 =  p32+NGrad[3][2]*sixth;
 
   double t17 = -vol/dOmega;
-  double dnngrad = q00*dNGrad[0][0]+q01*dNGrad[0][1]+q02*dNGrad[0][2] 
+  double dnngrad = q00*dNGrad[0][0]+q01*dNGrad[0][1]+q02*dNGrad[0][2]
                  + q10*dNGrad[1][0]+q11*dNGrad[1][1]+q12*dNGrad[1][2]
                  + q20*dNGrad[2][0]+q21*dNGrad[2][1]+q22*dNGrad[2][2]
                  + q30*dNGrad[3][0]+q31*dNGrad[3][1]+q32*dNGrad[3][2];
@@ -2290,6 +2290,7 @@ double ElemTet::computeDerivativeOfGradientP1Function(
 
 }
 
+//------------------------------------------------------------------------------
 
 // YC: If you modify ElemTet::computeDerivativeOfGradientP1Function, you must modify ElemTet::computeDerivativeTransposeOfGradientP1Function accordingly
 inline
@@ -2633,13 +2634,8 @@ void ElemTet::computeDerivativeOperatorOfGradientP1Function(SVec<double,3> &node
 
 }
 
-
-
-
-
 //------------------------------------------------------------------------------
 /*
-
 double ElemTet::computeGradientP1Function(SVec<double,3> &X, double dp1dxj[4][3])
 {
 
@@ -2719,7 +2715,7 @@ void ElemTet::computeBarycentricCoordinates(SVec<double,3>&X, const Vec3D& loc, 
   double A[9] = {X[nodeNum(0)][0]-X[nodeNum(3)][0],X[nodeNum(1)][0]-X[nodeNum(3)][0],X[nodeNum(2)][0]-X[nodeNum(3)][0],
                  X[nodeNum(0)][1]-X[nodeNum(3)][1],X[nodeNum(1)][1]-X[nodeNum(3)][1],X[nodeNum(2)][1]-X[nodeNum(3)][1],
                  X[nodeNum(0)][2]-X[nodeNum(3)][2],X[nodeNum(1)][2]-X[nodeNum(3)][2],X[nodeNum(2)][2]-X[nodeNum(3)][2]};
-   
+
   for (int i = 0; i < 3; ++i)
     bary[i] = loc[i]-X[nodeNum(3)][i];
 
@@ -2731,7 +2727,7 @@ bool ElemTet::isPointInside(SVec<double,3> & X,const Vec3D& V) {
   double bary[3];
   const double eps = 1e-10;
   computeBarycentricCoordinates(X,V,bary);
-//  std::cout << V[0] << " " << V[1] << " " << V[2] << " " << 
+//  std::cout << V[0] << " " << V[1] << " " << V[2] << " " <<
 //      bary[0] << " " << bary[1] << " " << bary[2] << std::endl;
 
   if (bary[0] < -eps || bary[1] < -eps || bary[2] < -eps ||
@@ -2753,50 +2749,50 @@ void ElemTet::getVelocityAndGradient(double *v[4], double dp1dxj[4][3],
     u[2][0] = v[2][1];  u[2][1] = v[2][2]; u[2][2] = v[2][3];
     u[3][0] = v[3][1];  u[3][1] = v[3][2]; u[3][2] = v[3][3];
 
-	 
-	 dudxj[0][0] = dp1dxj[0][0]*u[0][0] 
-		          + dp1dxj[1][0]*u[1][0] 
-		          + dp1dxj[2][0]*u[2][0] 
+
+	 dudxj[0][0] = dp1dxj[0][0]*u[0][0]
+		          + dp1dxj[1][0]*u[1][0]
+		          + dp1dxj[2][0]*u[2][0]
 		          + dp1dxj[3][0]*u[3][0];
 
-    dudxj[0][1] = dp1dxj[0][1]*u[0][0] 
-		          + dp1dxj[1][1]*u[1][0] 
-		          + dp1dxj[2][1]*u[2][0] 
+    dudxj[0][1] = dp1dxj[0][1]*u[0][0]
+		          + dp1dxj[1][1]*u[1][0]
+		          + dp1dxj[2][1]*u[2][0]
 		          + dp1dxj[3][1]*u[3][0];
 
-    dudxj[0][2] = dp1dxj[0][2]*u[0][0] 
-                + dp1dxj[1][2]*u[1][0] 
-            	 + dp1dxj[2][2]*u[2][0] 
+    dudxj[0][2] = dp1dxj[0][2]*u[0][0]
+                + dp1dxj[1][2]*u[1][0]
+            	 + dp1dxj[2][2]*u[2][0]
            		 + dp1dxj[3][2]*u[3][0];
 
-    dudxj[1][0] = dp1dxj[0][0]*u[0][1] 
-                + dp1dxj[1][0]*u[1][1] 
-                + dp1dxj[2][0]*u[2][1] 
+    dudxj[1][0] = dp1dxj[0][0]*u[0][1]
+                + dp1dxj[1][0]*u[1][1]
+                + dp1dxj[2][0]*u[2][1]
             	 + dp1dxj[3][0]*u[3][1];
 
-    dudxj[1][1] = dp1dxj[0][1]*u[0][1] 
-	         	 + dp1dxj[1][1]*u[1][1] 
-	          	 + dp1dxj[2][1]*u[2][1] 
+    dudxj[1][1] = dp1dxj[0][1]*u[0][1]
+	         	 + dp1dxj[1][1]*u[1][1]
+	          	 + dp1dxj[2][1]*u[2][1]
 	          	 + dp1dxj[3][1]*u[3][1];
 
-    dudxj[1][2] = dp1dxj[0][2]*u[0][1] 
-          		 + dp1dxj[1][2]*u[1][1] 
-		          + dp1dxj[2][2]*u[2][1] 
+    dudxj[1][2] = dp1dxj[0][2]*u[0][1]
+          		 + dp1dxj[1][2]*u[1][1]
+		          + dp1dxj[2][2]*u[2][1]
 		          + dp1dxj[3][2]*u[3][1];
 
-    dudxj[2][0] = dp1dxj[0][0]*u[0][2] 
-        		    + dp1dxj[1][0]*u[1][2] 
-	          	 + dp1dxj[2][0]*u[2][2] 
+    dudxj[2][0] = dp1dxj[0][0]*u[0][2]
+        		    + dp1dxj[1][0]*u[1][2]
+	          	 + dp1dxj[2][0]*u[2][2]
 		          + dp1dxj[3][0]*u[3][2];
 
-    dudxj[2][1] = dp1dxj[0][1]*u[0][2] 
-          		 + dp1dxj[1][1]*u[1][2] 
-		          + dp1dxj[2][1]*u[2][2] 
+    dudxj[2][1] = dp1dxj[0][1]*u[0][2]
+          		 + dp1dxj[1][1]*u[1][2]
+		          + dp1dxj[2][1]*u[2][2]
 		          + dp1dxj[3][1]*u[3][2];
 
-    dudxj[2][2] = dp1dxj[0][2]*u[0][2] 
-          		 + dp1dxj[1][2]*u[1][2] 
-		          + dp1dxj[2][2]*u[2][2] 
+    dudxj[2][2] = dp1dxj[0][2]*u[0][2]
+          		 + dp1dxj[1][2]*u[1][2]
+		          + dp1dxj[2][2]*u[2][2]
            		 + dp1dxj[3][2]*u[3][2];
 }
 
@@ -2805,24 +2801,24 @@ void ElemTet::getTemperatureAndGradient(double *v[4], double dp1dxj[4][3], doubl
 {
 
 	for(int j=0; j<4; ++j) T[j] = v[j][4]/(R*v[j][0]);
-	
-	dtdxj[0] = dp1dxj[0][0]*T[0] 
-		      + dp1dxj[1][0]*T[1] 
-            + dp1dxj[2][0]*T[2] 
+
+	dtdxj[0] = dp1dxj[0][0]*T[0]
+		      + dp1dxj[1][0]*T[1]
+            + dp1dxj[2][0]*T[2]
 		      + dp1dxj[3][0]*T[3];
 
-	dtdxj[1] = dp1dxj[0][1]*T[0] 
-		      + dp1dxj[1][1]*T[1] 
-		      + dp1dxj[2][1]*T[2] 
+	dtdxj[1] = dp1dxj[0][1]*T[0]
+		      + dp1dxj[1][1]*T[1]
+		      + dp1dxj[2][1]*T[2]
 	         + dp1dxj[3][1]*T[3];
 
-	dtdxj[2] = dp1dxj[0][2]*T[0] 
-		      + dp1dxj[1][2]*T[1] 
-		      + dp1dxj[2][2]*T[2] 
+	dtdxj[2] = dp1dxj[0][2]*T[0]
+		      + dp1dxj[1][2]*T[1]
+		      + dp1dxj[2][2]*T[2]
 		      + dp1dxj[3][2]*T[3];
 }
 
-void ElemTet::ComputeStrainAndStressTensor(double dudxj[3][3], 
+void ElemTet::ComputeStrainAndStressTensor(double dudxj[3][3],
 														 double S[3][3], double Pij[6])
 {
 

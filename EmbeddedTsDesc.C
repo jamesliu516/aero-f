@@ -192,7 +192,7 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
       this->com->fprintf(stderr,"ERROR: No valid intersector specified! Check input file\n");
       exit(-1);
   }
-  wall_computer=new ReinitializeDistanceToWall<1>(ioData, *this->domain);
+  wall_computer=new ReinitializeDistanceToWall<1,dim>(ioData, *this->domain, *this->spaceOp); //sjg, 07/2017: fet for wall distance predictors
 
 #else
   this->com->fprintf(stderr,"ERROR: Embedded framework is NOT compiled! Check your makefile.\n");
@@ -1274,8 +1274,8 @@ bool EmbeddedTsDesc<dim>::IncreasePressure(int it, double dt, double t, DistSVec
       this->com->fprintf(stderr,"recomputing fluid-structure intersections.\n");
       recomputeIntersections = true;
       this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts, true, TsDesc<dim>::failSafeFlag);
-    } else
-      recomputeIntersections = false;
+    }
+    else recomputeIntersections = false;
 
     this->timer->addIntersectionTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
@@ -1360,7 +1360,7 @@ double EmbeddedTsDesc<dim>::currentPressure(double t)
 //------------------------------------------------------------------------------
 
 template<int dim>
-void EmbeddedTsDesc<dim>::computeDistanceToWall(IoData &ioData)
+void EmbeddedTsDesc<dim>::computeDistanceToWall(IoData &ioData, double t)
 {
 	if(ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY)
 	{
@@ -1369,9 +1369,11 @@ void EmbeddedTsDesc<dim>::computeDistanceToWall(IoData &ioData)
 		{
       double t0 = this->timer->getTime();
 
-      wall_computer->ComputeWallFunction(*this->distLSS,*this->X,*this->geoState);
+      int update = wall_computer->ComputeWallFunction(*this->distLSS,*this->X,*this->geoState,t);
 
       this->timer->addWallDistanceTime(t0);
+      if (update > 0)
+        this->timer->addWallDistanceCount(t0);
 
       this->domain->computeOffWallNode(this->distLSS);
     }

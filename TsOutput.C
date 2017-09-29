@@ -658,7 +658,7 @@ exactforces(false)
 	iod.problem.framework==ProblemData::EMBEDDEDALE) &&
        iod.output.transient.pressurecoefficient[0] != 0) {
     embeddedsurfaceCp = new char[sp + strlen(iod.output.transient.pressurecoefficient) + 4];
-    sprintf(embeddedsurfaceCp, "%s%s%s", iod.output.transient.prefix, iod.output.transient.pressurecoefficient, "_emb"); 
+    sprintf(embeddedsurfaceCp, "%s%s%s", iod.output.transient.prefix, iod.output.transient.pressurecoefficient, "_emb");
   }  else
     embeddedsurfaceCp = 0;
 
@@ -667,7 +667,7 @@ exactforces(false)
 	iod.problem.framework==ProblemData::EMBEDDEDALE) &&
        iod.output.transient.sfric[0] != 0) {
     embeddedsurfaceCf = new char[sp + strlen(iod.output.transient.sfric) + 4];
-    sprintf(embeddedsurfaceCf, "%s%s%s", iod.output.transient.prefix,  iod.output.transient.sfric, "_emb"); 
+    sprintf(embeddedsurfaceCf, "%s%s%s", iod.output.transient.prefix,  iod.output.transient.sfric, "_emb");
   }  else
     embeddedsurfaceCf = 0;
 
@@ -795,7 +795,8 @@ exactforces(false)
             iod.output.transient.prefix, iod.output.transient.dTotalpressure);
   }
   if (iod.output.transient.dNutturb[0] != 0) {
-    dSscale[PostFcn::DERIVATIVE_NUT_TURB] = iod.ref.rv.viscosity_mu/iod.ref.rv.density;
+    // dSscale[PostFcn::DERIVATIVE_NUT_TURB] = iod.ref.rv.viscosity_mu/iod.ref.rv.density;
+    dSscale[PostFcn::DERIVATIVE_NUT_TURB] = 1.0;  // sjg, 07/2017
     dScalars[PostFcn::DERIVATIVE_NUT_TURB] = new char[dsp + strlen(iod.output.transient.dNutturb)];
     sprintf(dScalars[PostFcn::DERIVATIVE_NUT_TURB], "%s%s",
             iod.output.transient.prefix, iod.output.transient.dNutturb);
@@ -3982,7 +3983,8 @@ void TsOutput<dim>::rstVar(IoData &iod) {
              iod.output.transient.prefix, iod.output.transient.tempnormalderivative);
   }
   if (iod.output.transient.nutturb[0] != 0) {
-    sscale[PostFcn::NUT_TURB] = iod.ref.rv.viscosity_mu/iod.ref.rv.density;
+    // sscale[PostFcn::NUT_TURB] = iod.ref.rv.viscosity_mu/iod.ref.rv.density;
+    sscale[PostFcn::NUT_TURB] = 1.0; // sjg, 07/2017
     scalars[PostFcn::NUT_TURB] = new char[sp + strlen(iod.output.transient.nutturb)];
     sprintf(scalars[PostFcn::NUT_TURB], "%s%s",
             iod.output.transient.prefix, iod.output.transient.nutturb);
@@ -4085,7 +4087,8 @@ void TsOutput<dim>::rstVar(IoData &iod) {
   int dsp = strlen(iod.output.transient.prefix) + 1;
 
   if (iod.output.transient.dNutturb[0] != 0) {
-    dSscale[PostFcn::DERIVATIVE_NUT_TURB] = iod.ref.rv.viscosity_mu/iod.ref.rv.density;
+    // dSscale[PostFcn::DERIVATIVE_NUT_TURB] = iod.ref.rv.viscosity_mu/iod.ref.rv.density;
+    dSscale[PostFcn::DERIVATIVE_NUT_TURB] = 1.0;  // sjg, 07/2017
     dScalars[PostFcn::DERIVATIVE_NUT_TURB] = new char[dsp + strlen(iod.output.transient.dNutturb)];
     sprintf(dScalars[PostFcn::DERIVATIVE_NUT_TURB], "%s%s",
             iod.output.transient.prefix, iod.output.transient.dNutturb);
