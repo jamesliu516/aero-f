@@ -560,6 +560,8 @@ double FemEquationTermSA::computeDerivativeOfViscousTimeStep(double X[3], double
 }
 
 //------------------------------------------------------------------------------
+// sjg, 09/2017: negative SA model from 2012 Spalart, Allmaras paper to replace
+//               original implementation
 
 bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
 					  double *V[4], double *r, double *S,
@@ -609,8 +611,9 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
 	                 + dp1dxj[3][2]*V[3][5];
 
   double mu5;
-  if (mutilde >= 0.0)
-    mu5 = oosigma * (mul + mutilde);  // sjg, 09/2017
+  bool negSA = (V[0][5]<0.0 || V[1][5]<0.0 || V[2][5]<0.0 || V[3][5]<0.0);
+  if (!negSA)
+    mu5 = oosigma * (mul + mutilde);
   else {
     double chi = mutilde/mul;
     double chi3 = chi*chi*chi;
@@ -635,7 +638,7 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
     double oorho = 1.0 / rho;
     double AA, BB, CC;
 
-    if (mutilde >= 0.0) {
+    if (!negSA) {
       double chi = mutilde/mul; // chi = 0 is OK except for fv3
       double chi3 = chi*chi*chi;
       double fv1 = chi3 / (chi3 + cv1_pow3);
@@ -654,8 +657,6 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
       double s31 = dudxj[2][0] - dudxj[0][2];
       double s = sqrt(s12*s12 + s23*s23 + s31*s31);
 
-      // double Stilde = max(s*fv3 + zz*fv2,1.0e-12); // To avoid possible numerical problems, the term \tilde S must never be allowed to reach zero or go negative.
-      // double Stilde = max(s*fv3 + zz*fv2,0.3*s);
       double Stilde, Sbar = zz*fv2;
       if (Sbar >= -c2*s)
         Stilde = s*fv3+Sbar;
@@ -736,8 +737,8 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
 }
 
 //------------------------------------------------------------------------------
-
 // Compute SA equation residual distance sensitivity (sjg, 08/2017)
+
 void FemEquationTermSA::computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3], double d2w[4],
             double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS)
 {
@@ -774,7 +775,8 @@ void FemEquationTermSA::computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3
   double rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
   double oorho = 1.0 / rho;
 
-  if (mutilde >= 0.0) {
+  bool negSA = (V[0][5]<0.0 || V[1][5]<0.0 || V[2][5]<0.0 || V[3][5]<0.0);
+  if (!negSA) {
     double chi = mutilde/mul;
     double chi3 = chi*chi*chi;
     double fv1 = chi3 / (chi3 + cv1_pow3);
@@ -792,8 +794,6 @@ void FemEquationTermSA::computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3
     double s31 = dudxj[2][0] - dudxj[0][2];
     double s = sqrt(s12*s12 + s23*s23 + s31*s31);
 
-    // double Stilde = max(s*fv3 + zz*fv2,1.0e-12); // To avoid possible numerical problems, the term \tilde S must never be allowed to reach zero or go negative.
-    // double Stilde = max(s*fv3 + zz*fv2,0.3*s);
     double Stilde, Sbar = zz*fv2;
     if (Sbar >= -c2*s)
       Stilde = s*fv3+Sbar;
@@ -1042,8 +1042,9 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
     ddp1dxj[2][2]*V[2][5] + dp1dxj[2][2]*dV[2][5] + ddp1dxj[3][2]*V[3][5] + dp1dxj[3][2]*dV[3][5];
 
   double mu5, dmu5;
-  if (mutilde >= 0.0) {
-    mu5 = oosigma * (mul + mutilde); // sjg, 09/2017
+  bool negSA = (V[0][5]<0.0 || V[1][5]<0.0 || V[2][5]<0.0 || V[3][5]<0.0);
+  if (!negSA) {
+    mu5 = oosigma * (mul + mutilde);
     dmu5 = oosigma * (dmul + dmutilde) + d_oosigma * (mul + mutilde);
   }
   else {
@@ -1078,7 +1079,7 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
     double doorho = -1.0 / ( rho * rho ) * drho;
     double dAA, dBB, dCC;
 
-    if (mutilde >= 0.0) {
+    if (!negSA) {
       double chi = mutilde/mul;
       double dchi = ( dmutilde * mul - mutilde * dmul ) / ( mul * mul );
 
@@ -1120,11 +1121,9 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
       double s = sqrt(s12*s12 + s23*s23 + s31*s31);
       double ds = 1.0 / ( 2.0*s ) * (2.0*s12*ds12 + 2.0*s23*ds23 + 2.0*s31*ds31);
 
-      // double Stilde = s*fv3 + zz*fv2;
-      // double dStilde = ds*fv3 + s*dfv3 + dzz*fv2 + zz*dfv2;
       double dStilde, Stilde, Sbar = zz*fv2, dSbar = dzz*fv2 + zz*dfv2;
       if (Sbar >= -c2*s) {
-        Stilde = s*fv3+Sbar; // avoid divide by zero
+        Stilde = s*fv3+Sbar;
         dStilde = ds*fv3 + s*dfv3 + dzz*fv2 + zz*dfv2;
       }
       else {
@@ -1170,7 +1169,6 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
       dCC -= cw1 * fw * oorho * 2.0 * mutilde * dmutilde * ood2wall2;
     }
     else {
-      // WTF this is ugly
       double ood2wall2 = 1.0 / (d2wall * d2wall);
       double zz = ooreynolds * oovkcst2 * mutilde * oorho * ood2wall2;
       double dzz = dooreynolds_mu * oovkcst2 * mutilde * oorho * ood2wall2 + ooreynolds_mu * oovkcst2 * dmutilde * oorho * ood2wall2 + ooreynolds * oovkcst2 * mutilde * doorho * ood2wall2;
@@ -1895,6 +1893,8 @@ double FemEquationTermDES::computeDerivativeOfViscousTimeStep(double X[3], doubl
 }
 
 //------------------------------------------------------------------------------
+// sjg, 09/2017: negative SA model from 2012 Spalart, Allmaras paper to replace
+//               original implementation
 
 bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
 					  double *V[4], double *r, double *S, double *PR, double tetVol,
@@ -1943,8 +1943,9 @@ bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
                    + dp1dxj[3][2]*V[3][5];
 
   double mu5;
-  if (mutilde >= 0.0)
-    mu5 = oosigma * (mul + mutilde);  // sjg, 09/2017
+  bool negSA = (V[0][5]<0.0 || V[1][5]<0.0 || V[2][5]<0.0 || V[3][5]<0.0);
+  if (!negSA)
+    mu5 = oosigma * (mul + mutilde);
   else {
     double chi = mutilde/mul;
     double chi3 = chi*chi*chi;
@@ -1982,7 +1983,7 @@ bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
     double oorho = 1.0 / rho;
     double AA, BB, CC;
 
-    if (mutilde >= 0.0) {
+    if (!negSA) {
       double chi = mutilde/mul; // chi = 0 is OK except for fv3
       double chi3 = chi*chi*chi;
       double fv1 = chi3 / (chi3 + cv1_pow3);
@@ -2001,8 +2002,6 @@ bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
       double s31 = dudxj[2][0] - dudxj[0][2];
       double s = sqrt(s12*s12 + s23*s23 + s31*s31);
 
-      // double Stilde = max(s*fv3 + zz*fv2,1.0e-12); // To avoid possible numerical problems, the term \tilde S must never be allowed to reach zero or go negative.
-      // double Stilde = max(s*fv3 + zz*fv2,0.3*s);
       double Stilde, Sbar = zz*fv2;
       if (Sbar >= -c2*s)
         Stilde = s*fv3+Sbar;
@@ -2131,7 +2130,8 @@ void FemEquationTermDES::computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][
   double rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
   double oorho = 1.0 / rho;
 
-  if (mutilde >= 0.0) {
+  bool negSA = (V[0][5]<0.0 || V[1][5]<0.0 || V[2][5]<0.0 || V[3][5]<0.0);
+  if (!negSA) {
     double chi = mutilde/mul;
     double chi3 = chi*chi*chi;
     double fv1 = chi3 / (chi3 + cv1_pow3);
@@ -2149,8 +2149,6 @@ void FemEquationTermDES::computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][
     double s31 = dudxj[2][0] - dudxj[0][2];
     double s = sqrt(s12*s12 + s23*s23 + s31*s31);
 
-    // double Stilde = max(s*fv3 + zz*fv2,1.0e-12); // To avoid possible numerical problems, the term \tilde S must never be allowed to reach zero or go negative.
-    // double Stilde = max(s*fv3 + zz*fv2,0.3*s);
     double Stilde, Sbar = zz*fv2;
     if (Sbar >= -c2*s)
       Stilde = s*fv3+Sbar;

@@ -12,6 +12,7 @@ using std::min;
 #endif
 
 //------------------------------------------------------------------------------
+
 /*
 @UNPUBLISHED{spalart-allmaras-92,
   author = "Spalart, P. R. and Allmaras, S. R.",
@@ -26,6 +27,9 @@ AIAA Paper 99-3336
 Steven R. Allmaras (Boeing Co., Seattle, WA)
 AIAA, Aerospace Sciences Meeting and Exhibit, 37th, Reno, NV, Jan. 11-14, 1999
 */
+
+//------------------------------------------------------------------------------
+
 
 class SATerm {
 
@@ -46,7 +50,6 @@ protected:
   double oosigma;
   double oovkcst2;
 
-  // sjg
   double rlim;
   double cn1;
   double c2;
@@ -84,7 +87,7 @@ public:
   void rstVarSA(IoData &);
 
   template <int dimLS, int dim>
-  friend class ReinitializeDistanceToWall;  // sjg, 2017: so that d2wall calc can access SA constants for sensititivites
+  friend class ReinitializeDistanceToWall;  // so that d2wall calc can access SA constants for sensititivites
 
 };
 
@@ -115,10 +118,10 @@ SATerm::SATerm(IoData &iod)
 
   rlim = 10.0;
 
-  cn1 = 16.0; // sjg, 09/2017: negative SA model
-  c2 = 0.7;   // sjg, new Stilde definition (2012 paper)
+  // sjg, 09/2017: negative SA model and new Stilde definition (2012 paper)
+  cn1 = 16.0;
+  c2 = 0.7;
   c3 = 0.9;
-
 
   if (iod.eqs.tc.tm.sa.form == SAModelData::FV3)
     usefv3 = true;
@@ -157,7 +160,7 @@ double SATerm::computeTurbulentViscosity(double *V[4], double mul, double &mutil
   double fv1 = chi3 / (chi3 + cv1_pow3);
 
   // return mutilde*fv1;
-  return std::max(mutilde*fv1,0.0); // sjg
+  return std::max(mutilde*fv1,0.0);
 
 }
 
@@ -167,14 +170,14 @@ inline
 double SATerm::computeTurbulentViscosity(double *V, double mul)
 {
 
-  double mutilde = V[0]*V[5];  // sjg
+  double mutilde = V[0]*V[5];
   // double mutilde = V[0] * std::max(0.0,V[5]);
   double chi = mutilde / mul;
   double chi3 = chi*chi*chi;
   double fv1 = chi3 / (chi3 + cv1_pow3);
 
   // return mutilde*fv1;
-  return std::max(mutilde*fv1,0.0); // sjg
+  return std::max(mutilde*fv1,0.0);
 
 }
 
@@ -282,12 +285,13 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
     dp1dxj[2][2]*V[2][5] + dp1dxj[3][2]*V[3][5];
 
   double mu5, drdx, drdy, drdz;
-  if (mutilde >= 0.0) {
+  bool negSA = (V[0][5]<0.0 || V[1][5]<0.0 || V[2][5]<0.0 || V[3][5]<0.0);
+  if (!negSA) {
     drdx = oosigma * 0.25 * dnutildedx;
     drdy = oosigma * 0.25 * dnutildedy;
     drdz = oosigma * 0.25 * dnutildedz;
 
-    mu5 = oosigma * (mul + mutilde); // sjg, 09/2017
+    mu5 = oosigma * (mul + mutilde);
   }
   else {
     double chi = mutilde/mul;
@@ -324,7 +328,7 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
   double oorho = 1.0 / rho;
   double P, D, dP, dD;
 
-  if (mutilde >= 0.0) {
+  if (!negSA) {
     double chi = mutilde/mul;
     double chi3 = chi*chi*chi;
     double fv1 = chi3 / (chi3 + cv1_pow3);
@@ -412,7 +416,7 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
   }
 
   // these terms are identical for negative and standard model (double negative accounted for below)
-  // double s00 = 0.25 * (max(D - P, 0.0) + max(dD - dP, 0.0)); // sjg: why the max?
+  // double s00 = 0.25 * (max(D - P, 0.0) + max(dD - dP, 0.0)); // why the max?
   double s00 = 0.25 * (D + dP - (P + dP));
   double coef4 = oosigma * cb2 * rho * 2.0;
 
@@ -455,7 +459,8 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
   double dnutildedz = dp1dxj[0][2]*V[0][5] + dp1dxj[1][2]*V[1][5] + dp1dxj[2][2]*V[2][5] + dp1dxj[3][2]*V[3][5];
 
   double dmu5[4][6], mu5;
-  if (mutilde >= 0.0) {
+  bool negSA = (V[0][5]<0.0 || V[1][5]<0.0 || V[2][5]<0.0 || V[3][5]<0.0);
+  if (!negSA) {
     mu5 = oosigma * (mul + mutilde);
 
     for (k=0; k<4; ++k) {
@@ -471,13 +476,11 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
     double chi = mutilde/mul;
     double chi3 = chi*chi*chi;
     double chi2 = chi*chi;
-    double fn = (cn1+chi3)/(cn1-chi3);  // approximate as constant
+    double fn = (cn1+chi3)/(cn1-chi3);
     mu5 = oosigma * (mul + fn*mutilde);
 
     double oomul = 1.0/mul;
     double coef1 = -mutilde*oomul*oomul;
-    // double coef2 = 3.0*chi2/(cn1-chi3);
-    // double coef3 = (cn1+chi3)/((cn1-chi3)*(cn1-chi3))*3.0*chi2;
     double coef2 = 6.0*chi2*cn1/((cn1-chi3)*(cn1-chi3));
 
     double dchi[6], dfn[6];
@@ -586,7 +589,7 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
 
   rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
 
-  if (mutilde >= 0.0) {  // sjg, 09/2017
+  if (!negSA) {
     for (k=0; k<4; ++k) {
       chi = mutilde/mul;
 
