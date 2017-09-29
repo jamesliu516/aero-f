@@ -95,11 +95,17 @@ double FemEquationTermNS::computeDerivativeOfViscousTimeStep(double X[3], double
 
 //------------------------------------------------------------------------------
 
-bool FemEquationTermNS::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
-					  double *V[4], double *r, double *S,
-                                          double *PR, double tetVol,
-                                          SVec<double,3> &X, int nodeNum[4],
-                                          int material_id)
+bool FemEquationTermNS::computeVolumeTerm(
+       double dp1dxj[4][3], // (INPUT) derivative of the nodal shape functions in the 3 spatial dimensions
+       double d2w[4],       // (INPUT) distance to wall for all nodes
+       double *V[4],        // (INPUT) fluid states of the nodes
+       double *r,           // (OUTPUT) viscous residual
+       double *S,           // (OUTPUT) zeros are returned
+       double *PR,          // (OUTPUT) //TODO has to do with porosity
+       double tetVol,       // (INPUT) volume of the tetrahedra
+       SVec<double,3> &X,   // (INPUT) location
+       int nodeNum[4],      // (INPUT) IDs of the tetrahedra nodes
+       int material_id)     // (INPUT) ID of the fluid volume
 {
 
   bool porousmedia = false;
@@ -113,15 +119,21 @@ bool FemEquationTermNS::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
   double dudxj[3][3];
   computeVelocityGradient(dp1dxj, u, dudxj);
 
+
   double dTdxj[3];
   computeTemperatureGradient(dp1dxj, T, dTdxj);
 
   double mu, lambda, kappa;
+  mu=0.0;
+  lambda=0.0;
+  kappa=0.0;//TODO clean
   computeTransportCoefficients(Tcg, mu, lambda, kappa);
   mu     *= ooreynolds_mu;
   lambda *= ooreynolds_mu;
   kappa  *= ooreynolds_mu;
 
+
+  //reinterpret cast in order to get rid of the template parameter dim
   double (*R)[5] = reinterpret_cast<double (*)[5]>(r);
   computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, R);
 
@@ -132,9 +144,9 @@ bool FemEquationTermNS::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
   {
     map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
 
-	  if(it != volInfo.end())
-	  {
-		  // if porous media with material_id has been defined in the input file
+    if(it != volInfo.end())
+    {
+      // if porous media with material_id has been defined in the input file
        porousmedia = computeVolumeTermPorousCore(tetVol, it, length, density, velocity, ucg, V, PR);
     }
   }
@@ -152,11 +164,26 @@ bool FemEquationTermNS::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
 //------------------------------------------------------------------------------
 
 // Included (MB)
-bool FemEquationTermNS::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], double ddp1dxj[4][3], double d2w[4],
-																		double *V[4], double *dV[4], double dMach, double *dr,
-																		double *dS, double *dPR, double dtetVol, SVec<double,3> &X,
-                                          int nodeNum[4], int material_id)
+bool FemEquationTermNS::computeDerivativeOfVolumeTerm(
+                          double dp1dxj[4][3],  // (INPUT) first derivatives of the shape-functions
+                          double ddp1dxj[4][3], // (INPUT) second derivatives of the shape functions
+                          double d2w[4],        // (INPUT) distances to wall for all tetrahedra nodes
+                          double *V[4],
+                          double *dV[4],        // (INPUT) state vector and state vector derivative with respect to abstract variable
+                          double dMach,         // (INPUT) flag for mach derivative
+                          double *dr,           // (OUTPUT)
+                          double *dS,           // (OUTPUT)
+                          double *dPR,          // (OUTPUT)
+                          double dtetVol,       // (INPUT) cell volume derivative
+                          SVec<double,3> &X,    // (INPUT) position vector
+                          int nodeNum[4],       // (INPUT) node IDs
+                          int material_id)      // (INPUT) material ID
 {
+
+  if (dV[0][0]+dV[0][1]+dV[0][2]+
+      dV[1][0]+dV[1][1]+dV[1][2]+
+      dV[2][0]+dV[2][1]+dV[2][2]+
+      dV[3][0]+dV[3][1]+dV[3][2] != 0.0) std::cout<<" !!! Non-zero dV found"<<std::endl;
 
   bool porousmedia = false;
 
@@ -165,6 +192,10 @@ bool FemEquationTermNS::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
 
   double du[4][3], ducg[3];
   computeDerivativeOfVelocity(dV, du, ducg);
+  if (du[0][0]+du[0][1]+du[0][2]+
+      du[1][0]+du[1][1]+du[1][2]+
+      du[2][0]+du[2][1]+du[2][2]+
+      du[3][0]+du[3][1]+du[3][2] != 0.0) std::cout<<" !!! Non-zero du found"<<std::endl;
 
   double T[4], Tcg;
   computeTemperature(V, T, Tcg);
@@ -184,6 +215,8 @@ bool FemEquationTermNS::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
   double ddTdxj[3];
   computeDerivativeOfTemperatureGradient(dp1dxj, ddp1dxj, T, dT, ddTdxj);
 
+  //derivative of reynolds with respect to sensitivity variable
+  //only non-zero when mach sensitivity is considered
   double dooreynolds_mu = -1.0 / ( reynolds_muNS * reynolds_muNS ) * dRe_mudMachNS * dMach;
 
   double mu, lambda, kappa;
@@ -224,6 +257,94 @@ bool FemEquationTermNS::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
   return (porousmedia);
 
 }
+
+
+// Included (YC)
+void FemEquationTermNS::computeDerivativeOperatorsOfVolumeTerm(double dp1dxj[4][3], double *V[4],
+            double (*drddp1dxj)[5][4][3], double (*drdV)[5][4][5], double (*drdMach)[5])
+{
+  double u[4][3], ucg[3];
+  computeVelocity(V, u, ucg);
+
+  double dudV[4][3][4][4] = {0}, ducgdV[3][4][4] = {0};
+  computeDerivativeOperatorsOfVelocity(dudV, ducgdV);
+
+  double T[4], Tcg;
+  computeTemperature(V, T, Tcg);
+
+  double dTdV[4][5] = {0}, dTcgdV[4] = {0};
+  computeDerivativeOperatorsOfTemperature(V, dTdV, dTcgdV);
+
+  double dudxj[3][3];
+  computeVelocityGradient(dp1dxj, u, dudxj);
+
+  double ddudxj[3][3] = {0};
+  double ddudxjddp1dxj[3][3][4][3] = {0}, ddudxjdu[3][3][4][3] = {0};
+  computeDerivativeOperatorsOfVelocityGradient(dp1dxj, u, ddudxjddp1dxj, ddudxjdu);
+
+  double dTdxj[3];
+  computeTemperatureGradient(dp1dxj, T, dTdxj);
+
+  double ddTdxjddp1dxj[3][4][3] = {0}, ddTdxjdT[3][4] = {0};
+  computeDerivativeOperatorsOfTemperatureGradient(dp1dxj, T, ddTdxjddp1dxj, ddTdxjdT);
+
+  double coef = -1.0 / ( reynolds_muNS * reynolds_muNS ) * dRe_mudMachNS;
+  double mu, lambda, kappa;
+  computeTransportCoefficients(Tcg, mu, lambda, kappa);
+
+  double dmudTcg(0), dmudMach(0);
+  viscoFcn->compute_muDerivativeOperators(Tcg, dmudTcg, dmudMach);
+  double dlambdadmu(0), dlambdadMach(0);
+  viscoFcn->compute_lambdaDerivativeOperators(dlambdadmu, dlambdadMach);
+  double dkappadTcg(0), dkappadMach(0);
+  thermalCondFcn->computeDerivativeOperators(Tcg, dkappadTcg, dkappadMach);
+
+  mu     *= ooreynolds_mu;
+  lambda *= ooreynolds_mu;
+  kappa  *= ooreynolds_mu;
+  double drdmu[3][5] = {0}, drdlambda[3][5] = {0}, drdkappa[3][5] = {0}, drdu[3][5][3] = {0}, drddudxj[3][5][3][3] = {0}, drddTdxj[3][5][3] = {0};
+  computeDerivativeOperatorsOfVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj,
+                                           drdmu, drdlambda, drdkappa, drdu, drddudxj, drddTdxj);
+  for(int i=0; i<3; ++i) {
+    for(int j=0; j<5; ++j) {
+      drdMach[i][j] += (drdkappa[i][j]*(coef*kappa+ooreynolds_mu*dkappadMach) + drdmu[i][j]*(coef*mu+ooreynolds_mu*dmudMach) + drdlambda[i][j]*(coef*lambda+ooreynolds_mu*dlambdadMach+ooreynolds_mu*dlambdadmu*ooreynolds_mu*dmudMach+ooreynolds_mu*dlambdadmu*mu*coef));
+      for(int k=0; k<4; ++k) {
+        for(int l=0; l<5; ++l) {
+          drdV[i][j][k][l] += (drdmu[i][j]*ooreynolds_mu*dmudTcg + drdkappa[i][j]*ooreynolds_mu*dkappadTcg + drdlambda[i][j]*ooreynolds_mu*dlambdadmu*ooreynolds_mu*dmudTcg)*dTcgdV[k];
+        }
+      }
+      for(int k=0; k<3; ++k) {
+        for(int l=0; l<4; ++l) {
+          for(int m=0; m<5; ++m) {
+            drdV[i][j][l][m] += drddTdxj[i][j][k]*ddTdxjdT[k][l]*dTdV[l][m];//added
+          }
+          for(int w=0; w<3; ++w) {
+            drddp1dxj[i][j][l][w] += drddTdxj[i][j][k]*ddTdxjddp1dxj[k][l][w];
+          }
+        }
+        for(int l=0; l<4; ++l) {
+          for(int m=0; m<4; ++m) {
+            drdV[i][j][l][m] += drdu[i][j][k]*ducgdV[k][l][m];
+          }
+        }
+        for(int l=0; l<3; ++l) {
+          for(int m=0; m<4; ++m) {
+            for(int n=0; n<3; ++n) {
+              drddp1dxj[i][j][m][n] += drddudxj[i][j][k][l]*ddudxjddp1dxj[k][l][m][n];
+              for(int o=0; o<4; ++o) {
+                for(int p=0; p<4; ++p) {
+                  drdV[i][j][o][p] += drddudxj[i][j][k][l]*ddudxjdu[k][l][m][n]*dudV[m][n][o][p];
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+
 
 //------------------------------------------------------------------------------
 
@@ -607,7 +728,7 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
 
   double dnutildedz = dp1dxj[0][2]*V[0][5]
 	                 + dp1dxj[1][2]*V[1][5]
-                   + dp1dxj[2][2]*V[2][5]
+                     + dp1dxj[2][2]*V[2][5]
 	                 + dp1dxj[3][2]*V[3][5];
 
   double mu5;
@@ -936,9 +1057,20 @@ void FemEquationTermSA::computeSourceTerm(double dudxj[3][3],double dnudx[3],
 //------------------------------------------------------------------------------
 
 // Included (MB)
-bool FemEquationTermSA::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], double ddp1dxj[4][3], double d2w[4],
-					  double *V[4], double *dV[4], double dMach, double *dr, double *dS, double *dPR, double dtetVol, SVec<double,3> &X,
-                                          int nodeNum[4], int material_id)
+bool FemEquationTermSA::computeDerivativeOfVolumeTerm(
+       double dp1dxj[4][3], //first derivatives of shape functions
+       double ddp1dxj[4][3],//second derivatives of shape functions
+       double d2w[4],       //distance to wall
+       double *V[4],        //Fluid states of the 4 edges
+       double *dV[4],       //Derivative of the 4 fluid state vectors
+       double dMach,        //flag for mach-sensitivity
+       double *dr,          //residual derivative contribution
+       double *dS,          //?
+       double *dPR,         //?
+       double dtetVol,      //Derivative of tetrahedra volume
+       SVec<double,3> &X,   //mesh positions
+       int nodeNum[4],      //Tetrahedra node IDs
+       int material_id)     //Material IDs
 {
 
   bool porousmedia = false;
@@ -976,7 +1108,7 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
   double kappal  = thermalCondFcn->compute(Tcg);
   double dkappal = thermalCondFcn->computeDerivative(Tcg, dTcg, dMach);
 
-// Test
+  // Test
   double mutilde = 0.0;
   double dmutilde = 0.0;
 
@@ -985,12 +1117,12 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
 
   // Applying the laminar-turbulent trip
   if(trip){
-    if((X[nodeNum[0]][0]>=x0 && X[nodeNum[0]][0]<=x1 && X[nodeNum[0]][1]>=y0 && X[nodeNum[0]][1]<=y1 &&
-    	X[nodeNum[0]][2]>=z0 && X[nodeNum[0]][2]<=z1) || (X[nodeNum[1]][0]>=x0 && X[nodeNum[1]][0]<=x1 &&
-    	X[nodeNum[1]][1]>=y0 && X[nodeNum[1]][1]<=y1 && X[nodeNum[1]][2]>=z0 && X[nodeNum[1]][2]<=z1) ||
-    	(X[nodeNum[2]][0]>=x0 && X[nodeNum[2]][0]<=x1 && X[nodeNum[2]][1]>=y0 && X[nodeNum[2]][1]<=y1 &&
-    	X[nodeNum[2]][2]>=z0 && X[nodeNum[2]][2]<=z1) || (X[nodeNum[3]][0]>=x0 && X[nodeNum[3]][0]<=x1 &&
-    	X[nodeNum[3]][1]>=y0 && X[nodeNum[3]][1]<=y1 && X[nodeNum[3]][2]>=z0 && X[nodeNum[3]][2]<=z1)) {
+    if((X[nodeNum[0]][0]>=x0 && X[nodeNum[0]][0]<=x1  &&  X[nodeNum[0]][1]>=y0 && X[nodeNum[0]][1]<=y1 &&
+        X[nodeNum[0]][2]>=z0 && X[nodeNum[0]][2]<=z1) || (X[nodeNum[1]][0]>=x0 && X[nodeNum[1]][0]<=x1 &&
+        X[nodeNum[1]][1]>=y0 && X[nodeNum[1]][1]<=y1  &&  X[nodeNum[1]][2]>=z0 && X[nodeNum[1]][2]<=z1) ||
+       (X[nodeNum[2]][0]>=x0 && X[nodeNum[2]][0]<=x1  &&  X[nodeNum[2]][1]>=y0 && X[nodeNum[2]][1]<=y1 &&
+        X[nodeNum[2]][2]>=z0 && X[nodeNum[2]][2]<=z1) || (X[nodeNum[3]][0]>=x0 && X[nodeNum[3]][0]<=x1 &&
+        X[nodeNum[3]][1]>=y0 && X[nodeNum[3]][1]<=y1  &&  X[nodeNum[3]][2]>=z0 && X[nodeNum[3]][2]<=z1)) {
     	mut = computeTurbulentViscosity(V, mul, mutilde);
     	dmut = computeDerivativeOfTurbulentViscosity(V, dV, mul, dmul, dmutilde);
     }
@@ -1373,7 +1505,7 @@ bool FemEquationTermSA::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2
   else
     computeJacobianVolumeTermSA<6,5>(dp1dxj, d2w, dudxj, mul, mutilde, V, dRdU, dSdU);
 
-  if(material_id>0) {
+  if (material_id>0) {
     map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
     if(it!=  volInfo.end()) {
       // if porous media with material_id has been defined in the input file
@@ -1401,7 +1533,6 @@ bool FemEquationTermSA::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2
         lambda, dlambda, kappa, dkappa, V, T, dRdU);
 
   return (porousmedia);
-
 
 }
 
@@ -2079,8 +2210,8 @@ bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
 }
 
 //------------------------------------------------------------------------------
-
 // Compute SA equation residual distance sensitivity (sjg, 08/2017)
+
 void FemEquationTermDES::computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3], double d2w[4],
             double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS)
 {
@@ -2185,17 +2316,25 @@ void FemEquationTermDES::computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][
 //------------------------------------------------------------------------------
 
 // Included (MB)
-bool FemEquationTermDES::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], double ddp1dxj[4][3], double d2w[4],
-					  double *V[4], double *dV[4], double dMach, double *dr, double *dS, double *dPR, double dtetVol, SVec<double,3> &X,
-                                          int nodeNum[4], int material_id)
+bool FemEquationTermDES::computeDerivativeOfVolumeTerm(
+                           double dp1dxj[4][3],
+                           double ddp1dxj[4][3],
+                           double d2w[4],
+                           double *V[4],
+                           double *dV[4],
+                           double dMach,
+                           double *dr,
+                           double *dS,
+                           double *dPR,
+                           double dtetVol,
+                           SVec<double,3> &X,
+                           int nodeNum[4], int material_id)
 {
 
   bool porousmedia = false;
-
   fprintf(stderr, "***** FemEquationTermDesc::computeDerivativeOfVolumeTerm");
   fprintf(stderr, " >> Function not defined for TermDES *****\n");
-
-  exit(1);
+  exit(-1);
 
   return (porousmedia);
 

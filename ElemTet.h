@@ -19,8 +19,6 @@ class ElemTet : public ElemDummy {
   int nodeNumTet[4];
   int edgeNumTet[6];
 
-  // double dp1dxj[4][3]; //sjg, 07/2017: store shape function gradients for Eikonal solution
-
 protected:
   void *getWrapper_dim(GenElemHelper_dim *h,
 		       int size, char *memorySpace) {
@@ -39,7 +37,6 @@ protected:
 
 public:
 
-  // ElemTet() { volume_id = 0; for (int i=0; i<4; i++) {dp1dxj[i][0] = 0.0; dp1dxj[i][1] = 0.0; dp1dxj[i][2] = 0.0;} }
   ElemTet() { volume_id = 0; }
   ~ElemTet() {}
 
@@ -91,7 +88,6 @@ public:
   void computeStiffTorsionSpring(double *, SVec<double, 3> &X, double volStiff);
 
   void computeTemp(double *[4], double [4], double);
-
   void computeTempGradient(double [4][3], double [4], double [3]);
 
   //-----functions in Tet.C
@@ -106,8 +102,8 @@ public:
 
   template<int dim>
   void computeGalerkinTerm_e(FemEquationTerm *, SVec<double,3> &, Vec<double> &,
-									  SVec<double,dim> &, SVec<double,dim> &,
-									  Vec<GhostPoint<dim>*> *ghostPoints=0,LevelSetStructure *LSS=0);
+         SVec<double,dim> &, SVec<double,dim> &,
+         Vec<GhostPoint<dim>*> *ghostPoints=0,LevelSetStructure *LSS=0);
 
   template<int dim>
   double* setGhostOccludedValue(int i, SVec<double,3> &X, SVec<double,dim> &V,
@@ -203,6 +199,8 @@ public:
 			      SVec<double,3> &, SVec<double,3> &);
 
   double computeDerivativeOfGradientP1Function(SVec<double,3> &, SVec<double,3> &, double [4][3]);
+  double computeDerivativeOfGradientP1Function2(SVec<double,3> &, SVec<double,3> &, double [4][3], double [4][3]);
+  void computeDerivativeOperatorOfGradientP1Function(SVec<double,3> &, double [4][3], double [4][3][4][3], int [4] = NULL);
   void computeDerivativeTransposeOfGradientP1Function(SVec<double,3> &, double, double [4][3], double [4][3], SVec<double,3> &);
 
   template<int dim>
@@ -210,9 +208,23 @@ public:
 			   SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &);
 
   template<int dim>
+  void computeDerivativeOfGalerkinTermEmb(FemEquationTerm *, SVec<double,3> &, SVec<double,3> &, Vec<double> &,
+         SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &,
+         Vec<GhostPoint<dim>*> *ghostPoints,LevelSetStructure *LSS);
+
+  //This function populates the state vector and its derivative with the ghost values if some of the
+  //elements nodes are ghost. This is needed for the FE evaluation of the viscous term.
+  template<int dim>
+  void getPseudoStates(
+         double** , double**, Vec<GhostPoint<dim>*> *ghostPoints,LevelSetStructure *LSS);
+
+  template<int dim>
+  void computeDerivativeOperatorsOfGalerkinTerm(FemEquationTerm *, SVec<double,3> &, Vec<double> &,
+                                                SVec<double,dim> &, RectangularSparseMat<double,3,dim> &);
+  template<int dim>
   void computeDerivativeOfFaceGalerkinTerm(FemEquationTerm *, int [3], int, Vec3D &, Vec3D &,
-			       SVec<double,3> &, SVec<double,3> &, Vec<double> &, double *, double *,
-			       SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &);
+         SVec<double,3> &,   SVec<double,3> &, Vec<double> &, double *, double *,
+         SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &);
 
   // Level Set Reinitialization
 
@@ -233,7 +245,7 @@ public:
                                  SVec<double,3> &X, SVec<double,1> &Psi, SVec<double,dim> &Phi);
 
   template<int dim>
-  void computeSADistSensitivity(FemEquationTerm *fet, SVec<double,3> &X,
+  void computeSADistanceSensitivity(FemEquationTerm *fet, SVec<double,3> &X,
                     Vec<double> &d2wall, SVec<double,dim> &V,
                     Vec<double> &dS, LevelSetStructure *LSS=0);
 
@@ -287,17 +299,17 @@ private:
   template<int dim>
   int findLSIntersectionPoint(int lsdim, SVec<double,dim> &Phi, SVec<double,dim> &ddx,
                               SVec<double,dim> &ddy, SVec<double,dim> &ddz,
- 			      SVec<double,3> &X,
+ 			                        SVec<double,3> &X,
                               int reorder[4], Vec3D P[4], int typeTracking);
   template<int dim>
   void findLSIntersectionPointLinear(int lsdim, SVec<double,dim> &Phi, SVec<double,dim> &ddx,
                                  SVec<double,dim> &ddy, SVec<double,dim> &ddz,
-				 SVec<double,3> &X,
+				                         SVec<double,3> &X,
                                  int reorder[4], Vec3D P[4], int scenario);
   template<int dim>
   void findLSIntersectionPointGradient(int lsdim, SVec<double,dim> &Phi,  SVec<double,dim> &ddx,
                                  SVec<double,dim> &ddy, SVec<double,dim> &ddz,
-				 SVec<double,3> &X,
+				                         SVec<double,3> &X,
                                  int reorder[4], Vec3D P[4], int scenario);
   template<int dim>
   int findLSIntersectionPointHermite(int lsdim, SVec<double,dim> &Phi,  SVec<double,dim> &ddx,
@@ -310,7 +322,7 @@ private:
                                   Vec3D P[4], SVec<double,dim> &Psi, Vec<int> &Tag);
   template<int dim>
   void recomputeDistanceToInterface(int type, SVec<double,3> &X, int reorder[4],
-                                Vec3D P[4], SVec<double,dim> &Psi, Vec<int> &Tag);
+                                  Vec3D P[4], SVec<double,dim> &Psi, Vec<int> &Tag);
 
   template<int dim>
   double computeDistancePlusPhi(int i, SVec<double,3> &X, SVec<double,dim> &Psi);

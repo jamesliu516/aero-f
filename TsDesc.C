@@ -814,10 +814,10 @@ void TsDesc<dim>::setMeshSensitivitySolverPositionVector()
 //------------------------------------------------------------------------------
 
 template<int dim>
-void TsDesc<dim>::receiveBoundaryPositionSensitivityVector(DistSVec<double,3> &dXdSb)
+void TsDesc<dim>::receiveBoundaryPositionSensitivityVector(DistSVec<double,3> &dXdSb, bool applyScale)
 {
   if (mmh) {
-    mmh->updateDStep2(*Xs,dXdSb);
+	mmh->updateDStep2(*Xs,dXdSb, applyScale);
   }
 }
 
@@ -832,9 +832,9 @@ void TsDesc<dim>::negotiate()
 //------------------------------------------------------------------------------
 
 template<int dim>
-void TsDesc<dim>::sendForceSensitivity(DistSVec<double,3> *dFdS)
+void TsDesc<dim>::sendForceSensitivity(DistSVec<double,3> *dFdS, bool applyScale)
 {
-  if (mmh)  mmh->sendForceSensitivity(dFdS);
+  if (mmh)  mmh->sendForceSensitivity(dFdS, applyScale);
 }
 
 //------------------------------------------------------------------------------
@@ -1059,7 +1059,8 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
 
     if(ioData.problem.alltype != ProblemData::_SHAPE_OPTIMIZATION_ &&
        ioData.problem.alltype != ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ &&
-       ioData.problem.alltype != ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
+       ioData.problem.alltype != ProblemData::_ROM_SHAPE_OPTIMIZATION_ &&
+       ioData.problem.alltype != ProblemData::_SENSITIVITY_ANALYSIS_ ) { //TODO CHECK if really needed
       output->closeAsciiFiles();
     }
   }
@@ -1538,4 +1539,3 @@ void TsDesc<dim>::readICFromDisk(char * solnFile, int iData, int nData, DistSVec
     com->fprintf(stdout,"\n\n\nInitial condition %d of %d (%s)\n", iData+1, nData, solnFile);
     domain->readVectorFromFile(solnFile, 0, 0, U);
 }
-

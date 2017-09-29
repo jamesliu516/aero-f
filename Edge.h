@@ -310,7 +310,8 @@ public:
   void computeDerivativeOfFiniteVolumeTerm(Vec<double> &, Vec<double> &, FluxFcn**, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&, SVec<double,3>&,
                                            SVec<double,dim>&, SVec<double,dim>&, NodalGrad<dim>&, EdgeGrad<dim>*, double,
                                            SVec<double,dim>&);
-
+  
+  //Direct senstitivity contribution of the viscous term in ALE simulation
   template<int dim>
   void computeDerivativeOfFiniteVolumeTerm(RectangularSparseMat<double,dim,dim> *,
                                            RectangularSparseMat<double,dim,dim> *dFluxdddy,
@@ -324,7 +325,8 @@ public:
                                            SVec<double,dim>& dddz,
                                            Vec<Vec3D>& dNormal,
                                            SVec<double,dim>&);
-
+  
+  // For Adjoint sensitivity contibution of the viscous term
   template<int dim>
   void computeTransposeDerivativeOfFiniteVolumeTerm(RectangularSparseMat<double,dim,dim> *,
                                            RectangularSparseMat<double,dim,dim> *dFluxdddy,
@@ -340,8 +342,9 @@ public:
                                            SVec<double,dim>& dddx,
                                            SVec<double,dim>& dddy,
                                            SVec<double,dim>& dddz,
-                                           Vec<Vec3D>& dNormal);
-
+                                           Vec<Vec3D>& dNormal);                          
+  
+  //Direct sensitivity contribution of the viscous term in Embedded simulation
   template<int dim>
   void computeDerivativeOfFiniteVolumeTerm(FluxFcn** fluxFcn, RecFcn* recFcn,
 					   GeoState& geoState, SVec<double,3>& X, LevelSetStructure &LSS,
@@ -350,6 +353,15 @@ public:
 					   NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
 					   double dMach, SVec<double,dim>& V, SVec<double,dim>& dFluxes);
 
+  //Adjoint sensitivity contribution for invsicid term in Embedded
+  template<int dim>
+  void computeTransposeDerivativeOfFiniteVolumeTerm(FluxFcn** fluxFcn, RecFcn* recFcn, Vec<double> &ctrlVol,
+             GeoState& geoState, SVec<double,3>& X, LevelSetStructure &LSS,
+             bool linRecAtInterface, Vec<int> &fluidId, 
+             ExactRiemannSolver<dim>& riemann, int Nriemann,
+             NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
+             double dMach, SVec<double,dim>& V, SVec<double,dim>& lambdaU, double& dQ);
+   
   template<int dim>
   void computeDerivativeOperatorsOfFiniteVolumeTerm(Vec<double> &irey, Vec<double> &dIrey, FluxFcn** fluxFcn, RecFcn* recFcn,
               ElemSet& elems, GeoState& geoState, SVec<double,3>& X, SVec<double,dim>& V, NodalGrad<dim>& ngrad,

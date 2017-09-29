@@ -26,13 +26,56 @@ EmbeddedFluidShapeOptimizationHandler<dim>::EmbeddedFluidShapeOptimizationHandle
   ImplicitEmbeddedCoupledTsDesc<dim>(ioData, geoSource, dom),
   dXdS(dom->getNodeDistInfo()),
   Flux(dom->getNodeDistInfo()),
-FluxFD(dom->getNodeDistInfo()),
-  dFdS(dom->getNodeDistInfo()), 
+  FluxFD(dom->getNodeDistInfo()),
+  dFdS(dom->getNodeDistInfo()),
+  lambdaU(dom->getNodeDistInfo()), 
+  dFdS_inviscid(dom->getNodeDistInfo()),
+  dFdS_viscous(dom->getNodeDistInfo()),
   dUdS(dom->getNodeDistInfo()),
-   Pin(dom->getFaceDistInfo()),
-//debug
-dFdS_debug(dom->getNodeDistInfo()),
-difference(dom->getNodeDistInfo())
+  Pin(dom->getFaceDistInfo()),
+  dFdS_debug(dom->getNodeDistInfo()),
+  difference(dom->getNodeDistInfo()),
+  dAdS(dom->getNodeDistInfo()),
+  dddx(dom->getNodeDistInfo()),
+  dddy(dom->getNodeDistInfo()),
+  dddz(dom->getNodeDistInfo()),
+  dR(dom->getNodeDistInfo()),
+  dGradP(dom->getNodeDistInfo()),
+  domain(dom),//////////////////////////////
+  mvp(NULL),
+  dRdX(NULL),
+  pc(NULL),
+  pc2(NULL),
+  ksp(NULL),
+  ksp2(NULL),
+  steadyTol(0.0),
+  xmach(0.0),
+  alprad(0.0),
+  teta(0.0),
+  dXdSb_file(NULL),
+  load(NULL),
+  dLoad(NULL),
+  dLoadref(NULL),
+  X_(NULL),
+  Lp(NULL),
+  Lm(NULL),
+  A_(NULL),
+  Fp(NULL),
+  Fm(NULL),
+  Fp_inviscid(NULL),
+  Fm_inviscid(NULL),
+  Fp_viscous(NULL),
+  Fm_viscous(NULL),
+  Up(NULL),
+  Um(NULL),
+  reynolds0(0.0),
+  kenergy0(0.0),
+  length(0.0),
+  surface(0.0),
+  numLocSub(0),
+  actvar(0),
+  step(0),
+  outFile(NULL)
 {
 
   step = 0;
@@ -47,6 +90,10 @@ difference(dom->getNodeDistInfo())
     dLoadref = 0;
   }
 
+  dddx=0.0;
+  dddy=0.0;
+  dddz=0.0;
+
   X_ = new DistSVec<double,3>(dom->getNodeDistInfo());
   A_ = new DistVec<double>(dom->getNodeDistInfo());   
 
@@ -56,11 +103,21 @@ difference(dom->getNodeDistInfo())
   Fp = new DistSVec<double,dim>(dom->getNodeDistInfo());
   Fm = new DistSVec<double,dim>(dom->getNodeDistInfo());
 
+  Ap = new DistVec<double>(dom->getNodeDistInfo());
+  Am = new DistVec<double>(dom->getNodeDistInfo());
+
+  Fp_inviscid = new DistSVec<double,dim>(dom->getNodeDistInfo());
+  Fm_inviscid = new DistSVec<double,dim>(dom->getNodeDistInfo());
+  Fp_viscous = new DistSVec<double,dim>(dom->getNodeDistInfo());
+  Fm_viscous = new DistSVec<double,dim>(dom->getNodeDistInfo());
+
   Up = new DistSVec<double,dim>(dom->getNodeDistInfo());
   Um = new DistSVec<double,dim>(dom->getNodeDistInfo());   
 
-  if (ioData.sa.homotopy == SensitivityAnalysis::ON_HOMOTOPY) {
+  dFdS_inviscid = 0.0;
+  dFdS_viscous = 0.0;
 
+  if (ioData.sa.homotopy == SensitivityAnalysis::ON_HOMOTOPY) {
     if (ioData.ts.implicit.mvp == ImplicitData::H2){
       mvp = new MatVecProdH2<dim,double,dim>(ioData, this->varFcn, this->timeState, this->spaceOp, dom, this->geoState);
     } else {
@@ -68,10 +125,10 @@ difference(dom->getNodeDistInfo())
     }
 
   } else {
-
-    if (ioData.ts.implicit.mvp == ImplicitData::H2) {
+    if (ioData.sa.mvp == SensitivityAnalysis::H2) {
       mvp = new MatVecProdH2<dim,double,dim>(ioData, this->varFcn, 0, this->spaceOp, dom, this->geoState);
-    } else {
+    }
+    else{
       mvp = new MatVecProdFD<dim,dim>(ioData.ts.implicit,  0, this->geoState, this->spaceOp, dom, ioData);
     }
 
@@ -80,7 +137,17 @@ difference(dom->getNodeDistInfo())
   pc = ImplicitEmbeddedTsDesc<dim>::template 
     createPreconditioner<dim>(ioData.sa.ksp.pc, this->domain);
 
+
   ksp = this->createKrylovSolver(this->getVecInfo(), ioData.sa.ksp, mvp, pc, this->com);
+
+  dRdX = new MatVecProd_dRdX<dim,double,dim>(ioData, this->varFcn, this->timeState, this->spaceOp, domain, this->geoState);
+
+  MemoryPool mp;
+
+  mvp->exportMemory(&mp);
+  pc->exportMemory(&mp);
+
+
 
   typename MatVecProd<dim,dim>::_fsi fsi = {
     this->distLSS,
@@ -98,6 +165,25 @@ difference(dom->getNodeDistInfo())
   surface = ioData.output.transient.surface;
 
   numLocSub = dom->getNumLocSub();
+
+  //////////
+  dXdS=0.0;
+  dFdS=0.0;
+  dFdS_inviscid=0.0;
+  dFdS_viscous=0.0;
+  dUdS=0.0;
+  dddx=0.0;
+  dddy=0.0;
+  dddz=0.0;
+
+  FluxFD = 0.0;
+  Flux = 0.0;
+
+  reynolds0 = ioData.ref.reynolds_mu;
+  kenergy0 = ioData.bc.inlet.kenergy;
+
+  steadyTol = 1.0;
+  /////////////
 
   dFdS = 0.0;
 
@@ -130,11 +216,6 @@ EmbeddedFluidShapeOptimizationHandler<dim>::~EmbeddedFluidShapeOptimizationHandl
 
 }
 
-//------------------------------------------------------------------------------
-//------------------------------------------------------------------------------
-//------------------------------------------------------------------------------
-//------------------------------------------------------------------------------
-
 template<int dim>
 void EmbeddedFluidShapeOptimizationHandler<dim>::fsoInitialize(IoData &ioData, DistSVec<double,dim> &U)
 {
@@ -144,13 +225,12 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoInitialize(IoData &ioData, D
   // Reseting the configuration control of the geometry datas
   this->geoState->resetConfigSA();
 
-  // ?????
+  // Auxiliary output file in ASCII format.
   if (this->com->cpuNum() == 0) {
     outFile = fopen(ioData.sa.sensoutput, "w");
     if (outFile) 
       fclose(outFile);
   }
-  // ?????
 
   xmach  = ioData.sa.machref;
   alprad = ioData.sa.alpharef;
@@ -175,7 +255,78 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoInitialize(IoData &ioData, D
 //------------------------------------------------------------------------------
 
 template<int dim>
-void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSetUpLinearSolver
+void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSetUpLinearSolver(
+                                                   IoData &ioData,
+                                                   DistSVec<double,3> &X,
+                                                   DistVec<double> &A,
+                                                   DistSVec<double,dim> &U,
+                                                   DistSVec<double,dim> &dFdS)
+{
+  this->com->fprintf(stderr,"\033[93mfsoSetUpLinearSolver called\n\033[00m");
+
+  fsoRestartBcFluxs(ioData);
+
+  this->geoState->reset(X);
+  this->geoState->compute(this->timeState->getData(), this->bcData->getVelocityVector(), X, A);
+  this->bcData->update(X);
+
+  FluxFD = 0.0;
+  this->spaceOp->computeResidual(X, A, U, 
+                 *this->Wstarij, *this->Wstarji, *this->Wextij,
+                  this->distLSS,
+                  this->linRecAtInterface, this->viscSecOrder,
+                  this->nodeTag,
+                  FluxFD,
+                  this->riemann, this->riemannNormal,
+                  1, this->ghostPoints);
+
+  if (ioData.sa.homotopy == SensitivityAnalysis::ON_HOMOTOPY){
+    this->com->fprintf(stderr,"\033[91mHOMOTOPY not yet supported\n\033[00m"); exit(-1);
+    this->timeState->add_dAW_dt(1, *this->geoState, A, U, FluxFD, this->distLSS);
+  }
+
+  this->spaceOp->applyBCsToResidual(U, FluxFD, this->distLSS);
+
+  mvp->evaluate(0, X, A, U, FluxFD);
+
+  DistMat<double,dim> *_pc = dynamic_cast<DistMat<double,dim> *>(pc);
+
+  if (_pc) {
+    MatVecProdFD<dim,dim>           *mvpfd = dynamic_cast<MatVecProdFD<dim,dim> *>(mvp);
+    MatVecProdH2<dim,MatScalar,dim> *mvph2 = dynamic_cast<MatVecProdH2<dim,double,dim> *>(mvp);
+
+    if (mvpfd || mvph2) {
+
+      this->spaceOp->computeJacobian(X, A, U, 
+             this->distLSS, this->nodeTag,
+             this->riemann, this->riemannNormal,
+             this->ghostPoints, *_pc, this->timeState);
+
+
+      if (ioData.sa.homotopy == SensitivityAnalysis::ON_HOMOTOPY){
+        this->timeState->addToJacobian(A, *_pc, U);
+      }
+      this->spaceOp->applyBCsToJacobian(U, *_pc, this->distLSS);      
+
+    }
+
+  }
+
+  pc->setup();
+
+  this->spaceOp->computeResidual(X, A, U, 
+                   *this->Wstarij, *this->Wstarji, *this->Wextij,
+                   this->distLSS,
+                   this->linRecAtInterface, this->viscSecOrder,
+                   this->nodeTag,
+                   Flux,
+                   this->riemann, this->riemannNormal, 1, this->ghostPoints, false);
+}
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+
+template<int dim>
+void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSetUpAdjointLinearSolver
 (
  IoData &ioData, 
  DistSVec<double,3> &X, 
@@ -191,11 +342,11 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSetUpLinearSolver
   this->bcData->update(X);
 
   this->spaceOp->computeResidual(X, A, U, 
-											*this->Wstarij, *this->Wstarji, *this->Wextij, this->distLSS,
+                      *this->Wstarij, *this->Wstarji, *this->Wextij, this->distLSS,
                                  this->linRecAtInterface, this->viscSecOrder, 
-				 this->nodeTag, 
-				 FluxFD, 
-				 this->riemann, this->riemannNormal, 1, this->ghostPoints);
+         this->nodeTag, 
+         FluxFD, 
+         this->riemann, this->riemannNormal, 1, this->ghostPoints);
 
   if (ioData.sa.homotopy == SensitivityAnalysis::ON_HOMOTOPY)
     this->timeState->add_dAW_dt(1, *this->geoState, A, U, FluxFD, this->distLSS); 
@@ -214,33 +365,82 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSetUpLinearSolver
     if (mvpfd || mvph2) {
 
       this->spaceOp->computeJacobian(X, A, U, 
-				     this->distLSS, this->nodeTag, 
-				     this->riemann, this->riemannNormal,
-				     this->ghostPoints, *_pc, this->timeState);
+             this->distLSS, this->nodeTag,
+             this->riemann, this->riemannNormal,
+             this->ghostPoints, *_pc, this->timeState);
+
 
       if (ioData.sa.homotopy == SensitivityAnalysis::ON_HOMOTOPY){
-	this->timeState->addToJacobian(A, *_pc, U);
+        this->timeState->addToJacobian(A, *_pc, U);
       }
-
       this->spaceOp->applyBCsToJacobian(U, *_pc, this->distLSS);      
     }
 
   }
-
+  //setup does an LU decomposition
   pc->setup();
+  pc->setupTR();//sets up transpose for adjoint application
 
   this->spaceOp->computeResidual(X, A, U, 
-											*this->Wstarij, *this->Wstarji, *this->Wextij, this->distLSS,
+                      *this->Wstarij, *this->Wstarji, *this->Wextij, this->distLSS,
                                  this->linRecAtInterface, this->viscSecOrder, 
-				 this->nodeTag, 
-				 Flux, 
-				 this->riemann, this->riemannNormal, 1, this->ghostPoints, false);
+         this->nodeTag, 
+         Flux, 
+         this->riemann, this->riemannNormal, 1, this->ghostPoints, false);
 }
+//------------------------------------------------------------------------------
+
+//template<int dim>
+//void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSetUpLinearSolver2(IoData &ioData, DistSVec<double,3> &X, DistVec<double> &A,
+//                                                              DistSVec<double,dim> &U, DistSVec<double,dim> &dFdS)
+//{
+//
+//// Preparing the linear solver
+//  fsoRestartBcFluxs(ioData);
+//
+//  this->geoState->reset(X);
+//
+//  this->geoState->compute(this->timeState->getData(), this->bcData->getVelocityVector(), X, A);
+//
+//  this->bcData->update(X);
+//
+//  this->spaceOp->computeResidual(X, A, U, FluxFD, this->timeState);
+//
+//  if (ioData.sa.homotopy == SensitivityAnalysis::ON_HOMOTOPY)
+//    this->timeState->add_dAW_dt(1, *this->geoState, A, U, FluxFD);
+//
+//  this->spaceOp->applyBCsToResidual(U, FluxFD);
+//
+//  mvp->evaluate(0, X, A, U, FluxFD);
+//
+//  DistMat<PrecScalar,dim> *_pc = dynamic_cast<DistMat<PrecScalar,dim> *>(pc);
+//
+//  if (_pc) {
+//    MatVecProdFD<dim,dim> *mvpfd = dynamic_cast<MatVecProdFD<dim,dim> *>(mvp);
+//    MatVecProdH2<dim,MatScalar,dim> *mvph2 = dynamic_cast<MatVecProdH2<dim,MatScalar,dim> *>(mvp);
+//
+//    if (mvpfd || mvph2)
+//    {
+//      this->spaceOp->computeJacobian(X, A, U, *_pc, this->timeState);
+//      if (ioData.sa.homotopy == SensitivityAnalysis::ON_HOMOTOPY)
+//        this->timeState->addToJacobian(A, *_pc, U);
+//      this->spaceOp->applyBCsToJacobian(U, *_pc);
+//    }
+//
+//  } // END if (_pc)
+//
+//  pc->setup();
+//
+//  // Computing flux for compatibility correction of the derivative of the flux
+//  this->spaceOp->computeResidual(X, A, U, Flux, this->timeState, false);
+//
+//}
+
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void EmbeddedFluidShapeOptimizationHandler<dim>::fsoRestartBcFluxs(IoData &ioData)
+void EmbeddedFluidShapeOptimizationHandler<dim>::fsoRestartBcFluxsOLD(IoData &ioData)
 {
 
   double gamma  = ioData.eqs.fluidModel.gasModel.specificHeatRatio;
@@ -327,7 +527,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoRestartBcFluxs(IoData &ioDat
     double viscosity = ioData.eqs.viscosityModel.sutherlandConstant * sqrt(ioData.ref.temperature) /
                        (1.0 + ioData.eqs.viscosityModel.sutherlandReferenceTemperature/ioData.ref.temperature);
 
-    ioData.ref.reynolds_mu = velocity * ioData.ref.length * ioData.ref.density / viscosity;
+    ioData.ref.reynolds_mu = velocity * ioData.ref.length * ioData.ref.density / viscosity;//This error is close
 
     double dvelocitydMach = sqrt(gamma * ioData.ref.pressure / ioData.ref.density);
     ioData.ref.dRe_mudMach = dvelocitydMach * ioData.ref.length * ioData.ref.density / viscosity;
@@ -453,6 +653,258 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoRestartBcFluxs(IoData &ioDat
 
 }
 
+//Why would I need that function? Primarily for the FD Sensitivity, since there, the inflow parameter might change
+template<int dim>
+void EmbeddedFluidShapeOptimizationHandler<dim>::fsoRestartBcFluxs(IoData &ioData)
+{
+
+  double gamma = ioData.eqs.fluidModel.gasModel.specificHeatRatio;
+  double R = ioData.eqs.fluidModel.gasModel.idealGasConstant;
+  double Pstiff = ioData.eqs.fluidModel.gasModel.pressureConstant;
+
+// Remark: For internal flows the SA using inlet or outlet Mach, Alpha and Beta should be specified in the input file
+
+  ioData.bc.inlet.mach = xmach;
+  ioData.bc.outlet.mach = xmach;
+
+  ioData.bc.inlet.alpha = alprad;
+  ioData.bc.outlet.alpha = alprad;
+
+  ioData.bc.inlet.beta = teta;
+  ioData.bc.outlet.beta = teta;
+
+  if (ioData.problem.mode == ProblemData::NON_DIMENSIONAL)
+  {
+    this->com->fprintf(stderr, "Sensitivity Analysis does not support NON-Dimensional analysis");
+    exit(-1);
+
+    ioData.ref.mach = xmach;
+    ioData.ref.dRe_mudMach = 0.0;
+
+    if (ioData.sa.densFlag == false) {
+      ioData.bc.inlet.density = 1.0;
+      ioData.bc.outlet.density = 1.0;
+    }
+
+    if (ioData.sa.pressFlag == false) {
+      ioData.bc.inlet.pressure = 1.0/(gamma*ioData.ref.mach*ioData.ref.mach);
+      ioData.bc.outlet.pressure = 1.0/(gamma*ioData.ref.mach*ioData.ref.mach);
+    }
+
+    if (ioData.sa.apressFlag == false) {
+      if (ioData.sa.pressFlag == false) {
+        ioData.aero.pressure = ioData.bc.inlet.pressure;
+        Pin = ioData.aero.pressure;
+        this->postOp->rstVarPostFcn(ioData);
+        this->postOp->rstVar(ioData);
+        this->spaceOp->rstFluxFcn(ioData);
+        mvp->rstSpaceOp(ioData, this->varFcn, this->spaceOp, false);
+        this->rstVarImplicitEmbeddedCoupledTsDesc(ioData);
+      }
+    }
+  }
+  else if (ioData.problem.mode == ProblemData::DIMENSIONAL) {
+
+
+    // Step 1: Re-scale all the parameters
+
+    ioData.eqs.fluidModel.pmin *= ioData.ref.rv.pressure;
+
+    ioData.bc.inlet.density   *= ioData.ref.rv.density;
+    ioData.bc.inlet.pressure  *= ioData.ref.rv.pressure;
+    ioData.bc.inlet.temperature *= ioData.ref.rv.temperature;
+    ioData.bc.inlet.nutilde   *= ioData.ref.rv.nutilde;
+    ioData.bc.inlet.kenergy   *= ioData.ref.rv.kenergy;
+    ioData.bc.inlet.eps       *= ioData.ref.rv.epsilon;
+    ioData.bc.outlet.density  *= ioData.ref.rv.density;
+    ioData.bc.outlet.pressure *= ioData.ref.rv.pressure;
+    ioData.bc.outlet.temperature *= ioData.ref.rv.temperature;
+    ioData.bc.outlet.nutilde  *= ioData.ref.rv.nutilde;
+    ioData.bc.outlet.kenergy  *= ioData.ref.rv.kenergy;
+    ioData.bc.outlet.eps      *= ioData.ref.rv.epsilon;
+
+    ioData.restart.etime  *= ioData.ref.rv.time;
+    ioData.restart.dt_nm1 *= ioData.ref.rv.time;
+    ioData.restart.dt_nm2 *= ioData.ref.rv.time;
+    ioData.restart.energy *= ioData.ref.rv.energy;
+    ioData.bc.wall.temperature *= ioData.ref.rv.temperature;
+    ioData.ts.timestep    *= ioData.ref.rv.time;
+    ioData.ts.maxTime     *= ioData.ref.rv.time;
+    ioData.rmesh.vx       *= ioData.ref.rv.velocity;
+    ioData.rmesh.vy       *= ioData.ref.rv.velocity;
+    ioData.rmesh.vz       *= ioData.ref.rv.velocity;
+    ioData.rmesh.ax       *= ioData.ref.rv.velocity / ioData.ref.rv.time;
+    ioData.rmesh.ay       *= ioData.ref.rv.velocity / ioData.ref.rv.time;
+    ioData.rmesh.az       *= ioData.ref.rv.velocity / ioData.ref.rv.time;
+    ioData.rmesh.timestep *= ioData.ref.rv.time;
+
+    for (int j=0; j<ioData.rmesh.num; j++){
+      ioData.rmesh.vpts[j]->time      *= ioData.ref.rv.time;
+      ioData.rmesh.vpts[j]->velocityX *= ioData.ref.rv.velocity;
+      ioData.rmesh.vpts[j]->velocityY *= ioData.ref.rv.velocity;
+      ioData.rmesh.vpts[j]->velocityZ *= ioData.ref.rv.velocity;
+    }
+    ioData.aero.pressure    *= ioData.ref.rv.pressure;
+    ioData.forced.timestep  *= ioData.ref.rv.time;
+    ioData.forced.frequency /= ioData.ref.rv.time;
+
+    ioData.eqs.gravity_x  *= ioData.ref.rv.velocity / ioData.ref.rv.time;
+    ioData.eqs.gravity_y  *= ioData.ref.rv.velocity / ioData.ref.rv.time;
+    ioData.eqs.gravity_z  *= ioData.ref.rv.velocity / ioData.ref.rv.time;
+    ioData.bc.hydro.depth *= ioData.ref.length;
+
+    //
+    // Step 2: Restart all values based on new inlet values
+    // Step 2.1: Reset values in ioData.ref
+    //
+
+    ioData.ref.mach     = ioData.bc.inlet.mach;
+    ioData.ref.density  = ioData.bc.inlet.density;
+    ioData.ref.pressure = ioData.bc.inlet.pressure;
+    double velocity     = ioData.ref.mach * sqrt(gamma * (ioData.ref.pressure+Pstiff) / ioData.ref.density);
+    ioData.ref.temperature = (ioData.ref.pressure + gamma*Pstiff)/ (ioData.ref.density * R);
+
+    double viscosity = 0.0;
+    if(ioData.eqs.viscosityModel.type == ViscosityModelData::CONSTANT) {
+      viscosity = ioData.eqs.viscosityModel.dynamicViscosity;
+    }
+    else{
+      this->com->fprintf(stderr,"Sutherland Viscosity model currently not supported in SensitivityAnalysis \n");
+      viscosity = ioData.eqs.viscosityModel.sutherlandConstant * sqrt(ioData.ref.temperature) /
+        (1.0 + ioData.eqs.viscosityModel.sutherlandReferenceTemperature/ioData.ref.temperature);
+    }
+
+    ioData.ref.reynolds_mu = velocity * ioData.ref.length * ioData.ref.density / viscosity;
+
+    double dvelocitydMach = sqrt(gamma * ioData.ref.pressure / ioData.ref.density);
+    ioData.ref.dRe_mudMach = dvelocitydMach * ioData.ref.length * ioData.ref.density / viscosity;
+
+
+    // Step 2.2: Reset values in ioData.ref.rv
+    ioData.ref.rv.mode = RefVal::DIMENSIONAL;
+    ioData.ref.rv.density = ioData.ref.density;
+    ioData.ref.rv.velocity = velocity;
+    ioData.ref.rv.pressure = ioData.ref.density * velocity*velocity;
+    ioData.ref.rv.temperature = gamma*(gamma - 1.0) * ioData.ref.mach*ioData.ref.mach * (ioData.ref.pressure+Pstiff)/(R*ioData.ref.density);
+    ioData.ref.rv.viscosity_mu = viscosity;
+    ioData.ref.rv.nutilde = viscosity / ioData.ref.density;
+    ioData.ref.rv.kenergy = velocity*velocity;
+    ioData.ref.rv.epsilon = velocity*velocity*velocity / ioData.ref.length;
+    ioData.ref.rv.time = ioData.ref.length / velocity;    // Problem in RigidMeshMotionHandler
+    ioData.ref.rv.force = ioData.ref.density * velocity*velocity * ioData.ref.length*ioData.ref.length;
+    ioData.ref.rv.energy = ioData.ref.density * velocity*velocity * ioData.ref.length*ioData.ref.length*ioData.ref.length;
+    ioData.ref.rv.power = ioData.ref.density * velocity*velocity*velocity * ioData.ref.length*ioData.ref.length;
+    ioData.ref.rv.tvelocity = velocity / ioData.aero.displacementScaling;
+    ioData.ref.rv.tforce = ioData.ref.rv.force / ioData.aero.forceScaling;
+    ioData.ref.rv.tpower = ioData.ref.rv.power / ioData.aero.powerScaling;
+
+    ioData.ref.rv.dvelocitydMach = dvelocitydMach;
+    ioData.ref.rv.dtimedMach = - ioData.ref.length / (velocity * velocity) * dvelocitydMach;
+
+    ioData.eqs.fluidModel.pmin /= ioData.ref.rv.pressure;
+
+    //
+    // Step 2.3: Reset values of bc.inlet
+    //
+
+    ioData.bc.inlet.density /= ioData.ref.rv.density;
+    ioData.bc.inlet.pressure /= ioData.ref.rv.pressure;
+    ioData.bc.inlet.temperature /= ioData.ref.rv.temperature;
+    ioData.bc.inlet.nutilde /= ioData.ref.rv.nutilde;
+    ioData.bc.inlet.kenergy /= ioData.ref.rv.kenergy;
+    ioData.bc.inlet.eps /= ioData.ref.rv.epsilon;
+
+    //
+    // Step 2.4: Reset values of bc.outlet
+    //
+
+    ioData.bc.outlet.density /= ioData.ref.rv.density;
+    ioData.bc.outlet.pressure /= ioData.ref.rv.pressure;
+    ioData.bc.outlet.temperature /= ioData.ref.rv.temperature;
+    ioData.bc.outlet.nutilde /= ioData.ref.rv.nutilde;
+    ioData.bc.outlet.kenergy /= ioData.ref.rv.kenergy;
+    ioData.bc.outlet.eps /= ioData.ref.rv.epsilon;
+
+    ioData.restart.etime /= ioData.ref.rv.time;
+    ioData.restart.dt_nm1 /= ioData.ref.rv.time;
+    ioData.restart.dt_nm2 /= ioData.ref.rv.time;
+    ioData.restart.energy /= ioData.ref.rv.energy;
+
+    ioData.bc.wall.temperature /= ioData.ref.rv.temperature;
+    ioData.linearizedData.stepsize = ioData.ts.timestep;
+    ioData.ts.timestep /= ioData.ref.rv.time;             // Problem in RigidRollMeshMotionHandler
+    ioData.ts.maxTime /= ioData.ref.rv.time;              // Problem in RigidRollMeshMotionHandler
+    ioData.rmesh.vx /= ioData.ref.rv.velocity;            // Problem in RigidMeshMotionHandler
+    ioData.rmesh.vy /= ioData.ref.rv.velocity;
+    ioData.rmesh.vz /= ioData.ref.rv.velocity;
+    ioData.rmesh.ax /= ioData.ref.rv.velocity / ioData.ref.rv.time;
+    ioData.rmesh.ay /= ioData.ref.rv.velocity / ioData.ref.rv.time;
+    ioData.rmesh.az /= ioData.ref.rv.velocity / ioData.ref.rv.time;
+    ioData.rmesh.timestep /= ioData.ref.rv.time;          // Problem in AccMeshMotionHandler
+
+    for (int j=0; j<ioData.rmesh.num; j++){
+      ioData.rmesh.vpts[j]->time     /= ioData.ref.rv.time;
+      ioData.rmesh.vpts[j]->velocityX /= ioData.ref.rv.velocity;
+      ioData.rmesh.vpts[j]->velocityY /= ioData.ref.rv.velocity;
+      ioData.rmesh.vpts[j]->velocityZ /= ioData.ref.rv.velocity;
+    }
+    ioData.aero.pressure /= ioData.ref.rv.pressure;
+    ioData.forced.timestep /= ioData.ref.rv.time;         // Problem in ForcedMeshMotionHandler
+    ioData.forced.frequency *= ioData.ref.rv.time;        // Problem in ForcedMeshMotionHandler
+
+    ioData.eqs.gravity_x /= ioData.ref.rv.velocity / ioData.ref.rv.time;
+    ioData.eqs.gravity_y /= ioData.ref.rv.velocity / ioData.ref.rv.time;
+    ioData.eqs.gravity_z /= ioData.ref.rv.velocity / ioData.ref.rv.time;
+    ioData.bc.hydro.depth /= ioData.ref.length;
+
+    double theta_k = 1.0;
+    double theta_w = 10.0;
+    if (kenergy0 == pow(10.0, -theta_k) * theta_w / reynolds0) {
+      ioData.bc.inlet.kenergy = pow(10.0, -theta_k) * theta_w / ioData.ref.reynolds_mu;
+      ioData.bc.inlet.eps = ioData.eqs.tc.tm.ke.c_mu * ioData.bc.inlet.kenergy * theta_w;
+    }
+
+    Pin = ioData.aero.pressure;
+
+    this->postOp->rstVarPostFcn(ioData);
+
+    this->postOp->rstVar(ioData);
+
+    if (ioData.eqs.type == EquationsData::NAVIER_STOKES)
+      this->spaceOp->rstVarFet(ioData);
+
+    this->spaceOp->rstFluxFcn(ioData);
+
+    mvp->rstSpaceOp(ioData, this->varFcn, this->spaceOp, false);
+
+    this->rstVarImplicitEmbeddedCoupledTsDesc(ioData);
+
+    this->bcData->rstVar(ioData);
+
+    (this->timeState->getData()).rstVar(ioData);
+
+    this->timeState->rstVar(ioData);
+
+    this->output->rstVar(ioData);
+
+    this->restart->rstVar(ioData);
+
+    this->data->rstVar(ioData);
+
+    this->refVal->rstVar(ioData);
+
+    this->varFcn->rstVar(ioData);
+
+  }
+
+// initialize boundary condition fluxes
+  this->bcData->initialize(ioData, *this->X);
+
+}
+
+
+
+
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
@@ -468,20 +920,45 @@ int EmbeddedFluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistS
   // DFSPAR(1)  -  Mach number differential
   // DFSPAR(2)  -  angle of attack differential
   // DFSPAR(3)  -  yaw angle differential
+  // DFSPAR(4)  -  mesh sensitivity on/off
 
   double MyLocalTimer = -this->timer->getTime();
+  bool isSparse       = bool(ioData.sa.sparseFlag);
+  if(isSparse) {
+    Vec3D x0;
+    x0[0] = ioData.output.transient.x0;
+    x0[1] = ioData.output.transient.y0;
+    x0[2] = ioData.output.transient.z0;
+    dRdX->constructOperatorsEmb(x0, *this->X, *this->A, U, this->distLSS,this->linRecAtInterface, this->viscSecOrder, DFSPAR[0], Flux, Pin, this->timeState, this->postOp, &this->nodeTag, DFSPAR);
 
+  }
   
   double dtLeft = 0.0;
   this->computeTimeStep(1, &dtLeft, U);
   this->computeMeshMetrics();
   this->updateStateVectors(U);
-  fsoSetUpLinearSolver(ioData, *this->X, *this->A, U, dFdS);
- 
-  if(ioData.sa.sensMesh  == SensitivityAnalysis::ON_SENSITIVITYMESH)  fso_on_sensitivityMesh(ioData,  U);
-  if(ioData.sa.sensMach  == SensitivityAnalysis::ON_SENSITIVITYMACH)  fso_on_sensitivityMach(ioData,  U);
-  if(ioData.sa.sensAlpha == SensitivityAnalysis::ON_SENSITIVITYALPHA) fso_on_sensitivityAlpha(ioData, U); 
-  if(ioData.sa.sensBeta  == SensitivityAnalysis::ON_SENSITIVITYBETA)  fso_on_sensitivityBeta(ioData,  U); 
+  //Unimplemented Adjoint Routines
+  if (ioData.sa.method    == SensitivityAnalysis::ADJOINT &&
+       (ioData.sa.sensMach  == SensitivityAnalysis::ON_SENSITIVITYMACH  ||
+        ioData.sa.sensAlpha == SensitivityAnalysis::ON_SENSITIVITYALPHA ||
+        ioData.sa.sensBeta  == SensitivityAnalysis::ON_SENSITIVITYBETA)    ){
+
+      this->com->fprintf(stderr, "\033[91m\nERROR: Adjoint SA currently only supports mesh-sensitivity\n\n\033[00m");
+      exit(-1);
+  }
+  //Direct routines
+  else if (ioData.sa.method == SensitivityAnalysis::DIRECT) {
+    fsoSetUpLinearSolver(ioData, *this->X, *this->A, U, dFdS);
+    if(ioData.sa.sensMesh  == SensitivityAnalysis::ON_SENSITIVITYMESH)  fso_on_sensitivityMesh(isSparse,ioData,  U);
+    if(ioData.sa.sensMach  == SensitivityAnalysis::ON_SENSITIVITYMACH)  fso_on_sensitivityMach(isSparse,ioData,  U);
+    if(ioData.sa.sensAlpha == SensitivityAnalysis::ON_SENSITIVITYALPHA) fso_on_sensitivityAlpha(isSparse,ioData, U);
+    if(ioData.sa.sensBeta  == SensitivityAnalysis::ON_SENSITIVITYBETA)  fso_on_sensitivityBeta(isSparse,ioData,  U);
+  }
+  else if(ioData.sa.method  == SensitivityAnalysis::ADJOINT) {
+    fsoSetUpAdjointLinearSolver(ioData, *this->X, *this->A, U, dFdS);
+    if (ioData.sa.sensMesh  == SensitivityAnalysis::ON_SENSITIVITYMESH)
+    fso_on_AdjointSensitivityMesh(isSparse,ioData, U);
+  }
 
   bool lastIt = true;
 
@@ -504,6 +981,7 @@ int EmbeddedFluidShapeOptimizationHandler<dim>::fsoHandler(IoData &ioData, DistS
 template<int dim>
 void EmbeddedFluidShapeOptimizationHandler<dim>::fso_on_sensitivityMesh
 (
+bool isSparse,
 IoData &ioData, 
 DistSVec<double,dim> &U
 ){
@@ -511,6 +989,7 @@ DistSVec<double,dim> &U
   double tag = 0.0;
 
   step = 0;
+  dXdS = 0.0;
 
   DFSPAR[0] = 0.0;
   DFSPAR[1] = 0.0;
@@ -528,7 +1007,7 @@ DistSVec<double,dim> &U
 
     fsoComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
 
-    fsoComputeSensitivities(ioData, "Derivatives with respect to the mesh position:", ioData.sa.sensoutput, *this->X, U);
+    fsoComputeSensitivities(isSparse,ioData, "Derivatives with respect to the mesh position:", ioData.sa.sensoutput, *this->X, U);
 
     step = step + 1;
   }
@@ -540,12 +1019,13 @@ DistSVec<double,dim> &U
 //------------------------------------------------------------------------------
 
 template<int dim>
-void EmbeddedFluidShapeOptimizationHandler<dim>::fso_on_sensitivityMach
-(
- IoData &ioData, 
- DistSVec<double,dim> &U
-){
+void EmbeddedFluidShapeOptimizationHandler<dim>::fso_on_sensitivityMach(
+                                                   bool isSparse,
+                                                   IoData &ioData,
+                                                   DistSVec<double,dim> &U){
 
+  dXdS = 0.0;
+  dAdS=0.0;
   DFSPAR[0] = 1.0;
   DFSPAR[1] = 0.0;
   DFSPAR[2] = 0.0;
@@ -553,7 +1033,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fso_on_sensitivityMach
 
   fsoComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
   
-  fsoComputeSensitivities(ioData, "Derivatives with respect to the Mach number:", ioData.sa.sensoutput, *this->X, U);
+  fsoComputeSensitivities(isSparse,ioData, "Derivatives with respect to the Mach number:", ioData.sa.sensoutput, *this->X, U);
 
   fsoPrintTextOnScreen("\n ***** Derivatives with respect to the Mach number were computed! \n");
 
@@ -566,28 +1046,30 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fso_on_sensitivityMach
 template<int dim>
 void EmbeddedFluidShapeOptimizationHandler<dim>::fso_on_sensitivityBeta
 (
+ bool isSparse,
  IoData &ioData, 
  DistSVec<double,dim> &U
 ){
 
+  dXdS = 0.0;
   DFSPAR[0] = 0.0;
   DFSPAR[1] = 0.0;
   DFSPAR[2] = 1.0;
   actvar = 4;
 
   if (!ioData.sa.angleRad)
-    ioData.sa.eps *= acos(-1.0) / 180.0;
+    ioData.sa.eps *= perRad2perDeg;
 
   fsoComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
 
-  fsoComputeSensitivities(ioData, "Derivatives with respect to the yaw angle:", ioData.sa.sensoutput, *this->X, U);
+  fsoComputeSensitivities(isSparse, ioData, "Derivatives with respect to the yaw angle:", ioData.sa.sensoutput, *this->X, U);
 
   fsoPrintTextOnScreen("\n ***** Derivatives with respect to the yaw angle were computed! \n");
 
   step = step + 1;
 
   if (!ioData.sa.angleRad)
-    ioData.sa.eps /= acos(-1.0) / 180.0;
+    ioData.sa.eps *= perDeg2perRad;
 
 }
 
@@ -596,63 +1078,156 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fso_on_sensitivityBeta
 template<int dim>
 void EmbeddedFluidShapeOptimizationHandler<dim>::fso_on_sensitivityAlpha
 (
+ bool isSparse,
  IoData &ioData, 
  DistSVec<double,dim> &U
 )
 {
 
+    dXdS = 0.0;
     DFSPAR[0] = 0.0;
     DFSPAR[1] = 1.0;
     DFSPAR[2] = 0.0;
     actvar = 3;
 
-    if (!ioData.sa.angleRad) 
-      ioData.sa.eps *= acos(-1.0) / 180.0;
+    if (!ioData.sa.angleRad)
+      ioData.sa.eps *= perRad2perDeg;
 
     fsoComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
 
-    fsoComputeSensitivities(ioData, "Derivatives with respect to the angle of attack:", ioData.sa.sensoutput, *this->X, U);
+    fsoComputeSensitivities(isSparse, ioData, "Derivatives with respect to the angle of attack:", ioData.sa.sensoutput, *this->X, U);
 
     fsoPrintTextOnScreen("\n ***** Derivatives with respect to the angle of attack were computed! \n");
 
     step = step + 1;
 
     if (!ioData.sa.angleRad)
-      ioData.sa.eps /= acos(-1.0) / 180.0;
+      ioData.sa.eps *= perDeg2perRad;
 
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void EmbeddedFluidShapeOptimizationHandler<dim>::fsoComputeDerivativesOfFluxAndSolution
+void EmbeddedFluidShapeOptimizationHandler<dim>::fso_on_AdjointSensitivityMesh
 (
- IoData &ioData, 
- DistSVec<double,3> &X, 
- DistVec<double> &A, 
- DistSVec<double,dim> &U, 
- bool isFSI
+bool isSparse,
+IoData &ioData, 
+DistSVec<double,dim> &U
 ){
+  int nSurfs = this->postOp->getNumSurf();
 
-  if ( ioData.sa.scFlag == SensitivityAnalysis::ANALYTICAL ) {
+  Vec3D x0;
 
-    fsoAnalytical(ioData, X, A, U, dFdS);
-       
-    /*
-    //debug----------------------------------------
-    dFdS_debug = 0.0;
-    fsoSemiAnalytical(ioData, X, A, U, dFdS_debug);
-    difference = dFdS - dFdS_debug;
-    this->com->fprintf(stderr, "!!! dFdS and dFdSref do not match. The relative difference norm is %e\n", difference.norm()/dFdS.norm());
-    this->com->fprintf(stderr, "!!! dFdSref norm is %e\n", dFdS.norm()); 
-    //exit(-1);
-    //debug----------------------------------------
-    */
+  x0[0] = ioData.output.transient.x0; //x-coordinate of the point around which the moments are computed
+  x0[1] = ioData.output.transient.y0; //y-coordinate of the point around which the moments are computed
+  x0[2] = ioData.output.transient.z0; //z-coordinate of the point around which the moments are computed
 
-  } else {
-    fsoSemiAnalytical(ioData, X, A, U, dFdS);
+  double tag = 0.0;
+
+  step = 0;
+  dXdS = 0.0;
+
+  DFSPAR[0] = 0.0;
+  DFSPAR[1] = 0.0;
+  DFSPAR[2] = 0.0;
+
+  actvar = 1;
+  
+  int numShapeVars = 100;
+  //figure out how many shapevars there
+  while(true) {
+    // Reading derivative of the overall deformation
+    bool readOK = getdXdSb(step);
+    if(!readOK) break;
+    step = step + 1;
+  }
+  if(step < numShapeVars) numShapeVars = step;
+
+  // Computing efforts (F: force, M: moment, L:LiftAndDrag)
+  Vec3D F = 0.0, M = 0.0, L = 0.0;
+  fsoGetEfforts(ioData, *this->X, U, F, M, L);
+  Vec3D dForces(0.0), dMoments(0.0), dL(0.0);
+  DistSVec<double,3> dQdX(*this->X);
+  DistSVec<double,dim> dQdU(U);
+  double dQs[numShapeVars];
+  double liftresults[3][numShapeVars];
+
+  //recompute dForces
+  double sin_a = sin(ioData.bc.inlet.alpha);
+  double cos_a = cos(ioData.bc.inlet.alpha);
+  double sin_b = sin(ioData.bc.inlet.beta);
+  double cos_b = cos(ioData.bc.inlet.beta);
+  double dLdF[3][3] = {0};
+  dLdF[0][0] = cos_a*cos_b;  dLdF[0][1] = cos_a*sin_b;  dLdF[0][2] = sin_a;
+  dLdF[1][0] = -sin_b;       dLdF[1][1] = cos_b;
+  dLdF[2][0] = -sin_a*cos_b; dLdF[2][1] =-sin_a*sin_b;  dLdF[2][2] = cos_a;
+
+  if(ioData.output.transient.dLiftDrag != NULL) {
+  for(int i_lift = 0; i_lift < 3; ++ i_lift){// currently only computing lift_y
+    this->com->fprintf(stderr, "\n ***** Component %d of Lift\n", i_lift + 1);
+    dQdX = 0;    dQdU = 0;     dL = 0;  dMoments = 0;  dForces = 0; 
+    for(int i = 0; i < numShapeVars; ++ i) dQs[i] = 0.0;
+
+    dL[0] = 0.0; dL[1] = 0.0;  dL[2] = 0.0;
+    dL[i_lift] = 1.0;
+    dForces[0] = 0.0; dForces[1] = 0.0;  dForces[2] = 0.0;
+
+    for(int i=0; i<3; ++i)
+      for(int j=0; j<3; ++j) {
+        dForces[i] += dLdF[j][i]*dL[j];
+      }
+    fsoGetDerivativeOfEffortsWRTStateAnalytical(isSparse,
+    dForces, dMoments, ioData, *this->X, U, dQdX, dQdU);
+    fsoComputeAdjoint(ioData, *this->A, dQdU, false);
+    for(step = 0; step<numShapeVars; ++step) {
+      Vec3D *dFidS = new Vec3D[nSurfs];
+      bool readOK = getdXdSb(step); //dXbdS actually gets stored in distLSS (not in dXdS)
+      if(!readOK) break;
+      this->com->fprintf(stderr, "\n ***** Shape variable #%d\n", step);
+      this->spaceOp->computeTransposeDerivativeOfResidualEmb(*this->X, dXdS, *this->A, U,
+                                             this->distLSS,
+                                             this->linRecAtInterface, this->viscSecOrder,
+                                             this->nodeTag, this->riemann, this->riemannNormal,
+                                             this->ghostPoints, DFSPAR[0],
+                                             Flux, lambdaU, this->timeState, dQs[step]);
+      this->postOp->computeDerivativeOfForceAndMomentEmbSurfMotion(dFidS,x0, *this->X, U, &this->nodeTag, DFSPAR);
+      dQs[step] -= dForces*dFidS[0]; //note that dForces gets scaled inside fsoGetDerivativeofEfforst above
+      liftresults[i_lift][step] = -dQs[step];
+      }
+    } //end for loop
+    for(step = 0; step < numShapeVars; ++ step){
+      Vec3D dL;
+      dL[0] = liftresults[0][step];
+      dL[1] = liftresults[1][step];
+      dL[2] = liftresults[2][step];
+      this->output->writeDerivativeOfLiftDragToDisk(step,1,L,dL);
+    }
   }
 
+  fsoPrintTextOnScreen("\n ***** Derivatives of mesh position were computed using the adjoint method! \n");
+  
+}
+
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void EmbeddedFluidShapeOptimizationHandler<dim>::fsoComputeDerivativesOfFluxAndSolution(
+                                                   IoData &ioData,
+                                                   DistSVec<double,3> &X,
+                                                   DistVec<double> &A,
+                                                   DistSVec<double,dim> &U,
+                                                   bool isFSI)
+{
+
+  //Analytical or FD sensitivities
+  if ( ioData.sa.scFlag == SensitivityAnalysis::ANALYTICAL ) {
+    fsoAnalytical(ioData, X, A, U, dFdS);
+  } else {
+    fsoSemiAnalytical(ioData, X, A, U, dFdS);
+
+  }
   fsoLinearSolver(ioData, dFdS, dUdS, isFSI);
 
 }
@@ -674,30 +1249,55 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoAnalytical
   this->bcData->initializeSA(ioData, X, dXdS, DFSPAR[0], DFSPAR[1], DFSPAR[2]);
  
   // Computing the partial derivative of the flux with respect to the variables
-  this->spaceOp->computeDerivativeOfResidual(X, A, U, this->distLSS, 
-					     this->linRecAtInterface, this->viscSecOrder, 
-					     this->nodeTag, this->riemann, this->riemannNormal,
-					     this->ghostPoints, DFSPAR[0], 
-					     Flux, dFdS, this->timeState);
+  // Question: who stores the mesh derivative information here? DistLSS?
 
+  //this->spaceOp->computeDerivativeOfResidual(X, dXdS, A, dAdS, U, DFSPAR[0], Flux, dFdS, this->timeState);
+  this->spaceOp->computeDerivativeOfResidualEmb(X, dXdS, A, dAdS, U,
+                                             this->distLSS,
+                                             this->linRecAtInterface, this->viscSecOrder,
+                                             this->nodeTag, this->riemann, this->riemannNormal,
+                                             this->ghostPoints, DFSPAR[0],
+                                             Flux, dFdS, this->timeState);
+
+  if (ioData.sa.debugOutput == SensitivityAnalysis::ON_DEBUGOUTPUT){
+
+    this->spaceOp->computeInviscidDerivativeOfResidualEmb(X, dXdS, A, dAdS, U,
+                                               this->distLSS,
+                                               this->linRecAtInterface, this->viscSecOrder,
+                                               this->nodeTag, this->riemann, this->riemannNormal,
+                                               this->ghostPoints, DFSPAR[0],
+                                               Flux, dFdS_inviscid, this->timeState);
+    this->spaceOp->computeViscousDerivativeOfResidualEmb(X, dXdS, A, dAdS, U,
+                                               this->distLSS,
+                                               this->linRecAtInterface, this->viscSecOrder,
+                                               this->nodeTag, this->riemann, this->riemannNormal,
+                                               this->ghostPoints, DFSPAR[0],
+                                               Flux, dFdS_viscous, this->timeState);
+  }
   this->spaceOp->applyBCsToDerivativeOfResidual(U, dFdS);
+  this->spaceOp->applyHackedBCsToDerivativeOfResidual(U, dFdS);//for RANS
 
-  // dF/dS_rad ---> dF/dS_deg 
-  if(DFSPAR[1] || DFSPAR[2]) dFdS *= (acos(-1.0)/180.0);
-  
+
+  if (ioData.sa.debugOutput == SensitivityAnalysis::ON_DEBUGOUTPUT){
+    this->spaceOp->applyBCsToDerivativeOfResidual(U, dFdS_inviscid);
+    this->domain->computeOffWallNode(this->distLSS);
+    this->spaceOp->applyHackedBCsToDerivativeOfResidual(U, dFdS_viscous);
+  }
+
+  if((ioData.sa.angleRad == ioData.sa.OFF_ANGLERAD)&& (DFSPAR[1] || DFSPAR[2]))
+    dFdS *= Deg2Rad;
+
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSemiAnalytical
-(
-  IoData &ioData, 
-  DistSVec<double,3> &X,
-  DistVec<double> &A,
-  DistSVec<double,dim> &U,
-  DistSVec<double,dim> &dF
-)
+void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSemiAnalytical(
+                                                   IoData &ioData,
+                                                   DistSVec<double,3> &X,
+                                                   DistVec<double> &A,
+                                                   DistSVec<double,dim> &U,
+                                                   DistSVec<double,dim> &dF)
 {
 
   if (Fp == 0) {
@@ -734,7 +1334,18 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSemiAnalytical
   *X_ = 0.0;
   *A_ = 0.0;
 
+  *Fp_inviscid = 0.0;
+  *Fm_inviscid = 0.0;
+  *Fp_viscous = 0.0;
+  *Fm_viscous = 0.0;
+  *Ap = 0.0;
+  *Am = 0.0;
+
   DistVec<int> pb_dummy(this->domain->getNodeDistInfo());
+
+
+  //Xc = X;
+
   *X_ = X;
 
   //------
@@ -759,13 +1370,33 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSemiAnalytical
   this->computeTimeStep(1, &dtLeft, U);
   
   this->spaceOp->computeResidual(*X_, *A_, U, 
-											*this->Wstarij, *this->Wstarji, *this->Wextij, this->distLSS,
-                                 this->linRecAtInterface, this->viscSecOrder, 
-				 this->nodeTag, 
-				 *Fp, 
-				 this->riemann, this->riemannNormal, 1, this->ghostPoints);
-  
+                   *this->Wstarij, *this->Wstarji, *this->Wextij, this->distLSS,
+                   this->linRecAtInterface, this->viscSecOrder,
+                   this->nodeTag,
+                   *Fp,
+                   this->riemann, this->riemannNormal, 1, this->ghostPoints);
   this->spaceOp->applyBCsToResidual(U, *Fp, this->distLSS);
+
+  if (ioData.sa.debugOutput == SensitivityAnalysis::ON_DEBUGOUTPUT)
+  {
+    this->spaceOp->computeInviscidResidual(*X_, *A_, U,
+                     *this->Wstarij, *this->Wstarji, *this->Wextij, this->distLSS,
+                     this->linRecAtInterface, this->viscSecOrder,
+                     this->nodeTag,
+                     *Fp_inviscid,
+                     this->riemann, this->riemannNormal, 1, this->ghostPoints);
+    this->spaceOp->computeViscousResidual(*X_, *A_, U,
+                     *this->Wstarij, *this->Wstarji, *this->Wextij, this->distLSS,
+                     this->linRecAtInterface, this->viscSecOrder,
+                     this->nodeTag,
+                     *Fp_viscous,
+                     this->riemann, this->riemannNormal, 1, this->ghostPoints);
+
+    this->spaceOp->applyBCsToResidual(U, *Fp_inviscid, this->distLSS);
+    this->spaceOp->applyBCsToResidual(U, *Fp_viscous, this->distLSS);
+  }
+
+
   //---------------------------------------------------------------------
   
   //-------
@@ -790,19 +1421,52 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSemiAnalytical
   this->computeTimeStep(1, &dtLeft, U);
   
   this->spaceOp->computeResidual(*X_, *A_, U, 
-											*this->Wstarij, *this->Wstarji, *this->Wextij, this->distLSS,
-                                 this->linRecAtInterface, this->viscSecOrder, 
-				 this->nodeTag, 
-				 *Fm, 
-				 this->riemann, this->riemannNormal, 1, this->ghostPoints);
+                   *this->Wstarij, *this->Wstarji, *this->Wextij, this->distLSS,
+                   this->linRecAtInterface, this->viscSecOrder,
+                   this->nodeTag,
+                   *Fm,
+                   this->riemann, this->riemannNormal, 1, this->ghostPoints);
   
+  if (ioData.sa.debugOutput == SensitivityAnalysis::ON_DEBUGOUTPUT){
+
+    this->spaceOp->computeInviscidResidual(*X_, *A_, U,
+                     *this->Wstarij, *this->Wstarji, *this->Wextij, this->distLSS,
+                     this->linRecAtInterface, this->viscSecOrder,
+                     this->nodeTag,
+                     *Fm_inviscid,
+                     this->riemann, this->riemannNormal, 1, this->ghostPoints);
+
+    this->spaceOp->computeViscousResidual(*X_, *A_, U,
+                     *this->Wstarij, *this->Wstarji, *this->Wextij, this->distLSS,
+                     this->linRecAtInterface, this->viscSecOrder,
+                     this->nodeTag,
+                     *Fm_viscous,
+                     this->riemann, this->riemannNormal, 1, this->ghostPoints);
+  }
+
   this->spaceOp->applyBCsToResidual(U, *Fm, this->distLSS);
-  //---------------------------------------------------------------------
+  if (ioData.sa.debugOutput == SensitivityAnalysis::ON_DEBUGOUTPUT)
+  {
+    this->spaceOp->applyBCsToResidual(U, *Fm_inviscid, this->distLSS);
+    this->spaceOp->applyBCsToResidual(U, *Fm_viscous, this->distLSS);
+  }
+  //-------------------------------------fiab--------------------------------
 
   dF = (1.0/(2.0*eps))*((*Fp) - (*Fm));
 
+
+  if (ioData.sa.debugOutput == SensitivityAnalysis::ON_DEBUGOUTPUT)
+   {
+     dFdS_inviscid = (1.0/(2.0*eps))*((*Fp_inviscid) - (*Fm_inviscid));
+     dFdS_viscous = (1.0/(2.0*eps))*((*Fp_viscous) - (*Fm_viscous));
+   }
+
+  std::cout<<"\033[91m --- Norm of inviscid Residual: \033[00m "<<dFdS_inviscid.norm()<<std::endl;
+  std::cout<<"\033[91m --- Norm of viscous  Residual: \033[00m "<<dFdS_viscous.norm()<<std::endl;
+
   // dF/dS_rad ---> dF/dS_deg 
-  if(DFSPAR[1] || DFSPAR[2]) dF *= (acos(-1.0)/180.0);
+  if((ioData.sa.angleRad == ioData.sa.OFF_ANGLERAD) && (DFSPAR[1] || DFSPAR[2]))
+     dF *= perRad2perDeg;
   
   //-----------------------
   // Reset the steady state
@@ -831,16 +1495,15 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSemiAnalytical
 
 }
 //------------------------------------------------------------------------------
-
+//Solving the system [Jacobian]*this->embeddeddQ=this->embeddedB
 template<int dim>
-void EmbeddedFluidShapeOptimizationHandler<dim>::fsoLinearSolver
-(
-  IoData &ioData, 
-  DistSVec<double,dim> &dFdS, 
-  DistSVec<double,dim> &dUdS,
-  bool isFSI
-)
+void EmbeddedFluidShapeOptimizationHandler<dim>::fsoLinearSolver(
+                                                   IoData &ioData,
+                                                   DistSVec<double,dim> &dFdS,
+                                                   DistSVec<double,dim> &dUdS,
+                                                   bool isFSI)
 {
+  this->com->fprintf(stderr,"STARTED LINEAR SOLVER\n");
 
   int numberIteration;
   bool istop = false;
@@ -850,16 +1513,25 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoLinearSolver
   
   this->embeddeddQ = 0.0;
 
-  this->embeddedB.ghost() =  0.0;
+  //this->embeddedB.real()  = this->dFdS;
   this->embeddedB.real()  = dFdS;
+  this->embeddedB.ghost() =  0.0;
   
+
   ksp->setup(0, 1, this->embeddedB);
 
-  while ((istop == false) && (iter < 100)) {
+  if(ioData.sa.debugOutput==SensitivityAnalysis::ON_DEBUGOUTPUT){
+    this->output->writeAnyVectorToDisk("results/embeddedB_real",1,1,this->embeddedB.real());
+    this->output->writeAnyVectorToDisk("results/embeddedB_ghost",1,1,this->embeddedB.ghost());
+  }
+
+
+  while ((istop == false) && (iter < 500)) {
 
     numberIteration = ksp->solve(this->embeddedB, this->embeddeddQ);
 
-    if ((!ioData.sa.excsol) || (numberIteration < ioData.sa.ksp.maxIts))
+    //if ((!ioData.sa.excsol) || (numberIteration < ioData.sa.ksp.maxIts))
+    if ((true) || (numberIteration < ioData.sa.ksp.maxIts))
       istop = true; 
 
     iter += 1;
@@ -867,23 +1539,63 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoLinearSolver
   }
 
   dUdS = this->embeddeddQ.real();
-  //this->embeddedU.ghost() += this->embeddeddQ.ghost();
+  //this->embeddedU.ghost() += this->embeddeddQ.ghost();//TODO what did this line do?
 
   dFdS *= (-1.0);
 
-}
+  this->embeddedB.ghost() =  1.0;
+  this->embeddedB.real() =  0.0;
 
+}
 //------------------------------------------------------------------------------
 
 template<int dim>
-void EmbeddedFluidShapeOptimizationHandler<dim>::fsoComputeSensitivities
+void EmbeddedFluidShapeOptimizationHandler<dim>::fsoAdjointLinearSolver
 (
- IoData &ioData, 
- const char *mesage, 
- const char *fileName, 
- DistSVec<double,3> &X, 
- DistSVec<double,dim> &U
-){
+  IoData &ioData,
+  DistSVec<double,dim> &dQdU, DistSVec<double,dim> &lambdaU,
+  bool isFSI
+)
+{
+
+  DistSVec<double,dim> rhs(dQdU);
+  if(isFSI) {
+    this->com->fprintf(stderr, "\033[91m\nERROR: Embedded Adjoint SA currently does not support FSI\n\n\033[00m");
+      exit(-1);
+  }
+
+  this->embeddedB = 0.0;
+
+  this->embeddeddQ.real() = dQdU;
+  this->embeddeddQ.ghost() = 0.0;
+
+  if(!isFSI) ksp->setup(0, 1, this->embeddeddQ);
+
+  int numberIteration;
+  bool istop = false;
+  int iter = 0;
+
+  while ((istop == false) && (iter < 100))
+  {
+    numberIteration = ksp->solveT(this->embeddeddQ, this->embeddedB);
+    //ioData.sa.excsol is an important parameter. If it is set to 0, only one iteration will be carried out, but lukas seemed to have removed it... it used to exist where the true is below
+    if ((true) || (numberIteration < ioData.sa.ksp.maxIts))
+      istop = true;
+    iter += 1;
+  }
+  lambdaU = this->embeddedB.real();
+
+}
+//------------------------------------------------------------------------------
+
+template<int dim>
+void EmbeddedFluidShapeOptimizationHandler<dim>::fsoComputeSensitivities(
+                                                   bool isSparse,
+                                                   IoData &ioData,
+                                                   const char *mesage,
+                                                   const char *fileName,
+                                                   DistSVec<double,3> &X,
+                                                   DistSVec<double,dim> &U){
 
   // Computing efforts (F: force, M: moment, L: LiftAndDrag)
   Vec3D F = 0.0, M = 0.0, L = 0.0;
@@ -893,46 +1605,26 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoComputeSensitivities
   Vec3D dFds = 0.0, dMds = 0.0, dLds = 0.0;
   
   if ( ioData.sa.scFlag == SensitivityAnalysis::FINITEDIFFERENCE ){
-    
-    fsoGetDerivativeOfEffortsFiniteDifference(ioData, X, U, dUdS, dFds, dMds, dLds);
+    fsoGetDerivativeOfEffortsFiniteDifference(ioData, X, U, dUdS, dFds, dMds, dLds);//old
+  }
+  else if(ioData.sa.scFlag == SensitivityAnalysis::SEMIANALYTICAL)
+  {
+    // fsoGetDerivativeOfEffortsAnalytical(isSparse,ioData, X, dXdS, U, dUdS, dFds, dMds, dLds);
+    fsoGetDerivativeOfEffortsFiniteDifference(ioData, X, U, dUdS, dFds, dMds, dLds);//old
+  }
+  else{
+    this->com->fprintf(stderr,"\033[91mANALYTIC FORCE CALCULATION MAY NOT BE CORRECTLY\033[00m\n");
 
-  } else {
-
-    fsoGetDerivativeOfEffortsAnalytical(ioData, X, U, dUdS, dFds, dMds, dLds);
-
-    /*
-    //debug-----------------------------------------------------------------------------------
-    Vec3D dFds_fd = 0.0, dMds_fd = 0.0, dLs_fd = 0.0;
-    fsoGetDerivativeOfEffortsFiniteDifference(ioData, X, U, dUdS, dFds_fd, dMds_fd, dLs_fd);
-    //
-    this->com->fprintf(stdout, "F     : %+15.5e %+15.5e %+15.5e\n", F[0], F[1], F[2]);
-    this->com->fprintf(stdout, "df    : %+15.5e %+15.5e %+15.5e\n", dFds[0], dFds[1], dFds[2]);
-    this->com->fprintf(stdout, "df_fd : %+15.5e %+15.5e %+15.5e\n", dFds_fd[0], dFds_fd[1], dFds_fd[2]);
-    this->com->fprintf(stdout, "err_F : %+15.5e %+15.5e %+15.5e\n\n", abs(dFds[0]-dFds_fd[0]), 
-                                                	              abs(dFds[1]-dFds_fd[1]), 
-                                                                      abs(dFds[2]-dFds_fd[2]));
-    //
-    this->com->fprintf(stdout, "dm    : %+15.5e %+15.5e %+15.5e\n", dMds[0], dMds[1], dMds[2]);
-    this->com->fprintf(stdout, "dm_fd : %+15.5e %+15.5e %+15.5e\n", dMds_fd[0], dMds_fd[1], dMds_fd[2]);
-    this->com->fprintf(stdout, "err_M : %+15.5e %+15.5e %+15.5e\n\n", abs(dMds[0]-dMds_fd[0]), 
-                                 	                              abs(dMds[1]-dMds_fd[1]), 
-                                                                      abs(dMds[2]-dMds_fd[2]));
-
-    // 
-    this->com->fprintf(stdout, "L     : %+15.5e %+15.5e %+15.5e\n",      L[0],      L[1],      L[2]);
-    this->com->fprintf(stdout, "dL    : %+15.5e %+15.5e %+15.5e\n",   dLds[0],   dLds[1],   dLds[2]);
-    this->com->fprintf(stdout, "dL_fd : %+15.5e %+15.5e %+15.5e\n", dLs_fd[0], dLs_fd[1], dLs_fd[2]);
-    this->com->fprintf(stdout, "err_L : %+15.5e %+15.5e %+15.5e\n\n", abs(dLds[0]-dLs_fd[0]), 
-                                                	              abs(dLds[1]-dLs_fd[1]), 
-                                                                      abs(dLds[2]-dLs_fd[2]));
-    //debug-----------------------------------------------------------------------------------
-    */  
+    //TODO this is basically a quick hack, since the analytic one doesn't really give correct results
+    //for shape sensitivity however, using finite diff=erence in the embedded framework will generally crash
+    if(ioData.sa.sensMesh  == SensitivityAnalysis::ON_SENSITIVITYMESH)
+      fsoGetDerivativeOfEffortsAnalytical(isSparse,ioData, X, dXdS, U, dUdS, dFds, dMds, dLds);
+      //fsoGetDerivativeOfEffortsFiniteDifference(ioData, X, U, dUdS, dFds, dMds, dLds);
+    else
+      fsoGetDerivativeOfEffortsAnalytical(isSparse,ioData, X, dXdS, U, dUdS, dFds, dMds, dLds);//TODO HACK
+      //fsoGetDerivativeOfEffortsFiniteDifference(ioData, X, U, dUdS, dFds, dMds, dLds);
   }
 
-  if ((!ioData.sa.angleRad) && (DFSPAR[1] || DFSPAR[2])) {
-    dFds *= acos(-1.0) / 180.0;
-    dMds *= acos(-1.0) / 180.0;
-  }  
   
   if (this->com->cpuNum() == 0) {
     outFile = fopen(fileName,"a+");
@@ -970,8 +1662,20 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoComputeSensitivities
   // - Derivative of Scalar Quantities: Density, Mach, Pressure, Temperature, TotPressure,
   //   NutTurb, EddyViscosity, VelocityScalar
   // - Derivative of Vector Quantities: VelocityVector, Displacement
-  this->output->writeBinaryDerivativeOfVectorsToDisk(step+1, actvar, DFSPAR, *this->X, dXdS, U, dUdS, this->timeState);
+  //this->output->writeBinaryDerivativeOfVectorsToDisk(step+1, actvar, DFSPAR, *this->X, dXdS, U, dUdS, this->timeState);
+  this->output->writeBinaryDerivativeOfVectorsToDisk(
+                step+1,         //iteration index
+                actvar,         //variable type
+                DFSPAR,
+                *this->X,
+                dXdS,            //Why is this zero everywhere for shape sensitivity
+                U,               //state vector
+                dUdS,            //derivative of state vector w.r.t shape variable
+                this->timeState,
+                this->A);
 
+  if (ioData.sa.dFdS_inviscid != NULL)
+    this->output->writeAnyVectorToDisk(ioData.sa.dFdS_inviscid,1,1,dFdS_inviscid);
 
 }
 
@@ -1023,84 +1727,204 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoGetEfforts
 //------------------------------------------------------------------------------
 
 template<int dim>
-void EmbeddedFluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsAnalytical
-(IoData &ioData,  DistSVec<double,3> &X,
- DistSVec<double,dim> &U, DistSVec<double,dim> &dU,
- Vec3D &dForces, Vec3D &dMoments, Vec3D &dL
-){
+void EmbeddedFluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsAnalytical2(
+                                                   bool isSparse,
+                                                   IoData &ioData,
+                                                   DistSVec<double,3> &X,
+                                                   DistSVec<double,3> &dX,
+                                                   DistSVec<double,dim> &U,
+                                                   DistSVec<double,dim> &dU,
+                                                   Vec3D &dForces,
+                                                   Vec3D &dMoments,
+                                                   Vec3D &dL)
+{
+  double gamma = ioData.eqs.fluidModel.gasModel.specificHeatRatio;
+  double velocity = ioData.ref.mach * sqrt(gamma * ioData.ref.pressure / ioData.ref.density);
+  double dVelocity= sqrt(gamma * ioData.ref.pressure / ioData.ref.density)*DFSPAR[0];
+  double dForce =2.0*ioData.ref.density*ioData.ref.length*ioData.ref.length*velocity*dVelocity;
+  double dEnergy=2.0*ioData.ref.density*ioData.ref.length*ioData.ref.length*ioData.ref.length*velocity*dVelocity;
 
-  double gamma     = ioData.eqs.fluidModel.gasModel.specificHeatRatio;
 
-  double velocity  = ioData.ref.mach * sqrt(gamma * ioData.ref.pressure / ioData.ref.density);
-  double dVelocity = sqrt(gamma * ioData.ref.pressure / ioData.ref.density)*DFSPAR[0];
+    int nSurfs = this->postOp->getNumSurf();
 
-  double dForce    = 2.0*ioData.ref.density*ioData.ref.length*ioData.ref.length*velocity*dVelocity;
-  double dEnergy   = 2.0*ioData.ref.density*ioData.ref.length*ioData.ref.length*ioData.ref.length*velocity*dVelocity;
+    Vec3D x0, F, dF, M, dM;
 
-  int nSurfs = this->postOp->getNumSurf();
+    Vec3D *Fi = new Vec3D[nSurfs];
+    Vec3D *Mi = new Vec3D[nSurfs];
+    Vec3D *Fv = new Vec3D[nSurfs];
+    Vec3D *Mv = new Vec3D[nSurfs];
 
-  Vec3D x0, F, dF, M, dM;
+    Vec3D *dFi = new Vec3D[nSurfs];
+    Vec3D *dMi = new Vec3D[nSurfs];
+    Vec3D *dFv = new Vec3D[nSurfs];
+    Vec3D *dMv = new Vec3D[nSurfs];
 
-  Vec3D *Fi = new Vec3D[nSurfs];
-  Vec3D *Mi = new Vec3D[nSurfs];
-  Vec3D *Fv = new Vec3D[nSurfs];
-  Vec3D *Mv = new Vec3D[nSurfs];
+    x0[0] = ioData.output.transient.x0; //x-coordinate of the point around which the moments are computed
+    x0[1] = ioData.output.transient.y0; //y-coordinate of the point around which the moments are computed
+    x0[2] = ioData.output.transient.z0; //z-coordinate of the point around which the moments are computed
 
-  Vec3D *dFi = new Vec3D[nSurfs];
-  Vec3D *dMi = new Vec3D[nSurfs];
-  Vec3D *dFv = new Vec3D[nSurfs];
-  Vec3D *dMv = new Vec3D[nSurfs];
+    //it seems, that the computed grad P is only stored at the sub-domain itself and not returned
+    this->spaceOp->computeGradP(X, *this->A, U,&this->fluidIdDummy, this->distLSS);//NEW
 
-  x0[0] = ioData.output.transient.x0;
-  x0[1] = ioData.output.transient.y0;
-  x0[2] = ioData.output.transient.z0;
+//    DistSVec<double,3> &X, DistVec<double> &ctrlVol,
+//                              DistSVec<double,dim> &U, DistVec<int> *fluidId,
+//                              DistLevelSetStructure *distLSS
 
-  this->postOp->computeForceAndMoment(x0, X, U, &this->nodeTag, Fi, Mi, Fv, Mv);
 
-  F = 0.0;  M = 0.0;
-  F = Fi[0] + Fv[0];
-  M = Mi[0] + Mv[0];
- 
-  this->postOp->computeDerivativeOfForceAndMoment(x0, X, U, dU, &this->nodeTag, DFSPAR, dFi, dMi, dFv, dMv);
 
-  dF = 0.0; dM = 0.0;
-  dF = dFi[0] + dFv[0];
+
+//    this->postOp->computeForceAndMoment(
+//                    x0,   //reference point for moment calculation
+//                    X,    //mesh positions
+//                    U,    //fluid state vector
+//                    &this->nodeTag,
+//                    Fi,   //inviscid forces
+//                    Mi,   //inviscid moments
+//                    Fv,   //viscous forces
+//                    Mv);  //viscous moements
+//    F = 0.0;  M = 0.0;
+//    F = Fi[0] + Fv[0];
+//    M = Mi[0] + Mv[0];
+
+    getForcesAndMoments(
+                        this->postOp->surfOutMap,
+                        U,
+                        X,
+                        &F,
+                        &M);
+
+//    this->postOp->computeDerivativeOfForceAndMomentEmb(
+//                    x0,   //reference point for moment calculation
+//                    X,    //mesh positions
+//                    U,    //fluid state vector
+//                    dU,   //derivative of fluid state vector (dUdS)
+//                    &this->nodeTag,
+//                    DFSPAR,
+//                    dFi,  //derivative of internal oforces
+//                    dMi,  //derivative of internal moments
+//                    dFv,  //derivative of transmitted forces
+//                    dMv); //derivative of transmittted moments
+//  dF = 0.0;
+//  dM = 0.0;
+//  dF = dFi[0] + dFv[0];
+//  dM = dMi[0] + dMv[0];
+
+  //spaceOp->computeDerivativeOfGradP(X, dX, *this->A, dAdS, U, dU);
+  this->spaceOp->computeDerivativeOfGradP(X, dX, *this->A, dAdS, U, dU, fluidId, distLSS);
+
+  getderivativeOfForcesAndMoments(
+                                  this->postOp->surfOutMap,
+                                  U,dU,//V, dV,
+                                  X,
+                                  DFSPAR,
+                                  &dF,
+                                  &dM);
+
+  if (this->refVal->mode == RefVal::NON_DIMENSIONAL) {
+    this->com->fprintf(stderr, "Sensitivity Analysis does not support NON-Dimensional analysis");
+    exit(-1);
+    dF *= 2.0 * this->refVal->length*this->refVal->length / surface;
+    dM *= 2.0 * this->refVal->length*this->refVal->length*this->refVal->length / (surface * length);
+    dForces=dF;
+    dMoments=dM;
+  }
+  else {
+    dF *= this->refVal->force;
+    dM *= this->refVal->energy;
+    Vec3D t(F*dForce);
+    dForces = dF+F*dForce;//product rule
+    dMoments = dM+M*dEnergy;//product rule
+    F *= this->refVal->force;
+    M *= this->refVal->energy;
+  }
+
+  dForces2dLifts(ioData,F,dForces,dL);
+}
+
+
+template<int dim>
+void EmbeddedFluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsAnalytical(
+                                                   bool isSparse,
+                                                   IoData &ioData,
+                                                   DistSVec<double,3> &X,
+                                                   DistSVec<double,3> &dX,  //derivative of mesh motion
+                                                   DistSVec<double,dim> &U,
+                                                   DistSVec<double,dim> &dU,
+                                                   Vec3D &dForces,
+                                                   Vec3D &dMoments,
+                                                   Vec3D &dL)
+{
+    double gamma     = ioData.eqs.fluidModel.gasModel.specificHeatRatio;
+
+    double velocity  = ioData.ref.mach * sqrt(gamma * ioData.ref.pressure / ioData.ref.density);
+    double dVelocity = sqrt(gamma * ioData.ref.pressure / ioData.ref.density)*DFSPAR[0];
+
+    double dForce    = 2.0*ioData.ref.density*ioData.ref.length*ioData.ref.length*velocity*dVelocity;
+    double dEnergy   = 2.0*ioData.ref.density*ioData.ref.length*ioData.ref.length*ioData.ref.length*velocity*dVelocity;
+
+    int nSurfs = this->postOp->getNumSurf();
+
+    Vec3D x0, F, dF, M, dM;
+
+    Vec3D *Fi = new Vec3D[nSurfs];
+    Vec3D *Mi = new Vec3D[nSurfs];
+    Vec3D *Fv = new Vec3D[nSurfs];
+    Vec3D *Mv = new Vec3D[nSurfs];
+
+    Vec3D *dFi = new Vec3D[nSurfs];
+    Vec3D *dFidS = new Vec3D[nSurfs];
+    Vec3D *dMi = new Vec3D[nSurfs];
+    Vec3D *dFv = new Vec3D[nSurfs];
+    Vec3D *dMv = new Vec3D[nSurfs];
+
+    x0[0] = ioData.output.transient.x0;
+    x0[1] = ioData.output.transient.y0;
+    x0[2] = ioData.output.transient.z0;
+
+    this->postOp->computeForceAndMoment(x0, X, U, &this->nodeTag, Fi, Mi, Fv, Mv);
+
+    F = 0.0;  M = 0.0;
+    F = Fi[0] + Fv[0];
+    M = Mi[0] + Mv[0];
+    dRdXoperators<dim> *dRdXop = dRdX->getdRdXop();
+    if(isSparse) {
+      // computes change in GradP (dddx, dddy, dddz) due to a change in state dU 
+      // (dR, dX, dAdS = 0 in the embedded setting)
+        this->spaceOp->computeDerivativeOfGradP(dRdXop, dX, dAdS, dU, dddx, dddy, dddz, dR, dGradP); 
+        this->postOp->computeDerivativeOfForceAndMoment(dRdXop, dX, dU, DFSPAR, dGradP, dFi, dMi, dFv, dMv);
+        //separately add the contribution due to a change in normal
+        this->postOp->computeDerivativeOfForceAndMomentEmbSurfMotion(dFidS,x0, X, U, &this->nodeTag, DFSPAR);
+      }
+    else{
+      //the impact of GradP is included in the function below
+      this->postOp->computeDerivativeOfForceAndMomentEmb(x0, X, U, dU, &this->nodeTag, DFSPAR, dFi, dMi, dFv, dMv);
+    }
+  dF = 0.0;
+  dM = 0.0;
+  dF = dFi[0] + dFv[0] + dFidS[0];
   dM = dMi[0] + dMv[0];
 
-  // DIMENSIONAL
-  dF *= this->refVal->force;
-  dM *= this->refVal->energy;
+  if (this->refVal->mode == RefVal::NON_DIMENSIONAL) {
+    this->com->fprintf(stderr, "Sensitivity Analysis does not support NON-Dimensional analysis");
+    exit(-1);
+    dF *= 2.0 * this->refVal->length*this->refVal->length / surface;
+    dM *= 2.0 * this->refVal->length*this->refVal->length*this->refVal->length / (surface * length);
+    dForces=dF;
+    dMoments=dM;
+  }
+  else {
+    dF *= this->refVal->force;
+    dM *= this->refVal->energy;
+    Vec3D t(F*dForce);
+    dForces = dF+F*dForce;//product rule
+    dMoments = dM+M*dEnergy;//product rule
+    F *= this->refVal->force;
+    M *= this->refVal->energy;
+  }
 
-  F *= dForce;
-  M *= dEnergy;
-
-  dForces  = dF + F;
-  dMoments = dM + M;
-  //
-
-  dL = 0.0;
-  double sin_a = sin(ioData.bc.inlet.alpha); 
-  double cos_a = cos(ioData.bc.inlet.alpha);
-  double sin_b = sin(ioData.bc.inlet.beta); 
-  double cos_b = cos(ioData.bc.inlet.beta);
-
-  dL[0] =  dF[0]*cos_a*cos_b + dF[1]*cos_a*sin_b + dF[2]*sin_a;
-  dL[1] = -dF[0]*sin_b       + dF[1]*cos_b;
-  dL[2] = -dF[0]*sin_a*cos_b - dF[1]*sin_a*sin_b + dF[2]*cos_a;
-  
-  double dsin_a = cos_a*DFSPAR[1], dcos_a = -sin_a*DFSPAR[1];
-  double dsin_b = cos_b*DFSPAR[2], dcos_b = -sin_b*DFSPAR[2];
-
-  dL[0] += F[0]*(dcos_a*cos_b + cos_a*dcos_b) +
-           F[1]*(dcos_a*sin_b + cos_a*dsin_b) + 
-           F[2]*dsin_a;
-
-  dL[1] += -F[0]*dsin_b + F[1]*dcos_b;
-  
-  dL[2] += -F[0]*(dsin_a*cos_b + sin_a*dcos_b) -
-            F[1]*(dsin_a*sin_b + sin_a*dsin_b) +
-            F[2]*dcos_a;  
+  dForces2dLifts(ioData,F,dForces,dL);
 }
+
 
 //------------------------------------------------------------------------------
 
@@ -1145,21 +1969,24 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsFinite
 
   int nSurfs = this->postOp->getNumSurf();
 
-  Vec3D *Fi = new Vec3D[nSurfs];
-  Vec3D *Mi = new Vec3D[nSurfs];
-  Vec3D *Fv = new Vec3D[nSurfs];
-  Vec3D *Mv = new Vec3D[nSurfs];
+  Vec3D *Fi = new Vec3D[nSurfs]; //inviscid force
+  Vec3D *Mi = new Vec3D[nSurfs]; //inviscid moment
+  Vec3D *Fv = new Vec3D[nSurfs]; //viscous force
+  Vec3D *Mv = new Vec3D[nSurfs]; //viscous moment
 
-  Vec3D *Fip = new Vec3D[nSurfs];
-  Vec3D *Mip = new Vec3D[nSurfs];
-  Vec3D *Fvp = new Vec3D[nSurfs];
-  Vec3D *Mvp = new Vec3D[nSurfs];
 
-  Vec3D *Fim = new Vec3D[nSurfs];
-  Vec3D *Mim = new Vec3D[nSurfs];
-  Vec3D *Fvm = new Vec3D[nSurfs];
-  Vec3D *Mvm = new Vec3D[nSurfs];
+  //quantities for the central finite difference
+  Vec3D *Fip = new Vec3D[nSurfs]; //inviscid force
+  Vec3D *Mip = new Vec3D[nSurfs]; //inviscid moment
+  Vec3D *Fvp = new Vec3D[nSurfs]; //viscous force
+  Vec3D *Mvp = new Vec3D[nSurfs]; //viscous moment
 
+  Vec3D *Fim = new Vec3D[nSurfs]; //inviscid force
+  Vec3D *Mim = new Vec3D[nSurfs]; //inviscid moment
+  Vec3D *Fvm = new Vec3D[nSurfs]; //viscous force
+  Vec3D *Mvm = new Vec3D[nSurfs]; //viscous moment
+
+  //reference point for moment calculation
   x0[0] = ioData.output.transient.x0;
   x0[1] = ioData.output.transient.y0;
   x0[2] = ioData.output.transient.z0;
@@ -1183,8 +2010,8 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsFinite
 
   *X_ = X;
 
-  //------
-  // Plus
+  //---------------------------------------------------------------------
+  // Plus part of the FD
   //---------------------------------------------------------------------
   *Up = U + eps*dU;
  
@@ -1203,12 +2030,14 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsFinite
   this->geoState->compute(this->timeState->getData(), this->bcData->getVelocityVector(), *X_, *A_);
   this->bcData->update(*X_);
 
-  this->spaceOp->computeResidual(*X_, *A_, *Up, 
-											*this->Wstarij, *this->Wstarji, *this->Wextij, this->distLSS,
-                                 this->linRecAtInterface, this->viscSecOrder, 
-				 this->nodeTag, 
-				 *Fp, //dummy 
-				 this->riemann, this->riemannNormal, 1, this->ghostPoints);
+  this->spaceOp->computeResidual(
+                   *X_, *A_, *Up,
+                   *this->Wstarij, *this->Wstarji, *this->Wextij,
+                   this->distLSS,
+                   this->linRecAtInterface, this->viscSecOrder,
+                   this->nodeTag,
+                   *Fp, //dummy
+                   this->riemann, this->riemannNormal, 1, this->ghostPoints);
 
   this->postOp->computeForceAndMoment(x0, *X_, *Up, &this->nodeTag, Fip, Mip, Fvp, Mvp);
 
@@ -1220,8 +2049,8 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsFinite
 		                                                  Fplus[1]*this->refVal->force, 
 		                                                  Fplus[2]*this->refVal->force);
 
-  //-------
-  // Minus
+  //---------------------------------------------------------------------
+  // Minus part of the FD
   //---------------------------------------------------------------------
   *Um = U - eps*dU;
 
@@ -1240,12 +2069,15 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsFinite
   this->geoState->compute(this->timeState->getData(), this->bcData->getVelocityVector(), *X_, *A_);
   this->bcData->update(*X_);
 
-  this->spaceOp->computeResidual(*X_, *A_, *Um, 
-											*this->Wstarij, *this->Wstarji, *this->Wextij, this->distLSS,
-                                 this->linRecAtInterface, this->viscSecOrder, 
-				 this->nodeTag, 
-				 *Fm, //dummy 
-				 this->riemann, this->riemannNormal, 1, this->ghostPoints);
+  this->spaceOp->computeResidual(
+                   *X_, *A_, *Um,
+                   *this->Wstarij, *this->Wstarji, *this->Wextij,
+                   this->distLSS,
+                   this->linRecAtInterface,
+                   this->viscSecOrder,
+                   this->nodeTag,
+                   *Fm, //dummy
+                   this->riemann, this->riemannNormal, 1, this->ghostPoints);
 
   this->postOp->computeForceAndMoment(x0, *X_, *Um, &this->nodeTag, Fim, Mim, Fvm, Mvm);
 
@@ -1253,14 +2085,17 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsFinite
   Fminus = Fim[0] + Fvm[0];
   Mminus = Mim[0] + Mvm[0];
 
-  this->com->fprintf(stdout, "F_minu: %+15.5e %+15.5e %+15.5e\n", Fminus[0]*this->refVal->force, 
-		                                                  Fminus[1]*this->refVal->force, 
-		                                                  Fminus[2]*this->refVal->force);
+  this->com->fprintf(stdout, "F_minu: %+15.5e %+15.5e %+15.5e\n",
+                     Fminus[0]*this->refVal->force,
+		                 Fminus[1]*this->refVal->force,
+		                 Fminus[2]*this->refVal->force);
 
-  // Compute the derivatives
+  //---------------------------------------------------------------------
+  // Performing the finite difference
+  //---------------------------------------------------------------------
   dF = 1.0/(2.0*eps)*(Fplus - Fminus);
   dM = 1.0/(2.0*eps)*(Mplus - Mminus);
-  //---------------------------------------------------------------------
+
 
   // Reset values to the steady state
   xmach  = xmachc;
@@ -1278,47 +2113,131 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsFinite
   this->geoState->compute(this->timeState->getData(), this->bcData->getVelocityVector(), X, *this->A);
   this->bcData->update(X);
 
-  //Dimensional
-  dF *= this->refVal->force;
-  dM *= this->refVal->energy;
 
-   F *= dForce;
-   M *= dEnergy;
 
-  dForces  = dF + F;
-  dMoments = dM + M;
+  //---------------------------------------------------------------------
+  // Re-dimensionalization
+  //---------------------------------------------------------------------
+  if (this->refVal->mode == RefVal::NON_DIMENSIONAL) {
+    dF *= 2.0 * this->refVal->length*this->refVal->length / surface;
+    dM *= 2.0 * this->refVal->length*this->refVal->length*this->refVal->length / (surface * length);
 
-  ///
- 
-  dL = 0.0;
-  double sin_a = sin(ioData.bc.inlet.alpha); 
+    dForces=dF;
+    dMoments=dM;
+  }
+  else {
+    dF *= this->refVal->force;
+    dM *= this->refVal->energy;
+    Vec3D t(F*dForce);
+    dForces = dF + F*dForce;
+    dMoments = dM + M*dEnergy;
+    F *= this->refVal->force;
+    M *= this->refVal->energy;
+  }
+
+  //---------------------------------------------------------------------
+  // Rotating force derivatives to lift derivatives
+  //---------------------------------------------------------------------
+  dForces2dLifts(ioData,F,dForces,dL);
+  
+}
+//------------------------------------------------------------------------------
+
+template<int dim>
+void EmbeddedFluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsWRTStateAnalytical(
+                                                 bool isSparse,
+                                                 Vec3D &dF,
+                                                 Vec3D &dM,
+                                                 IoData &ioData,
+                                                 DistSVec<double,3> &X,
+                                                 DistSVec<double,dim> &U,
+                                                 DistSVec<double,3> &dQdX,
+                                                 DistSVec<double,dim> &dQdU)
+{
+// Q is a quantity of your interest.
+// set dF to be the combination of dF that you want to be the objective function
+
+  int nSurfs = this->postOp->getNumSurf();
+  if(nSurfs != 1) { this->com->fprintf(stderr, " *** Error : Sparse format supports only nSurfs = 1\n");  exit(-1); }
+
+  Vec3D x0, F, M;
+  Vec3D *Fi = new Vec3D[nSurfs];
+  Vec3D *Mi = new Vec3D[nSurfs];
+  Vec3D *Fv = new Vec3D[nSurfs];
+  Vec3D *Mv = new Vec3D[nSurfs];
+
+  x0[0] = ioData.output.transient.x0;
+  x0[1] = ioData.output.transient.y0;
+  x0[2] = ioData.output.transient.z0;
+
+  this->spaceOp->computeGradP(X, *this->A, U);
+  this->postOp->computeForceAndMoment(x0, X, U, 0, Fi, Mi, Fv, Mv);
+
+  F = 0.0;
+  M = 0.0;
+  F = Fi[0] + Fv[0];
+  M = Mi[0] + Mv[0];
+  
+  double sin_a = sin(ioData.bc.inlet.alpha);
   double cos_a = cos(ioData.bc.inlet.alpha);
-  double sin_b = sin(ioData.bc.inlet.beta); 
+  double sin_b = sin(ioData.bc.inlet.beta);
   double cos_b = cos(ioData.bc.inlet.beta);
 
-  dL[0] =  dF[0]*cos_a*cos_b + dF[1]*cos_a*sin_b + dF[2]*sin_a;
-  dL[1] = -dF[0]*sin_b       + dF[1]*cos_b;
-  dL[2] = -dF[0]*sin_a*cos_b - dF[1]*sin_a*sin_b + dF[2]*cos_a;
+  SVec<double,3> dFiSVec(1), dMiSVec(1), dFvSVec(1), dMvSVec(1);
+  SVec<double,3> dSSVec(1);
+  dddx = 0.0;  dddy = 0.0;  dddz = 0.0;  dR = 0.0;  dAdS = 0.0;
+  // transpose computation.
+  dQdX = 0.0;  dGradP = 0.0;  dQdU = 0.0;
   
-  double dsin_a = cos_a*DFSPAR[1], dcos_a = -sin_a*DFSPAR[1];
-  double dsin_b = cos_b*DFSPAR[2], dcos_b = -sin_b*DFSPAR[2];
+  if(this->refVal->mode == RefVal::NON_DIMENSIONAL) {
+    dF *= 2.0 * this->refVal->length*this->refVal->length / surface;
+    dM *= 2.0 * this->refVal->length*this->refVal->length*this->refVal->length / (surface * length);
+  }
+  else {
+    dF *= this->refVal->force;
+    dM *= this->refVal->energy;
+  }
+  dFiSVec[0][0] = dF[0];    dFiSVec[0][1] = dF[1];   dFiSVec[0][2] = dF[2];
+  dFvSVec[0][0] = dF[0];    dFvSVec[0][1] = dF[1];   dFvSVec[0][2] = dF[2];
+  dMiSVec[0][0] = dM[0];    dMiSVec[0][1] = dM[1];   dMiSVec[0][2] = dM[2];
+  dMvSVec[0][0] = dM[0];    dMvSVec[0][1] = dM[1];   dMvSVec[0][2] = dM[2];
+  //dQdX, dAdS are dummies that don't do anything
+  //also looks like dR doesn't have any impact, but we will include it as a dummy variable for now -- may exclude this later
+  // also dSSVec should have no impact?
+  dR = 0.0; dAdS = 0.0;
+  dRdXoperators<dim> *dRdXop = dRdX->getdRdXop();
+  this->postOp->computeTransposeDerivativeOfForceAndMoment(dRdXop, dFiSVec, dMiSVec, dFvSVec, dMvSVec, dQdX, dQdU, dSSVec, dGradP);
+  this->spaceOp->computeTransposeDerivativeOfGradP(dRdXop, dGradP, dddx, dddy, dddz, dR, dAdS, dQdX, dQdU);
+  
 
-  dL[0] += F[0]*(dcos_a*cos_b + cos_a*dcos_b) +
-           F[1]*(dcos_a*sin_b + cos_a*dsin_b) + 
-           F[2]*dsin_a;
+}
+//------------------------------------------------------------------------------
 
-  dL[1] += -F[0]*dsin_b + F[1]*dcos_b;
+template<int dim>
+void EmbeddedFluidShapeOptimizationHandler<dim>::fsoComputeAdjoint(IoData &ioData, DistVec<double> &A, DistSVec<double,dim> &dQdU, bool isFSI)
+{
+
+  lambdaU = 0.0;
+  // Derivative of the Flux, either analytical or semi-analytical
+  if ( ioData.sa.scFlag != SensitivityAnalysis::ANALYTICAL ) {
+    this->com->fprintf(stderr, " --- WARNING : only analytical adjoint sensitivities are available\n");
+  }
   
-  dL[2] += -F[0]*(dsin_a*cos_b + sin_a*dcos_b) -
-            F[1]*(dsin_a*sin_b + sin_a*dsin_b) +
-            F[2]*dcos_a;  
+  fsoAdjointLinearSolver(ioData, dQdU, lambdaU, isFSI);
+
   
+}
+//------------------------------------------------------------------------------
+
+template<int dim>
+void EmbeddedFluidShapeOptimizationHandler<dim>::fsoPrintTextOnScreen(const char *Text){
+   this->com->fprintf(stderr, Text);
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void EmbeddedFluidShapeOptimizationHandler<dim>::fsoPrintTextOnScreen(const char *Text){
+void EmbeddedFluidShapeOptimizationHandler<dim>::fsaPrintTextOnScreen(const char *Text){
    this->com->fprintf(stderr, Text);
 }
 
@@ -1331,7 +2250,6 @@ bool EmbeddedFluidShapeOptimizationHandler<dim>::getdXdSb(int istep){
 
   FILE *dFile;
   dFile = fopen(dXdSb_file, "r");
-
   if(dFile == NULL) {
     this->com->fprintf(stderr, "Embedded surface sensitivity file  (%s) doesn't exist.\n", dXdSb_file);
     exit(-1);
@@ -1365,8 +2283,7 @@ bool EmbeddedFluidShapeOptimizationHandler<dim>::getdXdSb(int istep){
       found = true;
       for(int i=0; i<NumNodes; ++i){
         fgets(line, MAXrLINE, dFile);
-        //sscanf(line, "%d %lf %lf %lf", &id, &dxdSb[i], &dydSb[i], &dzdSb[i]);
-	sscanf(line, "%lf %lf %lf", &dxdSb[i], &dydSb[i], &dzdSb[i]);
+  sscanf(line, "%lf %lf %lf", &dxdSb[i], &dydSb[i], &dzdSb[i]);
       }
       break;
 
@@ -1374,14 +2291,13 @@ bool EmbeddedFluidShapeOptimizationHandler<dim>::getdXdSb(int istep){
 
       found = false;
       for(int i=0; i<NumNodes; ++i)
-	fgets(line, MAXrLINE, dFile);
+  fgets(line, MAXrLINE, dFile);
 
     }
 
   }
   
   fclose(dFile);
-
   if(found)
     this->distLSS->setdXdSb(NumNodes, dxdSb, dydSb, dzdSb);
  

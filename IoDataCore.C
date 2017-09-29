@@ -448,6 +448,9 @@ TransientData::TransientData()
   dDisplacement = "";
   dForces = "";
   dLiftDrag = "";
+  dLiftx = "";
+  dLifty = "";
+  dLiftz = "";
   dEddyvis = "";
 
   tempnormalderivative = "";
@@ -466,6 +469,8 @@ TransientData::TransientData()
   y0 = 0.0;
   z0 = 0.0;
 
+  exactforceoutput=OFF_EXACTFORCEOUTPUT;
+
 }
 
 //------------------------------------------------------------------------------
@@ -474,7 +479,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 101, father);
+  ClassAssigner *ca = new ClassAssigner(name, 104, father);
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
 
@@ -565,6 +570,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   // Gappy POD offline
   // Gappy POD snapshots
 // Included (MB)
+  new ClassStr<TransientData>(ca, "PopulatedStateVector", this, &TransientData::populatedState);
   new ClassStr<TransientData>(ca, "VelocityNorm", this, &TransientData::velocitynorm);
   new ClassStr<TransientData>(ca, "SpatialResidualSensitivity", this, &TransientData::dSpatialres);
   new ClassStr<TransientData>(ca, "SpatialResidualNormSensitivity", this, &TransientData::dSpatialresnorm);
@@ -582,7 +588,6 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "VelocitySensitivity", this, &TransientData::dVelocityVector);
   new ClassStr<TransientData>(ca, "DisplacementSensitivity", this, &TransientData::dDisplacement);
   new ClassStr<TransientData>(ca, "ForceSensitivity", this, &TransientData::dForces);
-  new ClassStr<TransientData>(ca, "LiftandDragSensitivity", this, &TransientData::dLiftDrag); //YC
 
   new ClassStr<TransientData>(ca, "TemperatureNormalDerivative", this, &TransientData::tempnormalderivative);
   new ClassStr<TransientData>(ca, "HeatFluxPerUnitSurface", this, &TransientData::surfaceheatflux);
@@ -593,7 +598,15 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 
   new ClassStr<TransientData>(ca, "MultiSolutionFluxNorm", this, &TransientData::multiSolnFluxNorm);
 
+  // Included (YC)
+  new ClassStr<TransientData>(ca, "LiftandDragSensitivity", this, &TransientData::dLiftDrag);
+  new ClassStr<TransientData>(ca, "LiftxSensitivity", this, &TransientData::dLiftx);
+  new ClassStr<TransientData>(ca, "LiftySensitivity", this, &TransientData::dLifty);
+  new ClassStr<TransientData>(ca, "LiftzSensitivity", this, &TransientData::dLiftz);
   //do defaults
+
+  new ClassToken<TransientData>(ca, "ExactForceOutput", this,
+            reinterpret_cast<int TransientData::*>(&TransientData::exactforceoutput), 2, "Off", 0, "On", 1);
 
 }
 
@@ -630,7 +643,7 @@ ROMOutputData::ROMOutputData()
 
   overwriteNonlinearSnaps = OVERWRITE_OFF;
 
-  resjacfrequency = 0;  //TODO
+  resjacfrequency = 0;
 
 }
 
@@ -803,22 +816,52 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 5, father);
   new ClassToken<ProblemData>
     (ca, "Type", this,
-     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 43,
-     "Steady", 0, "Unsteady", 1, "AcceleratedUnsteady", 2, "SteadyAeroelastic", 3,
-     "UnsteadyAeroelastic", 4, "AcceleratedUnsteadyAeroelastic", 5,
-     "SteadyAeroThermal", 6, "UnsteadyAeroThermal", 7, "SteadyAeroThermoElastic", 8,
-     "UnsteadyAeroThermoElastic", 9, "Forced", 10, "AcceleratedForced", 11,
-     "RigidRoll", 12, "RbmExtractor", 13, "UnsteadyLinearizedAeroelastic", 14,
-     "UnsteadyLinearized", 15, "NonlinearROMOffline", 16, "ROMAeroelastic", 17,
-     "ROM", 18, "ForcedLinearized", 19, "PODInterpolation", 20,
-     "NonlinearEigenErrorIndicator", 21, "SparseGridGeneration", 22,
-     "1D", 23, "UnsteadyNonlinearROM", 24, "NonlinearROMPreprocessing", 25,
-     "NonlinearROMSurfaceMeshConstruction", 26, "SampledMeshShapeChange", 27,
-     "UnsteadyNonlinearROMPostprocessing", 28, "PODConstruction", 29, "ROBInnerProduct", 30,
-     "Aeroacoustic", 31, "SteadySensitivityAnalysis", 32, "SteadyAeroelasticSensitivityAnalysis", 33, "EigenAeroelastic", 34,
-     "GAMConstruction", 35, "AcceleratedUnsteadyNonlinearROM", 36,
-     "SteadyNonlinearROM", 37, "ForcedNonlinearROM", 38, "RomShapeOptimization", 39, "SteadyNonlinearROMPostprocessing", 40,
-     "EmbeddedALSROM"/*Lei Lei, 02/13/2016*/, 41, "EmbeddedALSonline", 42);
+    reinterpret_cast<int ProblemData::*>(&ProblemData::alltype),
+    44,//Number of Problem types following
+    "Steady",              0,
+    "Unsteady",            1,
+    "AcceleratedUnsteady", 2,
+    "SteadyAeroelastic",   3,
+    "UnsteadyAeroelastic", 4,
+    "AcceleratedUnsteadyAeroelastic", 5,
+    "SteadyAeroThermal",              6,
+    "UnsteadyAeroThermal",            7,
+    "SteadyAeroThermoElastic",        8,
+    "UnsteadyAeroThermoElastic",      9,
+    "Forced",                         10,
+    "AcceleratedForced",              11,
+    "RigidRoll",                      12,
+    "RbmExtractor",                   13,
+    "UnsteadyLinearizedAeroelastic",  14,
+    "UnsteadyLinearized",             15,
+    "NonlinearROMOffline",            16,
+    "ROMAeroelastic",                 17,
+    "ROM",                            18,
+    "ForcedLinearized",               19,
+    "PODInterpolation",               20,
+    "NonlinearEigenErrorIndicator",   21,
+    "SparseGridGeneration",           22,
+    "1D",                             23,
+    "UnsteadyNonlinearROM",           24,
+    "NonlinearROMPreprocessing",      25,
+    "NonlinearROMSurfaceMeshConstruction", 26,
+    "SampledMeshShapeChange",              27,
+    "UnsteadyNonlinearROMPostprocessing",  28,
+    "PODConstruction",                     29,
+    "ROBInnerProduct",                     30,
+    "Aeroacoustic",                        31,
+    "SteadySensitivityAnalysis",           32,
+    "SteadyAeroelasticSensitivityAnalysis",33,
+    "EigenAeroelastic",                    34,
+    "GAMConstruction",                     35,
+    "AcceleratedUnsteadyNonlinearROM",     36,
+    "SteadyNonlinearROM",                  37,
+    "ForcedNonlinearROM",                  38,
+    "RomShapeOptimization",                39,
+    "SteadyNonlinearROMPostprocessing",    40,
+    "EmbeddedALSROM",                      41,
+    "EmbeddedALSonline",                   42,
+    "SensitivityAnalysis",                 43);
 
   new ClassToken<ProblemData>
     (ca, "Mode", this,
@@ -1493,7 +1536,9 @@ WallDistanceMethodData::WallDistanceMethodData()
   eps = 1.e-4;
   iterativelvl = -1;
 
-  predictoreps = 1.0e-2;  // added by sjg, 07/2017 for wall distance predictor algorithm
+  // added by sjg, 07/2017 for wall distance predictor algorithm
+  frequencyadaptation = OFF;
+  distanceeps = 1.0e-2;
 }
 
 //------------------------------------------------------------------------------
@@ -1501,11 +1546,11 @@ WallDistanceMethodData::WallDistanceMethodData()
 void WallDistanceMethodData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 4, father);
+  ClassAssigner *ca = new ClassAssigner(name, 6, father);
 
   new ClassToken<WallDistanceMethodData>
     (ca, "Type", this, reinterpret_cast<int WallDistanceMethodData::*>
-     (&WallDistanceMethodData::type), 3, "Iterative", 0, "NonIterative", 1, "Hybrid", 2);
+    (&WallDistanceMethodData::type), 3, "Iterative", 0, "NonIterative", 1, "Hybrid", 2);
 
   new ClassInt<WallDistanceMethodData>(ca, "MaxIts", this, &WallDistanceMethodData::maxIts);
 
@@ -1513,7 +1558,11 @@ void WallDistanceMethodData::setup(const char *name, ClassAssigner *father)
 
   new ClassInt<WallDistanceMethodData>(ca, "IterativeLevel", this, &WallDistanceMethodData::iterativelvl);
 
-  new ClassDouble<WallDistanceMethodData>(ca, "PredictorEps", this, &WallDistanceMethodData::predictoreps);
+  new ClassToken<WallDistanceMethodData>
+    (ca, "ReinitializationFrequencyAdaptation", this, reinterpret_cast<int WallDistanceMethodData::*>
+    (&WallDistanceMethodData::frequencyadaptation), 2, "Off", 0, "On", 1);
+
+  new ClassDouble<WallDistanceMethodData>(ca, "DistanceEps", this, &WallDistanceMethodData::distanceeps);
 
 }
 
@@ -3277,6 +3326,7 @@ SensitivityAnalysis::SensitivityAnalysis()
   method  = DIRECT;
   scFlag = ANALYTICAL;
   mvp = H2;
+  mvpViscous = FDViscous;
   lsSolver=QR;
   eps = 0.00001;
   sensFSI  = OFF_SENSITIVITYFSI;
@@ -3284,13 +3334,12 @@ SensitivityAnalysis::SensitivityAnalysis()
   sensMach = OFF_SENSITIVITYMACH;
   sensAlpha = OFF_SENSITIVITYALPHA;
   sensBeta = OFF_SENSITIVITYBETA;
-  si = 0;
-  sf = -1;
   fsiFlag = false;
   adaptiveEpsFSI = OFF_ADAPTIVEEPSFSI;
+  sparseFlag = false;
 
   // For debugging purposes
-  excsol = OFF_EXACTSOLUTION;
+  //excsol = OFF_EXACTSOLUTION;
   homotopy = OFF_HOMOTOPY;
   comp3d = ON_COMPATIBLE3D;
   angleRad = OFF_ANGLERAD;
@@ -3310,34 +3359,47 @@ SensitivityAnalysis::SensitivityAnalysis()
 void SensitivityAnalysis::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 22, father);
-  new ClassToken<SensitivityAnalysis>(ca, "Method", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::method), 2, "Direct", 0, "Adjoint", 1);
-  new ClassToken<SensitivityAnalysis>(ca, "MatrixVectorProduct", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::mvp), 4, "FiniteDifference", 0, "Approximate", 1, "Exact", 2, "ApproximateFiniteDifference", 3);
-  new ClassToken<SensitivityAnalysis>(ca, "LeastSquaresSolver", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::lsSolver), 2, "QR", 0, "NormalEquations", 1);
+  ClassAssigner *ca = new ClassAssigner(name, 24, father);
+  new ClassToken<SensitivityAnalysis>(ca, "Method",this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::method), 2, "Direct", 0, "Adjoint", 1);
+
+  new ClassToken<SensitivityAnalysis>(ca, "SparseApproach",      this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sparseFlag), 2, "Off", 0, "On", 1);
+  new ClassToken<SensitivityAnalysis>(ca, "MatrixVectorProduct", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::mvp), 4, "Exact", 0, "FiniteDifference", 1);
+  new ClassToken<SensitivityAnalysis>(ca, "MatrixVectorProductViscous", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::mvpViscous), 4, "Exact", 0, "FiniteDifference", 1);
+  new ClassToken<SensitivityAnalysis>(ca, "LeastSquaresSolver",  this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::lsSolver), 2, "QR", 0, "NormalEquations", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityComputation", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::scFlag), 3, "Analytical", 0, "SemiAnalytical", 1, "FiniteDifference", 2);
   new ClassDouble<SensitivityAnalysis>(ca, "EpsFD", this, &SensitivityAnalysis::eps);
-  new ClassToken<SensitivityAnalysis>(ca, "SensitivityFSI", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensFSI), 2, "Off", 0, "On", 1);
+  new ClassToken<SensitivityAnalysis>(ca, "SensitivityFSI", this,  reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensFSI), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityMesh", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensMesh), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityMach", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensMach), 2, "Off", 0, "On", 1);
-  new ClassToken<SensitivityAnalysis>(ca, "SensitivityAlpha", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensAlpha), 2, "Off", 0, "On", 1);
+  new ClassToken<SensitivityAnalysis>(ca, "SensitivityAlpha", this,reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensAlpha), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityBeta", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensBeta), 2, "Off", 0, "On", 1);
-  new ClassToken<SensitivityAnalysis>(ca, "AdaptiveEpsFSI", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::adaptiveEpsFSI), 2, "Off", 0, "On", 1);
-  new ClassInt<SensitivityAnalysis>(ca, "ShapeVariableInitial", this, &SensitivityAnalysis::si);
-  new ClassInt<SensitivityAnalysis>(ca, "ShapeVariableFinal", this, &SensitivityAnalysis::sf);
+  new ClassToken<SensitivityAnalysis>(ca, "AdaptiveEpsFSI", this,  reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::adaptiveEpsFSI), 2, "Off", 0, "On", 1);
+  //new ClassInt<SensitivityAnalysis>(ca, "NumShapeVariables", this, &SensitivityAnalysis::numShapeVariables);
 
 // For debugging purposes
-  new ClassToken<SensitivityAnalysis>(ca, "ExactSolution", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::excsol), 2, "Off", 0, "On", 1);
+  //new ClassToken<SensitivityAnalysis>(ca, "ExactSolution", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::excsol), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "HomotopyComputation", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::homotopy), 2, "Off", 0, "On", 1);
-  new ClassToken<SensitivityAnalysis>(ca, "Compatible3D", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::comp3d), 2, "Off", 0, "On", 1);
-  new ClassToken<SensitivityAnalysis>(ca, "AngleRadians", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::angleRad), 2, "Off", 0, "On", 1);
+  new ClassToken<SensitivityAnalysis>(ca, "Compatible3D",  this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::comp3d), 2, "Off", 0, "On", 1);
+  new ClassToken<SensitivityAnalysis>(ca, "AngleRadians",  this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::angleRad), 2, "Off", 0, "On", 1);
 
-  new ClassDouble<SensitivityAnalysis>(ca, "MachReference", this, &SensitivityAnalysis::machref);
-  new ClassDouble<SensitivityAnalysis>(ca, "AlphaReference", this, &SensitivityAnalysis::alpharef);
-  new ClassDouble<SensitivityAnalysis>(ca, "BetaReference", this, &SensitivityAnalysis::betaref);
-  new ClassStr<SensitivityAnalysis>(ca, "SensitivityOutput", this, &SensitivityAnalysis::sensoutput);
+  new ClassStr<SensitivityAnalysis>(ca, "SensitivityOutput",this, &SensitivityAnalysis::sensoutput);//just every possible sensitivity is written to that file
   new ClassDouble<SensitivityAnalysis>(ca, "ForceResidual", this, &SensitivityAnalysis::fres);
-  new ClassToken<SensitivityAnalysis>(ca, "FixSolution", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::fixsol), 2, "None", 0, "PreviousValues", 1);
+  new ClassToken<SensitivityAnalysis>(ca, "FixSolution",    this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::fixsol), 2, "None", 0, "PreviousValues", 1);
   new ClassInt<SensitivityAnalysis>(ca, "AverageStateIterations", this, &SensitivityAnalysis::avgsIt);
+
+  //The following routines output
+
+  //This flag triggers the output of all the quantities following
+  new ClassToken<SensitivityAnalysis>(ca, "DebugOutput",  this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::debugOutput), 2, "Off", 0, "On", 1);
+
+  //Writes the right hand side that goes into the linear solver to disk
+  new ClassStr<SensitivityAnalysis>(ca, "LinSolveRHS", this, &SensitivityAnalysis::linsolverhs);
+
+  //This flag triggers the output of the inviscid contribution to dFdS
+  new ClassStr<SensitivityAnalysis>(ca, "dFdS_inviscid", this, &SensitivityAnalysis::dFdS_inviscid);
+
+  //This flag triggers the output of the viscous contribution to dFdS
+  new ClassStr<SensitivityAnalysis>(ca, "dFdS_viscous", this, &SensitivityAnalysis::dFdS_viscous);
 
   ksp.setup("LinearSolver", ca);
 
@@ -5261,7 +5323,7 @@ void EmbeddedFramework::setup(const char *name) {
                                      "MidEdge", 0, "Intersection", 1);
   new ClassToken<EmbeddedFramework> (ca, "SecondOrderEulerFlux", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::secondOrderEulerFlux), 2,
                                      "Intersection", 0, "ClosestPoint", 1);
-  embedIC.setup("InitialConditions", ca); 
+  embedIC.setup("InitialConditions", ca);
 
   new ClassDouble<EmbeddedFramework>(ca, "Alpha", this, &EmbeddedFramework::alpha);
   new ClassDouble<EmbeddedFramework>(ca, "InterfaceThickness", this, &EmbeddedFramework::interfaceThickness);
@@ -5769,7 +5831,8 @@ void IoData::resetInputValues()
   // Included (MB)
   if (problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
       problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
-      problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_)
+      problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_ ||
+      problem.alltype == ProblemData::_SENSITIVITY_ANALYSIS_)
   {
 
     //
@@ -5820,7 +5883,8 @@ void IoData::resetInputValues()
       if (ts.implicit.tmcoupling == ImplicitData::WEAK)
       {
         com->fprintf(stderr, " ----- SA >> Time.Implicit.TurbulenceModelCoupling set to Strong -----\n");
-        ts.implicit.tmcoupling = ImplicitData::STRONG;
+        //In previous implementations SA could only be done strongly coupled
+        //ts.implicit.tmcoupling = ImplicitData::STRONG;
       }
       //---------------
       if (ts.implicit.mvp != ImplicitData::FD)
@@ -7532,11 +7596,8 @@ int IoData::checkInputValuesEssentialBC()
   }
 
 // Included (MB)
-  if (sa.machref < 0.0)
     sa.machref = bc.inlet.mach;
-  if (sa.alpharef > 360.0)
     sa.alpharef = bc.inlet.alpha;
-  if (sa.betaref > 360.0)
     sa.betaref = bc.inlet.beta;
   if (!sa.angleRad) {
     sa.alpharef *= acos(-1.0) / 180.0;

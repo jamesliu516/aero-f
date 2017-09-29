@@ -290,6 +290,7 @@ struct TransientData {
   const char *dSpatialres;
   const char *dSpatialresnorm;
   const char *dSolutions;
+  const char *populatedState;
   const char *dDensity;
   const char *dMach;
   const char *dPressure;
@@ -303,6 +304,9 @@ struct TransientData {
   const char *dDisplacement;
   const char *dForces;
   const char *dLiftDrag;
+  const char *dLiftx;
+  const char *dLifty;
+  const char *dLiftz;
 
   const char *tempnormalderivative;
   const char *surfaceheatflux;
@@ -320,6 +324,9 @@ struct TransientData {
   double length;
   double surface;
   double frequency_dt; //set to -1.0 by default. Used iff it is activated (>0.0) by user.
+
+  //output forces with high precision
+  enum ExactForceOutput {OFF_EXACTFORCEOUTPUT = 0, ON_EXACTFORCEOUTPUT = 1} exactforceoutput;
 
   Probes probes;
 
@@ -455,20 +462,50 @@ struct ProblemData {
              ROLL = 5, RBM = 6, LINEARIZED = 7, NLROMOFFLINE = 8, NLROMONLINE = 9, SIZE = 10};
   bool type[SIZE];
 
-  enum AllType {_STEADY_ = 0, _UNSTEADY_ = 1, _ACC_UNSTEADY_ = 2, _STEADY_AEROELASTIC_ = 3,
-                _UNSTEADY_AEROELASTIC_ = 4, _ACC_UNSTEADY_AEROELASTIC_ = 5,
-                _STEADY_THERMO_ = 6, _UNSTEADY_THERMO_ = 7, _STEADY_AEROTHERMOELASTIC_ = 8,
-                _UNSTEADY_AEROTHERMOELASTIC_ = 9, _FORCED_ = 10, _ACC_FORCED_ = 11,
-                _ROLL_ = 12, _RBM_ = 13, _UNSTEADY_LINEARIZED_AEROELASTIC_ = 14,
-                _UNSTEADY_LINEARIZED_ = 15, _NONLINEAR_ROM_OFFLINE_ = 16,
-                _ROM_AEROELASTIC_ = 17, _ROM_ = 18, _FORCED_LINEARIZED_ = 19,
-                _INTERPOLATION_ = 20, _NONLINEAR_EIGEN_ERROR_INDICATOR_ = 21,
-                _SPARSEGRIDGEN_ = 22, _ONE_DIMENSIONAL_ = 23, _UNSTEADY_NONLINEAR_ROM_ = 24, _NONLINEAR_ROM_PREPROCESSING_ = 25,
-                _SURFACE_MESH_CONSTRUCTION_ = 26, _SAMPLE_MESH_SHAPE_CHANGE_ = 27, _UNSTEADY_NONLINEAR_ROM_POST_ = 28, _POD_CONSTRUCTION_ = 29,
-                _ROB_INNER_PRODUCT_ = 30, _AERO_ACOUSTIC_ = 31, _SHAPE_OPTIMIZATION_ = 32, _AEROELASTIC_SHAPE_OPTIMIZATION_ = 33,
-                _AEROELASTIC_ANALYSIS_ = 34, _GAM_CONSTRUCTION_ = 35, _ACC_UNSTEADY_NONLINEAR_ROM_ = 36,
-                _STEADY_NONLINEAR_ROM_ = 37, _FORCED_NONLINEAR_ROM_ = 38, _ROM_SHAPE_OPTIMIZATION_ = 39, _STEADY_NONLINEAR_ROM_POST_ = 40,
-                _EMBEDDED_ALS_ROM_ = 41 /* Lei Lei, 02/13/2016 */,_EMBEDDED_ALS_ROM_ONLINE_ = 42 /* Lei Lei, 05/15/2016 */ } alltype;
+  enum AllType {_STEADY_                   = 0,
+              _UNSTEADY_                   = 1,
+              _ACC_UNSTEADY_               = 2,
+              _STEADY_AEROELASTIC_         = 3,
+              _UNSTEADY_AEROELASTIC_       = 4,
+              _ACC_UNSTEADY_AEROELASTIC_   = 5,
+              _STEADY_THERMO_              = 6,
+              _UNSTEADY_THERMO_            = 7,
+              _STEADY_AEROTHERMOELASTIC_   = 8,
+              _UNSTEADY_AEROTHERMOELASTIC_ = 9,
+              _FORCED_                     =10,
+              _ACC_FORCED_                 =11,
+              _ROLL_                       =12,
+              _RBM_                        =13,
+              _UNSTEADY_LINEARIZED_AEROELASTIC_ = 14,
+              _UNSTEADY_LINEARIZED_        =15,
+              _NONLINEAR_ROM_OFFLINE_      =16,
+              _ROM_AEROELASTIC_            =17,
+              _ROM_                        =18,
+              _FORCED_LINEARIZED_          =19,
+              _INTERPOLATION_              =20,
+              _NONLINEAR_EIGEN_ERROR_INDICATOR_ = 21,
+              _SPARSEGRIDGEN_              =22,
+              _ONE_DIMENSIONAL_            =23,
+              _UNSTEADY_NONLINEAR_ROM_     =24,
+              _NONLINEAR_ROM_PREPROCESSING_ = 25,
+              _SURFACE_MESH_CONSTRUCTION_  =26,
+              _SAMPLE_MESH_SHAPE_CHANGE_   =27,
+              _UNSTEADY_NONLINEAR_ROM_POST_ = 28,
+              _POD_CONSTRUCTION_           =29,
+              _ROB_INNER_PRODUCT_          =30,
+              _AERO_ACOUSTIC_              =31,
+              _SHAPE_OPTIMIZATION_         =32,
+              _AEROELASTIC_SHAPE_OPTIMIZATION_ =  33,
+              _AEROELASTIC_ANALYSIS_       =34,
+              _GAM_CONSTRUCTION_           =35,
+              _ACC_UNSTEADY_NONLINEAR_ROM_ =36,
+              _STEADY_NONLINEAR_ROM_       =37,
+              _FORCED_NONLINEAR_ROM_       =38,
+              _ROM_SHAPE_OPTIMIZATION_     =39,
+              _STEADY_NONLINEAR_ROM_POST_  =40,
+              _EMBEDDED_ALS_ROM_           =41,
+              _EMBEDDED_ALS_ROM_ONLINE_    =42,
+              _SENSITIVITY_ANALYSIS_       =43} alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
@@ -880,7 +917,8 @@ struct WallDistanceMethodData {
   double eps;
   int iterativelvl;
 
-  double predictoreps;
+  enum ReinitializationFrequencyAdaptation {OFF = 0, ON = 1} frequencyadaptation;
+  double distanceeps;
 
   WallDistanceMethodData();
   ~WallDistanceMethodData() {}
@@ -1834,7 +1872,8 @@ struct SensitivityAnalysis {
   enum Method {DIRECT = 0, ADJOINT = 1} method;
   enum SensitivityComputation {ANALYTICAL = 0, SEMIANALYTICAL = 1,  FINITEDIFFERENCE = 2} scFlag;
   enum LsSolver {QR=0, NORMAL_EQUATIONS=1} lsSolver;
-  enum Mvp {FD = 0, H1 = 1, H2 = 2, H1FD = 3} mvp;
+  enum Mvp {H2 = 0, FD = 1} mvp;
+  enum MvpViscous {H1 = 0, FDViscous = 1} mvpViscous;
   enum Compatible3D {OFF_COMPATIBLE3D = 0, ON_COMPATIBLE3D = 1} comp3d;
   enum AngleRadians {OFF_ANGLERAD = 0, ON_ANGLERAD = 1} angleRad;
 
@@ -1843,11 +1882,14 @@ struct SensitivityAnalysis {
   enum SensitivityMach {OFF_SENSITIVITYMACH = 0, ON_SENSITIVITYMACH = 1} sensMach;
   enum SensitivityAOA {OFF_SENSITIVITYALPHA = 0, ON_SENSITIVITYALPHA = 1} sensAlpha;
   enum SensitivityYAW {OFF_SENSITIVITYBETA = 0, ON_SENSITIVITYBETA = 1} sensBeta;
+  enum SensitivityLiftx {OFF_SENSITIVITYLIFTX = 0, ON_SENSITIVITYLIFTX = 1} sensLiftx;
+  enum SensitivityLifty {OFF_SENSITIVITYLIFTY = 0, ON_SENSITIVITYLIFTY = 1} sensLifty;
+  enum SensitivityLiftz {OFF_SENSITIVITYLIFTZ = 0, ON_SENSITIVITYLIFTZ = 1} sensLiftz;
 
   // This flag repeats the linear solves until the number of iterations
   // is smaller than the maximum allowed.
   // Default Value = OFF_EXACTSOLUTION
-  enum ExactSolution {OFF_EXACTSOLUTION = 0, ON_EXACTSOLUTION = 1} excsol;
+  //enum ExactSolution {OFF_EXACTSOLUTION = 0, ON_EXACTSOLUTION = 1} excsol;
 
   enum HomotopyComputation {OFF_HOMOTOPY = 0, ON_HOMOTOPY = 1} homotopy;
   enum FixSolution {NONEFIX = 0, PREVIOUSVALEUSFIX = 1} fixsol;
@@ -1860,13 +1902,21 @@ struct SensitivityAnalysis {
   const char* meshderiv;
   const char* sensoutput;
 
+  // temporary parameters for debugging
+  const char* linsolverhs;
+
+  const char* dFdS_inviscid;
+  const char* dFdS_viscous;
+
+  enum SensitivityDebugOutput {OFF_DEBUGOUTPUT = 0, ON_DEBUGOUTPUT = 1} debugOutput;
+
   bool densFlag;
   bool pressFlag;
   bool apressFlag;
   bool fsiFlag;
 
-  int si;
-  int sf;
+  int sparseFlag;
+  int numShapeVariables;
   int avgsIt;
 
   double eps;

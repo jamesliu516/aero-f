@@ -1208,41 +1208,9 @@ void Domain::computeDerivativeOfNormals(RectangularSparseMat<double,3,3> **dEdge
 #pragma omp parallel for
   for (iSub=0; iSub<numLocSub; ++iSub) {
     subDomain[iSub]->computeDerivativeOfNormals(*dEdgeNormdX[iSub], *dFaceNormdX[iSub], dX(iSub), dEdgeNorm(iSub), dFaceNorm(iSub));
-/*
-    SVec<double,3> dX2(dX);
-    Vec<Vec3D> dEdgeNorm2(dEdgeNorm(iSub)), dFaceNorm2(dFaceNorm(iSub));
-    dX2 = 0.0;
-    dEdgeNorm2 = 0.0;     dFaceNorm2 = 0.0;
 
-    subDomain[iSub]->computeDerivativeOfNormals(*dEdgeNormdX[iSub], *dFaceNormdX[iSub], dX(iSub), dEdgeNorm2, dFaceNorm2);
-    SVec<double,3> dEdgeNorm3(dEdgeNorm2.size()), dFaceNorm3(dFaceNorm2.size());
-    SVec<double,3> dEdgeNorm4(dEdgeNorm2.size()), dFaceNorm4(dFaceNorm2.size());
-    for(int i=0; i<dEdgeNorm2.size(); ++i)
-      for(int j=0; j<3; ++j) {
-        dEdgeNorm3[i][j] = dEdgeNorm2[i][j];
-        dEdgeNorm4[i][j] = dEdgeNorm(iSub)[i][j];
-      }
-    for(int i=0; i<dFaceNorm2.size(); ++i)
-      for(int j=0; j<3; ++j) {
-        dFaceNorm3[i][j] = dFaceNorm2[i][j];
-        dFaceNorm4[i][j] = dFaceNorm(iSub)[i][j];
-      }
-    fprintf(stderr, " norm of dEdgeNorm3 = %e, norm of dEdgeNorm2 = %e\n", dEdgeNorm3.norm(), dEdgeNorm2.norm());
-
-    double aa = dEdgeNorm3*dEdgeNorm4 + dFaceNorm3*dFaceNorm4;
-
-
-    subDomain[iSub]->computeTransposeDerivativeOfNormals(*dEdgeNormdX[iSub], *dFaceNormdX[iSub], dEdgeNorm(iSub), dFaceNorm(iSub), dX2);
-    double bb = dX2*dX;
-    double diff = sqrt((aa-bb)*(aa-bb));
-    if(aa != 0.0) fprintf(stderr, " ... rel. diff = %e\n", diff/abs(aa));
-    else fprintf(stderr, " ... abs. diff = %e\n", diff);
-*/
-
-// TODO: part below was uncommented.
     subDomain[iSub]->sndNormals(*edgePat, dEdgeNorm.subData(iSub), dEdgeNormVel.subData(iSub));
   }
-// TODO: part below was uncommented.
   edgePat->exchange();
 #pragma omp parallel for
   for (iSub=0; iSub<numLocSub; ++iSub)
@@ -1647,7 +1615,7 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistVec<int
 //------------------------------------------------------------------------------
 
 // Included (MB)
-// YC: if you modify this member function, you also must modify Domain::computeDerivativeTransposeOfWeightsLeastSquares accordingly
+// YC: if you modify this member function, you must modify Domain::computeDerivativeTransposeOfWeightsLeastSquares accordingly
 void Domain::computeDerivativeOfWeightsLeastSquares(DistSVec<double,3> &X, DistSVec<double,3> &dX, DistSVec<double,6> &dR)
 {
 
@@ -1657,30 +1625,10 @@ void Domain::computeDerivativeOfWeightsLeastSquares(DistSVec<double,3> &X, DistS
 
   double t0 = timer->getTime();
 
-//  dR = 0.0;
-//  DistSVec<double,3> x(this->getNodeDistInfo()), q(this->getNodeDistInfo());
-//  x = dX;
-//  q = 0.0;
-//  DistSVec<double,6> y(this->getNodeDistInfo());
-//  y = 2.0;
-
 #pragma omp parallel for
   for (iSub=0; iSub<numLocSub; ++iSub) {
-//    if(isSparse) {
-//      subDomain[iSub]->computeWeightsLeastSquaresEdgePart(X(iSub), R(iSub));
-//      subDomain[iSub]->computeDerivativeOfWeightsLeastSquaresEdgePart(*dRdX[iSub], dX(iSub), dR(iSub));
-//    } else
-      subDomain[iSub]->computeDerivativeOfWeightsLeastSquaresEdgePart(X(iSub), dX(iSub), R(iSub), dR(iSub));
+    subDomain[iSub]->computeDerivativeOfWeightsLeastSquaresEdgePart(X(iSub), dX(iSub), R(iSub), dR(iSub));
     subDomain[iSub]->sndData(*weightPat, R.subData(iSub));
-
-//    YC: verification of transpose implementation for debug
-
-//    subDomain[iSub]->computeDerivativeOfWeightsLeastSquaresEdgePart(X(iSub), x(iSub), R(iSub), dR(iSub));
-//    subDomain[iSub]->computeDerivativeTransposeOfWeightsLeastSquaresEdgePart(X(iSub), y(iSub), R(iSub), q(iSub));
-//    double z = dR(iSub)*y(iSub);
-//    double p = q(iSub)*x(iSub);
-//    com->fprintf(stderr,"z = %e, w = %e, rel. diff. = %e\n", z, p, (z-p)/z);
-
   }
 
   weightPat->exchange();
@@ -1693,35 +1641,63 @@ void Domain::computeDerivativeOfWeightsLeastSquares(DistSVec<double,3> &X, DistS
 
   weightDerivativePat->exchange();
 
-/*
-  DistSVec<double,6> x(this->getNodeDistInfo()), q(this->getNodeDistInfo());
-  q = 0.0;
-  DistSVec<double,6> y(this->getNodeDistInfo()), s(this->getNodeDistInfo());
-  x = 3425.235;
-  s = dR;
-*/
-
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
     subDomain[iSub]->addRcvData(*weightDerivativePat, dR.subData(iSub));
-//    if(isSparse) subDomain[iSub]->computeDerivativeOfWeightsLeastSquaresNodePart(*dRdR[iSub], dR(iSub));
-//    else
-      subDomain[iSub]->computeDerivativeOfWeightsLeastSquaresNodePart(R(iSub), dR(iSub));
-//   YC: verification of transpose implementation for dubug
-/*
-    y = s;
-    subDomain[iSub]->computeDerivativeOfWeightsLeastSquaresNodePart(R(iSub), y(iSub));
-    q = x;
-    subDomain[iSub]->computeDerivativeTransposeOfWeightsLeastSquaresNodePart(R(iSub), q(iSub));
-    double z = x(iSub)*y(iSub);
-    double p = s(iSub)*q(iSub);
-    com->fprintf(stderr,"z = %e, p = %e, rel. diff. = %e\n", z, p, (z-p)/z);
-*/
+    subDomain[iSub]->computeDerivativeOfWeightsLeastSquaresNodePart(R(iSub), dR(iSub));
   }
 
   timer->addNodalWeightsTime(t0);
 
 }
+
+
+
+// Included (MB)
+// This is the embedded Version of the above function
+// Please read the comment in the above one first
+void Domain::computeDerivativeOfWeightsLeastSquaresEmb(
+               DistSVec<double,3> &X, DistSVec<double,3> &dX,
+               const DistVec<int> &fluidId,
+               DistSVec<double,6> &dR,
+               bool linFSI, DistLevelSetStructure *distLSS,
+               bool includeSweptNodes)
+{
+
+  int iSub;
+  DistSVec<int,1> *count = new DistSVec<int,1>(getNodeDistInfo());
+
+  DistSVec<double,6> R(getNodeDistInfo());//compute R
+
+  double t0 = timer->getTime();
+
+#pragma omp parallel for
+  for (iSub=0; iSub<numLocSub; ++iSub) {
+    subDomain[iSub]->computeDerivativeOfWeightsLeastSquaresEdgePartEmb(X(iSub), dX(iSub), fluidId(iSub),(*count)(iSub), R(iSub), dR(iSub),&((*distLSS)(iSub)),includeSweptNodes);
+    subDomain[iSub]->sndData(*weightPat, R.subData(iSub));
+  }
+
+  weightPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) {
+    subDomain[iSub]->addRcvData(*weightPat, R.subData(iSub));
+    subDomain[iSub]->sndData(*weightDerivativePat, dR.subData(iSub));
+  }
+
+  weightDerivativePat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) {
+    subDomain[iSub]->addRcvData(*weightDerivativePat, dR.subData(iSub));
+    subDomain[iSub]->computeDerivativeOfWeightsLeastSquaresNodePartEmb(R(iSub), dR(iSub),&((*distLSS)(iSub)),includeSweptNodes);
+  }
+
+  timer->addNodalWeightsTime(t0);
+
+}
+
+
 
 //------------------------------------------------------------------------------
 
@@ -1738,17 +1714,6 @@ void Domain::computeDerivativeOfWeightsLeastSquares(RectangularSparseMat<double,
 #pragma omp parallel for
   for (iSub=0; iSub<numLocSub; ++iSub) {
     subDomain[iSub]->computeDerivativeOfWeightsLeastSquaresEdgePart(*dRdX[iSub], dX(iSub), dR(iSub));
-/*
-    SVec<double,3> dX2(dX(iSub));    dX2 = 0.0;
-    SVec<double,6> dR2(dR(iSub));    dR2 = 0.0;
-    subDomain[iSub]->computeDerivativeOfWeightsLeastSquaresEdgePart(*dRdX[iSub], dX(iSub), dR2);
-    double aa = dR2*dR(iSub);
-    subDomain[iSub]->computeTransposeDerivativeOfWeightsLeastSquaresEdgePart(*dRdX[iSub], dR(iSub), dX2);
-    double bb = dX2*dX(iSub);
-    double diff = sqrt((aa-bb)*(aa-bb));
-    if(aa != 0.0) fprintf(stderr, " ... rel. diff = %e\n", diff/abs(aa));
-    else fprintf(stderr, " ... abs. diff = %e\n", diff);
-*/
   }
 
 #pragma omp parallel for
@@ -1761,18 +1726,7 @@ void Domain::computeDerivativeOfWeightsLeastSquares(RectangularSparseMat<double,
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
     subDomain[iSub]->addRcvData(*weightDerivativePat, dR.subData(iSub));
-//    SVec<double,6> dR2b(dR(iSub)), dR2(dR(iSub));
     subDomain[iSub]->computeDerivativeOfWeightsLeastSquaresNodePart(*dRdR[iSub], dR(iSub));
-/*
-    SVec<double,6> dR3b(dR(iSub)), dR3(dR(iSub));
-    subDomain[iSub]->computeDerivativeOfWeightsLeastSquaresNodePart(*dRdR[iSub], dR2);
-    double aa = dR3b*dR2;
-    subDomain[iSub]->computeTransposeDerivativeOfWeightsLeastSquaresNodePart(*dRdR[iSub], dR3);
-    double bb = dR3*dR2b;
-    double diff = sqrt((aa-bb)*(aa-bb));
-    if(aa != 0.0) fprintf(stderr, " ... rel. diff = %e\n", diff/abs(aa));
-    else fprintf(stderr, " ... abs. diff = %e\n", diff);
-*/
   }
 
   timer->addNodalWeightsTime(t0);
@@ -1806,7 +1760,7 @@ void Domain::computeTransposeDerivativeOfWeightsLeastSquares(
     subDomain[iSub]->computeTransposeDerivativeOfWeightsLeastSquaresEdgePart(*dRdX[iSub], dR(iSub), dX2(iSub));
   }
 
-//  assemble(vec3DPat, dX2);
+//  assemble(vec3DPat, dX2); // Must be removed. Verification Purpose
   timer->addNodalWeightsTime(t0);
 
 }
@@ -1817,8 +1771,6 @@ void Domain::computeTransposeDerivativeOfWeightsLeastSquares(
 // YC: if you modify this member function, you also must modify Domain::computeDerivativeTransposeOfWeightsLeastSquares accordingly
 void Domain::computeDerivativeOperatorsOfWeightsLeastSquares(DistSVec<double,3> &X, RectangularSparseMat<double,3,6> **dRdX, RectangularSparseMat<double,6,6> **dRdR)
 {
-
-//  com->printf(4," ... in Domain::computeDerivativeOperatorsOfWeightsLeastSquares 01 \n");
   int iSub;
 
   DistSVec<double,6> R(getNodeDistInfo());
@@ -1921,28 +1873,10 @@ void Domain::computeDerivativeOfWeightsGalerkin(DistSVec<double,3> &X, DistSVec<
 {
 
   double t0 = timer->getTime();
-/*
-  DistSVec<double,3> x(this->getNodeDistInfo()), y(this->getEdgeDistInfo()), zzz(this->getEdgeDistInfo());
-  DistSVec<double,3> xx(this->getNodeDistInfo()), yy(this->getEdgeDistInfo()), zz(this->getEdgeDistInfo());
-  DistSVec<double,3> dxx(this->getNodeDistInfo());
-  x = 1.0;   y = 2.0;  zzz = 3.0;  dxx = 0.0;
-  xx = 0.0;  yy= 0.0;  zz = 0.0;
-*/
 
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; ++iSub) {
     subDomain[iSub]->computeDerivativeOfWeightsGalerkin(X(iSub), dX(iSub), dwii(iSub), dwij(iSub), dwji(iSub));
-/*    com->fprintf(stderr,"xx = %e, yy = %e, zz = %e\n", xx(iSub).norm(), yy(iSub).norm(), zz(iSub).norm());
-    com->fprintf(stderr,"x = %e, y = %e, zzz = %e\n", x(iSub).norm(), y(iSub).norm(), zzz(iSub).norm());
-    com->fprintf(stderr,"dX = %e\n", dX(iSub).norm());
-    subDomain[iSub]->computeDerivativeOfWeightsGalerkin(X(iSub), dX(iSub), xx(iSub), yy(iSub), zz(iSub));
-    com->fprintf(stderr,"xx = %e, yy = %e, zz = %e\n", xx(iSub).norm(), yy(iSub).norm(), zz(iSub).norm());
-    com->fprintf(stderr,"x = %e, y = %e, zzz = %e\n", x(iSub).norm(), y(iSub).norm(), zzz(iSub).norm());
-    com->fprintf(stderr,"dX = %e\n", dX(iSub).norm());
-    double z = xx(iSub)*x(iSub) + yy(iSub)*y(iSub) + zz(iSub)*zzz(iSub);
-    subDomain[iSub]->computeDerivativeTransposeOfWeightsGalerkin(X(iSub), x(iSub), y(iSub), zzz(iSub), dxx(iSub));
-    double p = dX(iSub)*dxx(iSub);
-    com->fprintf(stderr,"z = %e, w = %e, rel. diff. = %e\n", z, p, (z-p)/z); */
   }
 
   timer->addNodalWeightsTime(t0);
@@ -1957,29 +1891,10 @@ void Domain::computeDerivativeOperatorsOfWeightsGalerkin(DistSVec<double,3> &X, 
 {
 
   double t0 = timer->getTime();
-/*
-  DistSVec<double,3> x(this->getNodeDistInfo()), y(this->getEdgeDistInfo()), zzz(this->getEdgeDistInfo());
-  DistSVec<double,3> xx(this->getNodeDistInfo()), yy(this->getEdgeDistInfo()), zz(this->getEdgeDistInfo());
-  DistSVec<double,3> dxx(this->getNodeDistInfo());
-  x = 1.0;   y = 2.0;  zzz = 3.0;  dxx = 0.0;
-  xx = 0.0;  yy= 0.0;  zz = 0.0;
-*/
 
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; ++iSub) {
     subDomain[iSub]->computeDerivativeOfWeightsGalerkin(X(iSub), dX(iSub), dwii(iSub), dwij(iSub), dwji(iSub));
-/*    com->fprintf(stderr,"xx = %e, yy = %e, zz = %e\n", xx(iSub).norm(), yy(iSub).norm(), zz(iSub).norm());
-    com->fprintf(stderr,"x = %e, y = %e, zzz = %e\n", x(iSub).norm(), y(iSub).norm(), zzz(iSub).norm());
-    com->fprintf(stderr,"dX = %e\n", dX(iSub).norm());
-    subDomain[iSub]->computeDerivativeOfWeightsGalerkin(X(iSub), dX(iSub), xx(iSub), yy(iSub), zz(iSub));
-    com->fprintf(stderr,"xx = %e, yy = %e, zz = %e\n", xx(iSub).norm(), yy(iSub).norm(), zz(iSub).norm());
-    com->fprintf(stderr,"x = %e, y = %e, zzz = %e\n", x(iSub).norm(), y(iSub).norm(), zzz(iSub).norm());
-    com->fprintf(stderr,"dX = %e\n", dX(iSub).norm());
-    double z = xx(iSub)*x(iSub) + yy(iSub)*y(iSub) + zz(iSub)*zzz(iSub);
-    subDomain[iSub]->computeDerivativeTransposeOfWeightsGalerkin(X(iSub), x(iSub), y(iSub), zzz(iSub), dxx(iSub));
-    double p = dX(iSub)*dxx(iSub);
-    com->fprintf(stderr,"z = %e, w = %e, rel. diff. = %e\n", z, p, (z-p)/z);
-*/
   }
 
   timer->addNodalWeightsTime(t0);

@@ -22,9 +22,12 @@
 //------------------------------------------------------------------------------
 
 template<int dim>
-void ElemSet::computeTimeStep(FemEquationTerm *fet, SVec<double,3> &X,
-										SVec<double,dim> &V, Vec<double> &idtv,
-										LevelSetStructure *LSS)
+void ElemSet::computeTimeStep(
+                FemEquationTerm *fet,
+                SVec<double,3> &X,
+                SVec<double,dim> &V,
+                Vec<double> &idtv,
+                LevelSetStructure *LSS)
 {
   int *nodeNumber,numberOfNodes;
   double Vmid[dim],oneOnDofs;
@@ -87,64 +90,40 @@ void ElemSet::computeTimeStep(FemEquationTerm *fet, SVec<double,3> &X,
 
 template<int dim>
 void ElemSet::computeGalerkinTerm(FemEquationTerm *fet, GeoState &geoState,
-											SVec<double,3> &X, SVec<double,dim> &V,
-											SVec<double,dim> &R,
-											Vec<GhostPoint<dim>*> *ghostPoints,
-											LevelSetStructure *LSS, bool externalSI)
+                SVec<double,3> &X, SVec<double,dim> &V,
+                SVec<double,dim> &R,
+                Vec<GhostPoint<dim>*> *ghostPoints,
+                LevelSetStructure *LSS, bool externalSI)
 {
 
   Vec<double> &d2wall = geoState.getDistanceToWall();
 
-	if(!externalSI)
-	{
-		if (sampleMesh)
-		{
-			for (int iElem=0; iElem<numSampledElems; ++iElem)
-			elems[ (elemsConnectedToSampleNode[iElem]) ]->computeGalerkinTerm(fet, X, d2wall, V, R, ghostPoints,LSS);
-		}
-		else
-		{
-			for (int iElem=0; iElem<numSampledElems; ++iElem)
-			elems[ iElem ]->computeGalerkinTerm(fet, X, d2wall, V, R, ghostPoints,LSS);
-		}
-	}
-	else
-	{
-		if (sampleMesh) //todo Daniel Huang What is sampleMesh
-		{
-			for (int iElem=0; iElem<numSampledElems; ++iElem)
-				elems[ (elemsConnectedToSampleNode[iElem]) ]->computeGalerkinTerm_e(fet, X, d2wall, V, R, ghostPoints, LSS);
-		}
-		else
-		{
-			for (int iElem=0; iElem<numSampledElems; ++iElem)
-				elems[ iElem ]->computeGalerkinTerm_e(fet, X, d2wall, V, R, ghostPoints, LSS);
-		}
-	}
-
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim>
-void ElemSet::computeSADistSensitivity(FemEquationTerm *fet, GeoState &geoState,
-									SVec<double,3> &X, SVec<double,dim> &V,
-									Vec<double> &dS, LevelSetStructure *LSS)
-{
-
-  Vec<double> &d2wall = geoState.getDistanceToWall();
-
-	if (sampleMesh)
-	{
-		for (int iElem=0; iElem<numSampledElems; ++iElem)
-		elems[ (elemsConnectedToSampleNode[iElem]) ]->computeSADistSensitivity(fet, X, d2wall, V, dS, LSS);
-	}
-	else
-	{
-		for (int iElem=0; iElem<numSampledElems; ++iElem)
-		elems[ iElem ]->computeSADistSensitivity(fet, X, d2wall, V, dS, LSS);
-	}
-
+  if(!externalSI)
+  {
+    if (sampleMesh)
+    {
+      for (int iElem=0; iElem<numSampledElems; ++iElem)
+      elems[ (elemsConnectedToSampleNode[iElem]) ]->computeGalerkinTerm(fet, X, d2wall, V, R, ghostPoints,LSS);
+    }
+    else
+    {
+      for (int iElem=0; iElem<numSampledElems; ++iElem)
+      elems[ iElem ]->computeGalerkinTerm(fet, X, d2wall, V, R, ghostPoints,LSS);
+    }
+  }
+  else
+  {
+    if (sampleMesh)
+    {
+      for (int iElem=0; iElem<numSampledElems; ++iElem)
+        elems[ (elemsConnectedToSampleNode[iElem]) ]->computeGalerkinTerm_e(fet, X, d2wall, V, R, ghostPoints, LSS);
+    }
+    else
+    {
+      for (int iElem=0; iElem<numSampledElems; ++iElem)
+        elems[ iElem ]->computeGalerkinTerm_e(fet, X, d2wall, V, R, ghostPoints, LSS);
+    }
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -173,17 +152,79 @@ void ElemSet::computeGalerkinTermRestrict(FemEquationTerm *fet, GeoState &geoSta
 
 //------------------------------------------------------------------------------
 
-// Included
+/****************************************************************************************
+ * Computes the derivative of the viscous term for non-embedded simulations.            *
+ * This is the non-sparse implementation                                           (MB) *
+ ****************************************************************************************/
 template<int dim>
-void ElemSet::computeDerivativeOfGalerkinTerm(FemEquationTerm *fet, GeoState &geoState,
-				 SVec<double,3> &X, SVec<double,3> &dX, SVec<double,dim> &V, SVec<double,dim> &dV,
-				 double dMach, SVec<double,dim> &dR)
+void ElemSet::computeDerivativeOfGalerkinTerm(FemEquationTerm *fet,
+                GeoState &geoState,
+                SVec<double,3> &X,
+                SVec<double,3> &dX,
+                SVec<double,dim> &V, SVec<double,dim> &dV,
+                double dMach,
+                SVec<double,dim> &dR)
+{
+  Vec<double> &d2wall = geoState.getDistanceToWall();
+
+  for (int i=0; i<numElems; ++i)
+    elems[i]->computeDerivativeOfGalerkinTerm(fet, X, dX, d2wall, V, dV, dMach, dR);
+}
+
+/****************************************************************************************
+ * Computes the derivative of the viscous term for non-embedded simulations.            *
+ * This is the non-sparse implementation                                           (MB) *
+ ****************************************************************************************/
+template<int dim>
+void ElemSet::computeDerivativeOfGalerkinTermEmb(
+                FemEquationTerm *fet,
+                GeoState &geoState,
+                SVec<double,3> &X,
+                SVec<double,3> &dX,
+                SVec<double,dim> &V, SVec<double,dim> &dV,
+                double dMach,
+                SVec<double,dim> &dR,
+                Vec<GhostPoint<dim>*> *ghostPoints,LevelSetStructure *LSS)
+{
+  Vec<double> &d2wall = geoState.getDistanceToWall();
+
+  for (int i=0; i<numElems; ++i)
+    elems[i]->computeDerivativeOfGalerkinTermEmb(fet, X, dX, d2wall, V, dV, dMach, dR, ghostPoints,LSS);
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void ElemSet::computeDerivativeOperatorsOfGalerkinTerm(FemEquationTerm *fet, GeoState &geoState,
+				 SVec<double,3> &X, SVec<double,dim> &V, RectangularSparseMat<double,3,dim> &dViscousFluxdX)
 {
 
   Vec<double> &d2wall = geoState.getDistanceToWall();
 
   for (int i=0; i<numElems; ++i)
-    elems[i]->computeDerivativeOfGalerkinTerm(fet, X, dX, d2wall, V, dV, dMach, dR);
+    elems[i]->computeDerivativeOperatorsOfGalerkinTerm(fet, X, d2wall, V, dViscousFluxdX);
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void ElemSet::computeSADistanceSensitivity(FemEquationTerm *fet, SVec<double,3> &X,
+                GeoState &geoState, SVec<double,dim> &V,
+                Vec<double> &dS, LevelSetStructure *LSS)
+{
+
+  Vec<double> &d2wall = geoState.getDistanceToWall();
+
+  if (sampleMesh)
+  {
+    for (int iElem=0; iElem<numSampledElems; ++iElem)
+    elems[ (elemsConnectedToSampleNode[iElem]) ]->computeSADistanceSensitivity(fet, X, d2wall, V, dS, LSS);
+  }
+  else
+  {
+    for (int iElem=0; iElem<numSampledElems; ++iElem)
+    elems[ iElem ]->computeSADistanceSensitivity(fet, X, d2wall, V, dS, LSS);
+  }
 
 }
 
@@ -366,7 +407,9 @@ void ElemSet::computeDistanceCloseNodes(int lsdim, Vec<int> &Tag, SVec<double,3>
     elems[i]->computeDistanceCloseNodes(lsdim,Tag,X,ddx,ddy,ddz,Phi,Psi);
 
 }
+
 //------------------------------------------------------------------------------
+
 template<int dimLS>
 void ElemSet::recomputeDistanceCloseNodes(int lsdim, Vec<int> &Tag, SVec<double,3> &X,
                                        SVec<double,dimLS> &ddx, SVec<double,dimLS> &ddy,
@@ -378,7 +421,9 @@ void ElemSet::recomputeDistanceCloseNodes(int lsdim, Vec<int> &Tag, SVec<double,
     elems[i]->recomputeDistanceCloseNodes(lsdim,Tag,X,ddx,ddy,ddz,Phi,Psi);
 
 }
+
 //------------------------------------------------------------------------------
+
 template<int dimLS>
 void ElemSet::computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
                                        SVec<double,3> &X, SVec<double,1> &Psi, SVec<double,dimLS> &Phi)
@@ -388,6 +433,7 @@ void ElemSet::computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
     elems[i]->computeDistanceLevelNodes(lsdim,Tag,level,X,Psi,Phi);
 
 }
+
 // End of Level Set Reinitialization functions
 //-------------------------------------------------------------------------------
 
@@ -403,7 +449,7 @@ void ElemSet::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U,
                                   const std::vector<Vec3D>& locs, double (*sol)[dim],
                                   int* status, int* last, LevelSetStructure* LSS,
                                   Vec<GhostPoint<dim>*>* ghostPoints, VarFcn* varFcn,
-				  bool assumeCache) {
+			                            bool assumeCache) {
 
   int nn;
   Vec3D bbox[2];

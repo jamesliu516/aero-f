@@ -19,6 +19,7 @@ public:
 
 // Included (MB)
   virtual double computeDerivative(double, double, double) = 0;
+  virtual void computeDerivativeOperators(double, double &, double &) = 0;
   virtual void rstVar(IoData&) = 0;
 
 };
@@ -39,6 +40,7 @@ public:
 
   double compute(double Tadim) { return thermal_conductivity_coefficient; }
   double computeDerivative(double Tadim, double dTadim, double dMach) { return 0.0; }
+  void computeDerivativeOperators(double Tadim, double &dkappadTaim, double &dkappadMach) { dkappadTaim=0.0; dkappadMach=0.0;}
   void rstVar(IoData &iod) { thermal_conductivity_coefficient = iod.eqs.thermalCondModel.conductivity; }
 
 };
@@ -69,6 +71,14 @@ public:
   double compute(double Tadim)
   {
     return ooPrandtl * varFcn->specificHeatCstPressure() * viscoFcn->compute_mu(Tadim);
+  }
+
+  void computeDerivativeOperators(double Tadim, double &dkappadTadim, double &dkappadMach)
+  {
+    double dmudTadim(0), dmudMach(0);
+    viscoFcn->compute_muDerivativeOperators(Tadim, dmudTadim, dmudMach);
+    dkappadTadim = ooPrandtl * varFcn->specificHeatCstPressure() * dmudTadim;
+    dkappadMach = ooPrandtl * varFcn->specificHeatCstPressure() * dmudMach;
   }
 
   double turbulentConductivity(double mut)

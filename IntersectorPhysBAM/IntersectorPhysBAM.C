@@ -1272,7 +1272,7 @@ void DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X,
 #pragma omp parallel for
 	  for(int iSub = 0; iSub < numLocSub; ++iSub)
 		  intersector[iSub]->ComputeSIbasedIntersections(iSub, X(iSub), (*boxMin)(iSub), (*boxMax)(iSub), withViscousTerms);
-	  
+
   } else{
       ////////Daniel Huang, copy Dante's second order FIVER to the original one, we need to initialize
         /// xi_SI, eta_SI, TriID_SI, nWall_SI for these intersected edge center todo
@@ -1840,8 +1840,8 @@ void IntersectorPhysBAM::reFlagRealNodes(SVec<double,3>& X, Vec<bool> *bk_isActi
 
 //----------------------------------------------------------------------------
 //Arthur Morlot : This function was created by Dante De Santis. It computes the Intersections for The new version of the ghost points
-void IntersectorPhysBAM::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X,  
-																	  SVec<double,3> &boxMin, SVec<double,3> &boxMax, 
+void IntersectorPhysBAM::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X,
+																	  SVec<double,3> &boxMin, SVec<double,3> &boxMax,
 																	  bool withViscousTerms, bool externalSI)
 {
 	int shrunk_index;
@@ -1869,7 +1869,7 @@ void IntersectorPhysBAM::ComputeSIbasedIntersections(int iSub, SVec<double,3>& X
         else{
             edge_SI[l] = edge_intersects[l];
         }
-	  
+
 		if(edge_SI[l])
 		{
 

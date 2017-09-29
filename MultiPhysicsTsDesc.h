@@ -163,6 +163,16 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 				       DistSVec<double,dim> &U, DistSVec<double,dim> &dU, 
 				       DistSVec<double,3> &X, double dS[3],
 				       Vec3D *dFi, Vec3D *dMi);
+  void getderivativeOperatorsOfForcesAndMoments(dRdXoperators<dim> &dRdXop,
+                map<int,int> & surfOutMap, 
+                DistSVec<double,dim> &V,  
+                DistSVec<double,3> &X, double dS[3]) ;
+
+  void getderivativeOfForcesAndMomentsSurfMotion(Vec3D *dFidS,
+                map<int,int> & surfOutMap, 
+                DistSVec<double,dim> &V,  
+                DistSVec<double,3> &X, double dS[3]) ;
+
 
   bool IncreasePressure(int it, double dt, double t, DistSVec<double,dim> &U);
 

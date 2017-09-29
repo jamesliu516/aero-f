@@ -14,6 +14,7 @@ class FaceTria : public FaceDummy {
 
   int nodeNumT[3];
   int edgeNumT[3];
+  int nodeNumTet[4];
 
   // This is for triangles only (6 Vec3D's = 3 positions at t_n and t_n+1... 
   // make general function (also need to modify function calls)
@@ -163,6 +164,17 @@ public:
                                 Vec<double> &, double *, double *, SVec<double,dim> &,
                                 SVec<double,dim> &, double [3], double *, Vec3D &, Vec3D &, 
                                 Vec3D &, Vec3D &, double * gradP[3], double* dGradP[3], int = 0);
+
+  template<int dim>
+  void computeDerivativeOperatorsOfForce(ElemSet &elems, PostFcn *postFcn, SVec<double,3> &X, SVec<double,dim> &V, double *pin, double* gradP[3], int hydro,
+                                         double dFi0dGradP[3][3], double dFi1dGradP[3][3], double dFi2dGradP[3][3],
+                                         double dFi0dX0[3][3], double dFi0dX1[3][3], double dFi0dX2[3][3],
+                                         double dFi1dX0[3][3], double dFi1dX1[3][3], double dFi1dX2[3][3],
+                                         double dFi2dX0[3][3], double dFi2dX1[3][3], double dFi2dX2[3][3],
+                                         double dFidS[3][3],
+                                         double dFi0dV[3][5], double dFi1dV[3][5], double dFi2dV[3][5],
+                                         double dFvdX[3][3][3], double dFvdXtet[3][4][3], double dFvdV[3][4][dim]);
+
   template<int dim>
   void computeDerivativeOfForceTransmitted(ElemSet &, PostFcn *, SVec<double,3> &, SVec<double,3> &,
                                            Vec<double> &, double *, double *, SVec<double,dim> &,
@@ -170,14 +182,15 @@ public:
                                            Vec3D &, Vec3D &, double* gradP[3], double* dGradP[3], int = 0);
 
   template<int dim>
-  void computeDerivativeOperatorsOfForceTransmitted(PostFcn *postFcn, SVec<double,3> &X, SVec<double,dim> &V,
+  void computeDerivativeOperatorsOfForceTransmitted(ElemSet &elems, PostFcn *postFcn, SVec<double,3> &X, SVec<double,dim> &V,
                                                     double *pin, double* gradP[3], int hydro,
                                                     double dFi0dV[3][3][dim], double dFi0dGradP[3][3][3], double dFi0dX[3][3][3],
                                                     double dFi0dn[3], double dFi0dS[3][3],
                                                     double dFi1dV[3][3][dim], double dFi1dGradP[3][3][3], double dFi1dX[3][3][3],
                                                     double dFi1dn[3], double dFi1dS[3][3],
                                                     double dFi2dV[3][3][dim], double dFi2dGradP[3][3][3], double dFi2dX[3][3][3],
-                                                    double dFi2dn[3], double dFi2dS[3][3]);
+													double dFi2dn[3], double dFi2dS[3][3],
+													double dFvdX[3][3][3], double dFvdXtet[3][4][3], double dFvdV[3][4][dim]);
 
   template<int dim>
   void computeDerivativeOfNodalForce(ElemSet &, PostFcn *, SVec<double,3> &, SVec<double,3> &,
@@ -187,7 +200,7 @@ public:
                                      double * gradP[3], double* dGradP[3]);
 
   template<int dim>
-  void computeDerivativeOperatorsOfNodalForce(PostFcn *postFcn, SVec<double,3> &X, 
+  void computeDerivativeOperatorsOfNodalForce(ElemSet &elems, PostFcn *postFcn, SVec<double,3> &X,
                           SVec<double,dim> &V, double pin, double* gradP[3], 
                           RectangularSparseMat<double,3,3> &dForcedX,
                           RectangularSparseMat<double,3,3> &dForcedGradP,
@@ -204,11 +217,42 @@ public:
                                          SVec<double,dim> &, SVec<double,dim> &, double [3],
                                          Vec3D &, Vec3D &, Vec3D &, Vec3D &, Vec3D &, 
                                          double * gradP[3], double* dGradP[3], int = 0);
+
+  //  template<int dim>
+  //  void computeDerivativeOfForceAndMoment2(ElemSet &, PostFcn *, SVec<double,3> &, SVec<double,3> &,
+  //                                          Vec<double> &, double *, double *,
+  //                                          SVec<double,dim> &, SVec<double,dim> &, double [3],
+  //                                          Vec3D &, Vec3D &, Vec3D &, Vec3D &, Vec3D &,
+  //                                          double * gradP[3], double* dGradP[3], int = 0);
+
+  template<int dim>
+  void computeDerivativeOperatorsOfForceAndMoment(ElemSet &, PostFcn *, SVec<double,3> &,
+                                                  Vec<double> &, double *, SVec<double,dim> &,
+                                                  Vec3D &, double * gradP[3], int,
+                                                  RectangularSparseMat<double,3,3> &dFidGradP,
+                                                  RectangularSparseMat<double,3,3> &dFidX,
+                                                  RectangularSparseMat<double,dim,3> &dFidV,
+                                                  RectangularSparseMat<double,3,3> &dFvdX,
+                                                  RectangularSparseMat<double,dim,3> &dFvdV,
+                                                  RectangularSparseMat<double,3,3> &dFidS,
+                                                  RectangularSparseMat<double,3,3> &dMidGradP,
+                                                  RectangularSparseMat<double,3,3> &dMidX,
+                                                  RectangularSparseMat<double,dim,3> &dMidV,
+                                                  RectangularSparseMat<double,3,3> &dMidS,
+                                                  RectangularSparseMat<double,3,3> &dMvdX,
+                                                  RectangularSparseMat<double,dim,3> &dMvdV);
+
   template<int dim>
   void computeDerivativeOfGalerkinTerm(ElemSet &, FemEquationTerm *, SVec<double,3> &, SVec<double,3> &,
                                        Vec<double> &, double *, double *, SVec<double,dim> &, 
                                        SVec<double,dim> &, double, SVec<double,dim> &);
   
+  //TODO it is not neccessary to have a seperate function here.
+  template<int dim>
+  void computeDerivativeOfGalerkinTermEmb(ElemSet &, FemEquationTerm *, SVec<double,3> &, SVec<double,3> &,
+                                       Vec<double> &, double *, double *, SVec<double,dim> &,
+                                       SVec<double,dim> &, double, SVec<double,dim> &, LevelSetStructure*);
+
   template<int dim>
   void computeBCsJacobianWallValues(ElemSet &, FemEquationTerm *, SVec<double,3> &, 
 				    Vec<double> &, double *, double *,
@@ -219,6 +263,8 @@ public:
   void computeDerivativeOfNormal(SVec<double,3> &, SVec<double,3> &, Vec3D &, Vec3D &, double &, double &);
   void computeDerivativeOperatorsOfNormal(int, SVec<double,3> &, RectangularSparseMat<double,3,3> &);
   void compute_dndX(SVec<double,3> &, double dndX[3][3][3]);
+
+  double computeHeight(SVec<double,3> &X, ElemSet& elems);
 
 };
 

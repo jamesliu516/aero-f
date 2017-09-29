@@ -30,7 +30,6 @@ AIAA, Aerospace Sciences Meeting and Exhibit, 37th, Reno, NV, Jan. 11-14, 1999
 
 //------------------------------------------------------------------------------
 
-
 class SATerm {
 
   double oorey;
@@ -245,6 +244,7 @@ double SATerm::computeDerivativeOfTurbulentViscosity(double *V, double *dV, doub
 }
 
 //------------------------------------------------------------------------------
+
 inline
 double SATerm::computeSecondTurbulentViscosity(double lambdal, double mul, double mut)
 {
@@ -301,9 +301,9 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
     double fn = (cn1+chi3)/(cn1-chi3);
     double dfn = 6.0*chi2*cn1/((cn1-chi3)*(cn1-chi3))*dchi;
 
-    drdx = oosigma * 0.25 * (fn + dfn * mutilde) * dnutildedx;
-    drdy = oosigma * 0.25 * (fn + dfn * mutilde) * dnutildedy;
-    drdz = oosigma * 0.25 * (fn + dfn * mutilde) * dnutildedz;
+    drdx = oosigma * (0.25 * fn + dfn * mutilde) * dnutildedx;
+    drdy = oosigma * (0.25 * fn + dfn * mutilde) * dnutildedy;
+    drdz = oosigma * (0.25 * fn + dfn * mutilde) * dnutildedz;
 
     mu5 = oosigma * (mul + fn*mutilde);
   }

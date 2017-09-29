@@ -90,6 +90,7 @@ private:
   char *generalizedforces;
   char *residuals;
   char *material_volumes;
+  char *material_mass_energy;
   char *material_conservation_scalars;
   char *conservation;
   char *modeFile;
@@ -97,6 +98,7 @@ private:
   char *embeddedsurfaceCp;
   char *embeddedsurfaceCf;
   char *cputiming;
+  char *populatedState;
   char *stateVectors;
     char *stateMaskVectors; //<! for embdded ROM, Lei lei, 02/01/2016
   char *residualVectors;
@@ -150,21 +152,33 @@ private:
   double dSscale[PostFcn::DSSIZE];
   double dVscale[PostFcn::DVSIZE];
 
+  //dScalars holds the name of the outputfiles of Scalar derivatives. If an entry remains at NULL, then it is not outputed
   char *dScalars[PostFcn::DSSIZE];
+
+  //dScalars holds the name of the outputfiles of Vector derivatives. If an entry remains at NULL, then it is not outputed
   char *dVectors[PostFcn::DVSIZE];
+
   char *dSolutions;
   char *dMatchPressure;
   char *dForces;
   char *dLiftDrag;
+  char *dLiftx;
+  char *dLifty;
+  char *dLiftz;
   char *dFluxNorm;
 
   FILE *fpdMatchPressure;
   FILE *fpdForces;
   FILE *fpdLiftDrag;
+  FILE *fpdLiftx;
+  FILE *fpdLifty;
+  FILE *fpdLiftz;
   FILE *fpdFluxNorm;
 
   char *heatfluxes;
   FILE **fpHeatFluxes;
+
+  bool exactforces;
 
   struct {
 
@@ -210,7 +224,7 @@ public:
   void closeAsciiFiles();
   void writeForcesToDisk(bool, int, int, int, double, double, double*, 
                          DistSVec<double,3> &, DistSVec<double,dim> &,
-                         DistVec<int> * = 0); 
+                         DistVec<int> * = 0);
   void writeForcesToDisk(DistExactRiemannSolver<dim>&, bool, int, int, int, double, double, double*,
                          DistSVec<double,3> &, DistSVec<double,dim> &,
                          DistVec<int> * = 0);
@@ -245,6 +259,20 @@ public:
                                      DistSVec<double,dim> &U);
 
   void writePositionSensitivityVectorToDisk(int step, double tag, DistSVec<double,3> &X);
+
+  void writeDistSVecVectorsToDisk(
+         DistSVec<double,dim> &vec,
+         int step)
+  {
+    if (true)
+      {
+       double tag=0;
+       double scalar=0;
+       domain->writeVectorToFile("./results/dFdS", step, tag, vec, &scalar);
+      }
+  }
+
+
 
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &, 
                                 DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
@@ -303,12 +331,19 @@ public:
 
 // Included (YC)
   void writeDerivativeOfLiftDragToDisk(int it, int actvar, Vec3D & L, Vec3D & dL);
+  void writeDerivativeOfLiftxToDisk(double& dLx);
+  void writeDerivativeOfLiftyToDisk(double& dLy);
+  void writeDerivativeOfLiftzToDisk(double& dLz);
 
 // Included (MB)
   void rstVar(IoData &);
   void writeDerivativeOfForcesToDisk(int, int, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double &, double &);
   void writeBinaryDerivativeOfVectorsToDisk(int, int, double [3], DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &, DistTimeState<dim> *, DistVec<double>* =NULL);
 
+  //Debugging functions
+  void writeAnyVectorToDisk(const char* filename,int it,int tag,DistSVec<double,dim> &vec);
+  void writeAnyVectorToDisk(const char* filename,int it,int tag,DistSVec<double,3> &vec);
+  void writeAnyVectorToDisk(const char* filename,int it,int tag,DistSVec<double,dim> &vec,DistLevelSetStructure *distLSS, DistVec<GhostPoint<dim>*> *ghostPoints);
 };
 
 

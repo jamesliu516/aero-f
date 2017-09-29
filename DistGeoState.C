@@ -104,7 +104,8 @@ DistGeoState::DistGeoState(IoData &ioData, Domain *dom) : data(ioData), domain(d
 // Included (MB)
   if (ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
       ioData.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
-      ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_){
+	  ioData.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_ ||
+	  ioData.problem.alltype == ProblemData::_SENSITIVITY_ANALYSIS_){
     optFlag = 1;
     Xsa = new DistSVec<double,3>(domain->getNodeDistInfo());
     dXsa = new DistSVec<double,3>(domain->getNodeDistInfo());
@@ -643,9 +644,11 @@ void DistGeoState::compute(TimeData &timeData, DistSVec<double,3> &Xsdot,
 //------------------------------------------------------------------------------
 
 // Included (MB)
-void DistGeoState::computeDerivatives(DistSVec<double,3> &X, DistSVec<double,3> &dX, 
-                                      DistSVec<double,3> &Xsdot, DistSVec<double,3> &dXsdot, 
-                                      DistVec<double> &dCtrlVol)
+void DistGeoState::computeDerivatives(DistSVec<double,3> &X,       //mesh position
+                                      DistSVec<double,3> &dX,      //derivative of mesh positions
+                                      DistSVec<double,3> &Xsdot,   //boundary velocity
+                                      DistSVec<double,3> &dXsdot,  //derivative of boundary velocity
+                                      DistVec<double> &dCtrlVol)   //derivative of control volumes
 {
 
 //Remark: Error mesage for pointers
@@ -703,7 +706,8 @@ void DistGeoState::computeDerivatives(DistSVec<double,3> &X, DistSVec<double,3> 
 void DistGeoState::computeDerivatives(RectangularSparseMat<double,3,3> **dEdgeNormdX,
                                       RectangularSparseMat<double,3,3> **dFaceNormdX,
                                       RectangularSparseMat<double,3,1> **dCtrlVoldX,
-                                      DistSVec<double,3> &dX, 
+									  DistSVec<double,3> &X,
+									  DistSVec<double,3> &dX,
                                       DistVec<double> &dCtrlVol,
                                       DistVec<Vec3D>& dEdgeNormal,
                                       DistVec<Vec3D>& dFaceNormal, 
@@ -711,6 +715,10 @@ void DistGeoState::computeDerivatives(RectangularSparseMat<double,3,3> **dEdgeNo
 {
 
 //Remark: Error mesage for pointers
+  if (Xsa == 0) {
+	fprintf(stderr, "*** Error: Variable Xsa does not exist!\n");
+	exit(1);
+  }
   if (dXsa == 0) {
     fprintf(stderr, "*** Error: Variable dXsa does not exist!\n");
     exit(1);
@@ -734,11 +742,13 @@ void DistGeoState::computeDerivatives(RectangularSparseMat<double,3,3> **dEdgeNo
 
   data.configSA += 1;
 
+  *Xsa=X;
   *dXsa=dX;
 
   if (data.typeNormals == DGCLData::IMPLICIT_FIRST_ORDER_GCL) {
     domain->computeDerivativeOfNormals(dEdgeNormdX, dFaceNormdX, *dXsa, dEdgeNormal, *dEdgeNormVel, dFaceNormal, dFaceNormalVel);
-//    dEdgeNormal = *dEdgeNorm;   dFaceNormal = *dFaceNorm;   dFaceNormalVel = *dFaceNormVel;
+    *dEdgeNorm = dEdgeNormal;   *dFaceNorm = dFaceNormal;    *dFaceNormVel = dFaceNormalVel;
+    //    dEdgeNormal = *dEdgeNorm;   dFaceNormal = *dFaceNorm;   dFaceNormalVel = *dFaceNormVel;
 /*    
     DistSVec<double,3> dX2(dX);
     DistVec<Vec3D> dEdgeNorm2(*dEdgeNorm), dFaceNorm2(*dFaceNorm);

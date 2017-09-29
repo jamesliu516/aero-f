@@ -156,6 +156,14 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 				    DistSVec<double,dim> *Wji,
 				    double dS[3],
 				    DistSVec<double,dim> &dV);
+  void computederivativeOperatorsOfForceLoad(dRdXoperators<dim> &dRdXop,
+            DistSVec<double,dim> *Wij, 
+            DistSVec<double,dim> *Wji, 
+            double dS[3]);
+  void computederivativeOfForceLoadSurfMotion(Vec3D *dFidS,
+            DistSVec<double,dim> *Wij, 
+            DistSVec<double,dim> *Wji, 
+            double dS[3]);
 
   virtual int solveNonLinearSystem(DistSVec<double,dim> &, int)=0;
 
@@ -166,6 +174,12 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 				       DistSVec<double,dim> &V, DistSVec<double,dim> &dV,
 				       DistSVec<double,3> &X, double dS[3],
 				       Vec3D *dFi, Vec3D *dMi);
+  void getderivativeOperatorsOfForcesAndMoments(dRdXoperators<dim> &dRdXop, map<int,int> & surfOutMap, 
+             DistSVec<double,dim> &V, 
+             DistSVec<double,3> &X, double dS[3]);
+  void getderivativeOfForcesAndMomentsSurfMotion(Vec3D *dFidS, map<int,int> & surfOutMap, 
+             DistSVec<double,dim> &V, 
+             DistSVec<double,3> &X, double dS[3]);
 
   bool IncreasePressure(int it, double dt, double t, DistSVec<double,dim> &U);
   virtual bool willNotSolve(double dts, double t) {return (t+dts*2)<tmax;}

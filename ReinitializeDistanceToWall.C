@@ -14,9 +14,6 @@
 //
 //------------------------------------------------------------------------------
 
-// Flag determining use of wall distance predictors
-#define USE_PREDICTORS
-
 template <int dimLS, int dim>
 ReinitializeDistanceToWall<dimLS,dim>::ReinitializeDistanceToWall(IoData &ioData, Domain &domain, SpaceOperator<dim> &spaceOp)
     : iod(ioData), dom(domain), d2wall(domain.getNodeDistInfo()),
@@ -39,7 +36,7 @@ ReinitializeDistanceToWall<dimLS,dim>::ReinitializeDistanceToWall(IoData &ioData
     for (int i = 0; i < dom.getSubDomain()[iSub]->getNumNeighb(); i++) {
       sharedNodes = dom.getSubDomain()[iSub]->getSharedNodes();
       for (int j = 0; j < sharedNodes->num(i); j++)
-        isSharedNode(iSub)[(*sharedNodes)[i][j]] = 1;
+        isSharedNode(iSub)[(*sharedNodes)[i][j]]++;
     }
   }
 
@@ -73,11 +70,11 @@ int ReinitializeDistanceToWall<dimLS,dim>::ComputeWallFunction(DistLevelSetStruc
   // // no updates after t0
   // if (predictorTime[0] >= 0.0) return;
 
-#ifdef USE_PREDICTORS
-  int update = UpdatePredictorsCheckTol(LSS, distGeoState, t);
-#else
-  int update = 3;
-#endif
+  int update;
+  if (iod.eqs.tc.tm.d2wall.frequencyadaptation == WallDistanceMethodData::ON)
+    update = UpdatePredictorsCheckTol(LSS, distGeoState, t);
+  else
+    update = 3;
 
   if (update > 0) {
 
@@ -338,7 +335,7 @@ int ReinitializeDistanceToWall<dimLS,dim>::UpdatePredictorsCheckTol(
   dom.getCommunicator()->globalSum(1,&meandelta);
   meandelta = sqrt(meandelta)/SAsensitivScale;
 
-  if (meandelta > iod.eqs.tc.tm.d2wall.predictoreps)
+  if (meandelta > iod.eqs.tc.tm.d2wall.distanceeps)
     update = 2;
 
   return update;
@@ -358,7 +355,7 @@ void ReinitializeDistanceToWall<dimLS,dim>::ReinitializePredictors(
 
   // compute distance sensitivities
   DistSVec<double,dim> *V = spaceOp.getCurrentPrimitiveVector();
-  dom.computeSADistSensitivity(spaceOp.getFemEquationTerm(), distGeoState, X,
+  dom.computeSADistanceSensitivity(spaceOp.getFemEquationTerm(), X, distGeoState,
     *V, SAsensitiv, LSS);
 
   // retrieve residual for scaling
@@ -371,9 +368,15 @@ void ReinitializeDistanceToWall<dimLS,dim>::ReinitializePredictors(
         predictorTag(iSub)[k] = 0;
       else if (d2wnm1(iSub)[k][0] < 1.0e-15 || d2wnm2(iSub)[k][0] < 1.0e-15) // node is active but should not be used for predictors
         predictorTag(iSub)[k] = 1;
-      else {
-        SAsensitivScale += RR(iSub)[k][5]*RR(iSub)[k][5];
-        predictorTag(iSub)[k] = 2; // label node as predictor
+      else { // label node as predictor
+        if (isSharedNode(iSub)[k]) {  // avoid double counting shared nodes
+          SAsensitivScale += RR(iSub)[k][5]*RR(iSub)[k][5]/(1.0 + (double)isSharedNode(iSub)[k]);
+          SAsensitiv(iSub)[k] /= sqrt((1.0 + (double)isSharedNode(iSub)[k]));
+        }
+        else
+          SAsensitivScale += RR(iSub)[k][5]*RR(iSub)[k][5];
+
+        predictorTag(iSub)[k] = 2;
       }
     }
   }

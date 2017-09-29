@@ -48,6 +48,9 @@ TsSolver<ProblemDescriptor>::TsSolver(ProblemDescriptor *prbd)
 template<class ProblemDescriptor>
 int TsSolver<ProblemDescriptor>::solve(IoData &ioData)
 {
+  probDesc->printf(0,"\033[96m******************************************\033[00m\n");
+  probDesc->printf(0,"\033[96m*** Standard Solve Routine             ***\033[00m\n");
+  probDesc->printf(0,"\033[96m******************************************\033[00m\n");
   typename ProblemDescriptor::SolVecType U(probDesc->getVecInfo());
 
   int status;
@@ -99,10 +102,17 @@ int TsSolver<ProblemDescriptor>::solveWithMultipleICs(typename ProblemDescriptor
 
 //------------------------------------------------------------------------------
 
-// Included (MB)
+/******************************************************************************
+ * Main fluid sensitivity analysis routine for the case, where a steady       *
+ * state solution is provided as input file. The code thus performs SA only.  *
+ *                                              (commented 2016/12: lscheuch) *
+ ******************************************************************************/
 template<class ProblemDescriptor>
 int TsSolver<ProblemDescriptor>::fsaSolve(IoData &ioData)
 {
+  probDesc->fsaPrintTextOnScreen("**********************************\n");
+  probDesc->fsaPrintTextOnScreen("*** Fluid Sensitivity Analysis ***\n");
+  probDesc->fsaPrintTextOnScreen("**********************************\n");
 
   typename ProblemDescriptor::SolVecType U(probDesc->getVecInfo());
 
@@ -119,15 +129,44 @@ int TsSolver<ProblemDescriptor>::fsaSolve(IoData &ioData)
 
   // initialize solutions and geometry
   probDesc->setupTimeStepping(&U, ioData);
+  probDesc->fsoInitialize(ioData, U);
 
-  probDesc->fsaPrintTextOnScreen("NO NO NO NO\n");
-  probDesc->fsaPrintTextOnScreen("**********************************\n");
-  probDesc->fsaPrintTextOnScreen("*** Fluid Sensitivity Analysis ***\n");
-  probDesc->fsaPrintTextOnScreen("**********************************\n");
-  probDesc->fsaPrintTextOnScreen("NO NO NO NO\n");
-  probDesc->fsaHandler(ioData, U);
+  int verboseFlag = ioData.problem.verbose;
+    bool lastIt = false;
 
-  probDesc->fsaPrintTextOnScreen(" *** fsaSolver done *** \n");
+  typename ProblemDescriptor::SolVecType *dU = NULL;
+  typename ProblemDescriptor::SolVecType *dUPrev = NULL;
+  typename ProblemDescriptor::SolVecType *dUPrevPrev = NULL;
+
+  if (ioData.ts.cfl.strategy == CFLData::DIRECTION || ioData.ts.cfl.strategy == CFLData::HYBRID){
+    dU = new typename ProblemDescriptor::SolVecType(probDesc->getVecInfo());
+    dUPrev = new typename ProblemDescriptor::SolVecType(probDesc->getVecInfo());
+    dUPrevPrev = new typename ProblemDescriptor::SolVecType(probDesc->getVecInfo());
+    (*dU) = 0.0;
+    (*dUPrev) = 0.0;
+    (*dUPrevPrev) = 0.0;
+  }
+
+  typename ProblemDescriptor::SolVecType *UPrev = new typename ProblemDescriptor::SolVecType(probDesc->getVecInfo());
+  (*UPrev) = 0.0;
+
+  //////////////////////////////////////////////////
+  double dt, dts;
+  int it = probDesc->getInitialIteration();
+  double t = probDesc->getInitialTime();
+  // setup solution output files
+  probDesc->setupOutputToDisk(ioData, &lastIt, it, t, U);
+  /** for embedded method: send force (if it>0) and receive disp (from Struct). */
+  dts = probDesc->computePositionVector(&lastIt, it, t, U); // [F] receive displacement from structure ...
+  //////////////////////////////////////////////////
+
+
+  probDesc->computeDistanceToWall(ioData,t);
+
+  probDesc->computeMeshMetrics();//redundant, since this is already done in fsoInitialize
+
+  probDesc->fsoHandler(ioData, U);
+
 
   return 0;
 
@@ -135,13 +174,19 @@ int TsSolver<ProblemDescriptor>::fsaSolve(IoData &ioData)
 
 //------------------------------------------------------------------------------
 
+/******************************************************************************
+ * Main fluid sensitivity analysis routine for the case, where a steady       *
+ * state solution is NOT provided as input file. The code thus first          *
+ * runs a steady state computation and does the actual SA afterwards.         *
+ *                                              (commented 2016/12: lscheuch) *
+ ******************************************************************************/
 template<class ProblemDescriptor>
 int TsSolver<ProblemDescriptor>::fsoSolve(IoData &ioData)
 {
 
-  probDesc->printf(0,"******************************************\n");
-  probDesc->printf(0,"*** Fluid Shape Optimization Interface ***\n");
-  probDesc->printf(0,"******************************************\n");
+  probDesc->printf(0,"\033[96m******************************************\033[00m\n");
+  probDesc->printf(0,"\033[96m*** Fluid Shape Optimization Interface ***\033[00m\n");
+  probDesc->printf(0,"\033[96m******************************************\033[00m\n");
 
   typename ProblemDescriptor::SolVecType U(probDesc->getVecInfo());
 

@@ -17,13 +17,14 @@
 #include <SpaceOperator.h>
 #include <VectorSet.h>
 #include <GhostPoint.h>
+#include <MatVecProd.h>
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-PostOperator<dim>::PostOperator(IoData &iod, VarFcn *vf, DistBcData<dim> *bc, 
-				DistGeoState *gs, Domain *dom, DistSVec<double,dim> *v) : 
-  varFcn(vf), bcData(bc), geoState(gs), domain(dom)
+PostOperator<dim>::PostOperator(IoData &iod, VarFcn *vf, DistBcData<dim> *bc,
+				DistGeoState *gs, Domain *dom, DistSVec<double,dim> *v) :
+  varFcn(vf), bcData(bc), geoState(gs), domain(dom), built_dVdU(false)
 {
 
   threshold = iod.schemes.ns.eps;
@@ -32,16 +33,17 @@ PostOperator<dim>::PostOperator(IoData &iod, VarFcn *vf, DistBcData<dim> *bc,
   numLocSub = dom->getNumLocSub();
   subDomain = dom->getSubDomain();
   com = dom->getCommunicator();
-  
-  if (v) 
+
+  if (v)
     V = v->alias();
-  else 
+  else
     V = new DistSVec<double,dim>(dom->getNodeDistInfo());
 
 // Included (MB)
   if (iod.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
       iod.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
-      iod.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_) {
+			iod.problem.alltype == ProblemData::_ROM_SHAPE_OPTIMIZATION_ ||
+			iod.problem.alltype == ProblemData::_SENSITIVITY_ANALYSIS_) {
     dV = new DistSVec<double,dim>(domain->getNodeDistInfo());
   }
   else {
@@ -51,7 +53,7 @@ PostOperator<dim>::PostOperator(IoData &iod, VarFcn *vf, DistBcData<dim> *bc,
   tmp2 = 0;
   vec2Pat = 0;
   smag = 0;
-  wale = 0;  
+  wale = 0;
   vms = 0;
   dles = 0;
   dvms = 0;
@@ -74,7 +76,7 @@ PostOperator<dim>::PostOperator(IoData &iod, VarFcn *vf, DistBcData<dim> *bc,
     }
     else if (iod.eqs.tc.les.type == LESModelData::WALE) {
        wale = new WaleLESTerm(iod, varFcn);
-    }     
+    }
     else if (iod.eqs.tc.les.type == LESModelData::DYNAMIC){
       dles = new DistDynamicLESTerm<dim>(varFcn, iod, domain);
     }
@@ -103,19 +105,19 @@ PostOperator<dim>::PostOperator(IoData &iod, VarFcn *vf, DistBcData<dim> *bc,
   map<int, SurfaceData *>::iterator it;
   for(it = sMap.begin(); it != sMap.end(); ++it) {
     if(it->second->computeForces == SurfaceData::TRUE
-       || (it->second->computeForces == SurfaceData::UNSPECIFIED 
+       || (it->second->computeForces == SurfaceData::UNSPECIFIED
           && it->second->forceResults == SurfaceData::YES) ){
       if(it->second->forceResults == SurfaceData::YES)
         surfOutMap[it->first] = numSurf++;
       else {
         surfOutMap[it->first] = 0;
       }
-    } 
+    }
     else if(it->second->computeForces == SurfaceData::FALSE)
-      surfOutMap[it->first] = -1;  // We do not want the force computation 
+      surfOutMap[it->first] = -1;  // We do not want the force computation
     else
       surfOutMap[it->first] = -2; // We want the default behavior
-  
+
   }
 
   numSurfHF = 1;
@@ -124,7 +126,7 @@ PostOperator<dim>::PostOperator(IoData &iod, VarFcn *vf, DistBcData<dim> *bc,
        || (it->second->computeHeatFluxes == SurfaceData::UNSPECIFIED
           && it->second->heatFluxResults == SurfaceData::YES_HF) ){
       if(it->second->heatFluxResults == SurfaceData::YES_HF){
-        surfOutMapHF[it->first] = numSurfHF++;  
+        surfOutMapHF[it->first] = numSurfHF++;
       }
       else {
         surfOutMapHF[it->first] = 0;
@@ -142,7 +144,7 @@ PostOperator<dim>::PostOperator(IoData &iod, VarFcn *vf, DistBcData<dim> *bc,
 
   if(order == 1)
   {
-   nodalForceWeights[0] = 1.0; 
+   nodalForceWeights[0] = 1.0;
    nodalForceWeights[1] = 1.0;
   }
   else if(order == 2)
@@ -185,7 +187,7 @@ PostOperator<dim>::~PostOperator()
 // the nodal force F is *** NOT *** assembled
 
 template<int dim>
-void PostOperator<dim>::computeNodalForce(DistSVec<double,3> &X, DistSVec<double,dim> &U, 
+void PostOperator<dim>::computeNodalForce(DistSVec<double,3> &X, DistSVec<double,dim> &U,
 					  DistVec<double> &Pin, DistSVec<double,3> &F,
 					  DistVec<int> *fluidId)
 {
@@ -248,37 +250,15 @@ void PostOperator<dim>::computeDerivativeOfNodalForce(RectangularSparseMat<doubl
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
-//    varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub));
-//    varFcn->conservativeToPrimitiveDerivative(U(iSub), dU(iSub), (*V)(iSub), (*dV)(iSub));
     dVdU[iSub]->apply(dU(iSub), (*dV)(iSub));
 
-    SVec<double,3> dSSVec(1); 
+    SVec<double,3> dSSVec(1);
     subDomain[iSub]->computeDerivativeOfNodalForce(dForcedX[iSub], dForcedGradP[iSub], dForcedV[iSub], dForcedS[iSub],
                                                    dX(iSub), (*dV)(iSub), dS, dF(iSub), dSSVec, dGradPSVec(iSub));
-/*
-    SVec<double,3> dX2(dX(iSub)), dSSVec2(dSSVec), dGradPSVec2(dGradPSVec), dF2(dF(iSub));
-    SVec<double,dim> dU2(dU(iSub)), dV2((*dV)(iSub));
-    dX2 = 0.0;   dSSVec2 = 0.0;   dGradPSVec2 = 0.0;   dU2 = 0.0;  dV2 = 0.0;
-    dVdU[iSub]->apply(dU(iSub), dV2);
-    subDomain[iSub]->computeDerivativeOfNodalForce(dForcedX[iSub], dForcedGradP[iSub], dForcedV[iSub], dForcedS[iSub],
-                                                   dX(iSub), dV2, dS, dF2, dSSVec, dGradPSVec);
-    double aa = dF(iSub)*dF2;
-
-    dV2 = 0.0;
-    subDomain[iSub]->computeTransposeDerivativeOfNodalForce(dForcedX[iSub], dForcedGradP[iSub], dForcedV[iSub], dForcedS[iSub],
-                                                            dF(iSub), dGradPSVec2, dX2, dV2, dSSVec2);
-    dVdU[iSub]->applyTranspose(dV2, dU2);
-    double bb = dGradPSVec2*dGradPSVec + dX2*dX(iSub) + dU2*dU(iSub) + dSSVec2*dSSVec;
-    double diffnorm = sqrt((aa-bb)*(aa-bb));
-    double aanorm = sqrt(aa*aa);
-    if(aanorm != 0) fprintf(stderr, " ... rel. diff is %e\n", diffnorm/aanorm);
-    else fprintf(stderr, " ... abs. diff is %e\n", diffnorm);
-*/
-
   }
 
-  CommPattern<double> *vec3DPat = domain->getCommPat(dF);
-  domain->assemble(vec3DPat, dF);  // TODO: was not assembled originally
+//  CommPattern<double> *vec3DPat = domain->getCommPat(dF);
+//  domain->assemble(vec3DPat, dF);  // TODO: was not assembled originally
 
 }
 
@@ -291,7 +271,7 @@ void PostOperator<dim>::computeTransposeDerivativeOfNodalForce(RectangularSparse
                                                       RectangularSparseMat<double,3,3> **dForcedS,
                                                       RectangularSparseMat<double,dim,dim> **dVdU,
                                                       DistSVec<double,3> &dF, DistSVec<double,3> &dX,
-                                                      DistSVec<double,3> &dGradPSVec, 
+                                                      DistSVec<double,3> &dGradPSVec,
                                                       DistSVec<double,dim> &dU, double dS[3])
 {
 
@@ -310,46 +290,43 @@ void PostOperator<dim>::computeTransposeDerivativeOfNodalForce(RectangularSparse
     dVdU[iSub]->applyTranspose((*dV)(iSub), dU(iSub));
     for(int i=0; i<3; ++i) dS[i] = dSSVec[0][i];
   }
-/*
-  CommPattern<double> *vec3DPat = domain->getCommPat(dX);
-  domain->assemble(vec3DPat, dGradPSVec);
-  domain->assemble(vec3DPat, dX);
-  CommPattern<double> *vPat = domain->getCommPat(dU);
-  domain->assemble(vPat, dU);
-*/
 }
 
 //------------------------------------------------------------------------------
 
 // Included (YC)
 template<int dim>
-void PostOperator<dim>::computeDerivativeOperatorsOfNodalForce(DistSVec<double,3> &X, DistSVec<double,dim> &U, 
-                                                               DistVec<double> &Pin, 
+void PostOperator<dim>::computeDerivativeOperatorsOfNodalForce(DistSVec<double,3> &X, DistSVec<double,dim> &U,
+                                                               DistVec<double> &Pin,
                                                                RectangularSparseMat<double,3,3> **dForcedX,
                                                                RectangularSparseMat<double,3,3> **dForcedGradP,
                                                                RectangularSparseMat<double,dim,3> **dForcedV,
                                                                RectangularSparseMat<double,3,3> **dForcedS,
                                                                RectangularSparseMat<double,dim,dim> **dVdU,
-                                                               RectangularSparseMat<double,1,dim> **dVdPstiff)
+                                                               RectangularSparseMat<double,1,dim> **dVdPstiff,
+                                                               bool todoFixFlag)//this Flag defaults to 1 so that we can turn off NF operators for embedded non-FSI
 {
 
 #pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub) { 
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
     varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub));
-    varFcn->computeConservativeToPrimitiveDerivativeOperators(U(iSub), (*V)(iSub), *dVdU[iSub], *dVdPstiff[iSub]);
-    subDomain[iSub]->computeDerivativeOperatorsOfNodalForce(postFcn, X(iSub), (*V)(iSub), Pin(iSub), 
+    if(!built_dVdU) {
+      varFcn->computeConservativeToPrimitiveDerivativeOperators(U(iSub), (*V)(iSub), *dVdU[iSub], *dVdPstiff[iSub]);
+    }
+    if(todoFixFlag){
+    subDomain[iSub]->computeDerivativeOperatorsOfNodalForce(postFcn, X(iSub), (*V)(iSub), Pin(iSub),
                                                             *dForcedX[iSub], *dForcedGradP[iSub],
                                                             *dForcedV[iSub], *dForcedS[iSub]);
   }
-  
-
+  }
+built_dVdU = true;//moved to outside for loop otherwise will not be built for all local subdomains
 }
 
 //------------------------------------------------------------------------------
 // the nodal heat power is *** NOT *** assembled
 
 template<int dim>
-void PostOperator<dim>::computeNodalHeatPower(DistSVec<double,3>& X, DistSVec<double,dim>& U, 
+void PostOperator<dim>::computeNodalHeatPower(DistSVec<double,3>& X, DistSVec<double,dim>& U,
 					      DistVec<double>& P)
 {
 #pragma omp parallel for
@@ -400,11 +377,17 @@ void PostOperator<dim>::computeDerivativeOfNodalHeatPower(DistSVec<double,3>& X,
 // computes the non-dimensional forces and moments
 
 template<int dim>
-void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X, 
-					      DistSVec<double,dim> &U, 
-                                              DistVec<int> *fluidId, Vec3D *Fi, 
-					      Vec3D *Mi, Vec3D *Fv, Vec3D *Mv, int hydro, 
-                                              VecSet< DistSVec<double,3> > *mX, Vec<double> *genCF)
+void PostOperator<dim>::computeForceAndMoment(
+                          Vec3D &x0, DistSVec<double,3> &X,
+                          DistSVec<double,dim> &U,
+                          DistVec<int> *fluidId,
+                          Vec3D *Fi,
+                          Vec3D *Mi,
+                          Vec3D *Fv,
+                          Vec3D *Mv,
+                          int hydro,
+                          VecSet< DistSVec<double,3> > *mX,
+                          Vec<double> *genCF)
 {
 // fluidId must be a null pointer for single-phase flow
 // fluidId points to a DistVec<int> for multi-phase flow
@@ -431,10 +414,10 @@ void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X,
     }
     if (mX) {
       SubVecSet<DistSVec<double,3>, SVec<double,3> > subMX(mX, iSub);
-      subDomain[iSub]->computeForceAndMoment(surfOutMap, postFcn, (*bcData)(iSub), (*geoState)(iSub), 
+      subDomain[iSub]->computeForceAndMoment(surfOutMap, postFcn, (*bcData)(iSub), (*geoState)(iSub),
 					     X(iSub), (*V)(iSub), x0, fi, mi, fv, mv, hydro, &subMX, genCF);
     }
-    else  
+    else
       subDomain[iSub]->computeForceAndMoment(surfOutMap, postFcn, (*bcData)(iSub), (*geoState)(iSub),
                                              X(iSub), (*V)(iSub), x0, fi, mi, fv, mv, hydro, 0, 0);
 
@@ -475,22 +458,22 @@ void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X,
 		       Mv[iSurf][0], Mv[iSurf][1], Mv[iSurf][2]};
     com->globalSum(12, coef);
 
-    Fi[iSurf][0] = coef[0]; 
+    Fi[iSurf][0] = coef[0];
     Fi[iSurf][1] = coef[1];
     Fi[iSurf][2] = coef[2];
 
-    Mi[iSurf][0] = coef[3]; 
+    Mi[iSurf][0] = coef[3];
     Mi[iSurf][1] = coef[4];
     Mi[iSurf][2] = coef[5];
 
-    Fv[iSurf][0] = coef[6]; 
+    Fv[iSurf][0] = coef[6];
     Fv[iSurf][1] = coef[7];
     Fv[iSurf][2] = coef[8];
 
-    Mv[iSurf][0] = coef[9]; 
+    Mv[iSurf][0] = coef[9];
     Mv[iSurf][1] = coef[10];
     Mv[iSurf][2] = coef[11];
- 
+
   }
 
   map<int, int>::iterator it;
@@ -516,10 +499,10 @@ void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X,
 
 template<int dim>
 void PostOperator<dim>::computeForceAndMoment(DistExactRiemannSolver<dim> &riemann,
-                                              Vec3D &x0, DistSVec<double,3> &X, 
-					      DistSVec<double,dim> &U, 
-                                              DistVec<int> *fluidId, Vec3D *Fi, 
-					      Vec3D *Mi, Vec3D *Fv, Vec3D *Mv, int hydro, 
+                                              Vec3D &x0, DistSVec<double,3> &X,
+					                                    DistSVec<double,dim> &U,
+                                              DistVec<int> *fluidId, Vec3D *Fi,
+					                                    Vec3D *Mi, Vec3D *Fv, Vec3D *Mv, int hydro,
                                               VecSet< DistSVec<double,3> > *mX, Vec<double> *genCF)
 {
 
@@ -550,10 +533,10 @@ void PostOperator<dim>::computeForceAndMoment(DistExactRiemannSolver<dim> &riema
 
 /*    if (mX) {
       SubVecSet<DistSVec<double,3>, SVec<double,3> > subMX(mX, iSub);
-      subDomain[iSub]->computeForceAndMoment(surfOutMap, postFcn, (*bcData)(iSub), (*geoState)(iSub), 
+      subDomain[iSub]->computeForceAndMoment(surfOutMap, postFcn, (*bcData)(iSub), (*geoState)(iSub),
 					     X(iSub), (*V)(iSub), x0, fi, mi, fv, mv, hydro, &subMX, genCF);
     }
-    else  
+    else
       subDomain[iSub]->computeForceAndMoment(surfOutMap, postFcn, (*bcData)(iSub), (*geoState)(iSub),
                                              X(iSub), (*V)(iSub), x0, fi, mi, fv, mv, hydro, 0, 0);
 */
@@ -616,19 +599,19 @@ void PostOperator<dim>::computeForceAndMoment(DistExactRiemannSolver<dim> &riema
                           Mv[iSurf][0], Mv[iSurf][1], Mv[iSurf][2] };
       com->globalSum(12, coef);
 
-      Fi[iSurf][0] = coef[0]; 
+      Fi[iSurf][0] = coef[0];
       Fi[iSurf][1] = coef[1];
       Fi[iSurf][2] = coef[2];
 
-      Mi[iSurf][0] = coef[3]; 
+      Mi[iSurf][0] = coef[3];
       Mi[iSurf][1] = coef[4];
       Mi[iSurf][2] = coef[5];
 
-      Fv[iSurf][0] = coef[6]; 
+      Fv[iSurf][0] = coef[6];
       Fv[iSurf][1] = coef[7];
       Fv[iSurf][2] = coef[8];
 
-      Mv[iSurf][0] = coef[9]; 
+      Mv[iSurf][0] = coef[9];
       Mv[iSurf][1] = coef[10];
       Mv[iSurf][2] = coef[11];
     }
@@ -654,7 +637,7 @@ void PostOperator<dim>::computeForceAndMoment(DistExactRiemannSolver<dim> &riema
 //------------------------------------------------------------------------------
 
 template<int dim>
-void PostOperator<dim>::computeHeatFluxes(DistSVec<double,3>& X, 
+void PostOperator<dim>::computeHeatFluxes(DistSVec<double,3>& X,
                                           DistSVec<double,dim>& U, double* HF)
 {
 
@@ -671,14 +654,14 @@ void PostOperator<dim>::computeHeatFluxes(DistSVec<double,3>& X,
 
 
     varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub));
-    
+
     subDomain[iSub]->computeHeatFluxes(surfOutMapHF, postFcn, (*bcData)(iSub), (*geoState)(iSub),
                                            X(iSub), (*V)(iSub), p);
 
 
     for(int iSurf = 0; iSurf < numSurfHF; ++iSurf) {
 #pragma omp critical
-    HF[iSurf] += p[iSurf];  
+    HF[iSurf] += p[iSurf];
 
 
     }
@@ -709,12 +692,16 @@ map<int, int>::iterator it;
 
 
 // Included (MB)
-// computes the derivative of non-dimensional forces and moments
+// computes the derivative of non-dimensional forces and moments for ALE framework
 
 template<int dim>
-void PostOperator<dim>::computeDerivativeOfForceAndMoment(Vec3D &x0, DistSVec<double,3> &X, DistSVec<double,3> &dX,
-                                                          DistSVec<double,dim> &U, DistSVec<double,dim> &dU, double dS[3],
-                                                          Vec3D *dFi, Vec3D *dMi, Vec3D *dFv, Vec3D *dMv, int hydro)
+void PostOperator<dim>::computeDerivativeOfForceAndMoment(
+                          Vec3D &x0, DistSVec<double,3> &X, DistSVec<double,3> &dX,
+                          DistSVec<double,dim> &U, DistSVec<double,dim> &dU,
+                          double dS[3],
+                          Vec3D *dFi, Vec3D *dMi,
+                          Vec3D *dFv, Vec3D *dMv,
+                          int hydro)
 {
 
   int iSurf;
@@ -757,7 +744,7 @@ void PostOperator<dim>::computeDerivativeOfForceAndMoment(Vec3D &x0, DistSVec<do
     delete [] dmi;
     delete [] dfv;
     delete [] dmv;
-  } 
+  }
 
   for(iSurf = 0; iSurf < numSurf; ++iSurf) {
 //#pragma omp critical
@@ -768,26 +755,25 @@ void PostOperator<dim>::computeDerivativeOfForceAndMoment(Vec3D &x0, DistSVec<do
                            dMv[iSurf][0], dMv[iSurf][1], dMv[iSurf][2] };
       com->globalSum(12, dCoef);
 
-      dFi[iSurf][0] = dCoef[0]; 
+      dFi[iSurf][0] = dCoef[0];
       dFi[iSurf][1] = dCoef[1];
       dFi[iSurf][2] = dCoef[2];
 
-      dMi[iSurf][0] = dCoef[3]; 
+      dMi[iSurf][0] = dCoef[3];
       dMi[iSurf][1] = dCoef[4];
       dMi[iSurf][2] = dCoef[5];
 
-      dFv[iSurf][0] = dCoef[6]; 
+      dFv[iSurf][0] = dCoef[6];
       dFv[iSurf][1] = dCoef[7];
       dFv[iSurf][2] = dCoef[8];
 
-      dMv[iSurf][0] = dCoef[9]; 
+      dMv[iSurf][0] = dCoef[9];
       dMv[iSurf][1] = dCoef[10];
       dMv[iSurf][2] = dCoef[11];
     }
   }
 
   map<int, int>::iterator it;
-  iSurf = 1;
   for (it = surfOutMap.begin(); it != surfOutMap.end(); it++)  {
     if (it->second > 0)  {
       dFi[0] += dFi[it->second];
@@ -804,14 +790,172 @@ void PostOperator<dim>::computeDerivativeOfForceAndMoment(Vec3D &x0, DistSVec<do
 
 //------------------------------------------------------------------------------
 
+
+// Included (YC)
+// computes the derivative of non-dimensional forces and moments
+// sparse implementation
 template<int dim>
-void PostOperator<dim>::computeDerivativeOfForceAndMoment(Vec3D &x0, DistSVec<double,3> &X, 
-							  DistSVec<double,dim> &U, 
-							  DistSVec<double,dim> &dU, 
+void PostOperator<dim>::computeDerivativeOfForceAndMoment(dRdXoperators<dim> *dRdXop, DistSVec<double,3> &dX,
+                                                          DistSVec<double,dim> &dU, double dS[3], DistSVec<double,3> &dGradP,
+                                                          Vec3D *dFi, Vec3D *dMi, Vec3D *dFv, Vec3D *dMv, int hydro)
+{
+
+  int iSurf;
+  for(iSurf = 0; iSurf < numSurf; ++iSurf) {
+    dFi[iSurf] = 0.0;
+    dMi[iSurf] = 0.0;
+    dFv[iSurf] = 0.0;
+    dMv[iSurf] = 0.0;
+  }
+
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {//llooping over all subdomains
+    Vec3D *dfi = new Vec3D[numSurf];
+    Vec3D *dmi = new Vec3D[numSurf];
+    Vec3D *dfv = new Vec3D[numSurf];
+    Vec3D *dmv = new Vec3D[numSurf];
+    for(iSurf = 0; iSurf < numSurf; ++iSurf) {
+      dfi[iSurf] = 0.0;
+      dmi[iSurf] = 0.0;
+      dfv[iSurf] = 0.0;
+      dmv[iSurf] = 0.0;
+    }
+    dRdXop->dVdU[iSub]->apply(dU(iSub), (*dV)(iSub));
+    
+    subDomain[iSub]->computeDerivativeOfForceAndMoment(dRdXop->dFidGradP[iSub],
+                                                       dRdXop->dFidX[iSub],     dRdXop->dFidV[iSub],
+                                                       dRdXop->dFvdX[iSub],     dRdXop->dFvdV[iSub],
+                                                       dRdXop->dFidS[iSub],
+                                                       dRdXop->dMidGradP[iSub], dRdXop->dMidX[iSub],
+                                                       dRdXop->dMidV[iSub],     dRdXop->dMidS[iSub],
+                                                       dRdXop->dMvdX[iSub],     dRdXop->dMvdV[iSub],
+                                                       dX(iSub), (*dV)(iSub), dS, dGradP(iSub),
+                                                       dfi, dmi, dfv, dmv, hydro);
+
+    for(iSurf = 0; iSurf < numSurf; ++iSurf) {
+#pragma omp critical
+      dFi[iSurf] += dfi[iSurf];
+#pragma omp critical
+      dMi[iSurf] += dmi[iSurf];
+#pragma omp critical
+      dFv[iSurf] += dfv[iSurf];
+#pragma omp critical
+      dMv[iSurf] += dmv[iSurf];
+    }
+    delete [] dfi;
+    delete [] dmi;
+    delete [] dfv;
+    delete [] dmv;
+  }//end loop over all subdomains
+  for(iSurf = 0; iSurf < numSurf; ++iSurf) {
+//#pragma omp critical
+    {
+      double dCoef[12] = { dFi[iSurf][0], dFi[iSurf][1], dFi[iSurf][2],
+                           dMi[iSurf][0], dMi[iSurf][1], dMi[iSurf][2],
+                           dFv[iSurf][0], dFv[iSurf][1], dFv[iSurf][2],
+                           dMv[iSurf][0], dMv[iSurf][1], dMv[iSurf][2] };
+      com->globalSum(12, dCoef);
+
+      dFi[iSurf][0] = dCoef[0];
+      dFi[iSurf][1] = dCoef[1];
+      dFi[iSurf][2] = dCoef[2];
+
+      dMi[iSurf][0] = dCoef[3];
+      dMi[iSurf][1] = dCoef[4];
+      dMi[iSurf][2] = dCoef[5];
+
+      dFv[iSurf][0] = dCoef[6];
+      dFv[iSurf][1] = dCoef[7];
+      dFv[iSurf][2] = dCoef[8];
+
+      dMv[iSurf][0] = dCoef[9];
+      dMv[iSurf][1] = dCoef[10];
+      dMv[iSurf][2] = dCoef[11];
+    }
+  }
+  map<int, int>::iterator it;
+  for (it = surfOutMap.begin(); it != surfOutMap.end(); it++)  {
+    if (it->second > 0)  {
+      dFi[0] += dFi[it->second];
+
+      dMi[0] += dMi[it->second];
+
+      dFv[0] += dFv[it->second];
+
+      dMv[0] += dMv[it->second];
+    }
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (YC)
+// computes the transpose of derivative of non-dimensional forces and moments
+
+template<int dim>
+void PostOperator<dim>::computeTransposeDerivativeOfForceAndMoment(dRdXoperators<dim> *dRdXop, SVec<double,3> &dFi,
+                                                                   SVec<double,3> &dMi, SVec<double,3> &dFv, SVec<double,3> &dMv,
+                                                                   DistSVec<double,3> &dX, DistSVec<double,dim> &dU,
+                                                                   SVec<double,3> &dS, DistSVec<double,3> &dGradP, int hydro)
+{
+
+  *dV = 0.0;
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    subDomain[iSub]->computeTransposeDerivativeOfForceAndMoment(dRdXop->dFidGradP[iSub], dRdXop->dFidX[iSub],
+                                                                dRdXop->dFidV[iSub], dRdXop->dFvdX[iSub],
+                                                                dRdXop->dFvdV[iSub], dRdXop->dFidS[iSub],
+                                                                dRdXop->dMidGradP[iSub], dRdXop->dMidX[iSub],
+                                                                dRdXop->dMidV[iSub], dRdXop->dMidS[iSub], dRdXop->dMvdX[iSub], dRdXop->dMvdV[iSub],
+                                                                dFi, dFv, dMi, dMv,
+                                                                dX(iSub), (*dV)(iSub), dS, dGradP(iSub), hydro);
+    dRdXop->dVdU[iSub]->applyTranspose((*dV)(iSub), dU(iSub));
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+// computes the derivative operators of non-dimensional forces and moments
+
+template<int dim>
+void PostOperator<dim>::computeDerivativeOperatorsOfForceAndMoment(dRdXoperators<dim> &dRdXop,
+                                                                   Vec3D &x0, DistSVec<double,3> &X,
+                                                                   DistSVec<double,dim> &U, int hydro)
+{
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub));
+    if(!built_dVdU) {
+      varFcn->computeConservativeToPrimitiveDerivativeOperators(U(iSub), (*V)(iSub), *dRdXop.dVdU[iSub], *dRdXop.dVdPstiff[iSub]);
+    }
+    subDomain[iSub]->computeDerivativeOperatorsOfForceAndMoment(surfOutMap, postFcn, (*bcData)(iSub), (*geoState)(iSub),
+                                                                X(iSub), (*V)(iSub), x0, hydro,
+                                                                *dRdXop.dFidGradP[iSub],
+                                                                *dRdXop.dFidX[iSub], *dRdXop.dFidV[iSub],
+                                                                *dRdXop.dFvdX[iSub], *dRdXop.dFvdV[iSub],
+                                                                *dRdXop.dFidS[iSub], *dRdXop.dMidGradP[iSub], *dRdXop.dMidX[iSub],
+                                                                *dRdXop.dMidV[iSub], *dRdXop.dMidS[iSub], *dRdXop.dMvdX[iSub], *dRdXop.dMvdV[iSub]);
+  }
+built_dVdU = true; //moved to outside for loop otherwise will not be built for all subdomains
+}
+
+//------------------------------------------------------------------------------
+
+
+
+// compute derivatives of forces and Moment for the embedded framework
+template<int dim>
+void PostOperator<dim>::computeDerivativeOfForceAndMomentEmb(Vec3D &x0, DistSVec<double,3> &X,
+							  DistSVec<double,dim> &U,
+							  DistSVec<double,dim> &dU,
 							  DistVec<int> *fluidId,
 							  double dS[3],
-							  Vec3D *dFi, Vec3D *dMi, 
-							  Vec3D *dFv, Vec3D *dMv, 
+							  Vec3D *dFi, Vec3D *dMi,
+							  Vec3D *dFv, Vec3D *dMv,
 							  int hydro, VecSet< DistSVec<double,3> > *mX, Vec<double> *genCF)
 {
 
@@ -824,7 +968,7 @@ void PostOperator<dim>::computeDerivativeOfForceAndMoment(Vec3D &x0, DistSVec<do
   }
 
   varFcn->conservativeToPrimitive(U, *V, fluidId);
-  varFcn->conservativeToPrimitiveDerivative(U, dU, *V, *dV, fluidId); 
+  varFcn->conservativeToPrimitiveDerivative(U, dU, *V, *dV, fluidId);
 
   Vec3D *dfi = new Vec3D[numSurf];
   Vec3D *dmi = new Vec3D[numSurf];
@@ -835,7 +979,7 @@ void PostOperator<dim>::computeDerivativeOfForceAndMoment(Vec3D &x0, DistSVec<do
 
   if(forceGen != 0)
     forceGen->getderivativeOfForcesAndMoments(surfOutMap, *V, *dV, X, dS, dfi, dmi);
- 
+
   for(iSurf = 0; iSurf < numSurf; ++iSurf) {
     dFi[iSurf] += dfi[iSurf];
     dMi[iSurf] += dmi[iSurf];
@@ -853,22 +997,22 @@ void PostOperator<dim>::computeDerivativeOfForceAndMoment(Vec3D &x0, DistSVec<do
 
     com->globalSum(12, coef);
 
-    dFi[iSurf][0] = coef[0]; 
+    dFi[iSurf][0] = coef[0];
     dFi[iSurf][1] = coef[1];
     dFi[iSurf][2] = coef[2];
 
-    dMi[iSurf][0] = coef[3]; 
+    dMi[iSurf][0] = coef[3];
     dMi[iSurf][1] = coef[4];
     dMi[iSurf][2] = coef[5];
 
-    dFv[iSurf][0] = coef[6]; 
+    dFv[iSurf][0] = coef[6];
     dFv[iSurf][1] = coef[7];
     dFv[iSurf][2] = coef[8];
 
-    dMv[iSurf][0] = coef[9]; 
+    dMv[iSurf][0] = coef[9];
     dMv[iSurf][1] = coef[10];
     dMv[iSurf][2] = coef[11];
- 
+
   }
 
   map<int, int>::iterator it;
@@ -885,10 +1029,62 @@ void PostOperator<dim>::computeDerivativeOfForceAndMoment(Vec3D &x0, DistSVec<do
 
 }
 
+
+
+// compute derivatives operators of forces and Moment for the embedded framework
+template<int dim>
+void PostOperator<dim>::computeDerivativeOperatorsOfForceAndMomentEmb(dRdXoperators<dim> &dRdXop,
+                Vec3D &x0, DistSVec<double,3> &X,
+                DistSVec<double,dim> &U,
+                DistVec<int> *fluidId,
+                double dS[3],
+                int hydro, VecSet< DistSVec<double,3> > *mX, Vec<double> *genCF)//currently exists for multiple surfaces -- we will probably only do one
+{
+
+  varFcn->conservativeToPrimitive(U, *V, fluidId);
+
+
+  if(forceGen != 0)
+    forceGen->getderivativeOperatorsOfForcesAndMoments(dRdXop, surfOutMap, *V, X, dS);
+
+
+
+
+}
+
+
+template<int dim>
+void PostOperator<dim>::computeDerivativeOfForceAndMomentEmbSurfMotion(Vec3D *dFidS,
+                Vec3D &x0, DistSVec<double,3> &X,
+                DistSVec<double,dim> &U,
+                DistVec<int> *fluidId,
+                double dS[3],
+                int hydro, VecSet< DistSVec<double,3> > *mX, Vec<double> *genCF)
+{
+
+  varFcn->conservativeToPrimitive(U, *V, fluidId);
+
+  if(forceGen != 0)
+    forceGen->getderivativeOfForcesAndMomentsSurfMotion(dFidS, surfOutMap, *V, X, dS);
+  for(int iSurf = 0; iSurf < numSurf; ++iSurf) {
+
+    double coef[3] = {dFidS[iSurf][0], dFidS[iSurf][1], dFidS[iSurf][2]};
+
+    com->globalSum(3, coef);
+
+    dFidS[iSurf][0] = coef[0];
+    dFidS[iSurf][1] = coef[1];
+    dFidS[iSurf][2] = coef[2];
+
+  }
+
+
+
+}
 //------------------------------------------------------------------------------
 
 template<int dim>
-double PostOperator<dim>::computeInterfaceWork(DistSVec<double,3>& X, 
+double PostOperator<dim>::computeInterfaceWork(DistSVec<double,3>& X,
 					       DistSVec<double,dim>& U,
 					       DistVec<double> &Pin)
 {
@@ -898,7 +1094,7 @@ double PostOperator<dim>::computeInterfaceWork(DistSVec<double,3>& X,
 #pragma omp parallel for reduction(+: E)
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
     varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub));
-    E += subDomain[iSub]->computeInterfaceWork(postFcn, (*bcData)(iSub), (*geoState)(iSub), 
+    E += subDomain[iSub]->computeInterfaceWork(postFcn, (*bcData)(iSub), (*geoState)(iSub),
 					       X(iSub), (*V)(iSub), Pin(iSub));
   }
 
@@ -1084,7 +1280,7 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
     }
   }
 
-  else if (type == PostFcn::CONTROL_VOLUME) 
+  else if (type == PostFcn::CONTROL_VOLUME)
     Q = A;
 
   else {
@@ -1101,9 +1297,9 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
 // Included (MB)
 
 template<int dim>
-void PostOperator<dim>::computeDerivativeOfScalarQuantity(PostFcn::ScalarDerivativeType type, double dS[3], 
-							  DistSVec<double,3>& X, DistSVec<double,3>& dX, 
-							  DistSVec<double,dim>& U, DistSVec<double,dim>& dU, 
+void PostOperator<dim>::computeDerivativeOfScalarQuantity(PostFcn::ScalarDerivativeType type, double dS[3],
+							  DistSVec<double,3>& X, DistSVec<double,3>& dX,
+							  DistSVec<double,dim>& U, DistSVec<double,dim>& dU,
 							  DistVec<double>& dQ, DistTimeState<dim> *timeState)
 {
 
@@ -1148,7 +1344,7 @@ void PostOperator<dim>::computeCP(DistSVec<double,3>& X, DistSVec<double,dim>& U
     cp[0] = 0;
     cp[1] = 0;
     cp[2] = 0;
-  } 
+  }
   else {
   cp[0] = xp/p;
   cp[1] = yp/p;
@@ -1335,10 +1531,10 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
       }
     }
   }
-  else if (type == PostFcn::CONTROL_VOLUME) { 
+  else if (type == PostFcn::CONTROL_VOLUME) {
     Q = A;
   }
-  else if (type == PostFcn::D2WALL) { 
+  else if (type == PostFcn::D2WALL) {
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {
       double* q = Q.subData(iSub);
@@ -1385,7 +1581,7 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
   int numStructElems  = distLSS->getNumStructElems();
   int   (*stElem)[3]  = distLSS->getStructElems();
   Vec<Vec3D>& Xstruct = distLSS->getStructPosition();
-
+  Vec3D* Xdotstruct = distLSS->getStructVelocity();
   typedef double subArray[4];
   subArray **subEmbQ = new subArray * [numLocSub];
   for(int i=0; i<numLocSub; ++i) subEmbQ[i] = new subArray[numStructNodes];
@@ -1485,6 +1681,7 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
       StNodeDir[i][1] = (int) tmp2[i];
     }
 
+
     for(int k=0; k<3; ++k)
     {
       for(int i=0; i<numStructElems; ++i)
@@ -1561,7 +1758,7 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
       if (ghostPoints) gp = ghostPoints->operator[](iSub);
       subDomain[iSub]->computeEMBNodeScalarQuantity(*(spaceOp->iod), X(iSub), (*V)(iSub), postFcn, varFcn,
                                                     fluidId(iSub), Phi ? &((*Phi)(iSub)) : (SVec<double, 1> *) 0,
-                                                    numStructNodes, numStructElems, stElem, Xstruct, (*distLSS)(iSub),
+                                                    numStructNodes, numStructElems, stElem, Xstruct, Xdotstruct, (*distLSS)(iSub),
                                                     1.0, gp, (*ngrad)(iSub), interfaceFluidMeshSize, strucOrientation,
                                                     subEmbQ[iSub]);
 
@@ -1614,10 +1811,10 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
   int glStat = 0;
   for (int i = 0; i < count; ++i) {
     if (locations[i][0] < -1.0e19) {
-      if (subId[i] < 0) continue; 
+      if (subId[i] < 0) continue;
       int iSub = subId[i];
       varFcn->conservativeToPrimitive(U(iSub)[locNodeId[i]], (*V)(iSub)[locNodeId[i]], fluidId(iSub)[locNodeId[i]]);
-    
+
       if (Phi)
         results[i] += subDomain[ iSub ]->computeNodeScalarQuantity(type, postFcn, (*V)(iSub), X(iSub), fluidId(iSub),locNodeId[i],&((*Phi)(iSub)));
       else
@@ -1651,7 +1848,7 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
 						  true);
 
 	glStat += stat;
- 
+
 	if (stat) {
 	  fid = fluidId(iSub)[nid];
 	  varFcn->conservativeToPrimitive(locU, locV, fid);
@@ -1666,7 +1863,7 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
 
 #pragma omp parallel for reduction(+: status[i])
 	for (int iSub = 0; iSub < X.info().numLocSub; ++iSub) {
-	  
+
 	  // This loop looks for cached elements first.
 	  if (distLSS) { // Then we are in the case of an Embedded simulation
 	    if (ghostPoints) { // Embedded Navier-Stokes
@@ -1688,7 +1885,7 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
 	    subDomain[iSub]->interpolatePhiSolution(X(iSub), (*Phi)(iSub), std::vector<Vec3D>(1,locations[i]),
 						    &phi, &stat,&last[i],&nid,
 						    false);
-	  
+
 	  if (stat) {
 	    fid = fluidId(iSub)[nid];
 	    varFcn->conservativeToPrimitive(locU, locV, fid);
@@ -1697,7 +1894,7 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
 	  }
 	}
       }
-      
+
     }
   }
 
@@ -1706,7 +1903,7 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
 
   for (int i = 0; i < count; ++i) {
     if (status[i]<=0)
-      results[i] = 0.0; 
+      results[i] = 0.0;
     else if(status[i] != 1)
       results[i] /= status[i];
   }
@@ -1833,23 +2030,23 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type, 
-					      DistSVec<double,3> &X, 
-					      DistSVec<double,dim> &U, 
+void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
+					      DistSVec<double,3> &X,
+					      DistSVec<double,dim> &U,
 					      DistSVec<double,3> &Q)
 {
 
   int iSub;
 
-	if(type == PostFcn::VELOCITY) 
+	if(type == PostFcn::VELOCITY)
 	{
 #pragma omp parallel for
-		for(iSub=0; iSub<numLocSub; ++iSub) 
+		for(iSub=0; iSub<numLocSub; ++iSub)
 		{
       double (*u)[dim] = U.subData(iSub);
       double (*q)[3] = Q.subData(iSub);
 
-			for(int i=0; i<Q.subSize(iSub); ++i) 
+			for(int i=0; i<Q.subSize(iSub); ++i)
 			{
 	double v[dim];
 	varFcn->conservativeToPrimitive(u[i], v);
@@ -1860,7 +2057,7 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
       }
     }
   }
-	else if(type == PostFcn::DISPLACEMENT || type == PostFcn::FLIGHTDISPLACEMENT || type == PostFcn::LOCALFLIGHTDISPLACEMENT) 
+	else if(type == PostFcn::DISPLACEMENT || type == PostFcn::FLIGHTDISPLACEMENT || type == PostFcn::LOCALFLIGHTDISPLACEMENT)
 	{
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub)
@@ -1909,7 +2106,7 @@ void PostOperator<dim>::computeDerivativeOfVectorQuantity(PostFcn::VectorDerivat
 }
 
 //------------------------------------------------------------------------------
-                                                                                                                                                                                             
+
 template<int dim>
 void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
                                               DistSVec<double,3> &X,
@@ -1918,20 +2115,20 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
 															 DistLevelSetStructure *distLSS,
                                               DistVec<int> &fluidId)
 {
-                                                                                                                                                                                             
+
   int iSub;
-                                                                                                                                                                                             
-	if(type == PostFcn::VELOCITY) 
+
+	if(type == PostFcn::VELOCITY)
 	{
 #pragma omp parallel for
-		for(iSub=0; iSub<numLocSub; ++iSub) 
+		for(iSub=0; iSub<numLocSub; ++iSub)
 		{
 			double (*u)[dim] = U.subData(iSub);
 			double (*q)[3]   = Q.subData(iSub);
 
 			int (*fId) = fluidId.subData(iSub);
-                   
-			for(int i=0; i<Q.subSize(iSub); ++i) 
+
+			for(int i=0; i<Q.subSize(iSub); ++i)
 			{
 				double v[dim];
 
@@ -1945,7 +2142,7 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
 			}
 		}
 	}
-	else if(type == PostFcn::DISPLACEMENT) 
+	else if(type == PostFcn::DISPLACEMENT)
 	{
 #pragma omp parallel for
 		for (iSub=0; iSub<numLocSub; ++iSub)
@@ -1962,11 +2159,11 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
 	DistSVec<int,1> *count = new DistSVec<int,1>(domain->getNodeDistInfo());
 
 #pragma omp parallel for
-	for(iSub=0; iSub<numLocSub; ++iSub) 
+	for(iSub=0; iSub<numLocSub; ++iSub)
 	{
-		subDomain[iSub]->computeWeightsLeastSquaresEdgePart(X(iSub), fluidId(iSub), 
-																			 (*count)(iSub), 
-																			 R(iSub), 
+		subDomain[iSub]->computeWeightsLeastSquaresEdgePart(X(iSub), fluidId(iSub),
+																			 (*count)(iSub),
+																			 R(iSub),
 																			 &((*distLSS)(iSub)),
 																			 false);
 
@@ -1979,7 +2176,7 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
 	domain->getLevelPat()->exchange();
 
 #pragma omp parallel for
-	for(iSub=0; iSub<numLocSub; ++iSub) 
+	for(iSub=0; iSub<numLocSub; ++iSub)
 	{
 		subDomain[iSub]->addRcvData(*(domain->getWeightPat()), R.subData(iSub));
 
@@ -1991,7 +2188,7 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
 		double (*t3)[3]  = tmp3.subData(iSub);
 		double (*x)[3]   = X.subData(iSub);
 
-		for(int i=0; i<tmp3.subSize(iSub); ++i) 
+		for(int i=0; i<tmp3.subSize(iSub); ++i)
 		{
 			double v[dim];
 			varFcn->conservativeToPrimitive(u[i], v);
@@ -2000,10 +2197,10 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
 			t3[i][2] = v[4];
 		}
 
-		subDomain[iSub]->computeGradientsLeastSquares(X(iSub), fluidId(iSub), 
-																	 R(iSub), tmp3(iSub), 
-																	 ddx(iSub), ddy(iSub), 
-																	 ddz(iSub), true, 
+		subDomain[iSub]->computeGradientsLeastSquares(X(iSub), fluidId(iSub),
+																	 R(iSub), tmp3(iSub),
+																	 ddx(iSub), ddy(iSub),
+																	 ddz(iSub), true,
 																	 &((*distLSS)(iSub)), false);
 	}
 
@@ -2014,16 +2211,16 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
 	domain->assemble(domain->getVec3DPat(), ddz);
 
 #pragma omp parallel for
-	for(iSub=0; iSub<numLocSub; ++iSub) 
+	for(iSub=0; iSub<numLocSub; ++iSub)
 	{
 		double (*dvdx)[3] = ddx.subData(iSub);
 		double (*dvdy)[3] = ddy.subData(iSub);
 		double (*dvdz)[3] = ddz.subData(iSub);
 
 		double (*q)[3] = Q.subData(iSub);
-					
+
 		for(int i=0; i<Q.subSize(iSub); ++i)
-		{						
+		{
 			q[i][0] = dvdx[i][0];
 			q[i][1] = dvdy[i][0];
 			q[i][2] = dvdz[i][0];
@@ -2050,7 +2247,7 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
       double (*u)[dim] = U.subData(iSub);
       double (*q)[3] = Q.subData(iSub);
       int (*fId) = fluidId.subData(iSub);
-                                                                                                                                                                                             
+
       for (int i=0; i<Q.subSize(iSub); ++i) {
         double v[dim];
         varFcn->conservativeToPrimitive(u[i], v, fId[i]);
@@ -2066,11 +2263,11 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
     for (iSub=0; iSub<numLocSub; ++iSub)
       subDomain[iSub]->computeDisplacement(X(iSub), Q(iSub));
   }
-                                                                                           
+
 }
 
 //------------------------------------------------------------------------------
-                                                                                                                                                                                             
+
 template<int dim>
 void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
                                               DistSVec<double,3> &X,
@@ -2082,9 +2279,9 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
                                               DistLevelSetStructure *distLSS,
                                               DistVec<GhostPoint<dim>*> *ghostPoints)
 {
-                                                                                                                                                                                             
+
   int iSub;
-           
+
   memset(result,0,sizeof(double)*count*3);
   int* status = new int[count];
   int stat;
@@ -2098,7 +2295,7 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
 
         double (*u)[dim] = U.subData(subId[i]);
         int (*fId) = fluidId.subData(subId[i]);
-      
+
         double v[dim];
         varFcn->conservativeToPrimitive(u[ locNodeId[i] ], v, fId[ locNodeId[i] ]);
         Vec3D vel = varFcn->getVelocity(v, fId[ locNodeId[i] ]);
@@ -2133,10 +2330,10 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
 	    result[3*i+2] += vel[2];
 	    status[i] += stat;
 	  }
-        }       
+        }
       }
     }
-  } 
+  }
   else if (type == PostFcn::DISPLACEMENT) {
     for (int i = 0; i < count; ++i) {
       if (locations[i][0] < -1.0e19) {
@@ -2149,7 +2346,7 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
       status[i] = 1;
     }
   }
-  com->globalSum(count*3,result);  
+  com->globalSum(count*3,result);
   com->globalSum(count,status);
   for (int i = 0; i < count*3; ++i) {
     if (status[i/3]<0.1)
@@ -2158,7 +2355,7 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
       result[i] /= (double)status[i/3];
   }
   delete [] status;
-                                                                                             
+
 }
 
 //------------------------------------------------------------------------------
@@ -2180,8 +2377,8 @@ void PostOperator<dim>::computeForceDerivs(DistSVec<double,3> &X, DistSVec<doubl
 template<int dim>
 void PostOperator<dim>::computeForceCoefficients(Vec3D &x0, DistSVec<double,3> &X,
                                             DistSVec<double,dim> &U, Vec3D &CFi,
-                                            Vec3D &CMi, Vec3D &CFv, Vec3D &CMv, 
-                                            VecSet< DistSVec<double,3> > *mX , DistVec<double> *genCF)  
+                                            Vec3D &CMi, Vec3D &CFv, Vec3D &CMv,
+                                            VecSet< DistSVec<double,3> > *mX , DistVec<double> *genCF)
 {
 
   CFi = 0.0;
@@ -2232,4 +2429,3 @@ void PostOperator<dim>::checkVec(DistSVec<double,3>& V)  {
 }
 
 //------------------------------------------------------------------------------
-

@@ -318,7 +318,8 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
   dFs = 0;
   if(ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_ ||
-     ioData.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_)
+     ioData.problem.alltype == ProblemData::_AEROELASTIC_SHAPE_OPTIMIZATION_ ||
+	 ioData.problem.alltype == ProblemData::_SENSITIVITY_ANALYSIS_)
     dFs = new (*this->com) double[totStructNodes][3];
 
 //-------------------------------------------------------------
@@ -883,7 +884,6 @@ void EmbeddedTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int
       }
       this->domain->getCommunicator()->fprintf(stdout,"Linf error (total): %e\n", tot_error);
 
-
     }
 
   }
@@ -930,6 +930,8 @@ double EmbeddedTsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
   this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, *Wextij, distLSS,
 											linRecAtInterface,  viscSecOrder, nodeTag, *this->R,
 											this->riemann, riemannNormal, 0, ghostPoints);
+  //the norm of the residual is computed; good poitn to write it do file for debugging
+
 
   this->spaceOp->applyBCsToResidual(U, *this->R, distLSS);
 
@@ -971,7 +973,9 @@ void EmbeddedTsDesc<dim>::monitorInitialState(int it, DistSVec<double,dim> &U)
 //------------------------------------------------------------------------------
 
 template<int dim>
-void EmbeddedTsDesc<dim>::computeForceLoad(DistSVec<double,dim> *Wij, DistSVec<double,dim> *Wji)
+void EmbeddedTsDesc<dim>::computeForceLoad(
+                            DistSVec<double,dim> *Wij,
+                            DistSVec<double,dim> *Wji)
 {
 
 	if(!Fs)
@@ -1036,9 +1040,44 @@ void EmbeddedTsDesc<dim>::computederivativeOfForceLoad(DistSVec<double,dim> *Wij
 
 //-------------------------------------------------------------------------------
 
+template<int dim>
+void EmbeddedTsDesc<dim>::computederivativeOperatorsOfForceLoad(dRdXoperators<dim> &dRdXop,
+                   DistSVec<double,dim> *Wij,
+                   DistSVec<double,dim> *Wji,
+                   double dS[3]) {
+
+
+  this->spaceOp->computederivativeOperatorsOfForceLoad(dRdXop, forceApp, orderOfAccuracy, *this->X, *this->A,
+                numStructNodes, distLSS, *Wij, *Wji, dS,
+                ghostPoints, this->postOp->getPostFcn(), &nodeTag);
+
+
+}
+
+//-------------------------------------------------------------------------------
+
+template<int dim>
+void EmbeddedTsDesc<dim>::computederivativeOfForceLoadSurfMotion(Vec3D *dFidS,
+                   DistSVec<double,dim> *Wij,
+                   DistSVec<double,dim> *Wji,
+                   double dS[3]) {
+
+
+  this->spaceOp->computederivativeOfForceLoadSurfMotion(dFidS, forceApp, orderOfAccuracy, *this->X, *this->A,
+                numStructNodes, distLSS, *Wij, *Wji, dS,
+                ghostPoints, this->postOp->getPostFcn(), &nodeTag);
+
+
+}
+
+//-------------------------------------------------------------------------------
+
 template <int dim>
-void EmbeddedTsDesc<dim>::getForcesAndMoments(map<int,int> & surfOutMap, DistSVec<double,dim> &U, DistSVec<double,3> &X,
-					      Vec3D *Fi, Vec3D *Mi)
+void EmbeddedTsDesc<dim>::getForcesAndMoments(
+                             map<int,int> & surfOutMap,
+                             DistSVec<double,dim> &U,
+                             DistSVec<double,3> &X,
+                             Vec3D *Fi, Vec3D *Mi)
 {
 
   int idx;
@@ -1072,10 +1111,11 @@ void EmbeddedTsDesc<dim>::getForcesAndMoments(map<int,int> & surfOutMap, DistSVe
 //-------------------------------------------------------------------------------
 
 template <int dim>
-void EmbeddedTsDesc<dim>::getderivativeOfForcesAndMoments(map<int,int> & surfOutMap,
-							  DistSVec<double,dim> &V, DistSVec<double,dim> &dV,
-							  DistSVec<double,3> &X, double dS[3],
-							  Vec3D *dFi, Vec3D *dMi)
+void EmbeddedTsDesc<dim>::getderivativeOfForcesAndMoments(
+                            map<int,int> & surfOutMap,
+                            DistSVec<double,dim> &V, DistSVec<double,dim> &dV,
+                            DistSVec<double,3> &X, double dS[3],
+                            Vec3D *dFi, Vec3D *dMi)
 {
 
   int idx;
@@ -1111,6 +1151,86 @@ void EmbeddedTsDesc<dim>::getderivativeOfForcesAndMoments(map<int,int> & surfOut
   }
 
 }
+
+template <int dim>
+void EmbeddedTsDesc<dim>::getderivativeOperatorsOfForcesAndMoments(dRdXoperators<dim> &dRdXop,
+                map<int,int> & surfOutMap,
+                DistSVec<double,dim> &V,
+                DistSVec<double,3> &X, double dS[3])
+{
+
+  int idx;
+  computederivativeOperatorsOfForceLoad(dRdXop, this->Wstarij, this->Wstarji, dS);
+
+  Vec<Vec3D>& Xstruc = distLSS->getStructPosition();
+
+  for (int i=0; i<numStructNodes; i++) {
+
+     map<int,int>::iterator it = surfOutMap.find(distLSS->getSurfaceID(i));
+
+     if(it != surfOutMap.end() && it->second != -2)
+       idx = it->second;
+     else {
+       idx = 0;
+     }
+     // the forces are grouped by idx -- which is an indicator of the surface
+
+     /*moment calculation may be implemented later
+     Vec<Vec3D>& dXstruc = distLSS->getStructDerivative();
+
+     dMi[idx][0] += (dXstruc[i][1]* Fs[i][2] -  dXstruc[i][2]* Fs[i][1] +
+                      Xstruc[i][2]*dFs[i][2] -   Xstruc[i][2]*dFs[i][1]);
+
+     dMi[idx][1] += (dXstruc[i][2]* Fs[i][0] - dXstruc[i][0]* Fs[i][2] +
+                      Xstruc[i][2]*dFs[i][0] -  Xstruc[i][0]*dFs[i][2]);
+
+     dMi[idx][2] += (dXstruc[i][0]* Fs[i][1] - dXstruc[i][1]* Fs[i][0] +
+          Xstruc[i][0]*dFs[i][1] -  Xstruc[i][1]*dFs[i][0]);
+    */
+  }
+
+}
+
+//------------------------------------------------------------------------
+template <int dim>
+void EmbeddedTsDesc<dim>::getderivativeOfForcesAndMomentsSurfMotion(Vec3D *dFidS,
+                map<int,int> & surfOutMap,
+                DistSVec<double,dim> &V,
+                DistSVec<double,3> &X, double dS[3])
+{
+
+  int idx;
+  computederivativeOfForceLoadSurfMotion(dFidS, this->Wstarij, this->Wstarji, dS);
+
+  Vec<Vec3D>& Xstruc = distLSS->getStructPosition();
+
+  for (int i=0; i<numStructNodes; i++) {
+
+     map<int,int>::iterator it = surfOutMap.find(distLSS->getSurfaceID(i));
+
+     if(it != surfOutMap.end() && it->second != -2)
+       idx = it->second;
+     else {
+       idx = 0;
+     }
+     // the forces are grouped by idx -- which is an indicator of the surface
+
+     /*moment calculation may be implemented later
+     Vec<Vec3D>& dXstruc = distLSS->getStructDerivative();
+
+     dMi[idx][0] += (dXstruc[i][1]* Fs[i][2] -  dXstruc[i][2]* Fs[i][1] +
+                      Xstruc[i][2]*dFs[i][2] -   Xstruc[i][2]*dFs[i][1]);
+
+     dMi[idx][1] += (dXstruc[i][2]* Fs[i][0] - dXstruc[i][0]* Fs[i][2] +
+                      Xstruc[i][2]*dFs[i][0] -  Xstruc[i][0]*dFs[i][2]);
+
+     dMi[idx][2] += (dXstruc[i][0]* Fs[i][1] - dXstruc[i][1]* Fs[i][0] +
+          Xstruc[i][0]*dFs[i][1] -  Xstruc[i][1]*dFs[i][0]);
+    */
+  }
+
+}
+
 
 //-------------------------------------------------------------------------------
 
