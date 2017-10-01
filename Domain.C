@@ -5054,6 +5054,183 @@ void Domain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, DistGeoS
 }
 
 //-------------------------------------------------------------------------------
+//template<int dim>
+//void Domain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orderOfAccuracy,
+//                                          DistSVec<double,3> &X, double (*Fs)[3], int sizeFs,
+//                                          DistLevelSetStructure *distLSS, double pInfty,
+//                                          DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
+//                                          DistSVec<double,dim> *Wextij,
+//                                          DistSVec<double,dim> &V, DistVec<GhostPoint<dim>*> *ghostPoints,
+//                                          PostFcn *postFcn, DistNodalGrad<dim, double> *ngrad,
+//                                          VarFcn* vf, DistVec<int> *fid, bool externalSI)
+//{//Compute force load: pressure load and shear force
+//
+//  typedef double array3d[3];
+//  array3d **subFs = new array3d * [numLocSub];
+//  for(int i=0; i<numLocSub; ++i) subFs[i] = new array3d[sizeFs];
+//
+//  int numStructElems = distLSS->getNumStructElems();
+//  int (*stElem)[3] = distLSS->getStructElems();
+//  Vec<Vec3D>& Xstruct = distLSS->getStructPosition();
+//
+//  Vec<GhostPoint<dim>*> *gp=0;
+//
+//  int**  StNodeDir;
+//
+//  double** StX1;
+//  double** StX2;
+//
+//  double* tmp1;
+//  double* tmp2;
+//
+//  if(externalSI) // Dante's version
+//  {
+//    StNodeDir = new int*    [numStructElems];
+//    StX1      = new double* [numStructElems];
+//    StX2      = new double* [numStructElems];
+//
+//    for(int i=0; i<numStructElems; ++i)
+//    {
+//      StNodeDir[i] = new int    [2];
+//      StX1[i]      = new double [3];
+//      StX2[i]      = new double [3];
+//
+//      StNodeDir[i][0] = StNodeDir[i][1] = 0;
+//      StX1[i][0] = StX1[i][1] = StX1[i][2] = 0.0;
+//      StX2[i][0] = StX2[i][1] = StX2[i][2] = 0.0;
+//    }
+//  }
+//
+//  bool rebuildTree = false;
+//  if(iod.problem.framework == ProblemData::EMBEDDEDALE) rebuildTree = true;
+//
+//#pragma omp parallel for
+//  for(int iSub=0; iSub<numLocSub; iSub++)
+//  {
+//    for(int is=0; is<sizeFs; is++)
+//    {
+//      subFs[iSub][is][0] = 0.0;
+//      subFs[iSub][is][1] = 0.0;
+//      subFs[iSub][is][2] = 0.0;
+//    }
+//
+//    if(!externalSI)
+//    {
+//      if(ghostPoints) gp = ghostPoints->operator[](iSub);
+//      subDomain[iSub]->computeEmbSurfBasedForceLoad(iod, forceApp, orderOfAccuracy,
+//                                                    X(iSub), subFs[iSub], sizeFs,
+//                                                    numStructElems, stElem, Xstruct,
+//                                                    (*distLSS)(iSub), pInfty,
+//                                                    Wstarij(iSub), Wstarji(iSub), V(iSub),
+//                                                    gp, postFcn,
+//                                                    (*ngrad)(iSub), vf, fid?&((*fid)(iSub)):0);
+//    }
+//    else //Dante's version only works for 1 fluid
+//      subDomain[iSub]->computeEMBNodeScalarQuantity_step1(X(iSub), V(iSub),
+//                                                          numStructElems, stElem, Xstruct,
+//                                                          (*distLSS)(iSub),
+//                                                          StNodeDir, StX1, StX2, rebuildTree);
+//  }
+//
+//  if(externalSI) //Dante's version, StX1[i] and StX2[i] are target position on normal or -normal direction
+//  {
+//    tmp1 = new double[numStructElems];
+//    tmp2 = new double[numStructElems];
+//
+//    for(int i=0; i<numStructElems; ++i)
+//    {
+//      tmp1[i] = (double) StNodeDir[i][0];
+//      tmp2[i] = (double) StNodeDir[i][1];
+//    }
+//
+//    com->globalSum(numStructElems, tmp1);
+//    com->globalSum(numStructElems, tmp2);
+//
+//    for(int i=0; i<numStructElems; ++i)
+//    {
+//      StNodeDir[i][0] = (int) tmp1[i];
+//      StNodeDir[i][1] = (int) tmp2[i];
+//    }
+//
+//    for(int k=0; k<3; ++k)
+//    {
+//      for(int i=0; i<numStructElems; ++i)
+//      {
+//        tmp1[i] = StX1[i][k];
+//        tmp2[i] = StX2[i][k];
+//      }
+//
+//      com->globalSum(numStructElems, tmp1);
+//      com->globalSum(numStructElems, tmp2);
+//
+//      for(int i=0; i<numStructElems; ++i)
+//      {
+//        StX1[i][k] = tmp1[i];
+//        StX2[i][k] = tmp2[i];
+//      }
+//    }
+//  }
+//
+//#pragma omp parallel for
+//  for (int iSub=0; iSub<numLocSub; iSub++)
+//  {
+//    if(externalSI) //Dante' sversion
+//    {
+//      if(ghostPoints) gp = ghostPoints->operator[](iSub);
+//
+//      subDomain[iSub]->computeEmbSurfBasedForceLoad_e(iod, forceApp, orderOfAccuracy,
+//                                                      X(iSub), subFs[iSub], sizeFs,
+//                                                      numStructElems, stElem, Xstruct,
+//                                                      (*distLSS)(iSub), pInfty, V(iSub),
+//                                                      gp, postFcn,
+//                                                      (*ngrad)(iSub), vf, fid?&((*fid)(iSub)):0,
+//                                                      StNodeDir, StX1, StX2);
+//    }
+//  }
+//
+//  double res = 0.0;
+//
+//  for(int is=0; is<sizeFs; is++)
+//  {//for subdomain 0
+//    Fs[is][0] = subFs[0][is][0];
+//    Fs[is][1] = subFs[0][is][1];
+//    Fs[is][2] = subFs[0][is][2];
+//    res += Fs[is][0]*Fs[is][0] +  Fs[is][1]*Fs[is][1] +  Fs[is][2]*Fs[is][2];
+//  }
+//  for (int iSub=1; iSub<numLocSub; iSub++)
+//  {
+//    for (int is=0; is<sizeFs; is++)
+//    {
+//      Fs[is][0] += subFs[iSub][is][0];
+//      Fs[is][1] += subFs[iSub][is][1];
+//      Fs[is][2] += subFs[iSub][is][2];
+//    }
+//  }
+//
+//  for(int i=0; i<numLocSub; ++i) delete [] subFs[i];
+//  delete [] subFs;
+//
+//  if(externalSI)
+//  {
+//    for(int i=0; i<numStructElems; ++i)
+//    {
+//      delete [] StNodeDir[i];
+//      delete [] StX1[i];
+//      delete [] StX2[i];
+//    }
+//
+//    delete [] StNodeDir;
+//    delete [] StX1;
+//    delete [] StX2;
+//    delete [] tmp1;
+//    delete [] tmp2;
+//  }
+//
+//}
+
+
+
+//-------------------------------------------------------------------------------
 template<int dim>
 void Domain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orderOfAccuracy,
                                           DistSVec<double,3> &X, double (*Fs)[3], int sizeFs,
@@ -5062,169 +5239,102 @@ void Domain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orderOf
                                           DistSVec<double,dim> *Wextij,
                                           DistSVec<double,dim> &V, DistVec<GhostPoint<dim>*> *ghostPoints,
                                           PostFcn *postFcn, DistNodalGrad<dim, double> *ngrad,
-                                          VarFcn* vf, DistVec<int> *fid, bool externalSI)
-{//Compute force load: pressure load and shear force
+                                          VarFcn* vf, DistVec<int> *fid, bool externalSI) {//Compute force load: pressure load and shear force in the vector Fs
 
   typedef double array3d[3];
-  array3d **subFs = new array3d * [numLocSub];
-  for(int i=0; i<numLocSub; ++i) subFs[i] = new array3d[sizeFs];
+  array3d **subFs = new array3d *[numLocSub];
+  for (int i = 0; i < numLocSub; ++i) subFs[i] = new array3d[sizeFs];
 
   int numStructElems = distLSS->getNumStructElems();
   int (*stElem)[3] = distLSS->getStructElems();
-  Vec<Vec3D>& Xstruct = distLSS->getStructPosition();
+  Vec<Vec3D> &Xstruct = distLSS->getStructPosition();
 
-  Vec<GhostPoint<dim>*> *gp=0;
+  Vec<GhostPoint<dim> *> *gp = 0;
 
-  int**  StNodeDir;
-
-  double** StX1;
-  double** StX2;
-
-  double* tmp1;
-  double* tmp2;
-
-  if(externalSI) // Dante's version
-  {
-    StNodeDir = new int*    [numStructElems];
-    StX1      = new double* [numStructElems];
-    StX2      = new double* [numStructElems];
-
-    for(int i=0; i<numStructElems; ++i)
-    {
-      StNodeDir[i] = new int    [2];
-      StX1[i]      = new double [3];
-      StX2[i]      = new double [3];
-
-      StNodeDir[i][0] = StNodeDir[i][1] = 0;
-      StX1[i][0] = StX1[i][1] = StX1[i][2] = 0.0;
-      StX2[i][0] = StX2[i][1] = StX2[i][2] = 0.0;
-    }
-  }
-
-  bool rebuildTree = false;
-  if(iod.problem.framework == ProblemData::EMBEDDEDALE) rebuildTree = true;
-
+  if (!externalSI) {
 #pragma omp parallel for
-  for(int iSub=0; iSub<numLocSub; iSub++)
-  {
-    for(int is=0; is<sizeFs; is++)
-    {
-      subFs[iSub][is][0] = 0.0;
-      subFs[iSub][is][1] = 0.0;
-      subFs[iSub][is][2] = 0.0;
-    }
+    for (int iSub = 0; iSub < numLocSub; iSub++) {
+      for (int is = 0; is < sizeFs; is++) {
+        subFs[iSub][is][0] = 0.0;
+        subFs[iSub][is][1] = 0.0;
+        subFs[iSub][is][2] = 0.0;
+      }
 
-    if(!externalSI)
-    {
-      if(ghostPoints) gp = ghostPoints->operator[](iSub);
+      if (ghostPoints) gp = ghostPoints->operator[](iSub);
       subDomain[iSub]->computeEmbSurfBasedForceLoad(iod, forceApp, orderOfAccuracy,
                                                     X(iSub), subFs[iSub], sizeFs,
                                                     numStructElems, stElem, Xstruct,
                                                     (*distLSS)(iSub), pInfty,
                                                     Wstarij(iSub), Wstarji(iSub), V(iSub),
                                                     gp, postFcn,
-                                                    (*ngrad)(iSub), vf, fid?&((*fid)(iSub)):0);
-    }
-    else //Dante's version only works for 1 fluid
-      subDomain[iSub]->computeEMBNodeScalarQuantity_step1(X(iSub), V(iSub),
-                                                          numStructElems, stElem, Xstruct,
-                                                          (*distLSS)(iSub),
-                                                          StNodeDir, StX1, StX2, rebuildTree);
-  }
+                                                    (*ngrad)(iSub), vf, fid ? &((*fid)(iSub)) : 0);
 
-  if(externalSI) //Dante's version, StX1[i] and StX2[i] are target position on normal or -normal direction
+    }
+  } else // Dante's version
   {
-    tmp1 = new double[numStructElems];
-    tmp2 = new double[numStructElems];
+    //-------------------------------------------------------------------
+    // Daniel Huang adds this part, compute the fluid mesh size around each embedded surface Gaussian point
+    int qOrder = iod.embed.qOrder;
+    Quadrature quadrature_formula(qOrder);
+    int nqPoint = quadrature_formula.n_point;
+    double *interfaceFluidMeshSize = new double[numStructElems * nqPoint];
+    for (int i = 0; i < numStructElems * nqPoint; i++) interfaceFluidMeshSize[i] = 0.0;
+#pragma omp parallel for
+    for (int iSub = 0; iSub < numLocSub; iSub++) {
+      subDomain[iSub]->computeInterfaceFluidMeshSize(iod, X(iSub), numStructElems, stElem, Xstruct,
+                                                     interfaceFluidMeshSize);
 
-    for(int i=0; i<numStructElems; ++i)
-    {
-      tmp1[i] = (double) StNodeDir[i][0];
-      tmp2[i] = (double) StNodeDir[i][1];
     }
-
-    com->globalSum(numStructElems, tmp1);
-    com->globalSum(numStructElems, tmp2);
-
-    for(int i=0; i<numStructElems; ++i)
-    {
-      StNodeDir[i][0] = (int) tmp1[i];
-      StNodeDir[i][1] = (int) tmp2[i];
+    com->globalMax(numStructElems * nqPoint, interfaceFluidMeshSize);
+    double max_mesh_size = 0;
+    for (int i = 0; i < numStructElems * nqPoint; i++) {
+      if (max_mesh_size < interfaceFluidMeshSize[i])
+        max_mesh_size = interfaceFluidMeshSize[i];
     }
-
-    for(int k=0; k<3; ++k)
-    {
-      for(int i=0; i<numStructElems; ++i)
-      {
-        tmp1[i] = StX1[i][k];
-        tmp2[i] = StX2[i][k];
-      }
-
-      com->globalSum(numStructElems, tmp1);
-      com->globalSum(numStructElems, tmp2);
-
-      for(int i=0; i<numStructElems; ++i)
-      {
-        StX1[i][k] = tmp1[i];
-        StX2[i][k] = tmp2[i];
-      }
+    for (int i = 0; i < numStructElems * nqPoint; i++) {
+      interfaceFluidMeshSize[i] = max_mesh_size;
     }
-  }
 
 #pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; iSub++)
-  {
-    if(externalSI) //Dante' sversion
-    {
-      if(ghostPoints) gp = ghostPoints->operator[](iSub);
+    for (int iSub = 0; iSub < numLocSub; iSub++) {
+      for (int is = 0; is < sizeFs; is++) {
+        subFs[iSub][is][0] = 0.0;
+        subFs[iSub][is][1] = 0.0;
+        subFs[iSub][is][2] = 0.0;
+      }
 
+      if (ghostPoints) gp = ghostPoints->operator[](iSub);
       subDomain[iSub]->computeEmbSurfBasedForceLoad_e(iod, forceApp, orderOfAccuracy,
-                                                      X(iSub), subFs[iSub], sizeFs,
-                                                      numStructElems, stElem, Xstruct,
-                                                      (*distLSS)(iSub), pInfty, V(iSub),
-                                                      gp, postFcn,
-                                                      (*ngrad)(iSub), vf, fid?&((*fid)(iSub)):0,
-                                                      StNodeDir, StX1, StX2);
+                                                    X(iSub), subFs[iSub], sizeFs,
+                                                    numStructElems, stElem, Xstruct,
+                                                    (*distLSS)(iSub), pInfty, V(iSub),
+                                                    gp, postFcn,
+                                                    (*ngrad)(iSub), vf, fid ? &((*fid)(iSub)) : 0,
+                                                    interfaceFluidMeshSize);
+
     }
+  delete [] interfaceFluidMeshSize;
   }
+
 
   double res = 0.0;
 
-  for(int is=0; is<sizeFs; is++)
-  {//for subdomain 0
+  for (int is = 0; is < sizeFs; is++) {//for subdomain 0
     Fs[is][0] = subFs[0][is][0];
     Fs[is][1] = subFs[0][is][1];
     Fs[is][2] = subFs[0][is][2];
-    res += Fs[is][0]*Fs[is][0] +  Fs[is][1]*Fs[is][1] +  Fs[is][2]*Fs[is][2];
+    res += Fs[is][0] * Fs[is][0] + Fs[is][1] * Fs[is][1] + Fs[is][2] * Fs[is][2];
   }
-  for (int iSub=1; iSub<numLocSub; iSub++)
-  {
-    for (int is=0; is<sizeFs; is++)
-    {
+  for (int iSub = 1; iSub < numLocSub; iSub++) {
+    for (int is = 0; is < sizeFs; is++) {
       Fs[is][0] += subFs[iSub][is][0];
       Fs[is][1] += subFs[iSub][is][1];
       Fs[is][2] += subFs[iSub][is][2];
     }
   }
 
-  for(int i=0; i<numLocSub; ++i) delete [] subFs[i];
-  delete [] subFs;
-
-  if(externalSI)
-  {
-    for(int i=0; i<numStructElems; ++i)
-    {
-      delete [] StNodeDir[i];
-      delete [] StX1[i];
-      delete [] StX2[i];
-    }
-
-    delete [] StNodeDir;
-    delete [] StX1;
-    delete [] StX2;
-    delete [] tmp1;
-    delete [] tmp2;
-  }
+  for (int i = 0; i < numLocSub; ++i) delete[] subFs[i];
+  delete[] subFs;
 
 }
 
