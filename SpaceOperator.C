@@ -1497,7 +1497,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
     double t0 = timer->getTime();
 
 		bool linFSI = linRecAtInterface;
-		bool includeIntersection = (fet && true);
+		bool includeIntersection = (fet);
         bool includeSweptNodes = true;
     ngrad->compute(geoState->getConfig(), X, ctrlVol, fluidId, *V, linFSI, distLSS,includeSweptNodes, includeIntersection);
 

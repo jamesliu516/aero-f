@@ -670,17 +670,17 @@ void HigherOrderFSI::extrapolateToWall_1(int l, int n, int Fid, VarFcn *varFun,
     Vec3D dir1 = Xij - xWall, dir2(X[n][0] - xWall[0], X[n][1] - xWall[1], X[n][2] - xWall[2]);
     double norm = sqrt(dir1*dir1);
     if(norm > geomTol && externalSI){
-        pOrNot = dir1*normWall >= 0;
+        pOrNot = (dir1*normWall >= 0);
     }else {
-        pOrNot = dir2 * normWall >= 0;
+        pOrNot = (dir2 * normWall >= 0);
     }
 
-    if(!pOrNot){std::cout << "****H interpolateToWall_1 pOrNot, node "<< n << " l " << l << " norm " << norm
-                          << "\n x[n] " << X[n][0] << " " << X[n][1] << " "  << X[n][2]
-                          << "\n dir2 "<< dir2[0] << " " << dir2[1] << " " << dir2[2]
-                          << "\n dir1 "<< dir1[0] << " " << dir1[1] << " " << dir1[2]
-                          << "\n norm "<< normWall[0] << " " << normWall[1] << " " << normWall[2]
-                          << "\n xWall"<< xWall[0] << " " << xWall[1] << " " << xWall[2]<< std::endl;}
+//    if(!pOrNot){std::cout << "****H interpolateToWall_1 pOrNot, node "<< n << " l " << l << " norm " << norm
+//                          << "\n x[n] " << X[n][0] << " " << X[n][1] << " "  << X[n][2]
+//                          << "\n dir2 "<< dir2[0] << " " << dir2[1] << " " << dir2[2]
+//                          << "\n dir1 "<< dir1[0] << " " << dir1[1] << " " << dir1[2]
+//                          << "\n norm "<< normWall[0] << " " << normWall[1] << " " << normWall[2]
+//                          << "\n xWall"<< xWall[0] << " " << xWall[1] << " " << xWall[2]<< std::endl;}
 
     if(pOrNot) {
         idxTet = SIData_p[l].tet;

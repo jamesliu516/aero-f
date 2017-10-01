@@ -9956,9 +9956,21 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
                 for (int i = 0; i < 4; ++i) {
                     vtet_pp[i] = V[T[i]];
                     GhostPoint<dim> *gp = (*ghostPoints)[T[i]];
-                    if (gp) {
-                        vtet_pp[i] = externalSI?  gp->getPrimitiveState(1): gp->getPrimitiveState();
-                        //if Dante's method, compute the Cf, Cp in the wall normal side for shell
+                    if (!LSS.isActive(0,T[i]) && gp) {
+                        if(!externalSI)
+                            vtet_pp[i] = gp->getPrimitiveState();
+                        else {
+                            //if Dante's method, compute the Cf, Cp in the wall normal side for shell
+                            Vec3D xWall; LSS.xWallNode(T[i],xWall);
+                            Vec3D dir(X[T[i]][0] - xWall[0], X[T[i]][1] - xWall[1], X[T[i]][2] - xWall[2]); //this is p direction
+                            int pOrNot;
+                            if(dir.norm() > geomTol)
+                                pOrNot  = dir*unit_nf > 0 ? 1: -1;
+                            else // p direction is the normal direction
+                                pOrNot = 1;
+                            vtet_pp[i]  = gp->getPrimitiveState(pOrNot);
+
+                        }
                     }
                 }
 
