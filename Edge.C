@@ -3886,7 +3886,11 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                 //std::cout << "****H finish  i extrapolateToWall_1" <<std::endl;
 
 				riemann.computeFSIRiemannSolution(V_e, vWall, nWall_o, varFcn, Vstar, j, fluidId[i]);
-                //std::cout << "****H finish i computeRSIRiemannSolution" <<std::endl;
+
+                int err = varFcn->getVarFcnBase(fluidId[i])->verification_negative_rho_p(Vstar, 0.0, 0.0);
+                if(err){//negative pressure or density for Vstar, switch to constant interpolation
+                    riemann.computeFSIRiemannSolution(V[i], vWall, nWall_o, varFcn, Vstar, j, fluidId[i]);
+                }
 
 				for(int k=0; k<dim; k++) Vext[j][k] = V[i][k] + ddVij[k];
 
@@ -3916,7 +3920,12 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                 //std::cout << "****H finish  j extrapolateToWall_1" <<std::endl;
 
 				riemann.computeFSIRiemannSolution(V_e, vWall, nWall_o, varFcn, Vstar, i, fluidId[j]);
-                //std::cout << "****H finish j computeRSIRiemannSolution" <<std::endl;
+
+                //Failsafe
+                int err = varFcn->getVarFcnBase(fluidId[j])->verification_negative_rho_p(Vstar, 0.0, 0.0);
+                if(err){//negative pressure or density for Vstar, switch to constant interpolation
+                    riemann.computeFSIRiemannSolution(V[j], vWall, nWall_o, varFcn, Vstar, i, fluidId[j]);
+                }
 				
 				for(int k=0; k<dim; k++) Vext[i][k] = V[j][k] + ddVji[k];
 

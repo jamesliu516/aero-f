@@ -6990,7 +6990,8 @@ bool SubDomain::getFEMstencil2(int Ni, SVec<double,3> &X,
 
 
       if (norm > geomTol) {
-        dir = (dir*normWall>=0 ? dir/norm : -dir/norm);
+        //dir = (dir*normWall>=0 ? dir/norm : -dir/norm);
+          dir = dir/norm;
       }
 	else
 	{
