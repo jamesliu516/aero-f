@@ -5677,35 +5677,6 @@ void SubDomain::getNeiElemOfNode(int iNode, int depth, int& size , int* finalLis
 
 
 
-//  int *list2 = new int[elems.size()];
-//  int size2 = 0;
-//  if (!ElemToElem) ElemToElem = createElementToElementConnectivity();
-//
-//  for (int count=0; count<depth-1; count++){
-//    size2 = 0;
-//    for (int i=0; i<size; i++){
-//      if (size2>0){
-//        for (int j=0; j<ElemToElem->num(list[i]); j++){
-//          bool newElem = true;
-//          for (int listNode=0; listNode<size2; listNode++){
-//            if (list2[listNode] ==(* ElemToElem)[list[i]][j]) {newElem = false;  break;}
-//          }
-//          if (newElem == true)  list2[size2++] = (*ElemToElem)[list[i]][j];
-//        }
-//      }
-//      else {for (int l=0; l<ElemToElem->num(list[i]); l++)  list2[size2++] = (*ElemToElem)[list[i]][l]; }
-//    }
-//    int *list_temp = list;
-//    list = list2;
-//    delete[] list_temp;
-//    size = size2;
-//  }
-//
-//  for (int i=0; i<size; i++)
-//    finalList[i] = list[i];
-//  delete[] list;
-
-
   if (!ElemToElem) ElemToElem = createElementToElementConnectivity();
   int size_old;
   for (int count = 1; count<depth; count++){

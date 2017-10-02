@@ -758,10 +758,8 @@ void HigherOrderFSI::extrapolateToWall_1(int l, int n, int Fid, VarFcn *varFun,
 	}
 
 
-	if(V_ext[0] <= 0  || V_ext[4] <= 0)
-	{
-//		fprintf(stderr, "E: negative density/pressure at Xn=[%f,%f,%f], Xf=[%f,%f,%f]\n", X[n][0],X[n][1],X[n][2], Xf[0],Xf[1],Xf[2]);
-//		fprintf(stderr, "rho/P[n] = %f,%f, rho/P_n= %f,%f, rho/P_ext = %f,%f\n", V[n][0],V[n][4], V_n[0],V_n[4], V_ext[0],V_ext[4]);
+	if(V_ext[0] <= 0  || V_ext[4] <= 0 || face_r < geomTol || face_t < geomTol || (1 - face_r - face_t) < geomTol)
+	{   //Negative pressure, negative density or the stencil has ghost nodes
         for(int k=0; k<dim; ++k)
         {
             V_ext[k]     = V_n[k];
@@ -946,9 +944,7 @@ void HigherOrderFSI::interpolateToSI(int l, int n, int Fid, VarFcn *varFun,
 
 	 if(Vsi[0] <= 0 || Vsi[4] <= 0)//failsafe
 	 {
-//	 	fprintf(stderr, "I: negative density/pressure at Xn=[%f,%f,%f], Xf=[%f,%f,%f]\n", X[n][0],X[n][1],X[n][2], Xf[0],Xf[1],Xf[2]);
-//	 	fprintf(stderr, "%f, %f; %f, %f, --> %f, %f\n", Vf[0], Vf[4], Vstar_cp[0], Vstar_cp[4], Vsi[0], Vsi[4]);
-//	 	fprintf(stderr, "%f, %f, %f \n", dVf[4][0], dVf[4][1],  dVf[4][2]);
+
          for(int k=0; k<dim; ++k)
          {
              Vsi[k]     = Vstar[k];
