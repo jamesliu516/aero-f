@@ -9936,7 +9936,7 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
             else                for (int k = 0; k < dim; ++k) Vext[k] /= activeNodes;
 
 
-//            Cplocal = postFcn->computeNodeScalarQuantity(PostFcn::PRESSURECOEFFICIENT, Vext, Xp, fid, NULL);
+            Cplocal = postFcn->computeNodeScalarQuantity(PostFcn::PRESSURECOEFFICIENT, Vext, Xp, fid, NULL);
 //	    std::cout <<"P is "<< Vext[4] <<" Cplocal is " << Cplocal << " Elem " << nSt << " nq " << nq <<std::endl;
 
             Qnty[stNode[0]][0] += qweight[nq] * S; //aera of the structure element
@@ -9978,7 +9978,7 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
 
                 Cflocal = postFcn->computeSkinFriction(unit_nf, dh, Vwall, vtet_pp, bary);
 
-//		std::cout <<"dh  is " << dh << " unit_nf " << unit_nf[0] <<" " << unit_nf[2] <<" "<< unit_nf[3]
+//		std::cout <<"dh  is " << dh << " unit_nf " << unit_nf[0] <<" " << unit_nf[1] <<" "<< unit_nf[2]
 //			  <<" Cflocal is " << Cflocal << " Elem " << nSt << " nq " << nq <<std::endl;
 
                 Qnty[stNode[0]][2] += qweight[nq] * S; //aera of the structure element
