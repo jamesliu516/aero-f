@@ -10942,8 +10942,8 @@ void SubDomain::computederivativeOperatorsEmbSurfBasedForceLoad(IoData &iod, int
   dGradPylocal = vectorIJ[1]*nf[n];
   dGradPzlocal = vectorIJ[2]*nf[n];
 
-  double dFidGradP_tmp [3][3] {0};
-  double dFidV_tmp [3][dim] {0};
+  double dFidGradP_tmp [3][3] = {0};
+  double dFidV_tmp [3][dim] = {0};
       for (int j=0; j<3; ++j) {// j is for the three different structure nodes, then we do each component
         for (int ii=0; ii<3; ++ii){// each i is a component
           dFidV_tmp[ii][4] += qweight[nq]*dV4local[ii]*qloc[nq][j];//V4 is pressure
