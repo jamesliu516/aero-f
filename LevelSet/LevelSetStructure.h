@@ -1,6 +1,6 @@
 #ifndef _LEVEL_SET_STRUCTURE_H_
 #define _LEVEL_SET_STRUCTURE_H_
- 
+
 #include "Vector3D.h"
 #include <DistVector.h>
 #include <Vector.h>
@@ -40,7 +40,7 @@ struct LevelSetResult {
     structureType = 1;
     porosity = 0.0;
     actuatorDiskPressureJump = 0.0;
-	actuatorDiskMethod = 1;
+	  actuatorDiskMethod = 1;
     actuatorDiskReconstructionMethod = -1;
     gamma = 0.0;//error value
     massInflow = 0.0;
@@ -48,7 +48,7 @@ struct LevelSetResult {
     wallTemperature = -1.0;
     heatFluxType = SurfaceData::ISOTHERMAL;
    }
-  
+
    LevelSetResult(double gpx, double gpy, double gpz,
                   double nvx, double nvy, double nvz) :
 		  gradPhi(gpx, gpy, gpz), normVel(nvx, nvy, nvz) {
@@ -111,18 +111,18 @@ class LevelSetStructure {
     //Vec<double> &Embedded_Constraint_Alpha;
 
 	 // Surrogate based quantities
-    Vec<bool>   &edge_SI; // ID of the edge that contains the SI 
-	 Vec<double>   &xi_SI; // baricentric cooardinates of the the 
-	 Vec<double>  &eta_SI; // intersection point on the wall 
+    Vec<bool>   &edge_SI; // ID of the edge that contains the SI
+	 Vec<double>   &xi_SI; // baricentric cooardinates of the the
+	 Vec<double>  &eta_SI; // intersection point on the wall
 	 Vec<Vec3D> &nWall_SI; // wall normal at the Wall
-	 Vec<int>   &TriID_SI; // ID of the element of the embedded 
+	 Vec<int>   &TriID_SI; // ID of the element of the embedded
 	                       //    surface intersected
 
 	 // Node based quantities
-	 Vec<double>   &xi_node; // baricentric cooardinates of the the 
-	 Vec<double>  &eta_node; // intersection point on the wall 
+	 Vec<double>   &xi_node; // baricentric cooardinates of the the
+	 Vec<double>  &eta_node; // intersection point on the wall
 	 Vec<Vec3D> &nWall_node; // wall normal at the Wall
-	 Vec<int>   &TriID_node; // ID of the element of the embedded 
+	 Vec<int>   &TriID_node; // ID of the element of the embedded
 	                         //    surface intersected
 
   public:
@@ -177,14 +177,15 @@ LevelSetStructure(Vec<int>& status,
 
     void forceOccluded(double t, int n) const                { is_swept[n] = true; is_occluded[n] = true; }
     int fluidModel(double t, int n) const                 { return status[n]; }
-    double distToInterface(double t, int n) const         { return distance[n]; } 
+    double distToInterface(double t, int n) const         { return distance[n]; }
     bool isSwept(double t, int n) const                   { return is_swept[n]; }
     bool isActive(double t, int n) const                  { return is_active[n]; }
     bool isOccluded(double t, int n) const                { return is_occluded[n]; }
     //edgeIntersectsStructure : True for all kind of structures
     bool edgeIntersectsStructure(double t, int eij) const { return (edge_intersects[eij])||edge_intersects_constraint[eij];}
-    //edgeIntersectsWall : True for Structure Type Wall and Symmetry Plane
+    //edgeIntersectsWall : True for Structure Type Wall (and Porous Wall) and Symmetry Plane
     bool edgeIntersectsWall(double t,int eij) const {return (edge_intersects[eij]);}
+    //edgeIntersectsConstraint : True for Structure Type Actuator Disk and Mass Inflow
     bool edgeIntersectsConstraint(double t, int eij) const { return edge_intersects_constraint[eij]; }
     void computeSwept(Vec<int> &swept){
         for(int i = 0; i < swept.size(); ++i)
@@ -192,9 +193,9 @@ LevelSetStructure(Vec<int>& status,
     }
 
 	 /* Retrun true if the edge 'n' contains a SI */
-	 bool edgeWithSI( int n) const { return edge_SI[n];  } 
+	 bool edgeWithSI( int n) const { return edge_SI[n];  }
 	 int  eWallWithSI(int n) const { return TriID_SI[n]; }
- 
+
 	 void nWallWithSI(int n, Vec3D &nWall) { nWall = nWall_SI[n]; }
 	 void nWallNode(  int i, Vec3D &nWall) { nWall = nWall_node[i]; }
 
@@ -207,12 +208,13 @@ LevelSetStructure(Vec<int>& status,
 
     Vec<int> & getStatus() { return status; }
 
-    virtual class CrackingSurface* 
+    virtual class CrackingSurface*
       getCrackingSurface() { return NULL; }
 
-    virtual double isPointOnSurface(Vec3D, int, int, int) = 0;
+    // virtual double isPointOnSurface(Vec3D, int, int, int) = 0;
+    // virtual double isPointOnSurface(int) = 0;
 
-    virtual int numOfFluids() = 0; 
+    virtual int numOfFluids() = 0;
 
     virtual void findNodesNearInterface(SVec<double,3>&, SVec<double,3>&, SVec<double,3>&) = 0;
 
@@ -252,7 +254,7 @@ class DistLevelSetStructure {
     {}
     virtual ~DistLevelSetStructure()
     {delete status;delete distance;delete is_swept;delete is_active;delete is_occluded;delete edge_intersects;delete edge_intersects_constraint; /*delete edge_intersects_embedded_constraint; delete Embedded_Constraint_Alpha;*/
-	  delete edge_SI; delete nWall_SI; delete xi_SI; delete eta_SI; delete TriID_SI; 
+	  delete edge_SI; delete nWall_SI; delete xi_SI; delete eta_SI; delete TriID_SI;
 	  delete nWall_node; delete xi_node; delete eta_node; delete TriID_node;}
 
     int numOfFluids() {return numFluid;}
@@ -275,7 +277,7 @@ class DistLevelSetStructure {
 
     virtual DistVec<ClosestPoint> &getClosestPoints() = 0;
     virtual DistVec<ClosestPoint> *getClosestPointsPointer() = 0;
-    virtual void setStatus(DistVec<int> nodeTag) = 0;                                
+    virtual void setStatus(DistVec<int> nodeTag) = 0;
 
     virtual void updateStructure(double *Xs, double *Vs, int nNodes, int(*abc)[3]=0) = 0;
     virtual int recompute(double dtf, double dtfLeft, double dts, bool findStatus, bool retry = false) = 0;

@@ -1432,7 +1432,7 @@ void TsDesc<dim>::printNodalDebug(int globNodeId, int identifier, DistSVec<doubl
 //----------------------------------------------------------------------------
 
 template<int dim>
-void TsDesc<dim>::computeDistanceToWall(IoData &ioData)
+void TsDesc<dim>::computeDistanceToWall(IoData &ioData, double t)
 {
   // Nothing to do here by default.
 }

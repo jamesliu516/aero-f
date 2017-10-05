@@ -85,6 +85,9 @@ public:
 
   void rstVarSA(IoData &);
 
+  template <int dimLS, int dim>
+  friend class ReinitializeDistanceToWall;  // so that d2wall calc can access SA constants for sensititivites
+
 };
 
 //------------------------------------------------------------------------------
@@ -162,6 +165,23 @@ double SATerm::computeTurbulentViscosity(double *V[4], double mul, double &mutil
 
 //------------------------------------------------------------------------------
 
+inline
+double SATerm::computeTurbulentViscosity(double *V, double mul)
+{
+
+  double mutilde = V[0]*V[5];
+  // double mutilde = V[0] * std::max(0.0,V[5]);
+  double chi = mutilde / mul;
+  double chi3 = chi*chi*chi;
+  double fv1 = chi3 / (chi3 + cv1_pow3);
+
+  // return mutilde*fv1;
+  return std::max(mutilde*fv1,0.0);
+
+}
+
+//------------------------------------------------------------------------------
+
 // Included (MB)
 inline
 double SATerm::computeDerivativeOfTurbulentViscosity(double *V[4], double *dV[4], double mul, double dmul, double &dmutilde)
@@ -183,27 +203,6 @@ double SATerm::computeDerivativeOfTurbulentViscosity(double *V[4], double *dV[4]
 }
 
 //------------------------------------------------------------------------------
-inline
-double SATerm::computeSecondTurbulentViscosity(double lambdal, double mul, double mut)
-{
-
-  //simple model that remains true when the Stokes' hypothesis is assumed
-  return -2.0*mut/3.0;
-
-}
-
-//------------------------------------------------------------------------------
-
-inline
-double SATerm::computeDerivativeOfSecondTurbulentViscosity(double lambdal, double dlambdal,
-    double mul, double dmul, double mut, double dmut)
-{
-
-  return -2.0*dmut/3.0;
-
-}
-
-//------------------------------------------------------------------------------
 
 // Included (MB)
 inline
@@ -218,26 +217,8 @@ double SATerm::computeDerivativeOfTurbulentViscosity(double *V[4], double mul, d
   double fv1 = chi3 / (chi3 + cv1_pow3);
   double dfv1 = cv1_pow3 * 3.0 * chi * chi * dchi / ((chi3 + cv1_pow3) * (chi3 + cv1_pow3));
 
-
   // return dmutilde*fv1 + mutilde*dfv1;
   return (mutilde>=0.0) ? dmutilde*fv1 + mutilde*dfv1:0.0;
-
-}
-
-//------------------------------------------------------------------------------
-
-inline
-double SATerm::computeTurbulentViscosity(double *V, double mul)
-{
-
-	double mutilde = V[0]*V[5];
-	// double mutilde = V[0] * std::max(0.0,V[5]);
-  double chi = mutilde / mul;
-  double chi3 = chi*chi*chi;
-  double fv1 = chi3 / (chi3 + cv1_pow3);
-
-  // return mutilde*fv1;
-  return std::max(mutilde*fv1,0.0);
 
 }
 
@@ -259,6 +240,28 @@ double SATerm::computeDerivativeOfTurbulentViscosity(double *V, double *dV, doub
 
   // return dmutilde*fv1 + mutilde*dfv1;
   return (mutilde>=0.0) ? dmutilde*fv1 + mutilde*dfv1:0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+inline
+double SATerm::computeSecondTurbulentViscosity(double lambdal, double mul, double mut)
+{
+
+  //simple model that remains true when the Stokes' hypothesis is assumed
+  return -2.0*mut/3.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+inline
+double SATerm::computeDerivativeOfSecondTurbulentViscosity(double lambdal, double dlambdal,
+    double mul, double dmul, double mut, double dmut)
+{
+
+  return -2.0*dmut/3.0;
 
 }
 
@@ -306,8 +309,9 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
   }
 
   int k;
+  double nu;
   for (k=0; k<4; ++k) {
-    double nu = mu5 / V[k][0];
+    nu = mu5 / V[k][0];
     dRdU[k][0][shift][shift] = drdx + nu * dp1dxj[k][0];
     dRdU[k][1][shift][shift] = drdy + nu * dp1dxj[k][1];
     dRdU[k][2][shift][shift] = drdz + nu * dp1dxj[k][2];
@@ -321,6 +325,7 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
   }
 
   double rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
+  double oorho = 1.0 / rho;
   double P, D, dP, dD;
 
   if (!negSA) {
@@ -335,7 +340,6 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
       fv3 = (chi==0.0) ? 3.0*oocv2 : (1.0 + chi*fv1) * (1.0 - fv2) / chi;
     }
     double ood2wall2 = 1.0 / (d2wall * d2wall);
-    double oorho = 1.0 / rho;
     double zz = oorey * oovkcst2 * mutilde * oorho * ood2wall2;
     double s12 = dudxj[0][1] - dudxj[1][0];
     double s23 = dudxj[1][2] - dudxj[2][1];
@@ -400,7 +404,6 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
   }
   else {
     double ood2wall2 = 1.0 / (d2wall * d2wall);
-    double oorho = 1.0 / rho;
     double s12 = dudxj[0][1] - dudxj[1][0];
     double s23 = dudxj[1][2] - dudxj[2][1];
     double s31 = dudxj[2][0] - dudxj[0][2];
@@ -417,9 +420,24 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
   double s00 = 0.25 * (D + dP - (P + dP));
   double coef4 = oosigma * cb2 * rho * 2.0;
 
+  // sjg, 06/2017 missing source term from conservation form conversion
+  double drhodx = dp1dxj[0][0]*V[0][0] + dp1dxj[1][0]*V[1][0] +
+    dp1dxj[2][0]*V[2][0] + dp1dxj[3][0]*V[3][0];
+  double drhody = dp1dxj[0][1]*V[0][0] + dp1dxj[1][1]*V[1][0] +
+    dp1dxj[2][1]*V[2][0] + dp1dxj[3][1]*V[3][0];
+  double drhodz = dp1dxj[0][2]*V[0][0] + dp1dxj[1][2]*V[1][0] +
+    dp1dxj[2][2]*V[2][0] + dp1dxj[3][2]*V[3][0];
+  double coef5 = 0.25 * oosigma *
+    (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz);
+
+  // for (k=0; k<4; ++k)
+  //   dSdU[k][shift][shift] = coef4 / V[k][0] *
+  //     (dnutildedx*dp1dxj[k][0] + dnutildedy*dp1dxj[k][1] + dnutildedz*dp1dxj[k][2]) - s00;
   for (k=0; k<4; ++k)
-    dSdU[k][shift][shift] = coef4 / V[k][0] *
-      (dnutildedx*dp1dxj[k][0] + dnutildedy*dp1dxj[k][1] + dnutildedz*dp1dxj[k][2]) - s00;
+    dSdU[k][shift][shift] =
+        coef4 / V[k][0] * (dnutildedx*dp1dxj[k][0] + dnutildedy*dp1dxj[k][1] + dnutildedz*dp1dxj[k][2])
+      - oorho * mu5 / V[k][0] * (drhodx*dp1dxj[k][0] + drhody*dp1dxj[k][1] + drhodz*dp1dxj[k][2])
+      - coef5 / V[k][0] - s00;
 
 }
 
@@ -562,6 +580,12 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
   double dBB[4][6];
 //  double CC;
   double dCC[4][6];
+//  double DD;        // sjg, 06/2017: missing term from conservation form
+  double dDD[4][6];
+
+  double drhodx = dp1dxj[0][0]*V[0][0] + dp1dxj[1][0]*V[1][0] + dp1dxj[2][0]*V[2][0] + dp1dxj[3][0]*V[3][0];
+  double drhody = dp1dxj[0][1]*V[0][0] + dp1dxj[1][1]*V[1][0] + dp1dxj[2][1]*V[2][0] + dp1dxj[3][1]*V[3][0];
+  double drhodz = dp1dxj[0][2]*V[0][0] + dp1dxj[1][2]*V[1][0] + dp1dxj[2][2]*V[2][0] + dp1dxj[3][2]*V[3][0];
 
   rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
 
@@ -807,6 +831,23 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
       dCC[k][3] = - cw1 * dfw[k][3] * oorho * mutilde*mutilde * ood2wall2 - cw1 * fw * doorho[k][3] * mutilde*mutilde * ood2wall2 - cw1 * fw * oorho * 2.0*mutilde*dmutilde[k][3] * ood2wall2;
       dCC[k][4] = - cw1 * dfw[k][4] * oorho * mutilde*mutilde * ood2wall2 - cw1 * fw * doorho[k][4] * mutilde*mutilde * ood2wall2 - cw1 * fw * oorho * 2.0*mutilde*dmutilde[k][4] * ood2wall2;
       dCC[k][5] = - cw1 * dfw[k][5] * oorho * mutilde*mutilde * ood2wall2 - cw1 * fw * doorho[k][5] * mutilde*mutilde * ood2wall2 - cw1 * fw * oorho * 2.0*mutilde*dmutilde[k][5] * ood2wall2;
+
+      // DD = - oorho * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz);
+      dDD[k][0] = - (doorho[k][0] * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz)
+        + oorho * dmu5[k][0] * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz)
+        + oorho * mu5 * (dnutildedx*dp1dxj[k][0] + dnutildedy*dp1dxj[k][1] + dnutildedz*dp1dxj[k][2]))
+        + oorho * mu5 * (drhodx*dp1dxj[k][0]*V[k][5] + drhody*dp1dxj[k][1]*V[k][5] + drhodz*dp1dxj[k][2]*V[k][5]) / V[k][0];
+      dDD[k][1] = - (doorho[k][1] * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz)
+        + oorho * dmu5[k][1] * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz));
+      dDD[k][2] = - (doorho[k][2] * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz)
+        + oorho * dmu5[k][2] * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz));
+      dDD[k][3] = - (doorho[k][3] * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz)
+        + oorho * dmu5[k][3] * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz));
+      dDD[k][4] = - (doorho[k][4] * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz)
+        + oorho * dmu5[k][4] * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz));
+      dDD[k][5] = - (doorho[k][5] * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz)
+        + oorho * dmu5[k][5] * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz)
+        + oorho * mu5 * (drhodx*dp1dxj[k][0] + drhody*dp1dxj[k][1] + drhodz*dp1dxj[k][2]) / V[k][0]);
     }
   }
   else {
@@ -883,16 +924,33 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
       dCC[k][3] = cw1 * doorho[k][3] * mutilde*mutilde * ood2wall2 + cw1 * oorho * 2.0*mutilde*dmutilde[k][3] * ood2wall2;
       dCC[k][4] = cw1 * doorho[k][4] * mutilde*mutilde * ood2wall2 + cw1 * oorho * 2.0*mutilde*dmutilde[k][4] * ood2wall2;
       dCC[k][5] = cw1 * doorho[k][5] * mutilde*mutilde * ood2wall2 + cw1 * oorho * 2.0*mutilde*dmutilde[k][5] * ood2wall2;
+
+      // DD = - oorho * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz);
+      dDD[k][0] = - (doorho[k][0] * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz)
+        + oorho * dmu5[k][0] * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz)
+        + oorho * mu5 * (dnutildedx*dp1dxj[k][0] + dnutildedy*dp1dxj[k][1] + dnutildedz*dp1dxj[k][2]))
+        + oorho * mu5 * (drhodx*dp1dxj[k][0]*V[k][5] + drhody*dp1dxj[k][1]*V[k][5] + drhodz*dp1dxj[k][2]*V[k][5]) / V[k][0];
+      dDD[k][1] = - (doorho[k][1] * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz)
+        + oorho * dmu5[k][1] * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz));
+      dDD[k][2] = - (doorho[k][2] * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz)
+        + oorho * dmu5[k][2] * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz));
+      dDD[k][3] = - (doorho[k][3] * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz)
+        + oorho * dmu5[k][3] * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz));
+      dDD[k][4] = - (doorho[k][4] * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz)
+        + oorho * dmu5[k][4] * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz));
+      dDD[k][5] = - (doorho[k][5] * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz)
+        + oorho * dmu5[k][5] * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz)
+        + oorho * mu5 * (drhodx*dp1dxj[k][0] + drhody*dp1dxj[k][1] + drhodz*dp1dxj[k][2]) / V[k][0]);
     }
   }
 
   for (k=0; k<4; ++k) {
-    dSdU[k][5][0] = dAA[k][0] + dBB[k][0] + dCC[k][0];
-    dSdU[k][5][1] = dAA[k][1] + dBB[k][1] + dCC[k][1];
-    dSdU[k][5][2] = dAA[k][2] + dBB[k][2] + dCC[k][2];
-    dSdU[k][5][3] = dAA[k][3] + dBB[k][3] + dCC[k][3];
-    dSdU[k][5][4] = dAA[k][4] + dBB[k][4] + dCC[k][4];
-    dSdU[k][5][5] = dAA[k][5] + dBB[k][5] + dCC[k][5];
+    dSdU[k][5][0] = dAA[k][0] + dBB[k][0] + dCC[k][0] + dDD[k][0];
+    dSdU[k][5][1] = dAA[k][1] + dBB[k][1] + dCC[k][1] + dDD[k][1];
+    dSdU[k][5][2] = dAA[k][2] + dBB[k][2] + dCC[k][2] + dDD[k][2];
+    dSdU[k][5][3] = dAA[k][3] + dBB[k][3] + dCC[k][3] + dDD[k][3];
+    dSdU[k][5][4] = dAA[k][4] + dBB[k][4] + dCC[k][4] + dDD[k][4];
+    dSdU[k][5][5] = dAA[k][5] + dBB[k][5] + dCC[k][5] + dDD[k][5];
   }
 
 }

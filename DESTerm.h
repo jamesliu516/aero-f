@@ -63,6 +63,9 @@ public:
   double computeDerivativeOfTurbulentViscosity(double *, double *, double, double);
   void rstVarDES(IoData &);
 
+  template <int dimLS, int dim>
+  friend class ReinitializeDistanceToWall;  // so that d2wall calc can access SA constants for sensititivites
+
 };
 
 //------------------------------------------------------------------------------
@@ -316,6 +319,7 @@ void DESTerm::computeJacobianVolumeTermDES(double dp1dxj[4][3], double d2w[4],
   }
 
   double rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
+  double oorho = 1.0 / rho;
   double P, D, dP, dD;
 
   if (!negSA) {
@@ -330,7 +334,6 @@ void DESTerm::computeJacobianVolumeTermDES(double dp1dxj[4][3], double d2w[4],
       fv3 = (chi==0.0) ? 3.0*oocv2 : (1.0 + chi*fv1) * (1.0 - fv2) / chi;
     }
     double ood2wall2 = 1.0 / (d2wall * d2wall);
-    double oorho = 1.0 / rho;
     double zz = oorey * oovkcst2 * mutilde * oorho * ood2wall2;
     double s12 = dudxj[0][1] - dudxj[1][0];
     double s23 = dudxj[1][2] - dudxj[2][1];
@@ -395,7 +398,6 @@ void DESTerm::computeJacobianVolumeTermDES(double dp1dxj[4][3], double d2w[4],
   }
   else {
     double ood2wall2 = 1.0 / (d2wall * d2wall);
-    double oorho = 1.0 / rho;
     double s12 = dudxj[0][1] - dudxj[1][0];
     double s23 = dudxj[1][2] - dudxj[2][1];
     double s31 = dudxj[2][0] - dudxj[0][2];
@@ -412,9 +414,24 @@ void DESTerm::computeJacobianVolumeTermDES(double dp1dxj[4][3], double d2w[4],
   double s00 = 0.25 * (D + dP - (P + dP));
   double coef4 = oosigma * cb2 * rho * 2.0;
 
+  // sjg, 06/2017 missing source term from conservation form conversion
+  double drhodx = dp1dxj[0][0]*V[0][0] + dp1dxj[1][0]*V[1][0] +
+    dp1dxj[2][0]*V[2][0] + dp1dxj[3][0]*V[3][0];
+  double drhody = dp1dxj[0][1]*V[0][0] + dp1dxj[1][1]*V[1][0] +
+    dp1dxj[2][1]*V[2][0] + dp1dxj[3][1]*V[3][0];
+  double drhodz = dp1dxj[0][2]*V[0][0] + dp1dxj[1][2]*V[1][0] +
+    dp1dxj[2][2]*V[2][0] + dp1dxj[3][2]*V[3][0];
+  double coef5 = 0.25 * oosigma *
+    (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz);
+
+  // for (k=0; k<4; ++k)
+  //   dSdU[k][shift][shift] = coef4 / V[k][0] *
+  //     (dnutildedx*dp1dxj[k][0] + dnutildedy*dp1dxj[k][1] + dnutildedz*dp1dxj[k][2]) - s00;
   for (k=0; k<4; ++k)
-    dSdU[k][shift][shift] = coef4 / V[k][0] *
-      (dnutildedx*dp1dxj[k][0] + dnutildedy*dp1dxj[k][1] + dnutildedz*dp1dxj[k][2]) - s00;
+    dSdU[k][shift][shift] =
+        coef4 / V[k][0] * (dnutildedx*dp1dxj[k][0] + dnutildedy*dp1dxj[k][1] + dnutildedz*dp1dxj[k][2])
+      - oorho * mu5 / V[k][0] * (drhodx*dp1dxj[k][0] + drhody*dp1dxj[k][1] + drhodz*dp1dxj[k][2])
+      - coef5 / V[k][0] - s00;
 
 }
 

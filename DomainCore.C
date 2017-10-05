@@ -98,7 +98,7 @@ Domain::Domain()
   timer = new Timer(com);
   com->setTimer(timer);
 
-  com->fprintf(stdout,"\n");  
+  com->fprintf(stdout,"\n");
   com->fprintf(stdout,"  _______                              __________\n");
   com->fprintf(stdout,"  ___    |_____ ______________         ___  ____/\n");
   com->fprintf(stdout,"  __  /| |_  _ \\__  ___/_  __ \\__________  /_  \n");
@@ -131,24 +131,24 @@ Domain::Domain()
   meshMotionBCs = 0; //HB
 
   numGlobNode = 0;	// only compute if needed
-  
+
   // for outputting ROM snapshots from FOM
   outputTimeIt = 0;
   outputNewtonIt = 0;
   outputNewtonTag = 0.0;
-  outputNewtonStateStep = 0; 
+  outputNewtonStateStep = 0;
   outputNewtonResidualStep = 0;
   outputKrylovStep = 0;
   numKrylovVecsOutputPrevNewtonIt = 0;
-  numResidualsOutputCurrentNewtonIt = 0; 
+  numResidualsOutputCurrentNewtonIt = 0;
 
-  multiFluidInterface = NULL; 
+  multiFluidInterface = NULL;
 }
 
 //------------------------------------------------------------------------------
 
 Domain::Domain(Communicator *com) : com(com), subDomain(0), subTopo(0), nodeType(0), nodeFaceType(0), offWallNode(0),
-    nodeDistInfo(0), edgeDistInfo(0), edgeDistInfoMF(0), faceDistInfo(0), faceNormDistInfo(0), inletNodeDistInfo(0), kirchhoffNodeDistInfo(0), sampledNodeDistInfo(0), oldSampledNodeDistInfo(0), 
+    nodeDistInfo(0), edgeDistInfo(0), edgeDistInfoMF(0), faceDistInfo(0), faceNormDistInfo(0), inletNodeDistInfo(0), kirchhoffNodeDistInfo(0), sampledNodeDistInfo(0), oldSampledNodeDistInfo(0),
     vecPat(0), phiVecPat(0), compVecPat(0), vec3DPat(0), volPat(0), levelPat(0), bool2Pat(0), bool3Pat(0), bool4Pat(0),
     weightPat(0), weightPhaseChangePat(0), edgePat(0), scalarEdgePat(0), momPat(0), csPat(0), engPat(0), fsPat(0), inletVec3DPat(0),
     inletCountPat(0), inletRhsPat(0), Delta(0), CsDelSq(0), PrT(0), WCsDelSq(0), WPrT(0), tag(0), tagBar(0),
@@ -157,7 +157,7 @@ Domain::Domain(Communicator *com) : com(com), subDomain(0), subTopo(0), nodeType
     numKrylovVecsOutputPrevNewtonIt(0), numResidualsOutputCurrentNewtonIt(0)
 {
   timer = new Timer(com);
-  multiFluidInterface = NULL; 
+  multiFluidInterface = NULL;
 }
 
 //------------------------------------------------------------------------------
@@ -205,8 +205,8 @@ Domain::~Domain()
   if (WCsDelSq) delete(WCsDelSq);
   if (WPrT) delete(WPrT);
   if (tagBar) delete(tagBar);
-
   if (tag) delete(tag);
+
 // Included (MB)
   if (weightDerivativePat) delete weightDerivativePat;
 
@@ -380,8 +380,8 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
   }
 
   nodeDistInfo->finalize(true);
-  faceDistInfo->finalize(false);       
-  faceNormDistInfo->finalize(false);   
+  faceDistInfo->finalize(false);
+  faceNormDistInfo->finalize(false);
 
   if (kirchhoffNodeDistInfo)
     kirchhoffNodeDistInfo->finalize(false);
@@ -590,8 +590,8 @@ void Domain::numberEdges()
     subDomain[iSub]->markLenEdges(*edgeDistInfoMF);
 
   edgeDistInfo->finalize(false);
-  edgeDistInfoMF->finalize(true); 
- 
+  edgeDistInfoMF->finalize(true);
+
 #pragma omp parallel for
   for (iSub = 0; iSub<numLocSub; ++iSub)
     subDomain[iSub]->makeEdgeMasterFlag(*edgeDistInfoMF, edgeNumPat);
@@ -708,7 +708,7 @@ void Domain::setNodeType(IoData &ioData)
   }
 
   if(numSlipSurfs)
-    com->fprintf(stderr," ... There are %d sliding surfaces.\n",numSlipSurfs); 
+    com->fprintf(stderr," ... There are %d sliding surfaces.\n",numSlipSurfs);
 
   int **slipSurfOwn = new int*[numLocSub];
 
@@ -785,11 +785,11 @@ void Domain::setInletNodes(IoData &ioData)
 #pragma omp parallel for
     for (iSub = 0; iSub<numLocSub; ++iSub)
       subDomain[iSub]->createSharedInletNodeConnectivity(iSub);
-    
+
     //creation of the Communicator patterns needed.
     inletVec3DPat = new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
     inletCountPat = new CommPattern<int>(subTopo, com, CommPattern<int>::CopyOnSend);
-    
+
 #pragma omp parallel for
     for (iSub = 0; iSub<numLocSub; iSub++){
       subDomain[iSub]->setComLenInletNodes(3, *inletVec3DPat);
@@ -799,17 +799,19 @@ void Domain::setInletNodes(IoData &ioData)
     inletCountPat->finalize();
   }
 
-  if (ioData.romOffline.gappy.minFractionOfSampledNodesOnSurfaceInTargetRegion > 0) { // sampled node selection
+  // sjg, 07/2017: populate FarFieldNodes even for non-ROM simulations for use
+  // in wall distance
+  // if (ioData.romOffline.gappy.minFractionOfSampledNodesOnSurfaceInTargetRegion > 0) { // sampled node selection
     // Create node lists for far field nodes and wall nodes.
-    // Note that the far field node list is identical to the inletNodes information, but it was 
+    // Note that the far field node list is identical to the inletNodes information, but it was
     // necessary to duplicate this because when the inletNodes object is defined it triggers the
-    // code to use extrapolation at the boundary.  
+    // code to use extrapolation at the boundary.
 #pragma omp parallel for
     for (iSub = 0; iSub<numLocSub; ++iSub) {
       subDomain[iSub]->setFarFieldNodes();
       subDomain[iSub]->setWallNodes();
     }
-  }
+  // }
 }
 
 //------------------------------------------------------------------------------
@@ -819,7 +821,7 @@ void Domain::computeOffWallNode(DistLevelSetStructure *distLSS)
 
   if (distLSS) {
     if (!offWallNode) offWallNode = new int*[numLocSub];
-  
+
     CommPattern<int> ndC(subTopo, com, CommPattern<int>::CopyOnSend);
 
 #pragma omp parallel for
@@ -827,9 +829,9 @@ void Domain::computeOffWallNode(DistLevelSetStructure *distLSS)
       subDomain[iSub]->setComLenNodes(1, ndC);
 
     ndC.finalize();
-  
+
 #pragma omp parallel for
-    for (int iSub = 0; iSub < numLocSub; ++iSub)
+    for (int iSub = 0; iSub<numLocSub; ++iSub)
     {
       LevelSetStructure *LSS =  &((*distLSS)(iSub));
       subDomain[iSub]->computeOffWallNode(LSS, ndC);
@@ -840,7 +842,6 @@ void Domain::computeOffWallNode(DistLevelSetStructure *distLSS)
 #pragma omp parallel for
     for (int iSub = 0; iSub<numLocSub; ++iSub)
       offWallNode[iSub] = subDomain[iSub]->completeOffWallNode(ndC);
-
   }
 }
 
@@ -1028,7 +1029,7 @@ int Domain::computeDerivativeOfControlVolumes(double lscale, DistSVec<double,3> 
 //------------------------------------------------------------------------------
 
 // Included (YC)
-int Domain::computeDerivativeOfControlVolumes(RectangularSparseMat<double,3,1> **dCtrlVoldX, 
+int Domain::computeDerivativeOfControlVolumes(RectangularSparseMat<double,3,1> **dCtrlVoldX,
                                               DistSVec<double,3> &dX, DistVec<double> &dCtrlVol)
 {
 
@@ -1054,7 +1055,7 @@ int Domain::computeDerivativeOfControlVolumes(RectangularSparseMat<double,3,1> *
 
 //------------------------------------------------------------------------------
 
-int Domain::computeTransposeDerivativeOfControlVolumes(RectangularSparseMat<double,3,1> **dCtrlVoldX, 
+int Domain::computeTransposeDerivativeOfControlVolumes(RectangularSparseMat<double,3,1> **dCtrlVoldX,
                                                        DistVec<double> &dCtrlVol, DistSVec<double,3> &dX)
 {
 
@@ -1222,7 +1223,7 @@ void Domain::computeDerivativeOfNormals(RectangularSparseMat<double,3,3> **dEdge
 // Included (YC)
 void Domain::computeTransposeDerivativeOfNormals(RectangularSparseMat<double,3,3> **dEdgeNormdX,
                                                  RectangularSparseMat<double,3,3> **dFaceNormdX,
-                                                 DistVec<Vec3D> &dEdgeNorm, 
+                                                 DistVec<Vec3D> &dEdgeNorm,
                                                  DistVec<Vec3D> &dFaceNorm,
                                                  DistSVec<double,3> &dX)
 {
@@ -1241,7 +1242,7 @@ void Domain::computeTransposeDerivativeOfNormals(RectangularSparseMat<double,3,3
 //------------------------------------------------------------------------------
 
 // Included (YC)
-void Domain::computeDerivativeOperatorsOfNormals(DistSVec<double,3> &X, 
+void Domain::computeDerivativeOperatorsOfNormals(DistSVec<double,3> &X,
                                                  RectangularSparseMat<double,3,3> **dEdgeNormdX,
                                                  RectangularSparseMat<double,3,3> **dFaceNormdX)
 {
@@ -1250,7 +1251,7 @@ void Domain::computeDerivativeOperatorsOfNormals(DistSVec<double,3> &X,
 
 #pragma omp parallel for
   for (iSub=0; iSub<numLocSub; ++iSub) {
-    subDomain[iSub]->computeDerivativeOperatorsOfNormals(X(iSub), *dEdgeNormdX[iSub], *dFaceNormdX[iSub]); 
+    subDomain[iSub]->computeDerivativeOperatorsOfNormals(X(iSub), *dEdgeNormdX[iSub], *dFaceNormdX[iSub]);
   }
 
 }
@@ -1542,11 +1543,11 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistVec<int
   DistSVec<int,1> *count = new DistSVec<int,1>(getNodeDistInfo());
 
 #pragma omp parallel for
-	for(iSub=0; iSub<numLocSub; ++iSub) 
-	{ 
-    subDomain[iSub]->computeWeightsLeastSquaresEdgePart(X(iSub), fluidId(iSub), 
-							(*count)(iSub), R(iSub), 
-							distLSS ? &((*distLSS)(iSub)) : 0, 
+	for(iSub=0; iSub<numLocSub; ++iSub)
+	{
+    subDomain[iSub]->computeWeightsLeastSquaresEdgePart(X(iSub), fluidId(iSub),
+							(*count)(iSub), R(iSub),
+							distLSS ? &((*distLSS)(iSub)) : 0,
 							includeSweptNodes);
     subDomain[iSub]->sndData(*weightPat, R.subData(iSub));
     subDomain[iSub]->sndData(*levelPat, (*count).subData(iSub));
@@ -1556,7 +1557,7 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistVec<int
   levelPat->exchange();
 
 #pragma omp parallel for
-	for(iSub = 0; iSub < numLocSub; ++iSub) 
+	for(iSub = 0; iSub < numLocSub; ++iSub)
 	{
     subDomain[iSub]->addRcvData(*weightPat, R.subData(iSub));
     subDomain[iSub]->addRcvData(*levelPat, (*count).subData(iSub));
@@ -1564,7 +1565,7 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistVec<int
   }
 /*
 #pragma omp parallel for
-  for(iSub = 0; iSub < numLocSub; ++iSub) 
+  for(iSub = 0; iSub < numLocSub; ++iSub)
   {
 	  for(int i=0; i<X(iSub).size(); ++i)
 	  {
@@ -1582,7 +1583,7 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistVec<int
 // with option to take into account of Riemann solution at interface
 void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistVec<int> &fluidId,
                                         DistSVec<double,6> &R, DistVec<int> &countWstarij,
-					DistVec<int> &countWstarji, 
+					DistVec<int> &countWstarji,
 					DistLevelSetStructure *distLSS)
 {
 
@@ -1591,7 +1592,7 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistVec<int
   DistSVec<int,1> *count = new DistSVec<int,1>(getNodeDistInfo());
 
 #pragma omp parallel for
-  for (iSub=0; iSub<numLocSub; ++iSub) { 
+  for (iSub=0; iSub<numLocSub; ++iSub) {
     subDomain[iSub]->computeWeightsLeastSquaresEdgePart(X(iSub), fluidId(iSub), (*count)(iSub), R(iSub), countWstarij(iSub), countWstarji(iSub), distLSS ? &((*distLSS)(iSub)) : 0);
     subDomain[iSub]->sndData(*weightPat, R.subData(iSub));
     subDomain[iSub]->sndData(*levelPat, (*count).subData(iSub));
@@ -1701,8 +1702,8 @@ void Domain::computeDerivativeOfWeightsLeastSquaresEmb(
 //------------------------------------------------------------------------------
 
 // Included (YC)
-void Domain::computeDerivativeOfWeightsLeastSquares(RectangularSparseMat<double,3,6> **dRdX, 
-                                                    RectangularSparseMat<double,6,6> **dRdR, 
+void Domain::computeDerivativeOfWeightsLeastSquares(RectangularSparseMat<double,3,6> **dRdX,
+                                                    RectangularSparseMat<double,6,6> **dRdR,
                                                     DistSVec<double,3> &dX, DistSVec<double,6> &dR)
 {
 
@@ -1735,9 +1736,9 @@ void Domain::computeDerivativeOfWeightsLeastSquares(RectangularSparseMat<double,
 //------------------------------------------------------------------------------
 
 // Included (YC)
-void Domain::computeTransposeDerivativeOfWeightsLeastSquares( 
-                                                    RectangularSparseMat<double,3,6> **dRdX, 
-                                                    RectangularSparseMat<double,6,6> **dRdR, 
+void Domain::computeTransposeDerivativeOfWeightsLeastSquares(
+                                                    RectangularSparseMat<double,3,6> **dRdX,
+                                                    RectangularSparseMat<double,6,6> **dRdR,
                                                     DistSVec<double,6> &dR, DistSVec<double,3> &dX2)
 {
 
@@ -1791,7 +1792,7 @@ void Domain::computeDerivativeOperatorsOfWeightsLeastSquares(DistSVec<double,3> 
   }
 
 #pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub) 
+  for (iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->compute_dRdR(R(iSub), *dRdR[iSub]);
 
   timer->addNodalWeightsTime(t0);
@@ -1850,7 +1851,7 @@ void Domain::computeWeightsGalerkin(DistSVec<double,3> &X, DistSVec<double,3> &w
 //d2d
 void Domain::computeWeightsGalerkin(DistSVec<double,3> &X, const DistVec<int> &fluidId,
 				    DistSVec<double,3> &wii,
-				    DistSVec<double,3> &wij, 
+				    DistSVec<double,3> &wij,
 				    DistSVec<double,3> &wji,
                                     DistLevelSetStructure *distLSS,
 				    bool includeSweptNodes)
@@ -1858,10 +1859,10 @@ void Domain::computeWeightsGalerkin(DistSVec<double,3> &X, const DistVec<int> &f
 
   #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; ++iSub)
-    subDomain[iSub]->computeWeightsGalerkin(X(iSub), fluidId(iSub), 
-					    wii(iSub), wij(iSub), wji(iSub), 
+    subDomain[iSub]->computeWeightsGalerkin(X(iSub), fluidId(iSub),
+					    wii(iSub), wij(iSub), wji(iSub),
 					    distLSS ? &((*distLSS)(iSub)) : 0, includeSweptNodes);
-  
+
 }
 
 //------------------------------------------------------------------------------
@@ -2101,7 +2102,7 @@ void Domain::outputCsDynamicLES(DynamicLESTerm *dles, DistVec<double> &ctrlVol,
 
 void Domain::findNodeBoundingBoxes(DistSVec<double,3> &X, DistSVec<double,3> &Xmin, DistSVec<double,3> &Xmax)
 {
- 
+
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->findNodeBoundingBoxes(X(iSub), Xmin(iSub), Xmax(iSub));
@@ -2194,7 +2195,7 @@ void Domain::readInterpNode(const char *interpNodeFile, int &nIntNodes, int *&gl
 
 //------------------------------------------------------------------------------
 
-void Domain::readEigenValuesAndVectors(const char *eigFile, double &realEigV, double &imagEigV, double &normalizationTerm, int &iEV, 
+void Domain::readEigenValuesAndVectors(const char *eigFile, double &realEigV, double &imagEigV, double &normalizationTerm, int &iEV,
                                        complex<double>*& rEigenVec, complex<double>*& lEigenVec) {
 
    int nModes;
@@ -2210,7 +2211,7 @@ void Domain::readEigenValuesAndVectors(const char *eigFile, double &realEigV, do
    com->fprintf(stderr,"%f %f %f %d %d\n", realEigV, imagEigV, normalizationTerm, iEV, nModes);
    double rEigenVecRealElement, rEigenVecImagElement, lEigenVecRealElement, lEigenVecImagElement;
    for (int i=0; i<2*nModes; ++i) {
-     fscanf(eFile, "%lf %lf %lf %lf\n", &rEigenVecRealElement, &rEigenVecImagElement, &lEigenVecRealElement, &lEigenVecImagElement); 
+     fscanf(eFile, "%lf %lf %lf %lf\n", &rEigenVecRealElement, &rEigenVecImagElement, &lEigenVecRealElement, &lEigenVecImagElement);
      rEigenVec[i] = std::complex<double>(rEigenVecRealElement,rEigenVecImagElement);
      lEigenVec[i] = std::complex<double>(lEigenVecRealElement,lEigenVecImagElement);
      com->fprintf(stderr,"%e %e %e %e\n", rEigenVecRealElement, rEigenVecImagElement, lEigenVecRealElement, lEigenVecImagElement);
@@ -2292,7 +2293,7 @@ void Domain::computeConnectedTopology(const std::vector<std::vector<int> > & loc
 }
 
 void Domain::computeConnectedNodes(const std::vector<std::vector<int> > &locSampleNodes_,
-		std::vector<int> &globalNeighborNodes) 
+		std::vector<int> &globalNeighborNodes)
 {
 
 	int iLocNode, nNodesToAdd, locNodeNum;
@@ -2335,7 +2336,7 @@ void Domain::createHigherOrderMultiFluid() {
 
     subDomain[iSub]->createHigherOrderMultiFluid();
   }
-  
+
 }
 
 void Domain::createHigherOrderFSI(const IoData & iod) {
@@ -2345,7 +2346,7 @@ void Domain::createHigherOrderFSI(const IoData & iod) {
 
     subDomain[iSub]->createHigherOrderFSI(iod);
   }
-  
+
 }
 
 void Domain::assignErrorHandler(){
@@ -2364,7 +2365,7 @@ void Domain::maskHHVector(DistVec<double>& hh) {
 
     subDomain[iSub]->maskHHVector(hh(iSub));
   }
-  
+
 }
 
 void Domain::attachTriangulatedInterface(TriangulatedInterface* T) {
