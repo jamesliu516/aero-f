@@ -134,6 +134,8 @@ public:
     std::cout<<"*** Error: function applyInviscid not implemented"<<std::endl;exit(-1);}
   virtual void applyViscous(DistSVec<double,neq> &, DistSVec<double,neq> &){
     std::cout<<"*** Error: function applyViscous not implemented"<<std::endl;exit(-1);}
+  virtual void applyViscous(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &){
+    std::cout<<"*** Error: function applyViscous not implemented for Embedded for this MatVecProd"<<std::endl;exit(-1);}
   virtual void rstSpaceOp(IoData &, VarFcn *, SpaceOperator<dim> *, bool, SpaceOperator<dim> * = 0){
     std::cout<<"*** Error: function rstSpaceOp not implemented"<<std::endl;exit(-1);}
 
@@ -151,7 +153,7 @@ public:
     DistVec<GhostPoint<dim>*>* ghostPoints;
   };
 
-  void AttachStructure(const _fsi& f) {
+  virtual void AttachStructure(const _fsi& f) {
     isFSI = true;
     fsi = f;
   }
@@ -267,10 +269,11 @@ public:
 // Included (MB)
   void evaluateInviscid(int, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
   void evaluateViscous(int, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void evaluateViscous(int, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &, typename MatVecProd<dim,neq>::_fsi &fsi);
   void applyInviscid(DistSVec<double,neq> &, DistSVec<double,neq> &);
 
   void applyViscous(DistSVec<double,neq> &, DistSVec<double,neq> &);
-
+  void applyViscous(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &);
   void applyViscous(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &)
   {
     std::cout << " ... ERROR: MatVecProdFD::applyViscous function not implemented";
@@ -339,6 +342,7 @@ public:
   void evaluate(DistExactRiemannSolver<dim>&, int, DistSVec<double,3> &, DistVec<double> &, 
 		DistSVec<double,dim> &, DistSVec<double,dim> &);
   void evaluateViscous(int, DistSVec<double,3> &, DistVec<double> &);
+  void evaluateViscous(int, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &U, typename MatVecProd<dim,neq>::_fsi &fsi);
 
   void apply(DistSVec<double,neq> &, DistSVec<double,neq> &);
   void applyTranspose(DistSVec<double,neq> &, DistSVec<double,neq> &);
@@ -413,6 +417,7 @@ class MatVecProdH2 : public MatVecProd<dim,neq>, public DistMat<Scalar,dim> {
   // Included (MB)
   MatVecProdFD<dim, neq> *RFD;
   DistSVec<double, neq> *vProd;
+  DistEmbeddedVec<double, neq> *vProdEmb;
 
   //--------------------------------------
   /// \note (09/10) UH
@@ -482,7 +487,7 @@ class MatVecProdH2 : public MatVecProd<dim,neq>, public DistMat<Scalar,dim> {
       , DistEmbeddedVec<Scalar2,dd> &p, DistEmbeddedVec<Scalar2,dd> &prod
       , MatVecProdH1<dd, Scalar1, dd> *R
       , MatVecProdFD<dd, dd> *RFD
-      , DistSVec<Scalar2, dd> *vProd
+      , DistEmbeddedVec<Scalar2, dd> *vProdEmb
     );
     void ApplyTranspose
     (
@@ -582,6 +587,12 @@ public:
   //void applyViscous(DistSVec<double,neq> &, DistSVec<double,neq> &);
 
   void rstSpaceOp(IoData &, VarFcn *, SpaceOperator<dim> *, bool, SpaceOperator<dim> * = 0);
+
+  void AttachStructure(const typename MatVecProd<dim,neq>::_fsi& f) {
+    this->isFSI = true;
+    this->fsi = f;
+    if (RFD) RFD->AttachStructure(f);
+  }
 
 };
 

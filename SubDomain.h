@@ -1300,7 +1300,7 @@ public:
 							 VarFcn *varFcn, LevelSetStructure &LSS, Vec<int> &fluidId);
   
   template<int dim, class Scalar, int neq>
-    void populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<double,dim> &U,FluxFcn** fluxFcn,VarFcn *varFcn,LevelSetStructure &LSS,Vec<int> &tag,GenMat<Scalar,neq>& A);
+    void populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<double,dim> &U,FluxFcn** fluxFcn,VarFcn *varFcn,LevelSetStructure &LSS,Vec<int> &tag,GenMat<Scalar,neq>& A, bool viscSecOrder);
 
   template<int dim>
 	  void setSIstencil(SVec<double,3> &X, LevelSetStructure &LSS, Vec<int> &fluidId, SVec<double,dim> &U, bool externalSI);

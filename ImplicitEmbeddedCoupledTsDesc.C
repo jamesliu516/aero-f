@@ -166,7 +166,7 @@ void ImplicitEmbeddedCoupledTsDesc<dim>::setOperators(DistSVec<double,dim> &Q)
       this->spaceOp->computeJacobian(*this->X, *this->A, Q, 
 				     this->distLSS, this->nodeTag, this->riemann,
                                      this->riemannNormal, this->ghostPoints, 
-				     *_pc, this->timeState);
+				     *_pc, this->timeState, this->viscSecOrder);
 
       this->timeState->addToJacobian(*this->A, *_pc, Q);
       this->spaceOp->applyBCsToJacobian(Q, *_pc, this->distLSS);

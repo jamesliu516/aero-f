@@ -284,7 +284,20 @@ public:
                        int Nriemann,
                        DistVec<GhostPoint<dim>*> *ghostPoints,
                        DistMat<Scalar,neq>& A,
-                       DistTimeState<dim>*);
+                       DistTimeState<dim>*,
+                       bool viscSecOrder);
+  
+  template <class Scalar,int neq>
+  void computeViscousJacobian(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
+                       DistSVec<double,dim> &U,
+                       DistLevelSetStructure *distLSS,
+                       DistVec<int> &fluidId, 
+                       DistExactRiemannSolver<dim> *riemann, 
+                       int Nriemann,
+                       DistVec<GhostPoint<dim>*> *ghostPoints,
+                       DistMat<Scalar,neq>& A,
+                       DistTimeState<dim>*,
+                       bool viscSecOrder);
   
   void getExtrapolationValue(DistSVec<double,dim>&, DistSVec<double,dim>&, DistSVec<double,3>&);
   void applyExtrapolationToSolutionVector(DistSVec<double,dim>&, DistSVec<double,dim>&);

@@ -508,7 +508,7 @@ public:
          bool externalSI=false, FemEquationTerm *fet = 0);
 
   template<int dim, class Scalar, int neq>
-  void populateGhostJacobian(DistVec<GhostPoint<dim>*> *ghostPoints,DistSVec<double,dim> &U,FluxFcn** fluxFcn, VarFcn *varFcn,DistLevelSetStructure *distLSS,DistVec<int> &tag, DistMat<Scalar,neq>& A);
+  void populateGhostJacobian(DistVec<GhostPoint<dim>*> *ghostPoints,DistSVec<double,dim> &U,FluxFcn** fluxFcn, VarFcn *varFcn,DistLevelSetStructure *distLSS,DistVec<int> &tag, DistMat<Scalar,neq>& A, bool viscSecOrder);
 
   template<int dim>
   void setSIstencil(DistSVec<double,3> &X, DistLevelSetStructure *distLSS, DistVec<int> &fluidId, DistSVec<double,dim> &U, bool externalSI);

@@ -247,9 +247,6 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoInitialize(IoData &ioData, D
   this->computeMeshMetrics();
   this->updateStateVectors(U);  
 
-  // Setting up the linear solver
-  fsoSetUpLinearSolver(ioData, *this->X, *this->A, U, dFdS);
-
 }
 
 //------------------------------------------------------------------------------
@@ -300,7 +297,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSetUpLinearSolver(
       this->spaceOp->computeJacobian(X, A, U, 
              this->distLSS, this->nodeTag,
              this->riemann, this->riemannNormal,
-             this->ghostPoints, *_pc, this->timeState);
+             this->ghostPoints, *_pc, this->timeState, this->viscSecOrder);
 
 
       if (ioData.sa.homotopy == SensitivityAnalysis::ON_HOMOTOPY){
@@ -367,7 +364,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSetUpAdjointLinearSolver
       this->spaceOp->computeJacobian(X, A, U, 
              this->distLSS, this->nodeTag,
              this->riemann, this->riemannNormal,
-             this->ghostPoints, *_pc, this->timeState);
+             this->ghostPoints, *_pc, this->timeState, this->viscSecOrder);
 
 
       if (ioData.sa.homotopy == SensitivityAnalysis::ON_HOMOTOPY){
@@ -388,54 +385,6 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSetUpAdjointLinearSolver
          Flux, 
          this->riemann, this->riemannNormal, 1, this->ghostPoints, false);
 }
-//------------------------------------------------------------------------------
-
-//template<int dim>
-//void EmbeddedFluidShapeOptimizationHandler<dim>::fsoSetUpLinearSolver2(IoData &ioData, DistSVec<double,3> &X, DistVec<double> &A,
-//                                                              DistSVec<double,dim> &U, DistSVec<double,dim> &dFdS)
-//{
-//
-//// Preparing the linear solver
-//  fsoRestartBcFluxs(ioData);
-//
-//  this->geoState->reset(X);
-//
-//  this->geoState->compute(this->timeState->getData(), this->bcData->getVelocityVector(), X, A);
-//
-//  this->bcData->update(X);
-//
-//  this->spaceOp->computeResidual(X, A, U, FluxFD, this->timeState);
-//
-//  if (ioData.sa.homotopy == SensitivityAnalysis::ON_HOMOTOPY)
-//    this->timeState->add_dAW_dt(1, *this->geoState, A, U, FluxFD);
-//
-//  this->spaceOp->applyBCsToResidual(U, FluxFD);
-//
-//  mvp->evaluate(0, X, A, U, FluxFD);
-//
-//  DistMat<PrecScalar,dim> *_pc = dynamic_cast<DistMat<PrecScalar,dim> *>(pc);
-//
-//  if (_pc) {
-//    MatVecProdFD<dim,dim> *mvpfd = dynamic_cast<MatVecProdFD<dim,dim> *>(mvp);
-//    MatVecProdH2<dim,MatScalar,dim> *mvph2 = dynamic_cast<MatVecProdH2<dim,MatScalar,dim> *>(mvp);
-//
-//    if (mvpfd || mvph2)
-//    {
-//      this->spaceOp->computeJacobian(X, A, U, *_pc, this->timeState);
-//      if (ioData.sa.homotopy == SensitivityAnalysis::ON_HOMOTOPY)
-//        this->timeState->addToJacobian(A, *_pc, U);
-//      this->spaceOp->applyBCsToJacobian(U, *_pc);
-//    }
-//
-//  } // END if (_pc)
-//
-//  pc->setup();
-//
-//  // Computing flux for compatibility correction of the derivative of the flux
-//  this->spaceOp->computeResidual(X, A, U, Flux, this->timeState, false);
-//
-//}
-
 
 //------------------------------------------------------------------------------
 
@@ -997,7 +946,7 @@ DistSVec<double,dim> &U
 
   actvar = 1;
   
-  while (true) {
+  while (step < 3) {
 
     // Reading derivative of the overall deformation
     bool readOK = getdXdSb(step);
@@ -1616,13 +1565,13 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoComputeSensitivities(
     this->com->fprintf(stderr,"\033[91mANALYTIC FORCE CALCULATION MAY NOT BE CORRECTLY\033[00m\n");
 
     //TODO this is basically a quick hack, since the analytic one doesn't really give correct results
-    //for shape sensitivity however, using finite diff=erence in the embedded framework will generally crash
+    //for shape sensitivity however, using finite difference in the embedded framework may crash if EpsFD is too large
     if(ioData.sa.sensMesh  == SensitivityAnalysis::ON_SENSITIVITYMESH)
-      fsoGetDerivativeOfEffortsAnalytical(isSparse,ioData, X, dXdS, U, dUdS, dFds, dMds, dLds);
-      //fsoGetDerivativeOfEffortsFiniteDifference(ioData, X, U, dUdS, dFds, dMds, dLds);
+      // fsoGetDerivativeOfEffortsAnalytical(isSparse,ioData, X, dXdS, U, dUdS, dFds, dMds, dLds);
+      fsoGetDerivativeOfEffortsFiniteDifference(ioData, X, U, dUdS, dFds, dMds, dLds);
     else
-      fsoGetDerivativeOfEffortsAnalytical(isSparse,ioData, X, dXdS, U, dUdS, dFds, dMds, dLds);//TODO HACK
-      //fsoGetDerivativeOfEffortsFiniteDifference(ioData, X, U, dUdS, dFds, dMds, dLds);
+      // fsoGetDerivativeOfEffortsAnalytical(isSparse,ioData, X, dXdS, U, dUdS, dFds, dMds, dLds);//TODO HACK
+      fsoGetDerivativeOfEffortsFiniteDifference(ioData, X, U, dUdS, dFds, dMds, dLds);
   }
 
   

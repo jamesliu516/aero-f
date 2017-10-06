@@ -242,17 +242,48 @@ void MatVecProdFD<dim, neq>::evaluateInviscid(int it, DistSVec<double,3> &x, Dis
 // Included (MB)
 template<int dim, int neq>
 void MatVecProdFD<dim, neq>::evaluateViscous(int it, DistSVec<double,3> &x, DistVec<double> &cv,
-				 DistSVec<double,dim> &q, DistSVec<double,dim> &f)
+         DistSVec<double,dim> &q, DistSVec<double,dim> &f)
 {
   X = &x;
   ctrlVol = &cv;
   Qeps = q;
 
   if (1) {//used to be recFcncon in the condition
-    spaceOp->computeViscousResidual(*X, *ctrlVol, Qeps, Feps, timeState);
-
-    spaceOp->applyBCsToResidual(Qeps, Feps);
+      spaceOp->computeViscousResidual(*X, *ctrlVol, Qeps, Feps, timeState);
+      spaceOp->applyBCsToResidual(Qeps, Feps);
+    }
+  else  {
+    Feps = f;
   }
+
+  Qeps.strip(Q);
+  Feps.strip(F);
+
+}
+//------------------------------------------------------------------------------
+
+// Included (JH) for embedded
+template<int dim, int neq>
+void MatVecProdFD<dim, neq>::evaluateViscous(int it, DistSVec<double,3> &x, DistVec<double> &cv,
+				 DistSVec<double,dim> &q, DistSVec<double,dim> &f, typename MatVecProd<dim,neq>::_fsi &fsi)
+{
+  X = &x;
+  ctrlVol = &cv;
+  Qeps = q;
+
+  if (1) {//used to be recFcncon in the condition
+      if (!this->isFSI){
+        spaceOp->computeViscousResidual(*X, *ctrlVol, Qeps, Feps, timeState);
+      }
+      else{//FSI case
+        spaceOp->computeViscousResidual(*X, *ctrlVol, Qeps, 
+                  *(this->fsi.Wtemp), *(this->fsi.Wtemp), *(this->fsi.Wtemp), this->fsi.LSS,
+                    this->fsi.linRecAtInterface, this->fsi.viscSecOrder,
+                  *(this->fsi.fluidId), Feps, this->fsi.riemann,
+                    this->fsi.Nriemann, 0, this->fsi.ghostPoints);
+}
+      spaceOp->applyBCsToResidual(Qeps, Feps, fsi.LSS);
+    }
   else  {
     Feps = f;
   }
@@ -670,13 +701,13 @@ void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedV
   if (!this->isFSI){
     spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
   }
-  else//FSI case
+  else{//FSI case
 	  spaceOp->computeResidual(*X, *ctrlVol, Qeps, 
               *(this->fsi.Wtemp), *(this->fsi.Wtemp), *(this->fsi.Wtemp), this->fsi.LSS,
                 this->fsi.linRecAtInterface, this->fsi.viscSecOrder,
               *(this->fsi.fluidId), Feps, this->fsi.riemann,
                 this->fsi.Nriemann, 0, this->fsi.ghostPoints);
-
+}
 	if(p.hasHHBoundaryTerm()) 
 	{
     *hhEps = 0.0;
@@ -743,6 +774,112 @@ void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedV
 
 		if(this->isFSI) spaceOp->applyBCsToResidual(Qeps, Feps, this->fsi.LSS);
 		else            spaceOp->applyBCsToResidual(Qeps, Feps);
+
+    Feps.strip(Ftmp);
+
+    prod.real() = (0.5/eps) * (Fepstmp - Ftmp);
+  }
+
+}
+
+//--------------------------------------------------
+//Computes prod=J*p
+template<int dim, int neq>
+void MatVecProdFD<dim,neq>::applyViscous(DistEmbeddedVec<double,neq> & p, DistEmbeddedVec<double,neq> & prod) 
+{
+  // ***
+  double eps = computeEpsilon(Q, p.real());
+
+// Included (MB)
+  Qepstmp = Q + eps * p.real();
+
+  Qepstmp.pad(Qeps);
+  
+
+  if(p.hasHHBoundaryTerm())
+  {
+    *hhEps = *hhVal + eps*p.hh();
+    *spaceOp->getDistBcData()->getBoundaryStateHH() = *hhEps;
+  }
+  if (!this->isFSI){
+    spaceOp->computeViscousResidual(*X, *ctrlVol, Qeps, Feps, timeState);
+  }
+  else{//FSI case
+    spaceOp->computeViscousResidual(*X, *ctrlVol, Qeps, 
+              *(this->fsi.Wtemp), *(this->fsi.Wtemp), *(this->fsi.Wtemp), this->fsi.LSS,
+                this->fsi.linRecAtInterface, this->fsi.viscSecOrder,
+              *(this->fsi.fluidId), Feps, this->fsi.riemann,
+                this->fsi.Nriemann, 0, this->fsi.ghostPoints);
+}
+
+  if(p.hasHHBoundaryTerm()) 
+  {
+    *hhEps = 0.0;
+
+    spaceOp->getDomain()->computeHHBoundaryTermResidual(*spaceOp->getDistBcData(),Qeps,*hhEps, spaceOp->getVarFcn());
+       
+    timeState->add_dAW_dt_HH(-1, *geoState, *ctrlVol,*spaceOp->getDistBcData()->getBoundaryStateHH(), *hhEps);
+  }
+
+  if(timeState) 
+  {
+    timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps, this->fsi.LSS);
+    if(iod->ts.dualtimestepping == TsData::ON) timeState->add_dAW_dtau(-1, *geoState, *ctrlVol, Qeps, Feps, this->fsi.LSS);
+  }
+
+  spaceOp->applyBCsToResidual(Qeps, Feps, this->fsi.LSS);
+
+  Feps.strip(Fepstmp);
+
+  if(fdOrder == 1) 
+  {
+    prod.real() = (1.0/eps) * (Fepstmp - F);
+
+    if(p.hasHHBoundaryTerm())
+    {
+      *hhEps = (1.0/eps) * (*hhEps - *hhRes);
+      prod.setHH(*hhEps);
+    }
+ 
+  }
+  else if(fdOrder == 2) 
+  {
+    Qepstmp = Q - eps * p.real();
+    
+    Qepstmp.pad(Qeps);
+  
+    if (!this->isFSI){
+      spaceOp->computeViscousResidual(*X, *ctrlVol, Qeps, Feps, timeState);
+    }
+    else{//FSI case
+      spaceOp->computeViscousResidual(*X, *ctrlVol, Qeps, 
+                *(this->fsi.Wtemp), *(this->fsi.Wtemp), *(this->fsi.Wtemp), this->fsi.LSS,
+                  this->fsi.linRecAtInterface, this->fsi.viscSecOrder,
+                *(this->fsi.fluidId), Feps, this->fsi.riemann,
+                  this->fsi.Nriemann, 0, this->fsi.ghostPoints);
+    }
+    if(timeState) 
+    {
+      timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps, this->fsi.LSS);
+
+      if (iod->ts.dualtimestepping == TsData::ON) timeState->add_dAW_dtau(-1, *geoState, *ctrlVol, Qeps, Feps, this->fsi.LSS);
+    }
+
+    if(p.hasHHBoundaryTerm()) 
+    {
+      prod.setHH(*hhEps);
+      *hhEps = *hhVal - eps*p.hh();
+      *spaceOp->getDistBcData()->getBoundaryStateHH() = *hhEps;
+      *hhEps = 0.0;
+      
+      spaceOp->getDomain()->computeHHBoundaryTermResidual(*spaceOp->getDistBcData(),Qeps,*hhEps, spaceOp->getVarFcn());
+       
+      timeState->add_dAW_dt_HH(-1, *geoState, *ctrlVol,*spaceOp->getDistBcData()->getBoundaryStateHH(), *hhEps);
+
+      prod.hh() = (0.5/eps)*(prod.hh()-*hhEps);
+    }
+
+    spaceOp->applyBCsToResidual(Qeps, Feps, this->fsi.LSS);
 
     Feps.strip(Ftmp);
 
@@ -1082,13 +1219,13 @@ void MatVecProdH1<dim,Scalar,neq>::evaluate(
                                      DistSVec<double,dim> &Q,//State Vector solution
                                      DistSVec<double,dim> &F)//Fluid Residual
 {
-
+  if (!this->isFSI) this->clearGhost();
   if (!this->isFSI)
     spaceOp->computeJacobian(X, ctrlVol, Q, *this, timeState);
   else
     spaceOp->computeJacobian(X,ctrlVol, Q, this->fsi.LSS, *(this->fsi.fluidId), 
                              this->fsi.riemann, this->fsi.Nriemann,
-                             this->fsi.ghostPoints, *this,timeState);
+                             this->fsi.ghostPoints, *this,timeState, this->fsi.viscSecOrder);
 
   if (timeState)
     timeState->addToJacobian(ctrlVol, *this, Q);
@@ -1165,6 +1302,19 @@ void MatVecProdH1<dim,Scalar,neq>::evaluateViscous(int it, DistSVec<double,3> &X
 
   // Compute the Jacobian of viscous terms
   spaceOp->computeViscousJacobian(X, cv, *this);
+
+}
+//------------------------------------------------------------------------------
+
+template<int dim, class Scalar, int neq>
+void MatVecProdH1<dim,Scalar,neq>::evaluateViscous(int it, DistSVec<double,3> &X,
+                                   DistVec<double> &cv,DistSVec<double,dim> &U, typename MatVecProd<dim,neq>::_fsi &fsi)  {
+
+  // Embedded
+  this->clearGhost();
+  spaceOp->computeViscousJacobian(X, cv, U, fsi.LSS, *(fsi.fluidId),
+    fsi.riemann, fsi.Nriemann, fsi.ghostPoints, *this, this->timeState,fsi.viscSecOrder);
+
 
 }
 
@@ -1318,6 +1468,7 @@ MatVecProdH2<dim,Scalar,neq>::MatVecProdH2
   , R(0)
   , RFD(0)
   , vProd(0)
+  , vProdEmb(0)
 {
 
 #ifdef _OPENMP 
@@ -1407,6 +1558,7 @@ MatVecProdH2<dim,Scalar,neq>::MatVecProdH2
   if (ioData.eqs.type == EquationsData::NAVIER_STOKES)
   {
     vProd = new DistSVec<double,neq>(domain->getNodeDistInfo());
+    vProdEmb = new DistEmbeddedVec<double,neq>(domain->getNodeDistInfo());
     if (viscJacContrib == 1)
     {
       R = new MatVecProdH1<dim, Scalar, neq>(ts, spo, domain);
@@ -1473,27 +1625,6 @@ void MatVecProdH2<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &x, DistV
   evaluateInviscid(it, x, cv, q, f);
   evaluateViscous( it, x, cv, q, f);
 
-// Original
-/*
-  X = &x;
-  ctrlVol = &cv;
-  Q = &q;
-
-  spaceOp->computeH2(*X, *ctrlVol, *Q, *this, aij, aji, bij, bji);
-
-  if (timeState)
-    timeState->addToH2(*ctrlVol, *Q, *this);
-  
-
-
-  // compute viscous flux jacobian
-  if (R)  {
-    spaceOp->applyBCsToH2Jacobian(*Q, *this);
-    R->evaluateViscous(it, *X, *ctrlVol);
-    spaceOp->applyBCsToJacobian(*Q, *R);
-  }
-*/
-
 }
 
 //------------------------------------------------------------------------------
@@ -1549,13 +1680,26 @@ void MatVecProdH2<dim,Scalar,neq>::evaluateViscous(int it, DistSVec<double,3> &x
 
   // compute viscous flux jacobian
   if (R)  {
-    R->evaluateViscous(it, *X, *ctrlVol);
-    spaceOp->applyBCsToJacobian(*Q, *R);
+    if (!this->isFSI){
+      R->evaluateViscous(it, *X, *ctrlVol);
+      spaceOp->applyBCsToJacobian(*Q, *R);
+    }
+    else{
+      R->evaluateViscous(it, *X, *ctrlVol, *Q, this->fsi);
+      spaceOp->applyBCsToJacobian(*Q, *R, this->fsi.LSS);
+
+    }
   }
 
   if (RFD) {
     F = &f;
-    RFD->evaluateViscous(it, *X, *ctrlVol, *Q, *F);
+    if (!this->isFSI){
+      RFD->evaluateViscous(it, *X, *ctrlVol, *Q, *F);
+    }
+    else{
+      RFD->evaluateViscous(it, *X, *ctrlVol, *Q, *F, this->fsi);
+    }
+
   }
 
 }
@@ -1670,7 +1814,6 @@ void MatVecProdH2<dim,Scalar,neq>::apply(DistSVec<double,neq> &p, DistSVec<doubl
   Multiplier<dim,neq,Scalar,double> Operator;
   Operator.Apply(spaceOp, *X, *ctrlVol, *Q, *this, aij, aji, bij, bji, p, prod,
                  R, RFD, vProd);
-
 }
 
 //------------------------------------------------------------------------------
@@ -1713,8 +1856,7 @@ void MatVecProdH2<dim,Scalar,neq>::apply(DistEmbeddedVec<double,dim> &p, DistEmb
   //      p.real(), prod.real());
   Multiplier<dim,neq,Scalar,double> Operator;
   Operator.Apply(spaceOp, *X, *ctrlVol, *Q, *this, aij, aji, bij, bji, betaij, betaji, this->fsi, p, prod,
-                 R, RFD, vProd);
-
+                 R, RFD, vProdEmb);
 }
 //------------------------------------------------------------------------------
 
@@ -1953,7 +2095,7 @@ void MatVecProdH2<dim,Scalar,neq>::Multiplier<dd,dd,Scalar1,Scalar2>::ApplyTrans
 }
 
 //------------------------------------------------------------------------------
-
+//embeddedApply
 template<int dim, class Scalar, int neq>
 template<int dd, class Scalar1, class Scalar2>
 void MatVecProdH2<dim,Scalar,neq>::Multiplier<dd,dd,Scalar1,Scalar2>::Apply
@@ -1970,7 +2112,7 @@ void MatVecProdH2<dim,Scalar,neq>::Multiplier<dd,dd,Scalar1,Scalar2>::Apply
   , DistEmbeddedVec<Scalar2,dd> &p, DistEmbeddedVec<Scalar2,dd> &prod
   , MatVecProdH1<dd, Scalar1, dd> *R
   , MatVecProdFD<dd, dd> *RFD
-  , DistSVec<Scalar2, dd> *vProd
+  , DistEmbeddedVec<Scalar2, dd> *vProdEmb
 )
 {
   spaceOp->applyH2(X, ctrlVol, U, 
@@ -1982,18 +2124,16 @@ void MatVecProdH2<dim,Scalar,neq>::Multiplier<dd,dd,Scalar1,Scalar2>::Apply
        p.real(), prod.real());
 
   if (R)
-  {
-    *vProd = (Scalar2) 0;
-    R->apply(p.real(), *vProd);
-    prod.real() += *vProd;
+  { 
+    R->apply(p, *vProdEmb);
+    prod.real() += vProdEmb->real();
   }
   else if (RFD)
   {
-    *vProd = (Scalar2) 0;
-    RFD->applyViscous(p.real(), *vProd);
-    prod.real() += *vProd;
+    *vProdEmb = (Scalar2) 0.0;
+    RFD->applyViscous(p, *vProdEmb);
+    prod.real() += vProdEmb->real();
   }
-
 }
 
 //------------------------------------------------------------------------------
@@ -2233,7 +2373,6 @@ void MatVecProdFDMultiPhase<dim, dimLS>::apply(DistEmbeddedVec<double,dim> &p,
     *hhEps = *hhVal + eps*p.hh();
     *this->spaceOp->getDistBcData()->getBoundaryStateHH() = *hhEps;
   }
-
   if (!this->isFSI)
     this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, Feps, this->riemann,this->timeState, -1);
   else

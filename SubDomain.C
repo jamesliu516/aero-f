@@ -4208,7 +4208,6 @@ void SubDomain::computeMatVecProdH1transpose(bool *nodeFlag, GenMat<Scalar,dim> 
  // This is for off diagonal part
  #pragma ivdep
    for (l=0; l<numEdges; ++l) {
-
      if (edgeFlag[l]) {
 
        i = edgePtr[l][0];
@@ -4220,29 +4219,30 @@ void SubDomain::computeMatVecProdH1transpose(bool *nodeFlag, GenMat<Scalar,dim> 
      }
 
    }
-
- // consider ghost node contribution
-   // ghost nodes contribution to real nodes
-   typename GenMat<Scalar,dim>::AuxilliaryIterator* myItr = A.begin_realNodes();
+ //consider ghost node contribution
+   typename GenMat<Scalar,dim>::AuxilliaryIterator* myItr = A.begin_ghostGhostNodes();
+   // ghost nodes contribution to ghost nodes , A.begin_ghostGhostNodes is computed in populateghostJacobian
    if (myItr) {
      do { 
-       DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(reinterpret_cast<Scalar(*)[dim*dim]>(myItr->pData), 0, ghostP.v, myItr->col , prod.v, myItr->row);
+      DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(reinterpret_cast<Scalar(*)[dim*dim]>(myItr->pData), 0, ghostP.v, myItr->col , ghostProd.v, myItr->row);
      } while (A.next(myItr));
      A.free(myItr);
    }
-    // real nodes contribution to ghost nodes, A.begin_ghostNodes is computed in populteghostJacobian
+
    myItr = A.begin_ghostNodes();
+    //real node state contribution to ghost node state, A.begin_ghostNodes is computed in populateghostJacobian
    if (myItr) {
      do { 
        DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(reinterpret_cast<Scalar(*)[dim*dim]>(myItr->pData), 0, p.v, myItr->col , ghostProd.v, myItr->row);
      } while (A.next(myItr));
      A.free(myItr);
    }
-    // ghost nodes contribution to ghost nodes , A.begin_ghostGhostNodes is computed in populteghostJacobian
-   myItr = A.begin_ghostGhostNodes();
+  //ghost node state contribution to real node state, A.begin_ghostNodes is computed in populateghostJacobian
+   myItr = A.begin_realNodes();
    if (myItr) {
      do { 
-      DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(reinterpret_cast<Scalar(*)[dim*dim]>(myItr->pData), 0, ghostP.v, myItr->col , ghostProd.v, myItr->row);
+       double (*tempA)[dim*dim] = reinterpret_cast<double(*)[dim*dim]>(myItr->pData);
+       DenseMatrixOp<Scalar,dim,dim*dim>::applyAndSubToVector(reinterpret_cast<Scalar(*)[dim*dim]>(myItr->pData), 0, ghostProd.v, myItr->col , prod.v, myItr->row);
      } while (A.next(myItr));
      A.free(myItr);
    }
@@ -8339,7 +8339,6 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
   Vi = new double[dim];
   Vj = new double[dim];
   weights = new double[dim];
-
   for (int l=0; l<edges.size(); l++) {//loop over all edges
         if(!edgeFlag[l]) continue; //not a master edge
     i = edgePtr[l][0];//node i
@@ -8353,7 +8352,6 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
       if(iIsActive) {//case where (i) is an active node
                 LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
                 varFcn->conservativeToPrimitive(U[i],Vi,tagI); // Vi has state at node i, V_j is populated from i
-
 // Determine intersection alpha
                 if (!viscSecOrder) { //first order
                     alpha = HALF ;
@@ -8448,6 +8446,7 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                         for (int k = 1; k < 4; ++k) {
                             Vj[k] = ((resij.normVel)[k - 1] - alpha * Vi[k]) / (1.0 - alpha);
                         }
+
                     }
 
                 }
@@ -8470,8 +8469,6 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                     weights[5] = (1.0-alpha)*(1.0-alpha);
                     weights[6] = (1.0-alpha)*(1.0-alpha);
                 }
-
-
                 if(!ghostPoints[j]) // GP has not been created
                 {ghostPoints[j]=new GhostPoint<dim>(varFcn);}
 
@@ -8483,7 +8480,6 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
             if(jIsActive) { //j is active populate j to ghost node i
                 LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
                 varFcn->conservativeToPrimitive(U[j],Vj,tagJ);
-
 
 // Determine intersection alpha
                 if (!viscSecOrder) { //first order
@@ -8589,12 +8585,11 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                         Vi[6] = -alpha * Vj[6] / (1.0 - alpha);
                     }
                 }
-
                 if(!ghostPoints[i]) // GP has not been created
                 {ghostPoints[i]=new GhostPoint<dim>(varFcn);}
-
+                
                 ghostPoints[i]->addNeighbour(Vi,weights,tagJ);
-
+                
             }
         }
     }
@@ -8622,20 +8617,26 @@ void SubDomain::reduceGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<doubl
 template<int dim, class Scalar, int neq>
 void SubDomain::populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<double,dim> &U,
                                       FluxFcn** fluxFcn, VarFcn *varFcn, LevelSetStructure &LSS,
-                                      Vec<int> &tag, GenMat<Scalar,neq>& A)
+                                      Vec<int> &tag, GenMat<Scalar,neq>& A, bool viscSecOrder)
 {
 
     int i, j, k;
+    double THRESHOLD = 0.5; //if intersection is too close to active node
+    // alpha = (ghost_node - intersection)/(ghost node - active node) < threshold
+    // set alpha  = 0.5
+    double HALF = 0.5;
+    double alpha;
+    double weight; 
 
     bool* edgeFlag = edges.getMasterFlag();
     int (*edgePtr)[2] = edges.getPtr();
-
-    double B[neq*neq],tmp[neq*neq];
+    double B[neq*neq],tmp[neq*neq], Btmp[neq*neq];
     double dUdV[neq*neq],dVdU[neq*neq];
     memset(tmp,0,sizeof(double)*neq*neq);
     memset(dUdV,0,sizeof(double)*neq*neq);
     memset(dVdU,0,sizeof(double)*neq*neq);
     memset(B,0,sizeof(double)*neq*neq);
+    memset(Btmp,0,sizeof(double)*neq*neq);
 
     if(neq > 2)
     {
@@ -8657,7 +8658,8 @@ void SubDomain::populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<do
             bool jIsActive = LSS.isActive(0.0,j);
 
             if(iIsActive)
-            {
+            {   
+                LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
                 double (*Aji)[neq*neq] = reinterpret_cast< double (*)[neq*neq]>(A.getGhostNodeElem_ij(j,i));
                 if(Aji)
                 {
@@ -8668,7 +8670,18 @@ void SubDomain::populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<do
                         varFcn->conservativeToPrimitive(U[i],Vi.v,tagI);
                         fluxFcn[BC_INTERNAL]->getFluxFcnBase(tagI)->getVarFcnBase()->computedVdU(Vi.v,dVdU);
                         fluxFcn[BC_INTERNAL]->getFluxFcnBase(tagI)->getVarFcnBase()->computedUdV(ghostPoints[j]->getPrimitiveState(), dUdV);
-                        DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&dUdV, 0, &B, 0, &tmp, 0);
+                        if (!viscSecOrder) { //first order
+                            alpha = HALF ;
+                        }
+                        else {
+                            alpha = resij.alpha;
+                            if (alpha > THRESHOLD) alpha = THRESHOLD ; // Set limit for stability
+                        }
+                        weight = (1 - alpha)*(1 - alpha);
+                        for (k = 0; k < neq; ++k) {
+                          Btmp[k*neq+k] = B[k*neq + k]*weight/ghostPoints[j]->Ws[k];
+                        }
+                        DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&dUdV, 0, &Btmp, 0, &tmp, 0);
                         DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&tmp, 0, &dVdU, 0, Aji, 0);
                     }
                     else
@@ -8689,6 +8702,7 @@ void SubDomain::populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<do
 
             if(jIsActive)
             {
+                LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, l, false);
                 double (*Aij)[neq*neq] = reinterpret_cast< double (*)[neq*neq]>(A.getGhostNodeElem_ij(i,j));
 
                 if(Aij)
@@ -8699,8 +8713,20 @@ void SubDomain::populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<do
                         varFcn->conservativeToPrimitive(U[j],Vj.v,tagJ);
                         fluxFcn[BC_INTERNAL]->getFluxFcnBase(tagJ)->getVarFcnBase()->computedVdU(Vj.v,dVdU);
                         fluxFcn[BC_INTERNAL]->getFluxFcnBase(tagJ)->getVarFcnBase()->computedUdV(ghostPoints[i]->getPrimitiveState(), dUdV);
-                        DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&dUdV, 0, &B, 0, &tmp, 0);
+                        if (!viscSecOrder) { //first order
+                            alpha = HALF ;
+                        }
+                        else {
+                            alpha = resji.alpha;
+                            if (alpha > THRESHOLD) alpha = THRESHOLD ; // Set limit for stability
+                        }
+                        weight = (1 - alpha)*(1 - alpha);
+                        for (k = 0; k < neq; ++k){
+                          Btmp[k*neq+k] = B[k*neq + k]*weight/ghostPoints[i]->Ws[k];
+                        }
+                        DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&dUdV, 0, &Btmp, 0, &tmp, 0);
                         DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&tmp, 0, &dVdU, 0, Aij, 0);
+
                     }
                     else
                     {

@@ -1400,7 +1400,7 @@ void SpaceOperator<dim>::computeDerivativeOfResidualEmb(
   }
 
   if (fet){
-    this->populateGhostPoints(ghostPoints,X,U,varFcn,distLSS,viscSecOrder,fluidId);
+    // this->populateGhostPoints(ghostPoints,X,U,varFcn,distLSS,viscSecOrder,fluidId);
   }
 
   if (egrad) {
@@ -2597,8 +2597,7 @@ void SpaceOperator<dim>::populateGhostPoints(
 															bool viscSecOrder, DistVec<int> &fluidId)
 {
 ghostPoints->deletePointers();
-
-	domain->populateGhostPoints(ghostPoints, X, U, ngrad, varFcn, distLSS, viscSecOrder, fluidId, externalSI, fet);
+domain->populateGhostPoints(ghostPoints, X, U, ngrad, varFcn, distLSS, viscSecOrder, fluidId, externalSI, fet);
 
 }
 
@@ -2775,7 +2774,8 @@ void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> 
                                          int Nriemann,
                                          DistVec<GhostPoint<dim>*> *ghostPoints,
                                          DistMat<Scalar,neq>& A,
-                                         DistTimeState<dim>* timeState)
+                                         DistTimeState<dim>* timeState,
+                                         bool viscSecOrder)
 {
   //A is the jacobian
   A = 0.0;
@@ -2808,20 +2808,83 @@ void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> 
     //varFcn->conservativeToPrimitive(U, *V, distLSS, &fluidId);
 		domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, ctrlVol, *V, A, ghostPoints, distLSS, externalSI);
 
-		if(!externalSI) domain->populateGhostJacobian(ghostPoints, U, fluxFcn, varFcn, distLSS, fluidId, A);
+		if(!externalSI) domain->populateGhostJacobian(ghostPoints, U, fluxFcn, varFcn, distLSS, fluidId, A, viscSecOrder);
       //this compute du_ghost/du_real for these intersection edge, d v_ghost/dv_real is approximated as
       //diag{-1,1,1,1-1} for solid wall.
 	}
 
   domain->computeJacobianFiniteVolumeTerm(ctrlVol, *riemann, fluxFcn, *bcData, *geoState,
-														 X, *V, distLSS, fluidId, Nriemann, A, *irey, externalSI);
+		 												 X, *V, distLSS, fluidId, Nriemann, A, *irey, externalSI);
 
-  if (volForce)
-    domain->computeJacobianVolumicForceTerm(volForce, ctrlVol, *V, A);
+  // if (volForce)
+  //   domain->computeJacobianVolumicForceTerm(volForce, ctrlVol, *V, A);
 
   // Delete pointer for consistency
   if (timeState == 0)
 		if (irey) delete irey;
+
+  irey = 0;
+
+}
+
+//------------------------------------------------------------------------------
+
+//d2d$ Embedded structure
+template<int dim>
+template<class Scalar,int neq>
+void SpaceOperator<dim>::computeViscousJacobian(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
+                                         DistSVec<double,dim> &U,
+                                         DistLevelSetStructure *distLSS,
+                                         DistVec<int> &fluidId,
+                                         DistExactRiemannSolver<dim> *riemann,
+                                         int Nriemann,
+                                         DistVec<GhostPoint<dim>*> *ghostPoints,
+                                         DistMat<Scalar,neq>& A,
+                                         DistTimeState<dim>* timeState,
+                                         bool viscSecOrder)
+{
+  //A is the jacobian
+  A = 0.0;
+
+//TODO VISCOUSDERIV this function should differentiate according to the desciptor case
+//  switch (descriptorCase) {
+//    case DESCRIPTOR: {
+//      this->com->fprintf(stderr,"\033[93mSpaceOperator<dim>::computeJacobian == DESCRIPTOR needs to be finished\n\033[00m"); exit(-1);break;}
+//    case HYBRID: {
+//      this->com->fprintf(stderr,"\033[93mSpaceOperator<dim>::computeJacobian == HYBRID needs to be finished\n\033[00m"); exit(-1);break;}
+//    case NONDESCRIPTOR: {
+//      this->com->fprintf(stderr,"\033[93mSpaceOperator<dim>::computeJacobian == NONDESCRIPTOR needs to be finished\n\033[00m"); exit(-1);break;}
+//  }
+
+  varFcn->conservativeToPrimitive(U, *V, distLSS, &fluidId);
+
+  DistVec<double> *irey;
+  if(timeState)
+    irey = timeState->getInvReynolds();
+  else
+  {
+    irey = new DistVec<double>(domain->getNodeDistInfo());
+    *irey = 0.0;
+  }
+
+  if (fet)
+  {//TODO why were the three lines below introduced?? by Lukas?
+    //this->com->fprintf(stderr,"\033[96m  FET triggered SpaceOperator<dim>::computeJacobian\n\033[00m");
+    //this->populateGhostPoints(ghostPoints,X,U,varFcn,distLSS,false,fluidId);
+    //varFcn->conservativeToPrimitive(U, *V, distLSS, &fluidId);
+    domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, ctrlVol, *V, A, ghostPoints, distLSS, externalSI);
+    if(!externalSI) domain->populateGhostJacobian(ghostPoints, U, fluxFcn, varFcn, distLSS, fluidId, A, viscSecOrder);
+    domain->finishJacobianGalerkinTerm(ctrlVol, A);
+      //this compute du_ghost/du_real for these intersection edge, d v_ghost/dv_real is approximated as
+      //diag{-1,1,1,1-1} for solid wall.
+  }
+
+  // if (volForce)
+  //   domain->computeJacobianVolumicForceTerm(volForce, ctrlVol, *V, A);
+
+  // Delete pointer for consistency
+  if (timeState == 0)
+    if (irey) delete irey;
 
   irey = 0;
 
@@ -2885,8 +2948,7 @@ void SpaceOperator<dim>::computeViscousJacobian(DistSVec<double,3> &X, DistVec<d
         domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, ctrlVol, *V, A);
         domain->finishJacobianGalerkinTerm(ctrlVol, A);
         break; }
-   }
-
+}
 // Included (MB*)
     if ((iod->eqs.type == EquationsData::NAVIER_STOKES) && (iod->eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY))
       if ((iod->bc.wall.integration == BcsWallData::WALL_FUNCTION) && (iod->eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS)) {
@@ -3262,11 +3324,12 @@ void SpaceOperator<dim>::applyH2(DistSVec<double,3> &X, DistVec<double> &ctrlVol
          DistSVec<double,dim> &betaij, DistSVec<double,dim> &betaji,
          DistSVec<Scalar2,dim> &p, DistSVec<Scalar2,dim> &prod)
 {
-
   if (fet){
-    this->populateGhostPoints(ghostPoints,X,U,varFcn,distLSS,viscSecOrder,fluidId);
-    //std::cout << "$$$$$ Ghost Points populated applyH2\n";
+    // this->populateGhostPoints(ghostPoints,X,U,varFcn,distLSS,viscSecOrder,fluidId);
+      
+    // std::cout << "$$$$$ Ghost Points populated applyH2\n";
   }
+
   //std::cout << "$$$$$ IN SPACEOPT EMB applyH2\n";
   int numLocSub = p.numLocSub();
 
@@ -3359,7 +3422,7 @@ void SpaceOperator<dim>::applyH2transpose(DistSVec<double,3> &X, DistVec<double>
 {
 
   if (fet){
-    this->populateGhostPoints(ghostPoints,X,U,varFcn,distLSS,viscSecOrder,fluidId);
+    // this->populateGhostPoints(ghostPoints,X,U,varFcn,distLSS,viscSecOrder,fluidId);
   }
   int numLocSub = p.numLocSub();
 
@@ -5182,11 +5245,6 @@ void SpaceOperator<dim>::computeViscousResidual(DistSVec<double,3> &X, DistVec<d
 
   if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)
     ngrad->limit(recFcn, X, ctrlVol, distLSS, *V);
-
-//  domain->computeFiniteVolumeTerm(ctrlVol, *riemann, fluxFcn, recFcn, *bcData,
-//            *geoState, X, *V, Wstarij, Wstarji, Wext,
-//            distLSS, linRecAtInterface, fluidId, Nriemann,
-//            *ngrad, egrad, R, it, failsafe, rshift, externalSI);
 
   if(compatF3D)
   {

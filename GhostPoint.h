@@ -257,7 +257,7 @@ bool getStatus()
 		for(int i=0; i<dim; ++i) 
 		{
       Vg[i] /= Ws[i];
-      Ws[i] = 1.0;
+      // Ws[i] = 1.0; // do not reset weights as they are used in populateGhostJacobian
     }
 
 		for(int i=0; i<dim; ++i) V_tmp[i] = Vg[i];
@@ -275,7 +275,7 @@ bool getStatus()
 		for(int i=0; i<dim; ++i) 
 		{
 			Vg[i+dim] /= Ws[i+dim]; 
-			Ws[i+dim] = 1.0;
+			// Ws[i+dim] = 1.0;// do not reset weights as they are used in populateGhostJacobian
 		}
 
 		for(int i=0; i<dim; ++i) V_tmp[i] = Vg[i+dim];

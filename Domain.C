@@ -5022,13 +5022,13 @@ void Domain::populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints, DistSVe
 template<int dim, class Scalar, int neq>
 void Domain::populateGhostJacobian(DistVec<GhostPoint<dim>*> *ghostPoints, 
                         DistSVec<double,dim> &U, FluxFcn** fluxFcn, VarFcn *varFcn, 
-                        DistLevelSetStructure *distLSS, DistVec<int> &tag, DistMat<Scalar,neq>& A) 
+                        DistLevelSetStructure *distLSS, DistVec<int> &tag, DistMat<Scalar,neq>& A, bool viscSecOrder) 
 {
 
   int iSub;
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) 
-    subDomain[iSub]->populateGhostJacobian((*ghostPoints)(iSub), U(iSub), fluxFcn, varFcn, (*distLSS)(iSub), tag(iSub), A(iSub));
+    subDomain[iSub]->populateGhostJacobian((*ghostPoints)(iSub), U(iSub), fluxFcn, varFcn, (*distLSS)(iSub), tag(iSub), A(iSub), viscSecOrder);
  
 }
 
