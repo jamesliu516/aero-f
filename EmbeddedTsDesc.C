@@ -1021,7 +1021,8 @@ template<int dim>
 void EmbeddedTsDesc<dim>::computederivativeOfForceLoad(DistSVec<double,dim> *Wij, 
 						       DistSVec<double,dim> *Wji,
 						       double dS[3],
-						       DistSVec<double,dim> &dV) {
+						       DistSVec<double,dim> &dV,
+                   DistSVec<double,dim> &dUghost) {
 
   if (!dFs) {fprintf(stderr,"dFs not initialized!"); exit(-1);}
 
@@ -1031,7 +1032,7 @@ void EmbeddedTsDesc<dim>::computederivativeOfForceLoad(DistSVec<double,dim> *Wij
     dFs[i][0] = dFs[i][1] = dFs[i][2] = 0.0;
 
   this->spaceOp->computederivativeOfForceLoad(forceApp, orderOfAccuracy, *this->X, *this->A,
-					      dFs, numStructNodes, distLSS, *Wij, *Wji, dV, dS,
+					      dFs, numStructNodes, distLSS, *Wij, *Wji, dV, dUghost, dS,
 					      ghostPoints, this->postOp->getPostFcn(), &nodeTag);
 
   this->timer->addEmbeddedForceTime(t0);
@@ -1113,13 +1114,13 @@ void EmbeddedTsDesc<dim>::getForcesAndMoments(
 template <int dim>
 void EmbeddedTsDesc<dim>::getderivativeOfForcesAndMoments(
                             map<int,int> & surfOutMap,
-                            DistSVec<double,dim> &V, DistSVec<double,dim> &dV,
+                            DistSVec<double,dim> &V, DistSVec<double,dim> &dV, DistSVec<double,dim> &dUghost,
                             DistSVec<double,3> &X, double dS[3],
                             Vec3D *dFi, Vec3D *dMi)
 {
 
   int idx;
-  computederivativeOfForceLoad(this->Wstarij, this->Wstarji, dS, dV);
+  computederivativeOfForceLoad(this->Wstarij, this->Wstarji, dS, dV, dUghost);
 
   Vec<Vec3D>& Xstruc = distLSS->getStructPosition();
 

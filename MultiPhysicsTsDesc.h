@@ -160,7 +160,7 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
                                            Vec3D* Fi, Vec3D* Mi);
 
   void getderivativeOfForcesAndMoments(map<int,int> & surfOutMap, 
-				       DistSVec<double,dim> &U, DistSVec<double,dim> &dU, 
+				       DistSVec<double,dim> &U, DistSVec<double,dim> &dU, DistSVec<double,dim> &dUghost, 
 				       DistSVec<double,3> &X, double dS[3],
 				       Vec3D *dFi, Vec3D *dMi);
   void getderivativeOperatorsOfForcesAndMoments(dRdXoperators<dim> &dRdXop,

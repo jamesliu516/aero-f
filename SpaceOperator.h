@@ -635,7 +635,7 @@ public:
   void computederivativeOfForceLoad(int forceApp, int orderOfAccuracy, DistSVec<double,3> &X, DistVec<double> &ctrlVol,
    				    double (*dFs)[3], int sizeFs, DistLevelSetStructure *distLSS,
    				    DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
-				    DistSVec<double,dim> &dV_, double dS[3],
+				    DistSVec<double,dim> &dV_, DistSVec<double,dim> &dUghost, double dS[3],
    				    DistVec<GhostPoint<dim>*> *ghostPoints = 0, PostFcn *postFcn = 0,DistVec<int>* fid = 0);
    void computederivativeOperatorsOfForceLoad(dRdXoperators<dim> &dRdXop, int forceApp, int orderOfAccuracy, DistSVec<double,3> &X, DistVec<double> &ctrlVol,
               int sizeFs, DistLevelSetStructure *distLSS,

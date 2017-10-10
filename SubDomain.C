@@ -4219,21 +4219,21 @@ void SubDomain::computeMatVecProdH1transpose(bool *nodeFlag, GenMat<Scalar,dim> 
      }
 
    }
- //consider ghost node contribution
-   typename GenMat<Scalar,dim>::AuxilliaryIterator* myItr = A.begin_ghostGhostNodes();
-   // ghost nodes contribution to ghost nodes , A.begin_ghostGhostNodes is computed in populateghostJacobian
-   if (myItr) {
-     do { 
-      DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(reinterpret_cast<Scalar(*)[dim*dim]>(myItr->pData), 0, ghostP.v, myItr->col , ghostProd.v, myItr->row);
-     } while (A.next(myItr));
-     A.free(myItr);
-   }
+ //consider ghost node contribution -- pretty sure this should be zero, but kept as legacy
+   // typename GenMat<Scalar,dim>::AuxilliaryIterator* myItr = A.begin_ghostGhostNodes();
+   // // ghost nodes contribution to ghost nodes , A.begin_ghostGhostNodes is computed in populateghostJacobian
+   // if (myItr) {
+   //   do { 
+   //    DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(reinterpret_cast<Scalar(*)[dim*dim]>(myItr->pData), 0, ghostP.v, myItr->col , ghostProd.v, myItr->row);
+   //   } while (A.next(myItr));
+   //   A.free(myItr);
+   // }
 
-   myItr = A.begin_ghostNodes();
+   typename GenMat<Scalar,dim>::AuxilliaryIterator* myItr = A.begin_ghostNodes();
     //real node state contribution to ghost node state, A.begin_ghostNodes is computed in populateghostJacobian
    if (myItr) {
      do { 
-       DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(reinterpret_cast<Scalar(*)[dim*dim]>(myItr->pData), 0, p.v, myItr->col , ghostProd.v, myItr->row);
+       DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(reinterpret_cast<Scalar(*)[dim*dim]>(myItr->pData), 0, p.v, myItr->col , ghostP.v, myItr->row);
      } while (A.next(myItr));
      A.free(myItr);
    }
@@ -4242,7 +4242,7 @@ void SubDomain::computeMatVecProdH1transpose(bool *nodeFlag, GenMat<Scalar,dim> 
    if (myItr) {
      do { 
        double (*tempA)[dim*dim] = reinterpret_cast<double(*)[dim*dim]>(myItr->pData);
-       DenseMatrixOp<Scalar,dim,dim*dim>::applyAndSubToVector(reinterpret_cast<Scalar(*)[dim*dim]>(myItr->pData), 0, ghostProd.v, myItr->col , prod.v, myItr->row);
+       DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(reinterpret_cast<Scalar(*)[dim*dim]>(myItr->pData), 0, ghostP.v, myItr->col , prod.v, myItr->row);
      } while (A.next(myItr));
      A.free(myItr);
    }
@@ -8640,8 +8640,8 @@ void SubDomain::populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<do
 
     if(neq > 2)
     {
-        for (k = 1; k < 4; ++k) B[k*neq+k] = 1.0;
-        B[0] = B[4*neq+4] = -1.0;
+        for (k = 1; k < 4; ++k) B[k*neq+k] = -1.0;
+        B[0] = B[4*neq+4] = 1.0;//it is actually temperature V[4] that is constantly popualted to ghost nodes, but for stiffened gas keeping rho, T constant implies P is constant
     }
 
     for(int l=0; l<edges.size(); l++)
@@ -8666,7 +8666,7 @@ void SubDomain::populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<do
                     if(neq > 2)
                     {
                         Vec<double> Vi(dim);
-                        //Aji = dUdV(V_i) * B * dVdU(U_j), actually this is -dU_ghost/dU_real
+                        //Aji = dUdV(V_i) * B * dVdU(U_j), actually this is dU_ghost/dU_real
                         varFcn->conservativeToPrimitive(U[i],Vi.v,tagI);
                         fluxFcn[BC_INTERNAL]->getFluxFcnBase(tagI)->getVarFcnBase()->computedVdU(Vi.v,dVdU);
                         fluxFcn[BC_INTERNAL]->getFluxFcnBase(tagI)->getVarFcnBase()->computedUdV(ghostPoints[j]->getPrimitiveState(), dUdV);
@@ -8680,6 +8680,9 @@ void SubDomain::populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<do
                         weight = (1 - alpha)*(1 - alpha);
                         for (k = 0; k < neq; ++k) {
                           Btmp[k*neq+k] = B[k*neq + k]*weight/ghostPoints[j]->Ws[k];
+                        }
+                        for(k = 1; k < 4; ++k){
+                          Btmp[k*neq+k] *= alpha/(1-alpha); // velocity population
                         }
                         DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&dUdV, 0, &Btmp, 0, &tmp, 0);
                         DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&tmp, 0, &dVdU, 0, Aji, 0);
@@ -8723,6 +8726,9 @@ void SubDomain::populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<do
                         weight = (1 - alpha)*(1 - alpha);
                         for (k = 0; k < neq; ++k){
                           Btmp[k*neq+k] = B[k*neq + k]*weight/ghostPoints[i]->Ws[k];
+                        }
+                        for(k = 1; k < 4; ++k){
+                          Btmp[k*neq+k] *= alpha/(1-alpha); // velocity population
                         }
                         DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&dUdV, 0, &Btmp, 0, &tmp, 0);
                         DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&tmp, 0, &dVdU, 0, Aij, 0);
@@ -10434,7 +10440,7 @@ void SubDomain::computederivativeEmbSurfBasedForceLoad(IoData &iod, int forceApp
                    Vec<Vec3D>& Xstruct, Vec<Vec3D>& dXstruct, LevelSetStructure &LSS, 
                    double pInfty, double dpInfty, 
                    SVec<double,dim> &Wstarij, SVec<double,dim> &Wstarji, 
-                   SVec<double,dim> &V, SVec<double,dim> &dV_, 
+                   SVec<double,dim> &V, SVec<double,dim> &dV_, SVec<double,dim> &dUghost,
                    Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, 
                    NodalGrad<dim, double> &gradV, NodalGrad<dim, double> &graddV, VarFcn* vf, Vec<int>* fid){
 
@@ -10539,55 +10545,114 @@ void SubDomain::computederivativeEmbSurfBasedForceLoad(IoData &iod, int forceApp
       
       for (int i=0; i<4; i++) {
 
-  double dist = dbary[i].norm();
+        double dist = dbary[i].norm();
 
-        if (norm[i] < 0) {
+              if (norm[i] < 0) {
 
-    if( LSS.isActive(0,T[i]) && dist < mindist[0] && normal*(Xp-Xf[i]) <= 0.0 ) {
-      mindist[0] = dist;
-      node[0] = T[i];
-    }
+          if( LSS.isActive(0,T[i]) && dist < mindist[0] && normal*(Xp-Xf[i]) <= 0.0 ) {
+            mindist[0] = dist;
+            node[0] = T[i];
+          }
 
-  } else if(norm[i] > 0) {
+        } else if(norm[i] > 0) {
 
-    if( LSS.isActive(0,T[i]) && dist < mindist[1] && normal*(Xp-Xf[i]) > 0.0 ) {
-      mindist[1] = dist;
-      node[1] = T[i];
-    }
+          if( LSS.isActive(0,T[i]) && dist < mindist[1] && normal*(Xp-Xf[i]) > 0.0 ) {
+            mindist[1] = dist;
+            node[1] = T[i];
+          }
 
-  }
+        }
 
       }
+
+      // For viscous simulation
+      double dp1dxj[4][3]; // Gradient of the P1 basis functions
+      double ddp1dxj[4][3]; // equal to zero for embedded as there is no mesh motion
+      for(int i=0;i<4;++i) for(int j=0;j<3;++j) {
+        dp1dxj[i][j] = 0.0; ddp1dxj[i][j] = 0.0;
+      }
+
+      double d2w[3]; // not used, but required by postFcn->computeViscousForce(...)
+
+      d2w[0] = d2w[1] = d2w[2] = 0.0;
+
+      double *Vwall = 0;
+      double *dVwall = 0;
+      double *Vface[3] = {0,0,0};
+      double *dVface[3] = {0,0,0};
+      double *vtet[2][4];
+      double *dvtet[2][4];
+      double *Vghost;
+      double *dVghost = new double[dim];
+      double *Ughost = new double[dim];
+      double dS[3] = {0.0, 0.0, 0.0}; //this is DFSPAR, only matters if we are doing mach sensitivities which we dont' care about at the moment
+      if(ghostPoints)
+      {
+          E->computeGradientP1Function(X, dp1dxj);
+          for(int i=0; i<4; ++i)
+          {
+            vtet[0][i] = V[T[i]];
+            vtet[1][i] = V[T[i]];
+            dvtet[0][i] = dV_[T[i]];
+            dvtet[1][i] = dV_[T[i]];           
+          }
+      GhostPoint<dim> *gp;
+      for(int i=0; i<4; ++i)
+        {
+          gp = (*ghostPoints)[T[i]];
+          if(gp)
+          {
+              Vghost = gp->getPrimitiveState();
+              vf->primitiveToConservative(Vghost,Ughost);
+              vf->conservativeToPrimitiveDerivative(Ughost,dUghost[T[i]], Vghost, dVghost);
+              if(norm[i] <= 0.) {
+                vtet[1][i] = Vghost;
+                dvtet[1][i] = dVghost;
+              }
+              else
+              {
+                vtet[0][i] = Vghost;
+                dvtet[0][i] = dVghost;
+              }
+          }
+        }
+      }
+      delete dVghost;
+      delete Ughost;
+
 
       dflocal = 0.0;
       for (int n = 0; n < 2; ++n) {
 
-  int i = node[n];
-  if (i < 0) continue;
+        int i = node[n];
+        if (i < 0) continue;
 
-  double *Vi = V[i];
+        double *Vi = V[i];
 
-        for(int m=0; m<3; ++m){
-           vectorIJ[m] =  Xp[m] - X[i][m];
-    dvectorIJ[m] = dXp[m];
+              for(int m=0; m<3; ++m){
+                 vectorIJ[m] =  Xp[m] - X[i][m];
+          dvectorIJ[m] = dXp[m];
+              }
+
+        double Pe = Vi[4] + gradVX[i][4]*vectorIJ[0]+
+                                  gradVY[i][4]*vectorIJ[1]+
+                            gradVZ[i][4]*vectorIJ[2];
+
+              double dPeS = gradVX[i][4]*dvectorIJ[0]+
+                      gradVY[i][4]*dvectorIJ[1]+
+                      gradVZ[i][4]*dvectorIJ[2];
+
+        double dPew = dV_[i][4] + graddVX[i][4]*vectorIJ[0]+
+                                        graddVY[i][4]*vectorIJ[1]+
+                                        graddVZ[i][4]*vectorIJ[2];
+
+        double dPe = dPeS + dPew;
+        //           ****
+        dflocal += ( (dPe - dpInfty)*nf[n] + (Pe - pInfty)*dnf[n] );
+        if(ghostPoints) {
+            // Viscous Simulation
+            dflocal += postFcn->computeDerivativeOfViscousForce(dp1dxj,ddp1dxj,nf[n],dnf[n],d2w,Vwall,dVwall,Vface,dVface,vtet[n],dvtet[n],dS);
         }
-
-  double Pe = Vi[4] + gradVX[i][4]*vectorIJ[0]+
-                            gradVY[i][4]*vectorIJ[1]+
-                      gradVZ[i][4]*vectorIJ[2];
-
-        double dPeS = gradVX[i][4]*dvectorIJ[0]+
-                gradVY[i][4]*dvectorIJ[1]+
-                gradVZ[i][4]*dvectorIJ[2];
-
-  double dPew = dV_[i][4] + graddVX[i][4]*vectorIJ[0]+
-                                  graddVY[i][4]*vectorIJ[1]+
-                                  graddVZ[i][4]*vectorIJ[2];
-
-  double dPe = dPeS + dPew;
-  //           ****
-  dflocal += ( (dPe - dpInfty)*nf[n] + (Pe - pInfty)*dnf[n] );
-
       } 
 
       for (int j=0; j<3; ++j) {

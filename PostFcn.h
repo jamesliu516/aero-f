@@ -116,6 +116,12 @@ public:
   virtual void computeDerivativeOfForce2(double [4][3], double [4][3], double *[3], double *[3], Vec3D &, Vec3D &,
                                          double [3], double *, double *, double *[3], double *[3],
                                          double *[4], double *[4], double [3], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], double[3][3], int = 0) = 0;
+  virtual Vec3D computeDerivativeOfViscousForce(double [4][3], double [4][3], Vec3D&, Vec3D&, double [3], double*, double*, double* [3], double* [3], double* [4], double* [4], double [3])
+  {
+        fprintf(stderr,"Calling a PostFcn Function for Viscous Forces. Doesn't make sense!\n");
+        exit(-1);
+  }
+
   virtual void computeDerivativeOperatorsOfForce(double dp1dxj[4][3], double *Xface[3], Vec3D &n, double *Vface[3], double *Vtet[4], double *pin,
                                                  double dPdx[3][3], int hydro, double dFi0dn[3], double dFi1dn[3], double dFi2dn[3],
                                                  double dFi0ddPdx[3][3], double dFi1ddPdx[3][3], double dFi2ddPdx[3][3],
@@ -247,7 +253,6 @@ protected:
 private:
 
 // Included (MB)
-  Vec3D computeDerivativeOfViscousForce(double [4][3], double [4][3], Vec3D&, Vec3D&, double [3], double*, double*, double* [3], double* [3], double* [4], double* [4], double [3]);
   void computeDerivativeOperatorsOfViscousForce(double dp1dxj[4][3], Vec3D& n, double* Vtet[4], double dFvddp1dxj[3][4][3], double dFvdn[3][3], double [3][4][5]); //YC
 
 public:
@@ -284,7 +289,7 @@ public:
   
 // Included (MB)
   double computeDerivativeOfNodeScalarQuantity(ScalarDerivativeType, double [3], double *, double *, double *, double *, double = 0);
-
+  Vec3D computeDerivativeOfViscousForce(double [4][3], double [4][3], Vec3D&, Vec3D&, double [3], double*, double*, double* [3], double* [3], double* [4], double* [4], double [3]);
   void computeDerivativeOfForce(double [4][3], double [4][3], double *[3], double *[3], Vec3D &, Vec3D &,
                                         double [3], double *, double *, double *[3], double *[3],
                                         double *[4], double *[4], double [3], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], double[3][3], int = 0);

@@ -5512,7 +5512,7 @@ void Domain::computederivativeEmbSurfBasedForceLoad(IoData &iod, int forceApp, i
                 double (*dFs)[3], int sizedFs, DistLevelSetStructure *distLSS, 
                 double pInfty, double dpInfty,
                 DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, 
-                DistSVec<double,dim> &V, DistSVec<double,dim> &dV_,
+                DistSVec<double,dim> &V, DistSVec<double,dim> &dV_,DistSVec<double,dim> &dUghost,
                 DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, 
                 DistNodalGrad<dim, double> *gradV, DistNodalGrad<dim, double> *graddV,
                 VarFcn* vf, DistVec<int> *fid){
@@ -5532,12 +5532,12 @@ void Domain::computederivativeEmbSurfBasedForceLoad(IoData &iod, int forceApp, i
   for (int iSub=0; iSub<numLocSub; iSub++) {
 
     for (int is=0; is<sizedFs; is++) subdFs[iSub][is][0] = subdFs[iSub][is][1] = subdFs[iSub][is][2] = 0.0;
-
+    if(ghostPoints) gp = ghostPoints->operator[](iSub);
     subDomain[iSub]->computederivativeEmbSurfBasedForceLoad(iod, forceApp, orderOfAccuracy, X(iSub), 
                   subdFs[iSub], sizedFs, 
                   numStructElems, stElem, Xstruct, dXstruct, (*distLSS)(iSub), 
                   pInfty, dpInfty,
-                  Wstarij(iSub), Wstarji(iSub), V(iSub), dV_(iSub), gp, postFcn, 
+                  Wstarij(iSub), Wstarji(iSub), V(iSub), dV_(iSub), dUghost(iSub), gp, postFcn, 
                   (*gradV)(iSub), (*graddV)(iSub), vf, fid?&((*fid)(iSub)):0);
   }
 

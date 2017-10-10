@@ -951,7 +951,8 @@ built_dVdU = true; //moved to outside for loop otherwise will not be built for a
 template<int dim>
 void PostOperator<dim>::computeDerivativeOfForceAndMomentEmb(Vec3D &x0, DistSVec<double,3> &X,
 							  DistSVec<double,dim> &U,
-							  DistSVec<double,dim> &dU,
+                DistSVec<double,dim> &dU,
+							  DistSVec<double,dim> &dUghost,
 							  DistVec<int> *fluidId,
 							  double dS[3],
 							  Vec3D *dFi, Vec3D *dMi,
@@ -978,7 +979,7 @@ void PostOperator<dim>::computeDerivativeOfForceAndMomentEmb(Vec3D &x0, DistSVec
   }
 
   if(forceGen != 0)
-    forceGen->getderivativeOfForcesAndMoments(surfOutMap, *V, *dV, X, dS, dfi, dmi);
+    forceGen->getderivativeOfForcesAndMoments(surfOutMap, *V, *dV, dUghost, X, dS, dfi, dmi);
 
   for(iSurf = 0; iSurf < numSurf; ++iSurf) {
     dFi[iSurf] += dfi[iSurf];

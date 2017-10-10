@@ -3731,7 +3731,7 @@ void SpaceOperator<dim>::computederivativeOfForceLoad(int forceApp, int orderOfA
  						      DistVec<double> &ctrlVol, double (*dFs)[3], int sizeFs,
  						      DistLevelSetStructure *distLSS,
  						      DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
-						      DistSVec<double,dim> &dV_, double dS[3],
+						      DistSVec<double,dim> &dV_, DistSVec<double,dim> &dUghost, double dS[3],
  						      DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn,
  						      DistVec<int>* fid){
 
@@ -3759,7 +3759,7 @@ void SpaceOperator<dim>::computederivativeOfForceLoad(int forceApp, int orderOfA
 
       domain->computederivativeEmbSurfBasedForceLoad(*iod, forceApp, orderOfAccuracy, X, dFs, sizeFs,
 						     distLSS, pinternal, dpinternal, Wstarij, Wstarji,
-						     *V, dV_, ghostPoints, postFcn, ngrad, ngraddV, varFcn, fid);
+						     *V, dV_, dUghost, ghostPoints, postFcn, ngrad, ngraddV, varFcn, fid);
 
       break;
     case 3: // Reconstructed Surface
