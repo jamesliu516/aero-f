@@ -1347,7 +1347,7 @@ public:
 					      double (*dFs)[3], int sizedFs, DistLevelSetStructure *distLSS, 
 					      double pInfty, double dpInfty, 
 					      DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, 
-					      DistSVec<double,dim> &V, DistSVec<double,dim> &dV_,
+					      DistSVec<double,dim> &V, DistSVec<double,dim> &dV_, DistSVec<double,dim> &dUghost,
 					      DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, 
 					      DistNodalGrad<dim, double> *gradV, DistNodalGrad<dim, double> *graddV, 
 					      VarFcn* vf, DistVec<int> *fid);

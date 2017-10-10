@@ -1889,7 +1889,7 @@ public:
 					      Vec<Vec3D>& Xstruct, Vec<Vec3D>& dXstruct, LevelSetStructure &LSS, 
 					      double pInfty, double dpInfty, 
 					      SVec<double,dim> &Wstarij, SVec<double,dim> &Wstarji, 
-					      SVec<double,dim> &V, SVec<double,dim> &dV_, 
+					      SVec<double,dim> &V, SVec<double,dim> &dV_, SVec<double,dim> &dUghost, 
 					      Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, 
 					      NodalGrad<dim, double> &gradV, NodalGrad<dim, double> &graddV, VarFcn* vf, Vec<int>* fid);
   template<int dim>

@@ -110,6 +110,7 @@ DistSVec<double,dim> difference;
   DistSVec<double,dim> *Up;
   DistSVec<double,dim> *Um;
   DistSVec<double,dim> dUdS;
+  DistSVec<double,dim> dUghostdS;
 
   double reynolds0;
   double kenergy0;
@@ -190,6 +191,7 @@ public:
 
   void fsoLinearSolver(IoData &, 
 		       DistSVec<double,dim> &, 
+           DistSVec<double,dim> &,
 		       DistSVec<double,dim> &,
 		       bool);
 void fsoAdjointLinearSolver(IoData &, 
@@ -209,7 +211,7 @@ void fsoAdjointLinearSolver(IoData &,
 		     Vec3D &, Vec3D &, Vec3D &);
 
   void fsoGetDerivativeOfEffortsAnalytical(bool isSparse,IoData &ioData,  DistSVec<double,3>   &X,DistSVec<double,3> &dX,
-					   DistSVec<double,dim> &U, DistSVec<double,dim> &dU,
+					   DistSVec<double,dim> &U, DistSVec<double,dim> &dU, DistSVec<double,dim> &dUghost,
 					   Vec3D &dForces, Vec3D &dMoments, Vec3D &dL);
 
   void fsoGetDerivativeOfEffortsAnalytical2(

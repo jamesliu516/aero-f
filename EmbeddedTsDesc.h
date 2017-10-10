@@ -155,7 +155,8 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   void computederivativeOfForceLoad(DistSVec<double,dim> *Wij, 
 				    DistSVec<double,dim> *Wji, 
 				    double dS[3], 
-				    DistSVec<double,dim> &dV);
+				    DistSVec<double,dim> &dV,
+            DistSVec<double,dim> &dUghost);
   void computederivativeOperatorsOfForceLoad(dRdXoperators<dim> &dRdXop,
             DistSVec<double,dim> *Wij, 
             DistSVec<double,dim> *Wji, 
@@ -171,7 +172,7 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
                                            Vec3D* Fi, Vec3D* Mi);
 
   void getderivativeOfForcesAndMoments(map<int,int> & surfOutMap, 
-				       DistSVec<double,dim> &V, DistSVec<double,dim> &dV, 
+				       DistSVec<double,dim> &V, DistSVec<double,dim> &dV, DistSVec<double,dim> &dUghost, 
 				       DistSVec<double,3> &X, double dS[3],
 				       Vec3D *dFi, Vec3D *dMi);
   void getderivativeOperatorsOfForcesAndMoments(dRdXoperators<dim> &dRdXop, map<int,int> & surfOutMap, 

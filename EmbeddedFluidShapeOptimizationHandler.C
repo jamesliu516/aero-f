@@ -32,6 +32,7 @@ EmbeddedFluidShapeOptimizationHandler<dim>::EmbeddedFluidShapeOptimizationHandle
   dFdS_inviscid(dom->getNodeDistInfo()),
   dFdS_viscous(dom->getNodeDistInfo()),
   dUdS(dom->getNodeDistInfo()),
+  dUghostdS(dom->getNodeDistInfo()),
   Pin(dom->getFaceDistInfo()),
   dFdS_debug(dom->getNodeDistInfo()),
   difference(dom->getNodeDistInfo()),
@@ -172,6 +173,7 @@ EmbeddedFluidShapeOptimizationHandler<dim>::EmbeddedFluidShapeOptimizationHandle
   dFdS_inviscid=0.0;
   dFdS_viscous=0.0;
   dUdS=0.0;
+  dUghostdS=0.0;
   dddx=0.0;
   dddy=0.0;
   dddz=0.0;
@@ -246,6 +248,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoInitialize(IoData &ioData, D
   this->interpolatePositionVector(dt, dtLeft);
   this->computeMeshMetrics();
   this->updateStateVectors(U);  
+
 
 }
 
@@ -1177,7 +1180,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoComputeDerivativesOfFluxAndS
     fsoSemiAnalytical(ioData, X, A, U, dFdS);
 
   }
-  fsoLinearSolver(ioData, dFdS, dUdS, isFSI);
+  fsoLinearSolver(ioData, dFdS, dUdS, dUghostdS, isFSI);
 
 }
 
@@ -1450,6 +1453,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoLinearSolver(
                                                    IoData &ioData,
                                                    DistSVec<double,dim> &dFdS,
                                                    DistSVec<double,dim> &dUdS,
+                                                   DistSVec<double,dim> &dUghostdS,
                                                    bool isFSI)
 {
   this->com->fprintf(stderr,"STARTED LINEAR SOLVER\n");
@@ -1488,6 +1492,8 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoLinearSolver(
   }
 
   dUdS = this->embeddeddQ.real();
+  this->mvp->apply(this->embeddeddQ, this->embeddedB);//this has the effect of populating embeddeddQ.ghost, embeddeddB is just a dummy
+  dUghostdS = this->embeddeddQ.ghost();
   //this->embeddedU.ghost() += this->embeddeddQ.ghost();//TODO what did this line do?
 
   dFdS *= (-1.0);
@@ -1567,10 +1573,10 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoComputeSensitivities(
     //TODO this is basically a quick hack, since the analytic one doesn't really give correct results
     //for shape sensitivity however, using finite difference in the embedded framework may crash if EpsFD is too large
     if(ioData.sa.sensMesh  == SensitivityAnalysis::ON_SENSITIVITYMESH)
-      // fsoGetDerivativeOfEffortsAnalytical(isSparse,ioData, X, dXdS, U, dUdS, dFds, dMds, dLds);
-      fsoGetDerivativeOfEffortsFiniteDifference(ioData, X, U, dUdS, dFds, dMds, dLds);
+      fsoGetDerivativeOfEffortsAnalytical(isSparse,ioData, X, dXdS, U, dUdS, dUghostdS, dFds, dMds, dLds);
+      // fsoGetDerivativeOfEffortsFiniteDifference(ioData, X, U, dUdS, dFds, dMds, dLds);
     else
-      // fsoGetDerivativeOfEffortsAnalytical(isSparse,ioData, X, dXdS, U, dUdS, dFds, dMds, dLds);//TODO HACK
+      // fsoGetDerivativeOfEffortsAnalytical(isSparse,ioData, X, dXdS, U, dUdS, dUghostdS, dFds, dMds, dLds);//TODO HACK
       fsoGetDerivativeOfEffortsFiniteDifference(ioData, X, U, dUdS, dFds, dMds, dLds);
   }
 
@@ -1799,6 +1805,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsAnalyt
                                                    DistSVec<double,3> &dX,  //derivative of mesh motion
                                                    DistSVec<double,dim> &U,
                                                    DistSVec<double,dim> &dU,
+                                                   DistSVec<double,dim> &dUghost,
                                                    Vec3D &dForces,
                                                    Vec3D &dMoments,
                                                    Vec3D &dL)
@@ -1846,7 +1853,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsAnalyt
       }
     else{
       //the impact of GradP is included in the function below
-      this->postOp->computeDerivativeOfForceAndMomentEmb(x0, X, U, dU, &this->nodeTag, DFSPAR, dFi, dMi, dFv, dMv);
+      this->postOp->computeDerivativeOfForceAndMomentEmb(x0, X, U, dU, dUghost, &this->nodeTag, DFSPAR, dFi, dMi, dFv, dMv);
     }
   dF = 0.0;
   dM = 0.0;

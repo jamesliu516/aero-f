@@ -42,7 +42,7 @@ class ForceGenerator {
                                            Vec3D* Fi, Vec3D* Mi) = 0;
 
     virtual void getderivativeOfForcesAndMoments(map<int,int> & surfOutMap, 
-						 DistSVec<double,dim> &U, DistSVec<double,dim> &dU, 
+						 DistSVec<double,dim> &V, DistSVec<double,dim> &dV,  DistSVec<double,dim> &dUghost, 
 						 DistSVec<double,3> &X, double dS[3],
 						 Vec3D *Fi, Vec3D *Mi) = 0;
     virtual void getderivativeOperatorsOfForcesAndMoments(dRdXoperators<dim> &dRdXop, map<int,int> & surfOutMap, 
@@ -215,7 +215,8 @@ public:
 
   void computeDerivativeOfForceAndMomentEmb(Vec3D &x0, DistSVec<double,3> &X,
 					 DistSVec<double,dim> &U, 
-					 DistSVec<double,dim> &dU, 
+           DistSVec<double,dim> &dU, 
+					 DistSVec<double,dim> &dUghost, 
 					 DistVec<int> *fluidId,
 					 double dS[3],
 					 Vec3D *dFi, Vec3D *dMi, 
