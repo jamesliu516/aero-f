@@ -126,7 +126,7 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
     }
   }
   else if (ioData.ts.type == TsData::EXPLICIT) {
-      std::cout<<__FILE__<<":"<<__LINE__<<std::endl;
+    // std::cout<<__FILE__<<":"<<__LINE__<<std::endl;  // sjg: unsure why this is here
     ExplicitTsDesc<dim> tsDesc(ioData, geoSource, &domain);
     TsSolver<ExplicitTsDesc<dim> > tsSolver(&tsDesc);
     tsSolver.solve(ioData);

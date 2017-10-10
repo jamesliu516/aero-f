@@ -116,7 +116,7 @@ public:
   void computeTimeStep2(FemEquationTerm *, VarFcn *, GeoState &,
 		       SVec<double,3> &, SVec<double,dim> &, Vec<double> &,
                        Vec<double> &, TimeLowMachPrec &, Vec<double>&);
- 
+
   template<int dim>
   void computeTimeStep(VarFcn *, GeoState &, SVec<double,dim> &, Vec<double> &,
                        TimeLowMachPrec &, Vec<int> &, int,Vec<double>*);
@@ -125,7 +125,7 @@ public:
   int computeFiniteVolumeTerm(int*, Vec<double> &, FluxFcn**, RecFcn*, ElemSet&, GeoState&,
                               SVec<double,3>&, SVec<double,dim>&, NodalGrad<dim>&, EdgeGrad<dim>*,
 			      SVec<double,dim>&, SVec<int,2>&, int, int);
-  
+
   template<int dim>
   int computeThinLayerViscousFiniteVolumeTerm(int* locToGlobNodeMap,
                                      VarFcn* varFcn,
@@ -133,7 +133,7 @@ public:
                                      GeoState& geoState, SVec<double,3>& X,
                                      SVec<double,dim>& V,
                                      SVec<double,dim>& fluxes);
-  
+
   template<int dim>
     int computeViscousFiniteVolumeTerm(int* locToGlobNodeMap,
 				   VarFcn* varFcn,
@@ -206,19 +206,19 @@ public:
 											NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
 											SVec<double,dim>& fluxes, int it,
 											SVec<int,2>& tag, int failsafe, int rshift);
-											
+
   template<int dim>
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&, int*,
                               FluxFcn**, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&,
                               SVec<double,dim>&, SVec<double,dim>&, SVec<double,dim>&,
-                              Vec<int>&, Vec<int>&, LevelSetStructure &, bool, Vec<int>&, 
-                              int, double, double, NodalGrad<dim>&, 
+                              Vec<int>&, Vec<int>&, LevelSetStructure &, bool, Vec<int>&,
+                              int, double, double, NodalGrad<dim>&,
                               EdgeGrad<dim>*, SVec<double,dim>&, int,
-                              SVec<int,2>&, int, int, V6NodeData (*v6Data)[2]=NULL); 
+                              SVec<int,2>&, int, int, V6NodeData (*v6Data)[2]=NULL);
 
   template<int dim, int dimLS>
   void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&,
-                               SVec<double,dim>&,Vec<int>& fluidId, 
+                               SVec<double,dim>&,Vec<int>& fluidId,
   			       NodalGrad<dim>&,   EdgeGrad<dim>*,
 			       NodalGrad<dimLS>&, EdgeGrad<dimLS>*,
                                SVec<double,dimLS>&, SVec<double,dimLS>&, LevelSetStructure* =0, int order = 1);
@@ -246,7 +246,7 @@ public:
                                SVec<double,3> &, Vec<double> &,
                                SVec<double,dim> &, GenMat<Scalar,neq> &,
                                FluidSelector &, Vec<int> &, int * );
-  
+
   template<class Scalar,int dim,int neq>
   void computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>&,
                               FluxFcn**, GeoState&, SVec<double,3>&,
@@ -263,9 +263,9 @@ public:
 
   template<class Scalar,int dim, int dimLS,int neq>
   void computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,int*,
-                                     FluxFcn** fluxFcn, 
+                                     FluxFcn** fluxFcn,
                                      GeoState& geoState, SVec<double,3>& X,
-                                     SVec<double,dim>& V, 
+                                     SVec<double,dim>& V,
                                      LevelSetStructure& LSS, Vec<int> &fluidId,
                                      int Nriemann, FluidSelector &fluidSelector,
                                      NodalGrad<dimLS>& ngradLS,Vec<double>&,GenMat<Scalar,neq>& A);
@@ -289,9 +289,8 @@ public:
   template<int dimLS>
   void TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Phi,LevelSetStructure *LSS=0);
   template<int dimLS>
-  void pseudoFastMarchingMethodInitialization(SVec<double,3>& X,
-		Vec<int> &Tag, SVec<double,dimLS> &d2wall, 
-		Vec<int> &sortedNodes, int &nSortedNodes,
+  void pseudoFastMarchingMethodInitialization(Vec<int> &Tag, SVec<double,dimLS> &d2wall,
+    Vec<int> &sortedNodes, int &nSortedNodes, Vec<int> &isSharedNode, int &commFlag,
 		LevelSetStructure *LSS=0);
 
   void setMasterFlag(bool *flag) { masterFlag = flag; }
@@ -319,8 +318,8 @@ public:
                                            RectangularSparseMat<double,dim,dim> *dFluxdddz,
                                            RectangularSparseMat<double,3,dim> *dFluxdX,
                                            RectangularSparseMat<double,3,dim> *dFluxdEdgeNorm,
-                                           ElemSet&, GeoState&, SVec<double,3>&, 
-                                           NodalGrad<dim>&, EdgeGrad<dim>*, 
+                                           ElemSet&, GeoState&, SVec<double,3>&,
+                                           NodalGrad<dim>&, EdgeGrad<dim>*,
                                            SVec<double,dim>& dddx,
                                            SVec<double,dim>& dddy,
                                            SVec<double,dim>& dddz,
@@ -349,7 +348,7 @@ public:
   template<int dim>
   void computeDerivativeOfFiniteVolumeTerm(FluxFcn** fluxFcn, RecFcn* recFcn,
 					   GeoState& geoState, SVec<double,3>& X, LevelSetStructure &LSS,
-					   bool linRecAtInterface, Vec<int> &fluidId, 
+					   bool linRecAtInterface, Vec<int> &fluidId,
 					   ExactRiemannSolver<dim>& riemann, int Nriemann,
 					   NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
 					   double dMach, SVec<double,dim>& V, SVec<double,dim>& dFluxes);
@@ -366,13 +365,13 @@ public:
   template<int dim>
   void computeDerivativeOperatorsOfFiniteVolumeTerm(Vec<double> &irey, Vec<double> &dIrey, FluxFcn** fluxFcn, RecFcn* recFcn,
               ElemSet& elems, GeoState& geoState, SVec<double,3>& X, SVec<double,dim>& V, NodalGrad<dim>& ngrad,
-              EdgeGrad<dim>* egrad, double dMach, 
+              EdgeGrad<dim>* egrad, double dMach,
               RectangularSparseMat<double,3,dim> &dFluxdEdgeNorm,
               RectangularSparseMat<double,3,dim> &dFluxdX,
               RectangularSparseMat<double,dim,dim> &dFluxdddx,
               RectangularSparseMat<double,dim,dim> &dFluxdddy,
               RectangularSparseMat<double,dim,dim> &dFluxdddz);
- 
+
   template<int dim>
   void computeDerivativeOfTimeStep(FemEquationTerm *, VarFcn *, GeoState &,
                               SVec<double,3> &, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &,

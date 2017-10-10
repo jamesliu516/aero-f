@@ -6526,7 +6526,7 @@ void EdgeSet::TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Ph
 {
   bool intersect = false;
   int tag = 1;
-  for(int l=0; l<numEdges; l++){
+  for (int l=0; l<numEdges; l++) {
     int i = ptr[l][0];
     int j = ptr[l][1];
     if(LSS) intersect = LSS->edgeIntersectsWall(0,l);
@@ -6538,56 +6538,53 @@ void EdgeSet::TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Ph
 }
 
 //------------------------------------------------------------------------------
+
 template<int dimLS>
-void EdgeSet::pseudoFastMarchingMethodInitialization(SVec<double,3>& X,
-				Vec<int> &Tag, SVec<double,dimLS> &d2wall,
-				Vec<int> &sortedNodes, int &nSortedNodes,
-				LevelSetStructure *LSS)
+void EdgeSet::pseudoFastMarchingMethodInitialization(Vec<int> &Tag,
+        SVec<double,dimLS> &d2wall,	Vec<int> &sortedNodes, int &nSortedNodes,
+        Vec<int> &isSharedNode, int &commFlag, LevelSetStructure *LSS)
 {
   assert(LSS);
-  bool intersect;
-//  int tag = 1;
-  for(int l=0; l<numEdges; l++){
-    int i = ptr[l][0];
-    int j = ptr[l][1];
-    bool iActive = LSS->isActive(0.0,i);
-    bool jActive = LSS->isActive(0.0,j);
-/*    if(!iActive && !jActive) {
-      if(Tag[i]<0) {
-        Tag[i] = 0;
-        d2wall[i][0] = 0.0;
-        sortedNodes[nSortedNodes] = i;
-        nSortedNodes++;
-      }
-      if(Tag[j]<0) {
-        Tag[j] = 0;
-        d2wall[j][0] = 0.0;
-        sortedNodes[nSortedNodes] = j;
-        nSortedNodes++;
-      }
-    }
-*/
-    if(LSS->edgeIntersectsWall(0,l)) {
-      if(iActive && Tag[i] < 0) {
-	sortedNodes[nSortedNodes] = i;
- 	nSortedNodes++;
-	Tag[i]  = 1;
-        // Active nodes belonging to an edge cut by the structure are projected exactly on the surface.
-        LevelSetResult resij = LSS->getLevelSetDataAtEdgeCenter(0.0, l, true);
-	d2wall[i][0] = LSS->isPointOnSurface(X[i],resij.trNodes[0],resij.trNodes[1],resij.trNodes[2]);
-      }
-      if(jActive && Tag[j] < 0) {
-	sortedNodes[nSortedNodes] = j;
- 	nSortedNodes++;
-	Tag[j]  = 1;
-        // Active nodes belonging to an edge cut by the structure are projected exactly on the surface.
-        LevelSetResult resji = LSS->getLevelSetDataAtEdgeCenter(0.0, l, false);
-	d2wall[j][0] = LSS->isPointOnSurface(X[j],resji.trNodes[0],resji.trNodes[1],resji.trNodes[2]);
+
+  int i, j;
+  LevelSetResult resij;
+
+  for (int l=0; l<numEdges; l++) {
+    if (LSS->edgeIntersectsWall(0,l)) {
+      resij = LSS->getLevelSetDataAtEdgeCenter(0.0, l, true);
+      if (!(resij.structureType==BoundaryData::SYMMETRYPLANE)) {
+
+        i = ptr[l][0];
+        j = ptr[l][1];
+
+        if (LSS->isActive(0.0,i) && Tag[i] < 0) {
+          assert(LSS->isNearInterface(0.0,i));
+
+          d2wall[i][0] = LSS->distToInterface(0.0,i);
+          Tag[i] = 1;
+          sortedNodes[nSortedNodes] = i;
+          nSortedNodes++;
+
+          if (isSharedNode[i] && !commFlag) commFlag = 1;
+        }
+
+        if (LSS->isActive(0.0,j) && Tag[j] < 0) {
+          assert(LSS->isNearInterface(0.0,j));
+
+          d2wall[j][0] = LSS->distToInterface(0.0,j);
+          Tag[j] = 1;
+          sortedNodes[nSortedNodes] = j;
+          nSortedNodes++;
+
+          if (isSharedNode[j] && !commFlag) commFlag = 1;
+        }
       }
     }
   }
 }
+
 //------------------------------------------------------------------------------
+
 template<int dim>
 void EdgeSet::ComputeAndAddActuatorDiskSourceTerm(Vec3D normalDir,
 		double controlVolumeArea, double pressureJumpValue,

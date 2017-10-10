@@ -211,7 +211,7 @@ public:
 
   void printNodalDebug(int globNodeId, int identifier, DistSVec<double,dim> *U, DistVec<int> *Id=0, DistVec<int> *Id0=0);
 
-  void computeDistanceToWall(IoData &ioData);
+  void computeDistanceToWall(IoData &ioData, double t);
 
   TsParameters* getTsParams() {return data;}
   ErrorHandler* getErrorHandler() {return errorHandler;}
