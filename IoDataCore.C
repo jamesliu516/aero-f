@@ -1535,6 +1535,10 @@ WallDistanceMethodData::WallDistanceMethodData()
   maxIts = 10;
   eps = 1.e-4;
   iterativelvl = -1;
+
+  // added by sjg, 07/2017 for wall distance predictor algorithm
+  frequencyadaptation = OFF;
+  distanceeps = 1.0e-2;
 }
 
 //------------------------------------------------------------------------------
@@ -1542,17 +1546,23 @@ WallDistanceMethodData::WallDistanceMethodData()
 void WallDistanceMethodData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 4, father);
+  ClassAssigner *ca = new ClassAssigner(name, 6, father);
 
   new ClassToken<WallDistanceMethodData>
     (ca, "Type", this, reinterpret_cast<int WallDistanceMethodData::*>
-     (&WallDistanceMethodData::type), 3, "Iterative", 0, "NonIterative", 1, "Hybrid", 2);
+    (&WallDistanceMethodData::type), 3, "Iterative", 0, "NonIterative", 1, "Hybrid", 2);
 
   new ClassInt<WallDistanceMethodData>(ca, "MaxIts", this, &WallDistanceMethodData::maxIts);
 
   new ClassDouble<WallDistanceMethodData>(ca, "Eps", this, &WallDistanceMethodData::eps);
 
   new ClassInt<WallDistanceMethodData>(ca, "IterativeLevel", this, &WallDistanceMethodData::iterativelvl);
+
+  new ClassToken<WallDistanceMethodData>
+    (ca, "ReinitializationFrequencyAdaptation", this, reinterpret_cast<int WallDistanceMethodData::*>
+    (&WallDistanceMethodData::frequencyadaptation), 2, "Off", 0, "On", 1);
+
+  new ClassDouble<WallDistanceMethodData>(ca, "DistanceEps", this, &WallDistanceMethodData::distanceeps);
 
 }
 
@@ -2689,7 +2699,7 @@ void SchemeFixData::setup(const char *name, ClassAssigner *father)
   cfix9.setup("Cone9", ca);
   cfix10.setup("Cone10", ca);
 
-  dhfix.setup("Dihedral",ca); 
+  dhfix.setup("Dihedral",ca);
 }
 
 //------------------------------------------------------------------------------
@@ -5313,7 +5323,7 @@ void EmbeddedFramework::setup(const char *name) {
                                      "MidEdge", 0, "Intersection", 1);
   new ClassToken<EmbeddedFramework> (ca, "SecondOrderEulerFlux", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::secondOrderEulerFlux), 2,
                                      "Intersection", 0, "ClosestPoint", 1);
-  embedIC.setup("InitialConditions", ca); 
+  embedIC.setup("InitialConditions", ca);
 
   new ClassDouble<EmbeddedFramework>(ca, "Alpha", this, &EmbeddedFramework::alpha);
   new ClassDouble<EmbeddedFramework>(ca, "InterfaceThickness", this, &EmbeddedFramework::interfaceThickness);
@@ -6352,40 +6362,41 @@ int IoData::checkFileNames()
     if (eqs.tc.tm.type == TurbulenceModelData::TWO_EQUATION_KE)
       bc.wall.integration = BcsWallData::WALL_FUNCTION;
 
-	 if (eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES &&
-		  strcmp(input.d2wall, "") == 0 && problem.framework == ProblemData::BODYFITTED) {
-      com->fprintf(stderr, "*** Error: no distance to wall file given\n");
-      ++error;
-    }
+  if ((eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES ||
+      eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS) &&
+  	  strcmp(input.d2wall, "") == 0 && problem.framework == ProblemData::BODYFITTED) {
+    com->fprintf(stderr, "*** Error: no distance to wall file given\n");
+    ++error;
+  }
 
-    if (bc.wall.integration == BcsWallData::WALL_FUNCTION)
+  if (bc.wall.integration == BcsWallData::WALL_FUNCTION)
+  {
+	 if(problem.framework == ProblemData::BODYFITTED)
 	 {
-		 if(problem.framework == ProblemData::BODYFITTED)
+		 if (bc.wall.delta < 0.0)
 		 {
-			 if (bc.wall.delta < 0.0)
-			 {
-				 bc.wall.delta_given = false;
+			 bc.wall.delta_given = false;
 
-        com->fprintf(stderr, "*** Error: no delta value given\n");
-        ++error;
-      }
-			 else bc.wall.delta_given = true;
+       com->fprintf(stderr, "*** Error: no delta value given\n");
+       ++error;
+     }
+		 else bc.wall.delta_given = true;
     }
     else
-		 {
-			 bc.wall.delta_given = true;
-			 if(bc.wall.delta < 0.0)
-			 {
-				 bc.wall.delta_given = false;
-      bc.wall.delta = 0.0;
-  }
-		 }
-	 }
-	 else
 	 {
-		 bc.wall.delta_given = false;
-		 bc.wall.delta = 0.0;
-	 }
+  	  bc.wall.delta_given = true;
+  	  if(bc.wall.delta < 0.0)
+  	  {
+  		  bc.wall.delta_given = false;
+        bc.wall.delta = 0.0;
+      }
+    }
+  }
+  else
+  {
+	  bc.wall.delta_given = false;
+	  bc.wall.delta = 0.0;
+  }
 
   } else {
     output.transient.nutturb = "";
@@ -7285,7 +7296,7 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
       ref.rv.mode = RefVal::DIMENSIONAL;
       ref.rv.density = ref.density;
       ref.rv.velocity = velocity;
-      ref.rv.pressure = ref.density * velocity*velocity;
+      ref.rv.pressure = ref.density*velocity*velocity;
       ref.rv.temperature = velocity*velocity/Cv;
 //      ref.rv.temperature = gamma*(gamma - 1.0) * ref.mach*ref.mach * ref.temperature;
       ref.rv.viscosity_mu = viscosity;
@@ -7351,7 +7362,6 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
       ref.rv.tforce = ref.rv.force / aero.forceScaling;
       ref.rv.tpower = ref.rv.power / aero.powerScaling;
       ref.rv.entropy = pow(ref.rv.density,-omegajwl)*velocity*velocity;
-
     }
     else if(eqs.fluidModel.fluid == FluidModelData::LIQUID){
       if (ref.density < 0.0)

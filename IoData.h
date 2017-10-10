@@ -917,6 +917,9 @@ struct WallDistanceMethodData {
   double eps;
   int iterativelvl;
 
+  enum ReinitializationFrequencyAdaptation {OFF = 0, ON = 1} frequencyadaptation;
+  double distanceeps;
+
   WallDistanceMethodData();
   ~WallDistanceMethodData() {}
 
@@ -1464,7 +1467,7 @@ struct DHFixData {
   double angle;
   int numLayers;
   double maxDist;
-  
+
   DHFixData();
   ~DHFixData() {}
 

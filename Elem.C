@@ -45,9 +45,9 @@ void ElemSet::computeTimeStep(
 	  bool isValid = true;
 
 	  if(LSS)
-	  {		  
+	  {
 		  int numberOfEdges = elems[i]->numEdges();
-		  
+
 		  for(int j=0; j<numberOfEdges; ++j)
 		  {
 			  int l = elems[i]->edgeNum(j);
@@ -63,13 +63,13 @@ void ElemSet::computeTimeStep(
 
 	  if(!isValid) continue;
 
-      for (int k=0; k<dim; ++k) 
+      for (int k=0; k<dim; ++k)
 	{
 	  Vmid[k] = 0.0;
 	  for(int j=0;j<numberOfNodes;++j)
-	    { 
+	    {
 	      nodeID   = nodeNumber[j];
-	      Vmid[k] += V[nodeID][k];	  
+	      Vmid[k] += V[nodeID][k];
 	    }
 	  Vmid[k] *= oneOnDofs;
 	}
@@ -89,7 +89,7 @@ void ElemSet::computeTimeStep(
 //------------------------------------------------------------------------------
 
 template<int dim>
-void ElemSet::computeGalerkinTerm(FemEquationTerm *fet, GeoState &geoState, 
+void ElemSet::computeGalerkinTerm(FemEquationTerm *fet, GeoState &geoState,
                 SVec<double,3> &X, SVec<double,dim> &V,
                 SVec<double,dim> &R,
                 Vec<GhostPoint<dim>*> *ghostPoints,
@@ -124,16 +124,16 @@ void ElemSet::computeGalerkinTerm(FemEquationTerm *fet, GeoState &geoState,
         elems[ iElem ]->computeGalerkinTerm_e(fet, X, d2wall, V, R, ghostPoints, LSS);
     }
   }
-
 }
 
 //------------------------------------------------------------------------------
 
 // Not used? KMW
 
+/*
 template<int dim>
-void ElemSet::computeGalerkinTermRestrict(FemEquationTerm *fet, GeoState &geoState, 
-				  SVec<double,3> &X, SVec<double,dim> &V, 
+void ElemSet::computeGalerkinTermRestrict(FemEquationTerm *fet, GeoState &geoState,
+				  SVec<double,3> &X, SVec<double,dim> &V,
 				  SVec<double,dim> &R,const std::vector<int> &sampledLocElem,
 				  Vec<GhostPoint<dim>*> *ghostPoints,LevelSetStructure *LSS)
 {
@@ -147,6 +147,9 @@ void ElemSet::computeGalerkinTermRestrict(FemEquationTerm *fet, GeoState &geoSta
 	}
 
 }
+
+*/
+
 //------------------------------------------------------------------------------
 
 /****************************************************************************************
@@ -167,7 +170,6 @@ void ElemSet::computeDerivativeOfGalerkinTerm(FemEquationTerm *fet,
   for (int i=0; i<numElems; ++i)
     elems[i]->computeDerivativeOfGalerkinTerm(fet, X, dX, d2wall, V, dV, dMach, dR);
 }
-
 
 /****************************************************************************************
  * Computes the derivative of the viscous term for non-embedded simulations.            *
@@ -190,9 +192,6 @@ void ElemSet::computeDerivativeOfGalerkinTermEmb(
     elems[i]->computeDerivativeOfGalerkinTermEmb(fet, X, dX, d2wall, V, dV, dMach, dR, ghostPoints,LSS);
 }
 
-
-
-
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -207,6 +206,30 @@ void ElemSet::computeDerivativeOperatorsOfGalerkinTerm(FemEquationTerm *fet, Geo
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim>
+void ElemSet::computeSADistanceSensitivity(FemEquationTerm *fet, SVec<double,3> &X,
+                GeoState &geoState, SVec<double,dim> &V,
+                Vec<double> &dS, LevelSetStructure *LSS)
+{
+
+  Vec<double> &d2wall = geoState.getDistanceToWall();
+
+  if (sampleMesh)
+  {
+    for (int iElem=0; iElem<numSampledElems; ++iElem)
+    elems[ (elemsConnectedToSampleNode[iElem]) ]->computeSADistanceSensitivity(fet, X, d2wall, V, dS, LSS);
+  }
+  else
+  {
+    for (int iElem=0; iElem<numSampledElems; ++iElem)
+    elems[ iElem ]->computeSADistanceSensitivity(fet, X, d2wall, V, dS, LSS);
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim>
 void ElemSet::computeMBarAndM(DynamicVMSTerm *dvmst,
 			      SVec<double,dim> **VBar,
@@ -246,12 +269,12 @@ void ElemSet::computeVMSLESTerm(VMSLESTerm *vmst,
 				SVec<double,3> &X,
 				SVec<double,dim> &V,
 				SVec<double,dim> &Sigma)
-                                                                                                                          
+
 {
-                                                                                                                          
+
   for (int i=0; i<numElems; ++i)
     elems[i]->computeVMSLESTerm(vmst, VBar, X, V, Sigma);
-                                                                                                                          
+
 }
 
 //------------------------------------------------------------------------------
@@ -259,7 +282,7 @@ void ElemSet::computeVMSLESTerm(VMSLESTerm *vmst,
 template<int dim>
 void ElemSet::computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, SVec<double,3> &X,
 					SVec<double,dim> &V, SVec<double,dim> &R,
-													 Vec<GhostPoint<dim>*> *ghostPoints, 
+													 Vec<GhostPoint<dim>*> *ghostPoints,
 													 LevelSetStructure *LSS, bool externalSI)
 
 {
@@ -271,7 +294,7 @@ void ElemSet::computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, SVec<double,3>
 }
 	else
 	{
-		for(int i=0; i<numElems; ++i)	  
+		for(int i=0; i<numElems; ++i)
 			elems[i]->computeSmagorinskyLESTerm_e(smag, X, V, R, ghostPoints, LSS);
 	}
 
@@ -303,9 +326,9 @@ void ElemSet::computeWaleLESTerm(WaleLESTerm *wale, SVec<double,3> &X,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void ElemSet::computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs, 
-                                    SVec<double,3> &X, SVec<double,dim> &V, 
-												SVec<double,dim> &R,	Vec<GhostPoint<dim>*> *ghostPoints, 
+void ElemSet::computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs,
+                                    SVec<double,3> &X, SVec<double,dim> &V,
+												SVec<double,dim> &R,	Vec<GhostPoint<dim>*> *ghostPoints,
 												LevelSetStructure *LSS, bool externalSI)
 
 {
@@ -324,10 +347,10 @@ void ElemSet::computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs,
 //------------------------------------------------------------------------------
 
 template<int dim, class Scalar, int neq>
-void ElemSet::computeJacobianGalerkinTerm(FemEquationTerm *fet, GeoState &geoState, 
+void ElemSet::computeJacobianGalerkinTerm(FemEquationTerm *fet, GeoState &geoState,
 					  SVec<double,3> &X, Vec<double> &ctrlVol,
 					  SVec<double,dim> &V, GenMat<Scalar,neq> &A,
-                                          Vec<GhostPoint<dim>*>* ghostPoints, 
+                                          Vec<GhostPoint<dim>*>* ghostPoints,
 														LevelSetStructure *LSS, bool externalSI)
 {
 
@@ -350,10 +373,10 @@ void ElemSet::computeJacobianGalerkinTerm(FemEquationTerm *fet, GeoState &geoSta
 
 template<int dim>
 void ElemSet::computeTestFilterAvgs(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test,
-                                   SVec<double,6> &Sij_Test, Vec<double> &modS_Test, 
-                                   SVec<double,8> &Eng_Test, SVec<double,3> &X, SVec<double,dim> &V, 
+                                   SVec<double,6> &Sij_Test, Vec<double> &modS_Test,
+                                   SVec<double,8> &Eng_Test, SVec<double,3> &X, SVec<double,dim> &V,
                                    double gam, double R,
-												Vec<GhostPoint<dim>*>* ghostPoints, 
+												Vec<GhostPoint<dim>*>* ghostPoints,
 												LevelSetStructure *LSS, bool externalSI)
 {
 
@@ -384,7 +407,9 @@ void ElemSet::computeDistanceCloseNodes(int lsdim, Vec<int> &Tag, SVec<double,3>
     elems[i]->computeDistanceCloseNodes(lsdim,Tag,X,ddx,ddy,ddz,Phi,Psi);
 
 }
+
 //------------------------------------------------------------------------------
+
 template<int dimLS>
 void ElemSet::recomputeDistanceCloseNodes(int lsdim, Vec<int> &Tag, SVec<double,3> &X,
                                        SVec<double,dimLS> &ddx, SVec<double,dimLS> &ddy,
@@ -396,7 +421,9 @@ void ElemSet::recomputeDistanceCloseNodes(int lsdim, Vec<int> &Tag, SVec<double,
     elems[i]->recomputeDistanceCloseNodes(lsdim,Tag,X,ddx,ddy,ddz,Phi,Psi);
 
 }
+
 //------------------------------------------------------------------------------
+
 template<int dimLS>
 void ElemSet::computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
                                        SVec<double,3> &X, SVec<double,1> &Psi, SVec<double,dimLS> &Phi)
@@ -406,6 +433,7 @@ void ElemSet::computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
     elems[i]->computeDistanceLevelNodes(lsdim,Tag,level,X,Psi,Phi);
 
 }
+
 // End of Level Set Reinitialization functions
 //-------------------------------------------------------------------------------
 
@@ -416,18 +444,18 @@ void ElemSet::integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, 
     elems[i]->integrateFunction(obj, X,V,F,npt);
 }
 
-template<int dim> 
-void ElemSet::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, 
+template<int dim>
+void ElemSet::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U,
                                   const std::vector<Vec3D>& locs, double (*sol)[dim],
                                   int* status, int* last, LevelSetStructure* LSS,
                                   Vec<GhostPoint<dim>*>* ghostPoints, VarFcn* varFcn,
-				  bool assumeCache) {
-  
+			                            bool assumeCache) {
+
   int nn;
   Vec3D bbox[2];
   std::memset(status, 0, sizeof(int)*locs.size());
- 
-  int found_all = 1; 
+
+  int found_all = 1;
   for (int j = 0; j < locs.size(); ++j) {
     if(last[j] >= numElems) status[j] = 0;
     else {
@@ -437,14 +465,14 @@ void ElemSet::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U,
     if (!status[j]) found_all = 0;
   }
 
-  if (found_all || assumeCache) 
+  if (found_all || assumeCache)
     return;
 
   for (int i = 0; i < numElems; ++i)  {
-    
+
     Elem& E = *elems[i];
-    nn = E.numNodes(); 
-    bbox[0] = Vec3D( std::numeric_limits<double>::max() ); 
+    nn = E.numNodes();
+    bbox[0] = Vec3D( std::numeric_limits<double>::max() );
     bbox[1] = Vec3D( -std::numeric_limits<double>::max() );
     for (int j = 0; j < nn; ++j) {
       const Vec3D& x = X[ E[j] ];
@@ -452,18 +480,18 @@ void ElemSet::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U,
       bbox[1] = max( bbox[1], x );
     }
     for (int j = 0; j < locs.size(); ++j) {
-      if (!status[j]) { 
+      if (!status[j]) {
         if (bbox[0][0] <= locs[j][0] && bbox[1][0] >= locs[j][0] &&
             bbox[0][1] <= locs[j][1] && bbox[1][1] >= locs[j][1] &&
             bbox[0][2] <= locs[j][2] && bbox[1][2] >= locs[j][2]) {
-          
+
           status[j] = E.interpolateSolution(X, U, locs[j], sol[j], LSS, ghostPoints, varFcn);
-          if (status[j]) 
+          if (status[j])
             last[j] = i;
         }
       }
     }
-  } 
+  }
 }
 
 //------------------------------------------------------------------------------

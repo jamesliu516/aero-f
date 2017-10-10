@@ -18,7 +18,7 @@ Timer::Timer(Communicator *communicator) : com(communicator)
   initialTime = getTime();
 
   numTimings = (int)NUMTIMINGS;
-  
+
   counter = new int[numTimings];
   data = new double[numTimings];
 
@@ -48,7 +48,7 @@ double Timer::getTime()
 
   timeval tp;
   struct timezone tz;
-  
+
   gettimeofday(&tp, &tz);
 
   // return 1000.0*tp.tv_sec + tp.tv_usec/1000.0;
@@ -111,39 +111,39 @@ ioData = &_ioData;
 /*if (ioData->problem.alltype == ProblemData::_ROB_CONSTRUCTION_)
   numTimings += 4;
 else if (ioData->problem.alltype == ProblemData::_ROM_AEROELASTIC_)
-  numTimings += 3;  
+  numTimings += 3;
 */
 }
 
 //------------------------------------------------------------------------------
 
-void Timer::setSetupTime() 
-{ 
+void Timer::setSetupTime()
+{
 
   counter[setup]++;
-  data[setup] = getTime() - initialTime; 
+  data[setup] = getTime() - initialTime;
 
 }
 
 //------------------------------------------------------------------------------
 
-void Timer::setRunTime() 
-{ 
+void Timer::setRunTime()
+{
 
   counter[run]++;
-  data[run] = getRunTime(); 
+  data[run] = getRunTime();
 
 }
 
 //------------------------------------------------------------------------------
 
-double Timer::addTimeStepTime(double t0) 
-{ 
+double Timer::addTimeStepTime(double t0)
+{
 
   double t = getTime() - t0;
-  
+
   counter[timeStep]++;
-  data[timeStep] += t; 
+  data[timeStep] += t;
 
   return t;
 
@@ -151,13 +151,13 @@ double Timer::addTimeStepTime(double t0)
 
 //------------------------------------------------------------------------------
 
-double Timer::addNodalWeightsTime(double t0) 
-{ 
+double Timer::addNodalWeightsTime(double t0)
+{
 
   double t = getTime() - t0;
-  
+
   counter[nodalWeights]++;
-  data[nodalWeights] += t; 
+  data[nodalWeights] += t;
 
   return t;
 
@@ -165,13 +165,13 @@ double Timer::addNodalWeightsTime(double t0)
 
 //------------------------------------------------------------------------------
 
-double Timer::addNodalGradTime(double t0) 
-{ 
-  
+double Timer::addNodalGradTime(double t0)
+{
+
   double t = getTime() - t0;
 
   counter[nodalGrad]++;
-  data[nodalGrad] += t; 
+  data[nodalGrad] += t;
 
   return t;
 
@@ -179,8 +179,8 @@ double Timer::addNodalGradTime(double t0)
 
 //------------------------------------------------------------------------------
 
-double Timer::addFiniteVolumeTermTime(double t0) 
-{ 
+double Timer::addFiniteVolumeTermTime(double t0)
+{
 
   double t = getTime() - t0;
 
@@ -188,7 +188,7 @@ double Timer::addFiniteVolumeTermTime(double t0)
  //   DebugTools::PrintBacktrace();
 
   counter[fvTerm]++;
-  data[fvTerm] += t; 
+  data[fvTerm] += t;
 
   return t;
 
@@ -196,13 +196,13 @@ double Timer::addFiniteVolumeTermTime(double t0)
 
 //------------------------------------------------------------------------------
 
-double Timer::addFiniteElementTermTime(double t0) 
-{ 
+double Timer::addFiniteElementTermTime(double t0)
+{
 
   double t = getTime() - t0;
 
   counter[feTerm]++;
-  data[feTerm] += t; 
+  data[feTerm] += t;
 
   return t;
 
@@ -210,13 +210,13 @@ double Timer::addFiniteElementTermTime(double t0)
 
 //------------------------------------------------------------------------------
 
-double Timer::addFiniteVolumeJacTime(double t0) 
-{ 
+double Timer::addFiniteVolumeJacTime(double t0)
+{
 
   double t = getTime() - t0;
 
   counter[fvJac]++;
-  data[fvJac] += t; 
+  data[fvJac] += t;
 
   return t;
 
@@ -224,13 +224,13 @@ double Timer::addFiniteVolumeJacTime(double t0)
 
 //------------------------------------------------------------------------------
 
-double Timer::addFiniteElementJacTime(double t0) 
-{ 
-  
+double Timer::addFiniteElementJacTime(double t0)
+{
+
   double t = getTime() - t0;
 
   counter[feJac]++;
-  data[feJac] += t; 
+  data[feJac] += t;
 
   return t;
 
@@ -261,14 +261,14 @@ double Timer::addDynamicVMSLESTime(double t0)
 }
 
 //------------------------------------------------------------------------------
-	   
-double Timer::addH2SetupTime(double t0) 
-{ 
-  
+
+double Timer::addH2SetupTime(double t0)
+{
+
   double t = getTime() - t0;
 
   counter[h2Assembly]++;
-  data[h2Assembly] += t; 
+  data[h2Assembly] += t;
 
   return t;
 
@@ -276,13 +276,13 @@ double Timer::addH2SetupTime(double t0)
 
 //------------------------------------------------------------------------------
 
-double Timer::addPrecSetupTime(double t0) 
-{ 
+double Timer::addPrecSetupTime(double t0)
+{
 
   double t = getTime() - t0;
 
   counter[fluidPrecSetup]++;
-  data[fluidPrecSetup] += t; 
+  data[fluidPrecSetup] += t;
 
   return t;
 
@@ -290,13 +290,13 @@ double Timer::addPrecSetupTime(double t0)
 
 //------------------------------------------------------------------------------
 
-double Timer::addKspTime(double t0) 
-{ 
+double Timer::addKspTime(double t0)
+{
 
   double t = getTime() - t0;
 
   counter[fluidKsp]++;
-  data[fluidKsp] += t; 
+  data[fluidKsp] += t;
 
   return t;
 
@@ -304,13 +304,13 @@ double Timer::addKspTime(double t0)
 
 //------------------------------------------------------------------------------
 
-double Timer::addMeshMetricsTime(double t0) 
-{ 
+double Timer::addMeshMetricsTime(double t0)
+{
 
   double t = getTime() - t0;
 
   counter[meshMetrics]++;
-  data[meshMetrics] += t; 
+  data[meshMetrics] += t;
 
   return t;
 
@@ -332,7 +332,7 @@ double Timer::addEmbeddedForceTime(double t0)
 }
 
 //------------------------------------------------------------------------------
-                                                                                                                             
+
 double Timer::addStructUpdTime(double t0)
 {
 
@@ -346,7 +346,7 @@ double Timer::addStructUpdTime(double t0)
 }
 
 //------------------------------------------------------------------------------
-                                                                                                                             
+
 double Timer::addICInterpTime(double t0)
 {
 
@@ -403,13 +403,13 @@ double Timer::addMeshAssemblyTime(double t0)
 
 //------------------------------------------------------------------------------
 
-double Timer::addMeshPrecSetupTime(double t0) 
-{ 
+double Timer::addMeshPrecSetupTime(double t0)
+{
 
   double t = getTime() - t0;
 
   counter[meshPrecSetup]++;
-  data[meshPrecSetup] += t; 
+  data[meshPrecSetup] += t;
 
   return t;
 
@@ -694,13 +694,13 @@ double Timer::addRomTimeIntegTime(double t0)
 
 //------------------------------------------------------------------------------
 
-double Timer::addLocalComTime(double t0) 
-{ 
+double Timer::addLocalComTime(double t0)
+{
 
   double t = getTime() - t0;
 
   counter[localCom]++;
-  data[localCom] += t; 
+  data[localCom] += t;
 
   return t;
 
@@ -708,13 +708,13 @@ double Timer::addLocalComTime(double t0)
 
 //------------------------------------------------------------------------------
 
-double Timer::addGlobalComTime(double t0) 
-{ 
+double Timer::addGlobalComTime(double t0)
+{
 
   double t = getTime() - t0;
 
   counter[globalCom]++;
-  data[globalCom] += t; 
+  data[globalCom] += t;
 
   return t;
 
@@ -722,13 +722,13 @@ double Timer::addGlobalComTime(double t0)
 
 //------------------------------------------------------------------------------
 
-double Timer::addInterComTime(double t0) 
-{ 
+double Timer::addInterComTime(double t0)
+{
 
   double t = getTime() - t0;
 
   counter[interCom]++;
-  data[interCom] += t; 
+  data[interCom] += t;
 
   return t;
 
@@ -736,13 +736,13 @@ double Timer::addInterComTime(double t0)
 
 //------------------------------------------------------------------------------
 
-double Timer::addBinaryReadTime(double t0) 
-{ 
+double Timer::addBinaryReadTime(double t0)
+{
 
   double t = getTime() - t0;
 
   counter[binread]++;
-  data[binread] += t; 
+  data[binread] += t;
 
   return t;
 
@@ -750,13 +750,13 @@ double Timer::addBinaryReadTime(double t0)
 
 //------------------------------------------------------------------------------
 
-double Timer::addBinaryWriteTime(double t0) 
-{ 
+double Timer::addBinaryWriteTime(double t0)
+{
 
   double t = getTime() - t0;
 
   counter[binwrite]++;
-  data[binwrite] += t; 
+  data[binwrite] += t;
 
   return t;
 
@@ -819,13 +819,13 @@ double Timer::addLSKspTime(double t0)
 
 //------------------------------------------------------------------------------
 
-double Timer::addLSPrecSetupTime(double t0) 
-{ 
+double Timer::addLSPrecSetupTime(double t0)
+{
 
   double t = getTime() - t0;
 
   counter[lsPrecSetup]++;
-  data[lsPrecSetup] += t; 
+  data[lsPrecSetup] += t;
 
   return t;
 
@@ -833,25 +833,25 @@ double Timer::addLSPrecSetupTime(double t0)
 
 //------------------------------------------------------------------------------
 
-double Timer::addLSFiniteVolumeJacTime(double t0) 
-{ 
+double Timer::addLSFiniteVolumeJacTime(double t0)
+{
 
   double t = getTime() - t0;
 
   counter[lsJac]++;
-  data[lsJac] += t; 
+  data[lsJac] += t;
 
   return t;
 
 }
 
-double Timer::addLSReinitializationTime(double t0) 
-{ 
+double Timer::addLSReinitializationTime(double t0)
+{
 
   double t = getTime() - t0;
 
   counter[lsreinitialization]++;
-  data[lsreinitialization] += t; 
+  data[lsreinitialization] += t;
 
   return t;
 
@@ -876,7 +876,7 @@ double Timer::addWaitAndReceiveDisp(double t0)
 double Timer::addIntersectionTime(double t0)
 {
   double t = getTime() - t0;
-  
+
   counter[intersect]++;
   data[intersect] += t;
   data[eulerFSI] += t;
@@ -929,10 +929,21 @@ double Timer::addWallDistanceTime(double t0)
 
   double t = getTime() - t0;
 
-  counter[walldistance]++;
+  // counter[walldistance]++;
   data[walldistance] += t;
 
   return t;
+
+}
+
+//------------------------------------------------------------------------------
+
+void Timer::addWallDistanceCount(double t0)
+{
+
+  counter[walldistance]++;
+
+  return;
 
 }
 
@@ -981,31 +992,31 @@ double Timer::addDistCalcsPreproTime(double t0) {
 }
 
 //------------------------------------------------------------------------------
-                
+
 double Timer::addExactUpdatesPreproTime(double t0) {
-                
+
   double t = getTime() - t0;
   data[exactUpdatesPrepro] += t;
 
   return t;
 
-} 
+}
 
 //------------------------------------------------------------------------------
-                
+
 double Timer::addProjErrorTime(double t0) {
-                
+
   double t = getTime() - t0;
   data[projError] += t;
 
   return t;
 
-} 
+}
 
 //------------------------------------------------------------------------------
 
 double Timer::addMDSTime(double t0) {
-  
+
   double t = getTime() - t0;
   data[mds] += t;
 
@@ -1014,82 +1025,82 @@ double Timer::addMDSTime(double t0) {
 }
 
 //------------------------------------------------------------------------------
-                
+
 double Timer::addApproxMetricPreproTime(double t0) {
-                
+
   double t = getTime() - t0;
   data[approxMetricPrepro] += t;
 
   return t;
 
-} 
+}
 
 //------------------------------------------------------------------------------
-                
+
 double Timer::addSurfaceMeshConstructionTime(double t0) {
-                
+
   double t = getTime() - t0;
   data[surfaceMeshConstruction] += t;
 
   return t;
 
-} 
+}
 
 //------------------------------------------------------------------------------
-                
+
 double Timer::addSurfaceOutputTime(double t0) {
-                
+
   double t = getTime() - t0;
   data[surfaceOutput] += t;
 
   return t;
 
-} 
+}
 
 
 //------------------------------------------------------------------------------
-                
+
 double Timer::addSampledMeshConstructionTime(double t0) {
-                
+
   double t = getTime() - t0;
   data[sampledMeshConstruction] += t;
 
   return t;
 
-} 
+}
 
 //------------------------------------------------------------------------------
-                
+
 double Timer::addSampledOutputTime(double t0) {
-                
+
   double t = getTime() - t0;
   data[sampledOutput] += t;
 
   return t;
 
-} 
+}
 
 //------------------------------------------------------------------------------
-                
+
 double Timer::addPseudoInvTime(double t0) {
-                
+
   double t = getTime() - t0;
   data[pseudoInv] += t;
 
   return t;
 
-} 
+}
 
 //------------------------------------------------------------------------------
-                
+
 double Timer::addTotalGappyOfflineTime(double t0) {
-                
+
   double t = getTime() - t0;
   data[gappyOffline] += t;
 
   return t;
 
-} 
+}
 
 //------------------------------------------------------------------------------
 
@@ -1123,7 +1134,7 @@ void Timer::print(Timer *str, FILE *fp)
 
   data[comm] = data[localCom] + data[globalCom] + data[rmaCom] + data[interCom];
   data[io] = data[binread] + data[binwrite];
-  
+
   if (ioData->problem.alltype == ProblemData::_POD_CONSTRUCTION_)
     data[podConstr] -= data[io];
 
@@ -1148,29 +1159,29 @@ void Timer::print(Timer *str, FILE *fp)
   com->fprintf(fp, "----------------------------------------------------------------------\n");
   com->fprintf(fp, "Elapsed Time Report (s)       :        Min        Max        Avg   # Calls\n");
   com->fprintf(fp, "\n");
-  com->fprintf(fp, "Problem Setup                 : %10.2f %10.2f %10.2f %9d\n", 
-	       tmin[setup], tmax[setup], tavg[setup], 
+  com->fprintf(fp, "Problem Setup                 : %10.2f %10.2f %10.2f %9d\n",
+	       tmin[setup], tmax[setup], tavg[setup],
 	       counter[setup]);
   com->fprintf(fp, "\n");
-  com->fprintf(fp, "Fluid Solution                : %10.2f %10.2f %10.2f         -\n", 
+  com->fprintf(fp, "Fluid Solution                : %10.2f %10.2f %10.2f         -\n",
 	       tmin[fluid], tmax[fluid], tavg[fluid]);
-  com->fprintf(fp, "  Time Steps                  : %10.2f %10.2f %10.2f %9d\n", 
-	       tmin[timeStep], tmax[timeStep], tavg[timeStep], 
+  com->fprintf(fp, "  Time Steps                  : %10.2f %10.2f %10.2f %9d\n",
+	       tmin[timeStep], tmax[timeStep], tavg[timeStep],
 	       counter[timeStep]);
-  com->fprintf(fp, "  Nodal Weights and Gradients : %10.2f %10.2f %10.2f %9d\n", 
-	       tmin[nodalGrad], tmax[nodalGrad], tavg[nodalGrad], 
+  com->fprintf(fp, "  Nodal Weights and Gradients : %10.2f %10.2f %10.2f %9d\n",
+	       tmin[nodalGrad], tmax[nodalGrad], tavg[nodalGrad],
 	       counter[nodalGrad]);
-  com->fprintf(fp, "  FV Fluxes                   : %10.2f %10.2f %10.2f %9d\n", 
-	       tmin[fvTerm], tmax[fvTerm], tavg[fvTerm], 
+  com->fprintf(fp, "  FV Fluxes                   : %10.2f %10.2f %10.2f %9d\n",
+	       tmin[fvTerm], tmax[fvTerm], tavg[fvTerm],
 	       counter[fvTerm]);
-  com->fprintf(fp, "  FE Fluxes                   : %10.2f %10.2f %10.2f %9d\n", 
-	       tmin[feTerm], tmax[feTerm], tavg[feTerm], 
+  com->fprintf(fp, "  FE Fluxes                   : %10.2f %10.2f %10.2f %9d\n",
+	       tmin[feTerm], tmax[feTerm], tavg[feTerm],
 	       counter[feTerm]);
-  com->fprintf(fp, "  FV Jacobian                 : %10.2f %10.2f %10.2f %9d\n", 
-	       tmin[fvJac], tmax[fvJac], tavg[fvJac], 
+  com->fprintf(fp, "  FV Jacobian                 : %10.2f %10.2f %10.2f %9d\n",
+	       tmin[fvJac], tmax[fvJac], tavg[fvJac],
 	       counter[fvJac]);
-  com->fprintf(fp, "  FE Jacobian                 : %10.2f %10.2f %10.2f %9d\n", 
-	       tmin[feJac], tmax[feJac], tavg[feJac], 
+  com->fprintf(fp, "  FE Jacobian                 : %10.2f %10.2f %10.2f %9d\n",
+	       tmin[feJac], tmax[feJac], tavg[feJac],
 	       counter[feJac]);
   com->fprintf(fp, "  VMS-LES Modeling            : %10.2f %10.2f %10.2f %9d\n",
                tmin[vms], tmax[vms], tavg[vms],
@@ -1178,17 +1189,17 @@ void Timer::print(Timer *str, FILE *fp)
   com->fprintf(fp, "  Dynamic VMS-LES Modeling    : %10.2f %10.2f %10.2f %9d\n",
                tmin[dvms], tmax[dvms], tavg[dvms],
                counter[dvms]);
-  com->fprintf(fp, "  H2 Matrix Assembly          : %10.2f %10.2f %10.2f %9d\n", 
-	       tmin[h2Assembly], tmax[h2Assembly], tavg[h2Assembly], 
+  com->fprintf(fp, "  H2 Matrix Assembly          : %10.2f %10.2f %10.2f %9d\n",
+	       tmin[h2Assembly], tmax[h2Assembly], tavg[h2Assembly],
 	       counter[h2Assembly]);
-  com->fprintf(fp, "  Preconditioner Setup        : %10.2f %10.2f %10.2f %9d\n", 
-	       tmin[fluidPrecSetup], tmax[fluidPrecSetup], tavg[fluidPrecSetup], 
+  com->fprintf(fp, "  Preconditioner Setup        : %10.2f %10.2f %10.2f %9d\n",
+	       tmin[fluidPrecSetup], tmax[fluidPrecSetup], tavg[fluidPrecSetup],
 	       counter[fluidPrecSetup]);
-  com->fprintf(fp, "  Linear Solver               : %10.2f %10.2f %10.2f %9d\n", 
-	       tmin[fluidKsp], tmax[fluidKsp], tavg[fluidKsp], 
+  com->fprintf(fp, "  Linear Solver               : %10.2f %10.2f %10.2f %9d\n",
+	       tmin[fluidKsp], tmax[fluidKsp], tavg[fluidKsp],
 	       counter[fluidKsp]);
-  com->fprintf(fp, "  Mesh Metrics Update         : %10.2f %10.2f %10.2f %9d\n", 
-	       tmin[meshMetrics], tmax[meshMetrics], tavg[meshMetrics], 
+  com->fprintf(fp, "  Mesh Metrics Update         : %10.2f %10.2f %10.2f %9d\n",
+	       tmin[meshMetrics], tmax[meshMetrics], tavg[meshMetrics],
 	       counter[meshMetrics]);
   if (ioData->problem.alltype == ProblemData::_UNSTEADY_LINEARIZED_AEROELASTIC_)  {
     com->fprintf(fp, "  Structural Update           : %10.2f %10.2f %10.2f %9d\n",
@@ -1211,7 +1222,7 @@ void Timer::print(Timer *str, FILE *fp)
   }
   com->fprintf(fp, "\n");
 
-  if ((ioData->problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_ ) || 
+  if ((ioData->problem.alltype == ProblemData::_STEADY_NONLINEAR_ROM_ ) ||
       (ioData->problem.alltype == ProblemData::_UNSTEADY_NONLINEAR_ROM_ ) ||
       (ioData->problem.alltype == ProblemData::_ACC_UNSTEADY_NONLINEAR_ROM_ ) ||
       (ioData->problem.alltype == ProblemData::_FORCED_NONLINEAR_ROM_ ))  {
@@ -1237,16 +1248,16 @@ void Timer::print(Timer *str, FILE *fp)
 
   // Output Mesh solution time (except for Euler FSI)
   if(ioData->problem.framework != ProblemData::EMBEDDED) {
-    com->fprintf(fp, "Mesh Solution                 : %10.2f %10.2f %10.2f         -\n", 
+    com->fprintf(fp, "Mesh Solution                 : %10.2f %10.2f %10.2f         -\n",
                  tmin[mesh], tmax[mesh], tavg[mesh]);
-    com->fprintf(fp, "  K Matrix Assembly           : %10.2f %10.2f %10.2f %9d\n", 
-                 tmin[meshAssembly], tmax[meshAssembly], tavg[meshAssembly], 
+    com->fprintf(fp, "  K Matrix Assembly           : %10.2f %10.2f %10.2f %9d\n",
+                 tmin[meshAssembly], tmax[meshAssembly], tavg[meshAssembly],
                  counter[meshAssembly]);
-    com->fprintf(fp, "  Preconditioner Setup        : %10.2f %10.2f %10.2f %9d\n", 
-                 tmin[meshPrecSetup], tmax[meshPrecSetup], tavg[meshPrecSetup], 
+    com->fprintf(fp, "  Preconditioner Setup        : %10.2f %10.2f %10.2f %9d\n",
+                 tmin[meshPrecSetup], tmax[meshPrecSetup], tavg[meshPrecSetup],
 	         counter[meshPrecSetup]);
-    com->fprintf(fp, "  Linear Solver               : %10.2f %10.2f %10.2f %9d\n", 
-                 tmin[meshKsp], tmax[meshKsp], tavg[meshKsp], 
+    com->fprintf(fp, "  Linear Solver               : %10.2f %10.2f %10.2f %9d\n",
+                 tmin[meshKsp], tmax[meshKsp], tavg[meshKsp],
 	         counter[meshKsp]);
     com->fprintf(fp, "\n");
   }
@@ -1260,15 +1271,15 @@ void Timer::print(Timer *str, FILE *fp)
                counter[lsNodalWeightsAndGrad]);
     com->fprintf(fp, "  FV Fluxes                   : %10.2f %10.2f %10.2f %9d\n",
                tmin[lsFvTerm], tmax[lsFvTerm], tavg[lsFvTerm], counter[lsFvTerm]);
-    com->fprintf(fp, "  FV Jacobian                 : %10.2f %10.2f %10.2f %9d\n", 
-		 tmin[lsJac], tmax[lsJac], tavg[lsJac], 
+    com->fprintf(fp, "  FV Jacobian                 : %10.2f %10.2f %10.2f %9d\n",
+		 tmin[lsJac], tmax[lsJac], tavg[lsJac],
 		 counter[lsJac]);
-    com->fprintf(fp, "  Reinitialization            : %10.2f %10.2f %10.2f %9d\n", 
+    com->fprintf(fp, "  Reinitialization            : %10.2f %10.2f %10.2f %9d\n",
 		 tmin[lsreinitialization], tmax[lsreinitialization],
-                 tavg[lsreinitialization], 
+                 tavg[lsreinitialization],
 		 counter[lsreinitialization]);
-    com->fprintf(fp, "  Preconditioner Setup        : %10.2f %10.2f %10.2f %9d\n", 
-		 tmin[lsPrecSetup], tmax[lsPrecSetup], tavg[lsPrecSetup], 
+    com->fprintf(fp, "  Preconditioner Setup        : %10.2f %10.2f %10.2f %9d\n",
+		 tmin[lsPrecSetup], tmax[lsPrecSetup], tavg[lsPrecSetup],
 		 counter[lsPrecSetup]);
     com->fprintf(fp, "  Linear Solver               : %10.2f %10.2f %10.2f %9d\n", tmin[lsKsp], tmax[lsKsp], tavg[lsKsp], counter[lsKsp]);
     com->fprintf(fp, "\n");
@@ -1339,8 +1350,8 @@ void Timer::print(Timer *str, FILE *fp)
   if(ioData->problem.framework == ProblemData::EMBEDDED) {
     com->fprintf(fp, "Eulerian FSI                  : %10.2f %10.2f %10.2f         -\n",
                  tmin[eulerFSI], tmax[eulerFSI], tavg[eulerFSI]);
-    com->fprintf(fp, "  F-S Intersections           : %10.2f %10.2f %10.2f %9d\n", 
-  	         tmin[intersect], tmax[intersect], tavg[intersect], 
+    com->fprintf(fp, "  F-S Intersections           : %10.2f %10.2f %10.2f %9d\n",
+  	         tmin[intersect], tmax[intersect], tavg[intersect],
   	         counter[intersect]);
     com->fprintf(fp, "  Force calculation           : %10.2f %10.2f %10.2f %9d\n",
                  tmin[embedforce], tmax[embedforce], tavg[embedforce],
@@ -1348,29 +1359,29 @@ void Timer::print(Timer *str, FILE *fp)
     com->fprintf(fp,"\n");
   }
 
-  com->fprintf(fp, "Communication/Synchronization : %10.2f %10.2f %10.2f         -\n", 
+  com->fprintf(fp, "Communication/Synchronization : %10.2f %10.2f %10.2f         -\n",
 	       tmin[comm], tmax[comm], tavg[comm]);
   com->fprintf(fp, "  Local                       : %10.2f %10.2f %10.2f         -\n",
 	       tmin[localCom], tmax[localCom], tavg[localCom]);
-  com->fprintf(fp, "  Global                      : %10.2f %10.2f %10.2f         -\n", 
+  com->fprintf(fp, "  Global                      : %10.2f %10.2f %10.2f         -\n",
 	       tmin[globalCom], tmax[globalCom], tavg[globalCom]);
-  com->fprintf(fp, "  RMA                         : %10.2f %10.2f %10.2f         -\n", 
+  com->fprintf(fp, "  RMA                         : %10.2f %10.2f %10.2f         -\n",
 	       tmin[rmaCom], tmax[rmaCom], tavg[rmaCom]);
-  com->fprintf(fp, "  Inter                       : %10.2f %10.2f %10.2f %9d\n", 
-	       tmin[interCom], tmax[interCom], tavg[interCom], 
+  com->fprintf(fp, "  Inter                       : %10.2f %10.2f %10.2f %9d\n",
+	       tmin[interCom], tmax[interCom], tavg[interCom],
 	       counter[interCom]);
   com->fprintf(fp, "\n");
-  com->fprintf(fp, "I/O                           : %10.2f %10.2f %10.2f         -\n", 
+  com->fprintf(fp, "I/O                           : %10.2f %10.2f %10.2f         -\n",
 	       tmin[io], tmax[io], tavg[io]);
-  com->fprintf(fp, "  Binary Read                 : %10.2f %10.2f %10.2f %9d\n", 
-	       tmin[binread], tmax[binread], tavg[binread], 
+  com->fprintf(fp, "  Binary Read                 : %10.2f %10.2f %10.2f %9d\n",
+	       tmin[binread], tmax[binread], tavg[binread],
 	       counter[binread]);
-  com->fprintf(fp, "  Binary Write                : %10.2f %10.2f %10.2f %9d\n", 
-	       tmin[binwrite], tmax[binwrite], tavg[binwrite], 
+  com->fprintf(fp, "  Binary Write                : %10.2f %10.2f %10.2f %9d\n",
+	       tmin[binwrite], tmax[binwrite], tavg[binwrite],
 	       counter[binwrite]);
 
   com->fprintf(fp, "\n");
-  com->fprintf(fp, "Total Simulation              : %10.2f %10.2f %10.2f         -\n", 
+  com->fprintf(fp, "Total Simulation              : %10.2f %10.2f %10.2f         -\n",
 	       tmin[total], tmax[total], tavg[total]);
   com->fprintf(fp, "----------------------------------------------------------------------\n");
 

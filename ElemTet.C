@@ -16,7 +16,7 @@
 
 
 //------------------------------------------------------------------------------
-//--------------functions in ElemTet class
+// functions in ElemTet class
 // contact Daniel Huang if you have problems
 //------------------------------------------------------------------------------
 
@@ -77,7 +77,7 @@ void ElemTet::computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
                                     if(!LSS->isActive(0,nodeNum(l))) v[l] = gp->getPrimitiveState();
                                     break;
                                 }
-                                case BoundaryData::POROUSWALL:{  // porous wall: use averaged value (1-alpha)*ghost  + alpha*active
+                                case BoundaryData::POROUSWALL:{ // porous wall: use averaged value (1-alpha)*ghost  + alpha*active
                                     // average the temperature and velcity and turbulence unknowns
                                     for(int ghost_i = 0; ghost_i < dim;ghost_i ++)
                                         v_ave[l][ghost_i] = (LSS->isActive(0,nodeNum(l))? (1 - resij.porosity)*gp->getPrimitiveState()[ghost_i]
@@ -90,7 +90,7 @@ void ElemTet::computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
 
 
                                 }
-                                default:{
+                                default:{ // normal wall
                                     v[l] = gp->getPrimitiveState();
                                     break;
                                 }
@@ -432,8 +432,8 @@ void ElemTet::getPseudoStates(
 //------------------------------------------------------------------------------
 
 template<int dim>
-void ElemTet::computeGalerkinTerm_e(FemEquationTerm *fet, SVec<double,3> &X, 
-												Vec<double> &d2wall, SVec<double,dim> &V, 
+void ElemTet::computeGalerkinTerm_e(FemEquationTerm *fet, SVec<double,3> &X,
+												Vec<double> &d2wall, SVec<double,dim> &V,
 												SVec<double,dim> &R, Vec<GhostPoint<dim>*> *ghostPoints,
 												LevelSetStructure *LSS)
 {
@@ -442,7 +442,7 @@ void ElemTet::computeGalerkinTerm_e(FemEquationTerm *fet, SVec<double,3> &X,
 	bool isAtTheInterface = false;
 
 	if(ghostPoints)
-	{ 
+	{
 		for(int i=0; i<4; ++i)
 		{
 			isTetInactive    = isTetInactive    && !LSS->isActive(0, nodeNum(i));
@@ -461,7 +461,7 @@ void ElemTet::computeGalerkinTerm_e(FemEquationTerm *fet, SVec<double,3> &X,
 
 	double dist2wall[4] = {d2wall[nodeNum(0)], d2wall[nodeNum(1)],
 								  d2wall[nodeNum(2)], d2wall[nodeNum(3)]};
-	
+
 	Vec3D xWall;
 
 	if(ghostPoints && isAtTheInterface)
@@ -475,11 +475,11 @@ void ElemTet::computeGalerkinTerm_e(FemEquationTerm *fet, SVec<double,3> &X,
 			int Ni = nodeNum(i);
 
 			if(!LSS->isActive(0, Ni)) continue;//if it is ghost, we do not need to compute viscous flux on it
-						
+
 			for(int j=0; j<4; ++j)
 			{
 				int Nj = nodeNum(j);
-			
+
 				bool isJGhost = LSS->xWallNode(Nj, xWall); //return ghost or not
 
 				if(isJGhost)
@@ -495,8 +495,8 @@ void ElemTet::computeGalerkinTerm_e(FemEquationTerm *fet, SVec<double,3> &X,
 					int e = -1;
 					for(int l=0; l<6; ++l)
 					{
-						if( min(i,j) == min(edgeEnd(l,0), edgeEnd(l,1)) && 
-							 max(i,j) == max(edgeEnd(l,0), edgeEnd(l,1)) ) 
+						if( min(i,j) == min(edgeEnd(l,0), edgeEnd(l,1)) &&
+							 max(i,j) == max(edgeEnd(l,0), edgeEnd(l,1)) )
 						{
 							e = l; break;
 						}
@@ -506,18 +506,18 @@ void ElemTet::computeGalerkinTerm_e(FemEquationTerm *fet, SVec<double,3> &X,
 
 					Ve[j] = gp->getPrimitiveState(dir);
 
-				}				
+				}
 				else
 					Ve[j] = V[Nj];
 			}
 
-			bool withPorousTerm = fet->computeVolumeTerm(dp1dxj, dist2wall, Ve, 
+			bool withPorousTerm = fet->computeVolumeTerm(dp1dxj, dist2wall, Ve,
 																		reinterpret_cast<double *>(ff),
 																		S, PR, Vol, X, nodeNum(), volume_id);
 
 			for(int k=0; k<dim; ++k)
 			{
-				R[Ni][k] += Vol*( ff[0][k]*dp1dxj[i][0] 
+				R[Ni][k] += Vol*( ff[0][k]*dp1dxj[i][0]
 									 + ff[1][k]*dp1dxj[i][1]
 									 + ff[2][k]*dp1dxj[i][2] - fourth*S[k] );
 			}
@@ -531,25 +531,25 @@ void ElemTet::computeGalerkinTerm_e(FemEquationTerm *fet, SVec<double,3> &X,
 
 		for(int i=0; i<4; ++i) Ve[i] = V[nodeNum(i)];
 
-		bool withPorousTerm = fet->computeVolumeTerm(dp1dxj, dist2wall, Ve, 
+		bool withPorousTerm = fet->computeVolumeTerm(dp1dxj, dist2wall, Ve,
 																	reinterpret_cast<double *>(ff),
 																	S, PR, Vol, X, nodeNum(), volume_id);
-		
-		for(int i=0; i<4; ++i) 
+
+		for(int i=0; i<4; ++i)
 		{
 			int Ni = nodeNum(i);
 
 			for (int k=0; k<dim; ++k)
 			{
-				R[Ni][k] += Vol*(  ff[0][k]*dp1dxj[i][0] 
+				R[Ni][k] += Vol*(  ff[0][k]*dp1dxj[i][0]
 									  + ff[1][k]*dp1dxj[i][1]
 									  + ff[2][k]*dp1dxj[i][2] - fourth*S[k] );
 			}
 		}
 
-		if(withPorousTerm) 
+		if(withPorousTerm)
 		{
-			for(int i=0; i<4; ++i) 
+			for(int i=0; i<4; ++i)
 			{
 				int Ni = nodeNum(i);
 
@@ -557,7 +557,7 @@ void ElemTet::computeGalerkinTerm_e(FemEquationTerm *fet, SVec<double,3> &X,
 			}
 		}
 	}
-	
+
 }
 
 //------------------------------------------------------------------------------
@@ -3383,7 +3383,9 @@ void ElemTet::recomputeDistanceToInterface(int type, SVec<double,3> &X, int reor
     }
   }
 }
+
 //------------------------------------------------------------------------------
+
 template<int dim>
 void ElemTet::computeDistanceCloseNodes(int lsdim, Vec<int> &Tag, SVec<double,3> &X,
                                     SVec<double,dim> &ddx, SVec<double,dim> &ddy,
@@ -3407,7 +3409,9 @@ void ElemTet::computeDistanceCloseNodes(int lsdim, Vec<int> &Tag, SVec<double,3>
   int type = findLSIntersectionPoint(lsdim, Phi,ddx,ddy,ddz,X,reorder,P,MultiFluidData::LINEAR);
   if(type>0)  computeDistanceToInterface(type,X,reorder,P,Psi,Tag);
 }
+
 //------------------------------------------------------------------------------
+
 template<int dim>
 void ElemTet::recomputeDistanceCloseNodes(int lsdim, Vec<int> &Tag, SVec<double,3> &X,
                                     SVec<double,dim> &ddx, SVec<double,dim> &ddy,
@@ -3426,6 +3430,7 @@ void ElemTet::recomputeDistanceCloseNodes(int lsdim, Vec<int> &Tag, SVec<double,
 }
 
 //------------------------------------------------------------------------------
+
 template<int dim>
 void ElemTet::computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
                                     SVec<double,3> &X, SVec<double,1> &Psi, SVec<double,dim> &Phi)
@@ -3446,26 +3451,62 @@ void ElemTet::computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
 }
 
 //------------------------------------------------------------------------------
+
 template<int dim>
-void ElemTet::FastMarchingDistanceUpdate(int node, Vec<int> &Tag, int level,
-                                    SVec<double,3> &X,SVec<double,dim> &d2wall)
+void ElemTet::computeSADistanceSensitivity(FemEquationTerm *fet, SVec<double,3> &X,
+                                    Vec<double> &d2wall, SVec<double,dim> &V,
+                                    Vec<double> &dS, LevelSetStructure *LSS)
 {
-  if (!(Tag[nodeNumTet[0]]==level || Tag[nodeNumTet[1]]==level ||
-       Tag[nodeNumTet[2]]==level || Tag[nodeNumTet[3]]==level   ))
+  // In the case of an embedded simulation, check if the tetrahedra is actually active
+  for(int l=0; l<6; ++l) {
+    if (LSS->edgeIntersectsWall(0,edgeNum(l)))
+      return; // no distance sensitivity contribution due to cut elements
+  }
+
+  double dp1dxj[4][3];
+  double vol = computeGradientP1Function(X, dp1dxj);
+
+  double d2w[4] = {d2wall[nodeNum(0)], d2wall[nodeNum(1)],
+                     d2wall[nodeNum(2)], d2wall[nodeNum(3)]};
+  double *v[4]  = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)], V[nodeNum(3)]};
+  double ds;
+
+  // All the states are updated
+  fet->computeDistanceDerivativeOfVolumeTerm(dp1dxj, d2w, v, X, nodeNum(), ds);
+
+  for (int j=0; j<4; ++j) {
+    int idx = nodeNum(j);
+    dS[idx] += vol * fourth * ds;
+  }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void ElemTet::FastMarchingDistanceUpdate(int node, Vec<int> &Tag, SVec<double,3> &X,
+                                         SVec<double,dim> &d2wall, int lowerLvl)
+{
+  // ensure only update from sweep direction (less accurate if sweep direction does not
+  // match characteristic direction, but also more efficient)
+  if (!(Tag[nodeNumTet[0]]==lowerLvl || Tag[nodeNumTet[1]]==lowerLvl ||
+        Tag[nodeNumTet[2]]==lowerLvl || Tag[nodeNumTet[3]]==lowerLvl ))
     return;
 
   // Looking for node position in the Tet
   int i;
   for (i=0; i<4; i++) {if(nodeNum(i)==node) break;} // Found i
-  if(i==4) { // Didn't find it. Something is wrong
-    printf("This may not be the tet you are looking for\n Node: %d, Tet Nodes: %d %d %d %d\nAbort!",node,nodeNum(0),nodeNum(1),nodeNum(2),nodeNum(3));
-    exit(-1);
-  }
+  assert(i<4);
+  // if(i==4) { // Didn't find it. Something is wrong
+  //   printf("This may not be the tet you are looking for\n Node: %d, Tet Nodes: %d %d %d %d\nAbort!",node,nodeNum(0),nodeNum(1),nodeNum(2),nodeNum(3));
+  //   exit(-1);
+  // }
+
   double distance = computeDistancePlusPhi(i,X,d2wall);
-  d2wall[nodeNum(i)][0] = min(d2wall[nodeNum(i)][0], distance);
+  d2wall[node][0] = min(d2wall[node][0], distance);
 }
 
 //------------------------------------------------------------------------------
+
 template<int dim>
 double ElemTet::computeDistancePlusPhi(int i, SVec<double,3> &X, SVec<double,dim> &Psi)
 {
@@ -3475,22 +3516,21 @@ double ElemTet::computeDistancePlusPhi(int i, SVec<double,3> &X, SVec<double,dim
   // the tet. If not found, we look at the boundaries, first edges, then
   // vertices.
 
-
-
   bool show = false;
 
   double minimum = -1.0; // this function will be a distance eventually (>0.0)
-  bool   found = false;
+  bool found = false;
 
   // list of nodes that define the opposite face.
   int oppi = 3 - i;
   int oppn[3]  = {faceDefTet[oppi][0],faceDefTet[oppi][1],faceDefTet[oppi][2]};
-  oppn[0]=nodeNum(oppn[0]); oppn[1]=nodeNum(oppn[1]); oppn[2]=nodeNum(oppn[2]);
+  oppn[0] = nodeNum(oppn[0]); oppn[1]=nodeNum(oppn[1]); oppn[2]=nodeNum(oppn[2]);
 
   // setup for computations
   double phi[3] = {Psi[oppn[0]][0],
                    Psi[oppn[1]][0]-Psi[oppn[0]][0],
                    Psi[oppn[2]][0]-Psi[oppn[0]][0]};
+
   // coordinate basis to do our computations (not orthogonal!!)
   Vec3D Y0(X[nodeNum(i)][0]-X[oppn[0]][0],X[nodeNum(i)][1]-X[oppn[0]][1], X[nodeNum(i)][2]-X[oppn[0]][2]);
   Vec3D Y1(X[oppn[1]][0]-X[oppn[0]][0],X[oppn[1]][1]-X[oppn[0]][1], X[oppn[1]][2]-X[oppn[0]][2]);
@@ -3506,6 +3546,8 @@ double ElemTet::computeDistancePlusPhi(int i, SVec<double,3> &X, SVec<double,dim
   return minimum;
 
 }
+
+//------------------------------------------------------------------------------
 
 template<int dim, class Obj>
 void ElemTet::integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),
