@@ -1887,9 +1887,9 @@ void ElemTet::computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &
                   + dRdU[i][2][m] * dp1dxj[i][2] )*vol;
         }
 
-				//if (sourceTermExists)
-				//  for (int m=0; m<neq*neq; ++m)
-				//    Aii[m] -= vol4 * dSdU[i][m];
+				if (sourceTermExists)
+				 for (int m=0; m<neq*neq; ++m)
+				   Aii[m] -= vol4 * dSdU[i][m];
 
 // off-diagonal matrices
 
@@ -1929,12 +1929,12 @@ void ElemTet::computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &
 												   + dRdU[j][2][m] * dp1dxj[i][2] )*vol;
 							}
 
-							//if (sourceTermExists) {
-							//  double cij4 = cij * vol4;
-							//  for (int m=0; m<neq*neq; ++m) {
-							//    Aij[m] -= cij4 * dSdU[j][m];
-							//  }
-							//}
+							if (sourceTermExists) {
+							  double cij4 = cij * vol4;
+							  for (int m=0; m<neq*neq; ++m) {
+							    Aij[m] -= cij4 * dSdU[j][m];
+							  }
+							}
 						}
 					}
 				}
