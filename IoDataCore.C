@@ -430,6 +430,7 @@ TransientData::TransientData()
   aeroelasticEigenvalues = "";
   gamData = "";
   gamFData = "";
+  populatedState = NULL;
 
 // Included (MB)
   velocitynorm = "";
@@ -3363,8 +3364,8 @@ void SensitivityAnalysis::setup(const char *name, ClassAssigner *father)
   new ClassToken<SensitivityAnalysis>(ca, "Method",this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::method), 2, "Direct", 0, "Adjoint", 1);
 
   new ClassToken<SensitivityAnalysis>(ca, "SparseApproach",      this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sparseFlag), 2, "Off", 0, "On", 1);
-  new ClassToken<SensitivityAnalysis>(ca, "MatrixVectorProduct", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::mvp), 4, "Exact", 0, "FiniteDifference", 1);
-  new ClassToken<SensitivityAnalysis>(ca, "MatrixVectorProductViscous", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::mvpViscous), 4, "Exact", 0, "FiniteDifference", 1);
+  new ClassToken<SensitivityAnalysis>(ca, "MatrixVectorProduct", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::mvp), 2, "Exact", 0, "FiniteDifference", 1);
+  new ClassToken<SensitivityAnalysis>(ca, "MatrixVectorProductViscous", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::mvpViscous), 2, "Exact", 0, "FiniteDifference", 1);
   new ClassToken<SensitivityAnalysis>(ca, "LeastSquaresSolver",  this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::lsSolver), 2, "QR", 0, "NormalEquations", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityComputation", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::scFlag), 3, "Analytical", 0, "SemiAnalytical", 1, "FiniteDifference", 2);
   new ClassDouble<SensitivityAnalysis>(ca, "EpsFD", this, &SensitivityAnalysis::eps);

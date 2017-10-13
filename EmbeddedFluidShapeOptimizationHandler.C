@@ -1765,7 +1765,7 @@ void EmbeddedFluidShapeOptimizationHandler<dim>::fsoGetDerivativeOfEffortsAnalyt
 //  dM = dMi[0] + dMv[0];
 
   //spaceOp->computeDerivativeOfGradP(X, dX, *this->A, dAdS, U, dU);
-  this->spaceOp->computeDerivativeOfGradP(X, dX, *this->A, dAdS, U, dU, fluidId, distLSS);
+  this->spaceOp->computeDerivativeOfGradP(X, dX, *this->A, dAdS, U, dU, this->fluidId, this->distLSS);
 
   getderivativeOfForcesAndMoments(
                                   this->postOp->surfOutMap,
