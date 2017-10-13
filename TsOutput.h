@@ -4,6 +4,7 @@
 #include <PostFcn.h>
 #include <Vector3D.h>
 #include <GhostPoint.h>
+#include <Domain.h>
 
 #include <cstdio>
 
