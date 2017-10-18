@@ -3183,7 +3183,11 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
       VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
       double *Vghost = NULL;
+
+      bool  iLocalHighOrder = false, jLocalHighOrder = false;
+
       for (int i=0; i<dim; i++) fluxi[i] = fluxj[i] = 0.0;
+
 
       for (int l=0; l<numEdges; ++l) {
           if (!masterFlag[l]) continue; //not a master edge
@@ -3318,18 +3322,20 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       /// otherwise the state value at node i V[i] is used
       ////////////////////////////////////////////////////////////////
       double betai[dim], betaj[dim];
+      iLocalHighOrder = (resij.alpha < 0.9 && higherOrderFSI);
+      jLocalHighOrder = (resji.alpha < 0.9 && higherOrderFSI);
 
-      if (higherOrderFSI) {
-        if (iActive) {
+
+      if (iActive && iLocalHighOrder) {
           Vghost = (ghostPoints? ((*ghostPoints)[j])->getPrimitiveState(): NULL);
           higherOrderFSI->safeExtrapolation(dim, V[i], Vghost, ddVij, true, resij.alpha, Vi);
-        }
+      }
 
-        if (jActive) {
+      if (jActive && jLocalHighOrder) {
           Vghost = (ghostPoints? ((*ghostPoints)[i])->getPrimitiveState(): NULL);
           higherOrderFSI->safeExtrapolation(dim, V[j], Vghost, ddVji, false, resji.alpha, Vj);
-        }
       }
+
 
       //////////////////////////////////////////////////////
       /// Start compute interface fluxes
@@ -3376,7 +3382,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         switch (structureType) {
           case BoundaryData::WALL:
           case BoundaryData::SYMMETRYPLANE:
-                if (!higherOrderFSI) {
+                if (!iLocalHighOrder) {
                   if (structureType == BoundaryData::SYMMETRYPLANE)
                     riemann.computeSymmetryPlaneRiemannSolution(Vi, resij.normVel, normalDir, varFcn, Wstar, j, fluidId[i]);
                   else
@@ -3560,7 +3566,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         switch (structureType) {
           case BoundaryData::WALL:
           case BoundaryData::SYMMETRYPLANE:
-              if (!higherOrderFSI) {
+              if (!jLocalHighOrder) {
                   if (structureType == BoundaryData::SYMMETRYPLANE)
                       riemann.computeSymmetryPlaneRiemannSolution(Vj, resji.normVel, normalDir, varFcn, Wstar, i,
                                                                   fluidId[j]);
