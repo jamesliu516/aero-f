@@ -1432,6 +1432,12 @@ SAModelData::SAModelData()
   cv2 = 5.0;
   sigma = 2.0/3.0;
   vkcst = 0.41;
+
+  rlim = 10.0;
+  c2 = 0.7;
+  c3 = 0.9;
+  cn1 = 16.0;
+
   form = ORIGINAL;
 
 }
@@ -1453,8 +1459,8 @@ void SAModelData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<SAModelData>(ca, "Kappa", this, &SAModelData::vkcst);
   new ClassToken<SAModelData>
     (ca, "Form", this,
-     reinterpret_cast<int SAModelData::*>(&SAModelData::form), 2,
-     "Original", 0, "Fv3", 1);
+     reinterpret_cast<int SAModelData::*>(&SAModelData::form), 3,
+     "Original", 0, "Fv3", 1, "Negative", 2);
 
 }
 
@@ -1469,9 +1475,16 @@ DESModelData::DESModelData()
   cw3 = 2.0;
   cv1 = 7.1;
   cv2 = 5.0;
-  cdes = 0.65;
   sigma = 2.0/3.0;
   vkcst = 0.41;
+
+  cdes = 0.65;
+
+  rlim = 10.0;
+  c2 = 0.7;
+  c3 = 0.9;
+  cn1 = 16.0;
+
   form = ORIGINAL;
 
 }
@@ -1494,8 +1507,8 @@ void DESModelData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<DESModelData>(ca, "Kappa", this, &DESModelData::vkcst);
   new ClassToken<DESModelData>
     (ca, "Form", this,
-     reinterpret_cast<int DESModelData::*>(&DESModelData::form), 2,
-     "Original", 0, "Fv3", 1);
+     reinterpret_cast<int DESModelData::*>(&DESModelData::form), 3,
+     "Original", 0, "Fv3", 1, "Negative", 2);
 
 }
 
