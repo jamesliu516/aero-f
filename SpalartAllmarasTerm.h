@@ -54,7 +54,8 @@ protected:
   double c2;
   double c3;
 
-  bool usefv3;
+  // bool usefv3;
+  int SAform;
 
 public:
 
@@ -115,17 +116,17 @@ SATerm::SATerm(IoData &iod)
   cw1 /= iod.ref.reynolds_mu;
   oosigma /= iod.ref.reynolds_mu;
 
-  rlim = 10.0;
+  rlim = iod.eqs.tc.tm.sa.rlim;
+  c2 = iod.eqs.tc.tm.sa.c2;
+  c3 = iod.eqs.tc.tm.sa.c3;
+  cn1 = iod.eqs.tc.tm.sa.cn1;
 
-  // sjg, 09/2017: negative SA model and new Stilde definition (2012 paper)
-  cn1 = 16.0;
-  c2 = 0.7;
-  c3 = 0.9;
-
-  if (iod.eqs.tc.tm.sa.form == SAModelData::FV3)
-    usefv3 = true;
-  else
-    usefv3 = false;
+  if (iod.eqs.tc.tm.sa.form == SAModelData::ORIGINAL)
+    SAform = 1;
+  else if (iod.eqs.tc.tm.sa.form == SAModelData::FV3)
+    SAform = 2;
+  else  // SAModelData::NEGATIVE
+    SAform = 3;
 
 }
 
@@ -284,8 +285,15 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
   double dnutildedz = dp1dxj[0][2]*V[0][5] + dp1dxj[1][2]*V[1][5] +
     dp1dxj[2][2]*V[2][5] + dp1dxj[3][2]*V[3][5];
 
+  bool negSA;
+  if (SAform != 3) {  // for original or fv3, clip nutilde and use standard form
+    mutilde = max(mutilde, 0.0);
+    negSA = false;
+  }
+  else  // use negative SA model where appropriate
+    negSA = (V[0][5]<0.0 || V[1][5]<0.0 || V[2][5]<0.0 || V[3][5]<0.0);
+
   double mu5, drdx, drdy, drdz;
-  bool negSA = (V[0][5]<0.0 || V[1][5]<0.0 || V[2][5]<0.0 || V[3][5]<0.0);
   if (!negSA) {
     drdx = oosigma * 0.25 * dnutildedx;
     drdy = oosigma * 0.25 * dnutildedy;
@@ -326,6 +334,11 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
 
   double rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
   double oorho = 1.0 / rho;
+  double ood2wall2 = 1.0 / (d2wall * d2wall);
+  double s12 = dudxj[0][1] - dudxj[1][0];
+  double s23 = dudxj[1][2] - dudxj[2][1];
+  double s31 = dudxj[2][0] - dudxj[0][2];
+  double s = sqrt(s12*s12 + s23*s23 + s31*s31);
   double P, D, dP, dD;
 
   if (!negSA) {
@@ -334,18 +347,13 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
     double fv1 = chi3 / (chi3 + cv1_pow3);
     double fv2  = 1.-chi/(1.+chi*fv1);
     double fv3  = 1.0;
-    if (usefv3) {
+    if (SAform == 2) {
       fv2 = 1.0 + oocv2*chi;
       fv2 = 1.0 / (fv2*fv2*fv2);
       fv3 = (chi==0.0) ? 3.0*oocv2 : (1.0 + chi*fv1) * (1.0 - fv2) / chi;
     }
-    double ood2wall2 = 1.0 / (d2wall * d2wall);
-    double zz = oorey * oovkcst2 * mutilde * oorho * ood2wall2;
-    double s12 = dudxj[0][1] - dudxj[1][0];
-    double s23 = dudxj[1][2] - dudxj[2][1];
-    double s31 = dudxj[2][0] - dudxj[0][2];
-    double s = sqrt(s12*s12 + s23*s23 + s31*s31);
 
+    double zz = oorey * oovkcst2 * mutilde * oorho * ood2wall2;
     double Stilde, Sbar = zz*fv2;
     if (Sbar >= -c2*s)
       Stilde = s*fv3+Sbar;
@@ -373,7 +381,7 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
     double dfv2 = (chi==0.0) ?
       -dchi : (fv2-1.)*dchi/chi+(1.-fv2)*(1.-fv2)*(dfv1+fv1*dchi/chi);
     double dfv3 = 0.0;
-    if (usefv3) {
+    if (SAform == 2) {
       dfv2 = -3.0*dchi*oocv2 * coef3*coef3;
       dfv3 = (chi==0.0) ? 0.0 :
         ((dchi*fv1 + chi*dfv1)*(1.0 - fv2) -
@@ -403,12 +411,6 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
     dD = cw1 * oorho * ood2wall2 * (fw * dmutilde * mutilde +  dfw * mutilde * mutilde);
   }
   else {
-    double ood2wall2 = 1.0 / (d2wall * d2wall);
-    double s12 = dudxj[0][1] - dudxj[1][0];
-    double s23 = dudxj[1][2] - dudxj[2][1];
-    double s31 = dudxj[2][0] - dudxj[0][2];
-    double s = sqrt(s12*s12 + s23*s23 + s31*s31);
-
     P = cb1 * s * dmutilde;
     dP = 0.0;
     D = - cw1 * oorho * ood2wall2 * mutilde * dmutilde;
@@ -458,8 +460,15 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
   double dnutildedy = dp1dxj[0][1]*V[0][5] + dp1dxj[1][1]*V[1][5] + dp1dxj[2][1]*V[2][5] + dp1dxj[3][1]*V[3][5];
   double dnutildedz = dp1dxj[0][2]*V[0][5] + dp1dxj[1][2]*V[1][5] + dp1dxj[2][2]*V[2][5] + dp1dxj[3][2]*V[3][5];
 
+  bool negSA;
+  if (SAform != 3) {  // for original or fv3, clip nutilde and use standard form
+    mutilde = max(mutilde, 0.0);
+    negSA = false;
+  }
+  else  // use negative SA model where appropriate
+    negSA = (V[0][5]<0.0 || V[1][5]<0.0 || V[2][5]<0.0 || V[3][5]<0.0);
+
   double dmu5[4][6], mu5;
-  bool negSA = (V[0][5]<0.0 || V[1][5]<0.0 || V[2][5]<0.0 || V[3][5]<0.0);
   if (!negSA) {
     mu5 = oosigma * (mul + mutilde);
 
@@ -635,7 +644,7 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
       dfv3[k][4] = 0.;
       dfv3[k][5] = 0.;
 
-      if (usefv3) {
+      if (SAform == 2) {
         fv2 = 1.0 + oocv2*chi;
         dfv2[k][0] = oocv2*dchi[k][0];
         dfv2[k][1] = oocv2*dchi[k][1];

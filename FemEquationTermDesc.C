@@ -568,10 +568,12 @@ FemEquationTermSA::FemEquationTermSA(IoData &iod, VarFcn *vf) :
     trip = 0;
   }
 
-  if (iod.eqs.tc.tm.sa.form == SAModelData::FV3)
-    usefv3 = true;
-  else
-    usefv3 = false;
+  if (iod.eqs.tc.tm.sa.form == SAModelData::ORIGINAL)
+    SAform = 1;
+  else if (iod.eqs.tc.tm.sa.form == SAModelData::FV3)
+    SAform = 2;
+  else  // SAModelData::NEGATIVE
+    SAform = 3;
 
   velocity = iod.ref.rv.velocity;
   density = iod.ref.rv.density;
@@ -731,8 +733,15 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
                      + dp1dxj[2][2]*V[2][5]
 	                 + dp1dxj[3][2]*V[3][5];
 
+  bool negSA;
+  if (SAform != 3) {  // for original or fv3, clip nutilde and use standard form
+    mutilde = max(mutilde, 0.0);
+    negSA = false;
+  }
+  else  // use negative SA model where appropriate
+    negSA = (V[0][5]<0.0 || V[1][5]<0.0 || V[2][5]<0.0 || V[3][5]<0.0);
+
   double mu5;
-  bool negSA = (V[0][5]<0.0 || V[1][5]<0.0 || V[2][5]<0.0 || V[3][5]<0.0);
   if (!negSA)
     mu5 = oosigma * (mul + mutilde);
   else {
@@ -757,6 +766,13 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
   if (d2wall >= 1.e-15) {
     double rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
     double oorho = 1.0 / rho;
+    double ood2wall2 = 1.0 / (d2wall * d2wall);
+
+    double s12 = dudxj[0][1] - dudxj[1][0];
+    double s23 = dudxj[1][2] - dudxj[2][1];
+    double s31 = dudxj[2][0] - dudxj[0][2];
+    double s = sqrt(s12*s12 + s23*s23 + s31*s31);
+
     double AA, BB, CC;
 
     if (!negSA) {
@@ -765,19 +781,13 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
       double fv1 = chi3 / (chi3 + cv1_pow3);
       double fv2  = 1.-chi/(1.+chi*fv1);
       double fv3  = 1.0;
-      if(usefv3) {
+      if (SAform == 2) {
         fv2 = 1.0 + oocv2*chi;
         fv2 = 1.0 / (fv2*fv2*fv2);
         fv3 = (chi==0.0) ? 3.0*oocv2 : (1.0 + chi*fv1) * (1.0 - fv2) / chi;
       }
 
-      double ood2wall2 = 1.0 / (d2wall * d2wall);
       double zz = ooreynolds_mu * oovkcst2 * mutilde * oorho * ood2wall2;
-      double s12 = dudxj[0][1] - dudxj[1][0];
-      double s23 = dudxj[1][2] - dudxj[2][1];
-      double s31 = dudxj[2][0] - dudxj[0][2];
-      double s = sqrt(s12*s12 + s23*s23 + s31*s31);
-
       double Stilde, Sbar = zz*fv2;
       if (Sbar >= -c2*s)
         Stilde = s*fv3+Sbar;
@@ -800,12 +810,6 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
       CC = - cw1 * fw * oorho * mutilde * mutilde * ood2wall2;
     }
     else {
-      double ood2wall2 = 1.0 / (d2wall * d2wall);
-      double s12 = dudxj[0][1] - dudxj[1][0];
-      double s23 = dudxj[1][2] - dudxj[2][1];
-      double s31 = dudxj[2][0] - dudxj[0][2];
-      double s = sqrt(s12*s12 + s23*s23 + s31*s31);
-
       AA = oosigma * cb2 * rho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
       BB = cb1 * s * mutilde;
       CC = cw1 * oorho * mutilde *mutilde * ood2wall2;
@@ -896,25 +900,31 @@ void FemEquationTermSA::computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3
   double rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
   double oorho = 1.0 / rho;
 
-  bool negSA = (V[0][5]<0.0 || V[1][5]<0.0 || V[2][5]<0.0 || V[3][5]<0.0);
+  bool negSA;
+  if (SAform != 3) {  // for original or fv3, clip nutilde and use standard form
+    mutilde = max(mutilde, 0.0);
+    negSA = false;
+  }
+  else  // use negative SA model where appropriate
+    negSA = (V[0][5]<0.0 || V[1][5]<0.0 || V[2][5]<0.0 || V[3][5]<0.0);
+
   if (!negSA) {
     double chi = mutilde/mul;
     double chi3 = chi*chi*chi;
     double fv1 = chi3 / (chi3 + cv1_pow3);
     double fv2  = 1.-chi/(1.+chi*fv1);
     double fv3  = 1.0;
-    if(usefv3) {
+    if (SAform == 2) {
       fv2 = 1.0 + oocv2*chi;
       fv2 = 1.0 / (fv2*fv2*fv2);
       fv3 = (chi==0.0) ? 3.0*oocv2 : (1.0 + chi*fv1) * (1.0 - fv2) / chi;
     }
 
-    double zz = ooreynolds_mu * oovkcst2 * mutilde * oorho * ood2wall2;
     double s12 = dudxj[0][1] - dudxj[1][0];
     double s23 = dudxj[1][2] - dudxj[2][1];
     double s31 = dudxj[2][0] - dudxj[0][2];
     double s = sqrt(s12*s12 + s23*s23 + s31*s31);
-
+    double zz = ooreynolds_mu * oovkcst2 * mutilde * oorho * ood2wall2;
     double Stilde, Sbar = zz*fv2;
     if (Sbar >= -c2*s)
       Stilde = s*fv3+Sbar;
@@ -1174,7 +1184,14 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(
     ddp1dxj[2][2]*V[2][5] + dp1dxj[2][2]*dV[2][5] + ddp1dxj[3][2]*V[3][5] + dp1dxj[3][2]*dV[3][5];
 
   double mu5, dmu5;
-  bool negSA = (V[0][5]<0.0 || V[1][5]<0.0 || V[2][5]<0.0 || V[3][5]<0.0);
+  bool negSA;
+  if (SAform != 3) {  // for original or fv3, clip nutilde and use standard form
+    mutilde = max(mutilde, 0.0);
+    negSA = false;
+  }
+  else  // use negative SA model where appropriate
+    negSA = (V[0][5]<0.0 || V[1][5]<0.0 || V[2][5]<0.0 || V[3][5]<0.0);
+
   if (!negSA) {
     mu5 = oosigma * (mul + mutilde);
     dmu5 = oosigma * (dmul + dmutilde) + d_oosigma * (mul + mutilde);
@@ -1209,6 +1226,17 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(
     double drho = 0.25 * (dV[0][0] + dV[1][0] + dV[2][0] + dV[3][0]);
     double oorho = 1.0 / rho;
     double doorho = -1.0 / ( rho * rho ) * drho;
+    double ood2wall2 = 1.0 / (d2wall * d2wall);
+
+    double s12 = dudxj[0][1] - dudxj[1][0];
+    double ds12 = ddudxj[0][1] - ddudxj[1][0];
+    double s23 = dudxj[1][2] - dudxj[2][1];
+    double ds23 = ddudxj[1][2] - ddudxj[2][1];
+    double s31 = dudxj[2][0] - dudxj[0][2];
+    double ds31 = ddudxj[2][0] - ddudxj[0][2];
+    double s = sqrt(s12*s12 + s23*s23 + s31*s31);
+    double ds = 1.0 / ( 2.0*s ) * (2.0*s12*ds12 + 2.0*s23*ds23 + 2.0*s31*ds31);
+
     double dAA, dBB, dCC;
 
     if (!negSA) {
@@ -1225,7 +1253,7 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(
 
       double fv3 = 1.0;
       double dfv3 = 0.0;
-      if (usefv3) {
+      if (SAform == 2) {
         fv2 = 1.0 + oocv2*chi;
         dfv2 = oocv2*dchi;
         dfv2 = -3.0 / (fv2*fv2*fv2*fv2)*dfv2;
@@ -1241,18 +1269,8 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(
       }
 
       // WTF this is ugly
-      double ood2wall2 = 1.0 / (d2wall * d2wall);
       double zz = ooreynolds * oovkcst2 * mutilde * oorho * ood2wall2;
       double dzz = dooreynolds_mu * oovkcst2 * mutilde * oorho * ood2wall2 + ooreynolds_mu * oovkcst2 * dmutilde * oorho * ood2wall2 + ooreynolds * oovkcst2 * mutilde * doorho * ood2wall2;
-      double s12 = dudxj[0][1] - dudxj[1][0];
-      double ds12 = ddudxj[0][1] - ddudxj[1][0];
-      double s23 = dudxj[1][2] - dudxj[2][1];
-      double ds23 = ddudxj[1][2] - ddudxj[2][1];
-      double s31 = dudxj[2][0] - dudxj[0][2];
-      double ds31 = ddudxj[2][0] - ddudxj[0][2];
-      double s = sqrt(s12*s12 + s23*s23 + s31*s31);
-      double ds = 1.0 / ( 2.0*s ) * (2.0*s12*ds12 + 2.0*s23*ds23 + 2.0*s31*ds31);
-
       double dStilde, Stilde, Sbar = zz*fv2, dSbar = dzz*fv2 + zz*dfv2;
       if (Sbar >= -c2*s) {
         Stilde = s*fv3+Sbar;
@@ -1301,18 +1319,6 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(
       dCC -= cw1 * fw * oorho * 2.0 * mutilde * dmutilde * ood2wall2;
     }
     else {
-      double ood2wall2 = 1.0 / (d2wall * d2wall);
-      double zz = ooreynolds * oovkcst2 * mutilde * oorho * ood2wall2;
-      double dzz = dooreynolds_mu * oovkcst2 * mutilde * oorho * ood2wall2 + ooreynolds_mu * oovkcst2 * dmutilde * oorho * ood2wall2 + ooreynolds * oovkcst2 * mutilde * doorho * ood2wall2;
-      double s12 = dudxj[0][1] - dudxj[1][0];
-      double ds12 = ddudxj[0][1] - ddudxj[1][0];
-      double s23 = dudxj[1][2] - dudxj[2][1];
-      double ds23 = ddudxj[1][2] - ddudxj[2][1];
-      double s31 = dudxj[2][0] - dudxj[0][2];
-      double ds31 = ddudxj[2][0] - ddudxj[0][2];
-      double s = sqrt(s12*s12 + s23*s23 + s31*s31);
-      double ds = 1.0 / ( 2.0*s ) * (2.0*s12*ds12 + 2.0*s23*ds23 + 2.0*s31*ds31);
-
   //  double AA = oosigma * cb2 * rho *
   //    (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
       dAA = 0.0;
@@ -1909,10 +1915,12 @@ FemEquationTermDES::FemEquationTermDES(IoData &iod, VarFcn *vf) :
     trip = 0;
   }
 
-  if (iod.eqs.tc.tm.des.form == DESModelData::FV3)
-    usefv3 = true;
-  else
-    usefv3 = false;
+  if (iod.eqs.tc.tm.sa.form == DESModelData::ORIGINAL)
+    SAform = 1;
+  else if (iod.eqs.tc.tm.sa.form == DESModelData::FV3)
+    SAform = 2;
+  else  // DESModelData::NEGATIVE
+    SAform = 3;
 
   velocity = iod.ref.rv.velocity;
   density = iod.ref.rv.density;
@@ -2073,8 +2081,15 @@ bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
                     + dp1dxj[2][2]*V[2][5]
                    + dp1dxj[3][2]*V[3][5];
 
+  bool negSA;
+  if (SAform != 3) {  // for original or fv3, clip nutilde and use standard form
+    mutilde = max(mutilde, 0.0);
+    negSA = false;
+  }
+  else  // use negative SA model where appropriate
+    negSA = (V[0][5]<0.0 || V[1][5]<0.0 || V[2][5]<0.0 || V[3][5]<0.0);
+
   double mu5;
-  bool negSA = (V[0][5]<0.0 || V[1][5]<0.0 || V[2][5]<0.0 || V[3][5]<0.0);
   if (!negSA)
     mu5 = oosigma * (mul + mutilde);
   else {
@@ -2112,6 +2127,13 @@ bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
   if (d2wall >= 1.e-15) {
     double rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
     double oorho = 1.0 / rho;
+    double ood2wall2 = 1.0 / (d2wall * d2wall);
+
+    double s12 = dudxj[0][1] - dudxj[1][0];
+    double s23 = dudxj[1][2] - dudxj[2][1];
+    double s31 = dudxj[2][0] - dudxj[0][2];
+    double s = sqrt(s12*s12 + s23*s23 + s31*s31);
+
     double AA, BB, CC;
 
     if (!negSA) {
@@ -2120,19 +2142,13 @@ bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
       double fv1 = chi3 / (chi3 + cv1_pow3);
       double fv2  = 1.-chi/(1.+chi*fv1);
       double fv3  = 1.0;
-      if(usefv3) {
+      if (SAform == 2) {
         fv2 = 1.0 + oocv2*chi;
         fv2 = 1.0 / (fv2*fv2*fv2);
         fv3 = (chi==0.0) ? 3.0*oocv2 : (1.0 + chi*fv1) * (1.0 - fv2) / chi;
       }
 
-      double ood2wall2 = 1.0 / (d2wall * d2wall);
       double zz = ooreynolds_mu * oovkcst2 * mutilde * oorho * ood2wall2;
-      double s12 = dudxj[0][1] - dudxj[1][0];
-      double s23 = dudxj[1][2] - dudxj[2][1];
-      double s31 = dudxj[2][0] - dudxj[0][2];
-      double s = sqrt(s12*s12 + s23*s23 + s31*s31);
-
       double Stilde, Sbar = zz*fv2;
       if (Sbar >= -c2*s)
         Stilde = s*fv3+Sbar;
@@ -2155,12 +2171,6 @@ bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
       CC = - cw1 * fw * oorho * mutilde * mutilde * ood2wall2;
     }
     else {
-      double ood2wall2 = 1.0 / (d2wall * d2wall);
-      double s12 = dudxj[0][1] - dudxj[1][0];
-      double s23 = dudxj[1][2] - dudxj[2][1];
-      double s31 = dudxj[2][0] - dudxj[0][2];
-      double s = sqrt(s12*s12 + s23*s23 + s31*s31);
-
       AA = oosigma * cb2 * rho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
       BB = cb1 * s * mutilde;
       CC = cw1 * oorho * mutilde *mutilde * ood2wall2;
@@ -2261,14 +2271,21 @@ void FemEquationTermDES::computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][
   double rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
   double oorho = 1.0 / rho;
 
-  bool negSA = (V[0][5]<0.0 || V[1][5]<0.0 || V[2][5]<0.0 || V[3][5]<0.0);
+  bool negSA;
+  if (SAform != 3) {  // for original or fv3, clip nutilde and use standard form
+    mutilde = max(mutilde, 0.0);
+    negSA = false;
+  }
+  else  // use negative SA model where appropriate
+    negSA = (V[0][5]<0.0 || V[1][5]<0.0 || V[2][5]<0.0 || V[3][5]<0.0);
+
   if (!negSA) {
     double chi = mutilde/mul;
     double chi3 = chi*chi*chi;
     double fv1 = chi3 / (chi3 + cv1_pow3);
     double fv2  = 1.-chi/(1.+chi*fv1);
     double fv3  = 1.0;
-    if(usefv3) {
+    if (SAform == 2) {
       fv2 = 1.0 + oocv2*chi;
       fv2 = 1.0 / (fv2*fv2*fv2);
       fv3 = (chi==0.0) ? 3.0*oocv2 : (1.0 + chi*fv1) * (1.0 - fv2) / chi;
@@ -2279,7 +2296,6 @@ void FemEquationTermDES::computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][
     double s23 = dudxj[1][2] - dudxj[2][1];
     double s31 = dudxj[2][0] - dudxj[0][2];
     double s = sqrt(s12*s12 + s23*s23 + s31*s31);
-
     double Stilde, Sbar = zz*fv2;
     if (Sbar >= -c2*s)
       Stilde = s*fv3+Sbar;
