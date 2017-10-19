@@ -259,7 +259,21 @@ void DESTerm::computeJacobianVolumeTermDES(double dp1dxj[4][3], double d2w[4],
 {
 
   const double sixth = 1.0/6.0;
-  double dmutilde = 1.0;
+
+  bool negSA;
+  double dmutilde;
+  if (SAform != 3) {  // for original or fv3, clip nutilde and use standard form
+    negSA = false;
+    mutilde = max(mutilde, 0.0);
+    if (mutilde == 0.0)
+      dmutilde = 0.0;
+    else
+      dmutilde = 1.0;
+  }
+  else {  // use negative SA model where appropriate
+    negSA = (V[0][5]<0.0 || V[1][5]<0.0 || V[2][5]<0.0 || V[3][5]<0.0);
+    dmutilde = 1.0;
+  }
 
   double dnutildedx = dp1dxj[0][0]*V[0][5] + dp1dxj[1][0]*V[1][5] +
     dp1dxj[2][0]*V[2][5] + dp1dxj[3][0]*V[3][5];
@@ -267,14 +281,6 @@ void DESTerm::computeJacobianVolumeTermDES(double dp1dxj[4][3], double d2w[4],
     dp1dxj[2][1]*V[2][5] + dp1dxj[3][1]*V[3][5];
   double dnutildedz = dp1dxj[0][2]*V[0][5] + dp1dxj[1][2]*V[1][5] +
     dp1dxj[2][2]*V[2][5] + dp1dxj[3][2]*V[3][5];
-
-  bool negSA;
-  if (SAform != 3) {  // for original or fv3, clip nutilde and use standard form
-    mutilde = max(mutilde, 0.0);
-    negSA = false;
-  }
-  else  // use negative SA model where appropriate
-    negSA = (V[0][5]<0.0 || V[1][5]<0.0 || V[2][5]<0.0 || V[3][5]<0.0);
 
   double mu5, drdx, drdy, drdz;
   if (!negSA) {

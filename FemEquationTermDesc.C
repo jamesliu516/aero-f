@@ -1162,6 +1162,16 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(
 
   double (*dR)[6] = reinterpret_cast<double (*)[6]>(dr);
 
+  bool negSA;
+  if (SAform != 3) {  // for original or fv3, clip nutilde and use standard form
+    negSA = false;
+    mutilde = max(mutilde, 0.0);
+    if (mutilde == 0.0)
+      dmutilde = 0.0;
+  }
+  else  // use negative SA model where appropriate
+    negSA = (V[0][5]<0.0 || V[1][5]<0.0 || V[2][5]<0.0 || V[3][5]<0.0);
+
   // These values can be non-zero.
   double d_oosigma = (SATerm::oosigma / NavierStokesTerm::ooreynolds) * dooreynolds_mu;
   double d_cw1 = 0.0;
@@ -1184,14 +1194,6 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(
     ddp1dxj[2][2]*V[2][5] + dp1dxj[2][2]*dV[2][5] + ddp1dxj[3][2]*V[3][5] + dp1dxj[3][2]*dV[3][5];
 
   double mu5, dmu5;
-  bool negSA;
-  if (SAform != 3) {  // for original or fv3, clip nutilde and use standard form
-    mutilde = max(mutilde, 0.0);
-    negSA = false;
-  }
-  else  // use negative SA model where appropriate
-    negSA = (V[0][5]<0.0 || V[1][5]<0.0 || V[2][5]<0.0 || V[3][5]<0.0);
-
   if (!negSA) {
     mu5 = oosigma * (mul + mutilde);
     dmu5 = oosigma * (dmul + dmutilde) + d_oosigma * (mul + mutilde);
