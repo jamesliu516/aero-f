@@ -1915,9 +1915,9 @@ FemEquationTermDES::FemEquationTermDES(IoData &iod, VarFcn *vf) :
     trip = 0;
   }
 
-  if (iod.eqs.tc.tm.sa.form == DESModelData::ORIGINAL)
+  if (iod.eqs.tc.tm.des.form == DESModelData::ORIGINAL)
     SAform = 1;
-  else if (iod.eqs.tc.tm.sa.form == DESModelData::FV3)
+  else if (iod.eqs.tc.tm.des.form == DESModelData::FV3)
     SAform = 2;
   else  // DESModelData::NEGATIVE
     SAform = 3;
