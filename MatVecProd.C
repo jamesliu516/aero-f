@@ -1554,7 +1554,8 @@ MatVecProdH2<dim,Scalar,neq>::MatVecProdH2
   // (exact for the laminar part and, possibly, approximate for the turbulent flux).
   // The case viscJacContrib == 2 gives a finite difference approximation.
   // It is not activated but kept for reference.
-  int viscJacContrib = ioData.sa.mvpViscous == SensitivityAnalysis::FDViscous ? 2 : 1;
+  int saFlag = (ioData.problem.alltype == ProblemData::_SENSITIVITY_ANALYSIS_);
+  int viscJacContrib = (saFlag && ioData.sa.mvpViscous == SensitivityAnalysis::FDViscous) ? 2 : 1;
   if (ioData.eqs.type == EquationsData::NAVIER_STOKES)
   {
     vProd = new DistSVec<double,neq>(domain->getNodeDistInfo());
