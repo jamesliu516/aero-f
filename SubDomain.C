@@ -4223,7 +4223,7 @@ void SubDomain::computeMatVecProdH1transpose(bool *nodeFlag, GenMat<Scalar,dim> 
    // typename GenMat<Scalar,dim>::AuxilliaryIterator* myItr = A.begin_ghostGhostNodes();
    // // ghost nodes contribution to ghost nodes , A.begin_ghostGhostNodes is computed in populateghostJacobian
    // if (myItr) {
-   //   do { 
+   //   do {
    //    DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(reinterpret_cast<Scalar(*)[dim*dim]>(myItr->pData), 0, ghostP.v, myItr->col , ghostProd.v, myItr->row);
    //   } while (A.next(myItr));
    //   A.free(myItr);
@@ -4232,7 +4232,7 @@ void SubDomain::computeMatVecProdH1transpose(bool *nodeFlag, GenMat<Scalar,dim> 
    typename GenMat<Scalar,dim>::AuxilliaryIterator* myItr = A.begin_ghostNodes();
     //real node state contribution to ghost node state, A.begin_ghostNodes is computed in populateghostJacobian
    if (myItr) {
-     do { 
+     do {
        DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(reinterpret_cast<Scalar(*)[dim*dim]>(myItr->pData), 0, p.v, myItr->col , ghostP.v, myItr->row);
      } while (A.next(myItr));
      A.free(myItr);
@@ -4240,7 +4240,7 @@ void SubDomain::computeMatVecProdH1transpose(bool *nodeFlag, GenMat<Scalar,dim> 
   //ghost node state contribution to real node state, A.begin_ghostNodes is computed in populateghostJacobian
    myItr = A.begin_realNodes();
    if (myItr) {
-     do { 
+     do {
        double (*tempA)[dim*dim] = reinterpret_cast<double(*)[dim*dim]>(myItr->pData);
        DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(reinterpret_cast<Scalar(*)[dim*dim]>(myItr->pData), 0, ghostP.v, myItr->col , prod.v, myItr->row);
      } while (A.next(myItr));
@@ -8676,9 +8676,9 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints, SVec<dou
                 }
                 if(!ghostPoints[i]) // GP has not been created
                 {ghostPoints[i]=new GhostPoint<dim>(varFcn);}
-                
+
                 ghostPoints[i]->addNeighbour(Vi,weights,tagJ);
-                
+
             }
         }
     }
@@ -8715,7 +8715,7 @@ void SubDomain::populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<do
     // set alpha  = 0.5
     double HALF = 0.5;
     double alpha;
-    double weight; 
+    double weight;
 
     bool* edgeFlag = edges.getMasterFlag();
     int (*edgePtr)[2] = edges.getPtr();
@@ -8747,7 +8747,7 @@ void SubDomain::populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<do
             bool jIsActive = LSS.isActive(0.0,j);
 
             if(iIsActive)
-            {   
+            {
                 LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, l, true);
                 double (*Aji)[neq*neq] = reinterpret_cast< double (*)[neq*neq]>(A.getGhostNodeElem_ij(j,i));
                 if(Aji)
@@ -10505,12 +10505,12 @@ void SubDomain::computeEMBNodeScalarQuantity(IoData &iod,SVec<double,3> &X, SVec
 // ---------------------------------------------------------------------------------------------------------
 template<int dim>
 void SubDomain::computederivativeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int order, SVec<double,3> &X,
-                   double (*dFs)[3], int sizeFs, int numStructElems, int (*stElem)[3], 
-                   Vec<Vec3D>& Xstruct, Vec<Vec3D>& dXstruct, LevelSetStructure &LSS, 
-                   double pInfty, double dpInfty, 
-                   SVec<double,dim> &Wstarij, SVec<double,dim> &Wstarji, 
+                   double (*dFs)[3], int sizeFs, int numStructElems, int (*stElem)[3],
+                   Vec<Vec3D>& Xstruct, Vec<Vec3D>& dXstruct, LevelSetStructure &LSS,
+                   double pInfty, double dpInfty,
+                   SVec<double,dim> &Wstarij, SVec<double,dim> &Wstarji,
                    SVec<double,dim> &V, SVec<double,dim> &dV_, SVec<double,dim> &dUghost,
-                   Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, 
+                   Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn,
                    NodalGrad<dim, double> &gradV, NodalGrad<dim, double> &graddV, VarFcn* vf, Vec<int>* fid){
 
   int qOrder = iod.embed.qOrder;
@@ -10663,7 +10663,7 @@ void SubDomain::computederivativeEmbSurfBasedForceLoad(IoData &iod, int forceApp
             vtet[0][i] = V[T[i]];
             vtet[1][i] = V[T[i]];
             dvtet[0][i] = dV_[T[i]];
-            dvtet[1][i] = dV_[T[i]];           
+            dvtet[1][i] = dV_[T[i]];
           }
       GhostPoint<dim> *gp;
       for(int i=0; i<4; ++i)
@@ -10722,7 +10722,7 @@ void SubDomain::computederivativeEmbSurfBasedForceLoad(IoData &iod, int forceApp
             // Viscous Simulation
             dflocal += postFcn->computeDerivativeOfViscousForce(dp1dxj,ddp1dxj,nf[n],dnf[n],d2w,Vwall,dVwall,Vface,dVface,vtet[n],dvtet[n],dS);
         }
-      } 
+      }
 
       for (int j=0; j<3; ++j) {
         dFs[stNode[0]][j] += qweight[nq]*dflocal[j]*qloc[nq][0];

@@ -822,7 +822,7 @@ void PostOperator<dim>::computeDerivativeOfForceAndMoment(dRdXoperators<dim> *dR
       dmv[iSurf] = 0.0;
     }
     dRdXop->dVdU[iSub]->apply(dU(iSub), (*dV)(iSub));
-    
+
     subDomain[iSub]->computeDerivativeOfForceAndMoment(dRdXop->dFidGradP[iSub],
                                                        dRdXop->dFidX[iSub],     dRdXop->dFidV[iSub],
                                                        dRdXop->dFvdX[iSub],     dRdXop->dFvdV[iSub],
@@ -1501,8 +1501,7 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
     *mutOmu = 0.0;
     varFcn->conservativeToPrimitive(U, *V, &fluidId);
 
-
-    if(vms) {
+    if (vms) {
       vms->computeMutOMu(A, X, *V, *mutOmu);
     }
     else if(smag) {
@@ -1779,7 +1778,7 @@ void PostOperator<dim>::computeEMBScalarQuantity(DistSVec<double,3>& X,
 
     }
   }
-  // Cleaning  
+  // Cleaning
   for(int i=0; i<numLocSub; ++i) delete [] subEmbQ[i];
   delete [] subEmbQ;
 

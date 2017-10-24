@@ -100,7 +100,7 @@ bool FemEquationTermNS::computeVolumeTerm(
        double d2w[4],       // (INPUT) distance to wall for all nodes
        double *V[4],        // (INPUT) fluid states of the nodes
        double *r,           // (OUTPUT) viscous residual
-       double *S,           // (OUTPUT) zeros are returned
+       double *s,           // (OUTPUT) zeros are returned
        double *PR,          // (OUTPUT) //TODO has to do with porosity
        double tetVol,       // (INPUT) volume of the tetrahedra
        SVec<double,3> &X,   // (INPUT) location
@@ -134,8 +134,56 @@ bool FemEquationTermNS::computeVolumeTerm(
 
 
   //reinterpret cast in order to get rid of the template parameter dim
-  double (*R)[5] = reinterpret_cast<double (*)[5]>(r);
-  computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, R);
+  // double (*R)[5] = reinterpret_cast<double (*)[5]>(r);
+  double (*R)[3][5] = reinterpret_cast<double (*)[3][5]>(r);
+  double (*S)[5] = reinterpret_cast<double (*)[5]>(s);
+  double rNS[3][5];
+
+  // computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, R);
+  // computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, rNS);
+
+  computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, R[0]);
+
+  for (int j=1; j<4; ++j) {
+    R[j][0][0] = R[0][0][0];
+    R[j][0][1] = R[0][0][1];
+    R[j][0][2] = R[0][0][2];
+    R[j][0][3] = R[0][0][3];
+    R[j][0][4] = R[0][0][4];
+
+    R[j][1][0] = R[0][1][0];
+    R[j][1][1] = R[0][1][1];
+    R[j][1][2] = R[0][1][2];
+    R[j][1][3] = R[0][1][3];
+    R[j][1][4] = R[0][1][4];
+
+    R[j][2][0] = R[0][2][0];
+    R[j][2][1] = R[0][2][1];
+    R[j][2][2] = R[0][2][2];
+    R[j][2][3] = R[0][2][3];
+    R[j][2][4] = R[0][2][4];
+  }
+
+
+  // for (int j=0; j<4; ++j) {
+  //   R[j][0][0] = rNS[0][0];
+  //   R[j][0][1] = rNS[0][1];
+  //   R[j][0][2] = rNS[0][2];
+  //   R[j][0][3] = rNS[0][3];
+  //   R[j][0][4] = rNS[0][4];
+
+  //   R[j][1][0] = rNS[1][0];
+  //   R[j][1][1] = rNS[1][1];
+  //   R[j][1][2] = rNS[1][2];
+  //   R[j][1][3] = rNS[1][3];
+  //   R[j][1][4] = rNS[1][4];
+
+  //   R[j][2][0] = rNS[2][0];
+  //   R[j][2][1] = rNS[2][1];
+  //   R[j][2][2] = rNS[2][2];
+  //   R[j][2][3] = rNS[2][3];
+  //   R[j][2][4] = rNS[2][4];
+  // }
 
   // Initialize PR (porous media term)
   for (int j=0; j<3*4; ++j) PR[j] = 0.0;
@@ -151,11 +199,13 @@ bool FemEquationTermNS::computeVolumeTerm(
     }
   }
 
-  S[0] = 0.0;
-  S[1] = 0.0;
-  S[2] = 0.0;
-  S[3] = 0.0;
-  S[4] = 0.0;
+  for (int j=0; j<4; ++j) {
+    S[j][0] = 0.0;
+    S[j][1] = 0.0;
+    S[j][2] = 0.0;
+    S[j][3] = 0.0;
+    S[j][4] = 0.0;
+  }
 
   return (porousmedia);
 
@@ -172,7 +222,7 @@ bool FemEquationTermNS::computeDerivativeOfVolumeTerm(
                           double *dV[4],        // (INPUT) state vector and state vector derivative with respect to abstract variable
                           double dMach,         // (INPUT) flag for mach derivative
                           double *dr,           // (OUTPUT)
-                          double *dS,           // (OUTPUT)
+                          double *ds,           // (OUTPUT)
                           double *dPR,          // (OUTPUT)
                           double dtetVol,       // (INPUT) cell volume derivative
                           SVec<double,3> &X,    // (INPUT) position vector
@@ -230,8 +280,32 @@ bool FemEquationTermNS::computeDerivativeOfVolumeTerm(
   lambda *= ooreynolds_mu;
   kappa  *= ooreynolds_mu;
 
-  double (*dR)[5] = reinterpret_cast<double (*)[5]>(dr);
-  computeDerivativeOfVolumeTermNS(mu, dmu, lambda, dlambda, kappa, dkappa, ucg, ducg, dudxj, ddudxj, dTdxj, ddTdxj, dR);
+  // double (*dR)[5] = reinterpret_cast<double (*)[5]>(dr);
+  // computeDerivativeOfVolumeTermNS(mu, dmu, lambda, dlambda, kappa, dkappa, ucg, ducg, dudxj, ddudxj, dTdxj, ddTdxj, dR);
+
+  double (*dR)[3][5] = reinterpret_cast<double (*)[3][5]>(dr);
+  double (*dS)[5] = reinterpret_cast<double (*)[5]>(ds);
+  computeDerivativeOfVolumeTermNS(mu, dmu, lambda, dlambda, kappa, dkappa, ucg, ducg, dudxj, ddudxj, dTdxj, ddTdxj, dR[0]);
+
+  for (int j=1; j<4; ++j) {
+    dR[j][0][0] = dR[0][0][0];
+    dR[j][0][1] = dR[0][0][1];
+    dR[j][0][2] = dR[0][0][2];
+    dR[j][0][3] = dR[0][0][3];
+    dR[j][0][4] = dR[0][0][4];
+
+    dR[j][1][0] = dR[0][1][0];
+    dR[j][1][1] = dR[0][1][1];
+    dR[j][1][2] = dR[0][1][2];
+    dR[j][1][3] = dR[0][1][3];
+    dR[j][1][4] = dR[0][1][4];
+
+    dR[j][2][0] = dR[0][2][0];
+    dR[j][2][1] = dR[0][2][1];
+    dR[j][2][2] = dR[0][2][2];
+    dR[j][2][3] = dR[0][2][3];
+    dR[j][2][4] = dR[0][2][4];
+  }
 
   // Initialize PR (porous media term)
   for (int j=0; j<3*4; ++j) dPR[j] = 0.0;
@@ -248,16 +322,25 @@ bool FemEquationTermNS::computeDerivativeOfVolumeTerm(
     }
   }
 
-  dS[0] = 0.0;
-  dS[1] = 0.0;
-  dS[2] = 0.0;
-  dS[3] = 0.0;
-  dS[4] = 0.0;
+  // dS[0] = 0.0;
+  // dS[1] = 0.0;
+  // dS[2] = 0.0;
+  // dS[3] = 0.0;
+  // dS[4] = 0.0;
+
+  for (int j=0; j<4; ++j) {
+    dS[j][0] = 0.0;
+    dS[j][1] = 0.0;
+    dS[j][2] = 0.0;
+    dS[j][3] = 0.0;
+    dS[j][4] = 0.0;
+  }
 
   return (porousmedia);
 
 }
 
+//------------------------------------------------------------------------------
 
 // Included (YC)
 void FemEquationTermNS::computeDerivativeOperatorsOfVolumeTerm(double dp1dxj[4][3], double *V[4],
@@ -343,8 +426,6 @@ void FemEquationTermNS::computeDerivativeOperatorsOfVolumeTerm(double dp1dxj[4][
     }
   }
 }
-
-
 
 //------------------------------------------------------------------------------
 
@@ -687,10 +768,8 @@ double FemEquationTermSA::computeDerivativeOfViscousTimeStep(double X[3], double
 //               original implementation
 
 bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
-					  double *V[4], double *r, double *S,
-            double *PR, double tetVol,
-            SVec<double,3> &X,
-            int nodeNum[4], int material_id)
+					  double *V[4], double *r, double *s, double *PR, double tetVol,
+            SVec<double,3> &X, int nodeNum[4], int material_id)
 {
 
   bool porousmedia = false;
@@ -716,7 +795,9 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
   double mut, lambdat, kappat;
   computeTurbulentTransportCoefficients(V, nodeNum, X, mul, lambdal, kappal, mutilde, mut, lambdat, kappat);
 
-  double (*R)[6] = reinterpret_cast<double (*)[6]>(r);
+  // double (*R)[6] = reinterpret_cast<double (*)[6]>(r);
+  double (*R)[3][6] = reinterpret_cast<double (*)[3][6]>(r);  // SJG, testing
+  double (*S)[6] = reinterpret_cast<double (*)[6]>(s);
 
   double dnutildedx = dp1dxj[0][0]*V[0][5]
 	                 + dp1dxj[1][0]*V[1][5]
@@ -730,36 +811,188 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
 
   double dnutildedz = dp1dxj[0][2]*V[0][5]
 	                 + dp1dxj[1][2]*V[1][5]
-                     + dp1dxj[2][2]*V[2][5]
+                   + dp1dxj[2][2]*V[2][5]
 	                 + dp1dxj[3][2]*V[3][5];
 
   bool negSA;
-  if (SAform != 3) {  // for original or fv3, clip nutilde and use standard form
+  if (SAform < 3) {  // for original or fv3, clip nutilde and use standard form
     mutilde = max(mutilde, 0.0);
     negSA = false;
   }
-  else  // use negative SA model where appropriate
-    negSA = (V[0][5]<0.0 || V[1][5]<0.0 || V[2][5]<0.0 || V[3][5]<0.0);
+  else {  // use negative SA model where appropriate
+    negSA = ((V[0][5]<0.0) || (V[1][5]<0.0) || (V[2][5]<0.0) || (V[3][5]<0.0));
+  }
 
-  double mu5;
-  if (!negSA)
-    mu5 = oosigma * (mul + mutilde);
+  // diffusive flux
+  double mu5neg, mu5 = oosigma * (mul + mutilde);
+  double chi = mutilde/mul;
+  double chi3 = chi*chi*chi;
+  if (negSA) {
+    double fn = (cn1+chi3)/(cn1-chi3);
+    mu5neg = oosigma * (mul + mutilde*fn);
+
+    for (int j=0; j<4; ++j) {
+      if (V[j][5] < 0.0) {
+        R[j][0][5] = mu5neg * dnutildedx;
+        R[j][1][5] = mu5neg * dnutildedy;
+        R[j][2][5] = mu5neg * dnutildedz;
+      }
+      else {
+        R[j][0][5] = mu5 * dnutildedx;
+        R[j][1][5] = mu5 * dnutildedy;
+        R[j][2][5] = mu5 * dnutildedz;
+      }
+    }
+  }
   else {
+    for (int j=0; j<4; ++j) {
+      R[j][0][5] = mu5 * dnutildedx;
+      R[j][1][5] = mu5 * dnutildedy;
+      R[j][2][5] = mu5 * dnutildedz;
+    }
+  }
+
+  // source term
+  for (int j=0; j<4; ++j) {
+    S[j][0] = 0.0;
+    S[j][1] = 0.0;
+    S[j][2] = 0.0;
+    S[j][3] = 0.0;
+    S[j][4] = 0.0;
+  }
+
+  double d2wall = 0.25 * (d2w[0] + d2w[1] + d2w[2] + d2w[3]);
+  if (d2wall >= 1.e-15) {
+    double rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
+    double oorho = 1.0 / rho;
+    double ood2wall2 = 1.0 / (d2wall * d2wall);
+
+    double s12 = dudxj[0][1] - dudxj[1][0];
+    double s23 = dudxj[1][2] - dudxj[2][1];
+    double s31 = dudxj[2][0] - dudxj[0][2];
+    double s = sqrt(s12*s12 + s23*s23 + s31*s31);
+
+    // double chi = mutilde/mul; // chi = 0 is OK except for fv3
+    // double chi3 = chi*chi*chi;
+    double fv1 = chi3 / (chi3 + cv1_pow3);
+    double fv2  = 1.-chi/(1.+chi*fv1);
+    double fv3  = 1.0;
+    if (SAform == 2) {
+      fv2 = 1.0 + oocv2*chi;
+      fv2 = 1.0 / (fv2*fv2*fv2);
+      fv3 = (chi==0.0) ? 3.0*oocv2 : (1.0 + chi*fv1) * (1.0 - fv2) / chi;
+    }
+
+    double zz = ooreynolds_mu * oovkcst2 * mutilde * oorho * ood2wall2;
+    double Stilde, Sbar = zz*fv2;
+    if (Sbar >= -c2*s)
+      Stilde = s*fv3+Sbar;
+    else
+      Stilde = s*fv3+s*(c2*c2*s+c3*Sbar)/((c3-2.0*c2)*s-Sbar);
+
+    double rr;
+    if (Stilde == 0.0)
+      rr = rlim;
+    else
+      rr = min(zz/Stilde, rlim);
+
+    double rr2 = rr*rr;
+    double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
+    double gg2 = gg*gg;
+    double fw = opcw3_pow * gg * pow(gg2*gg2*gg2 + cw3_pow6, -sixth);
+
+    double AA = oosigma * cb2 * rho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
+    double BB = cb1 * Stilde * mutilde;
+    double CC = - cw1 * fw * oorho * mutilde * mutilde * ood2wall2;
+
+    // sjg, 06/2017: forgotten term in conversion to conservation form
+    double drhodx = dp1dxj[0][0]*V[0][0] + dp1dxj[1][0]*V[1][0]
+                   + dp1dxj[2][0]*V[2][0] + dp1dxj[3][0]*V[3][0];
+    double drhody = dp1dxj[0][1]*V[0][0] + dp1dxj[1][1]*V[1][0]
+                   + dp1dxj[2][1]*V[2][0] + dp1dxj[3][1]*V[3][0];
+    double drhodz = dp1dxj[0][2]*V[0][0] + dp1dxj[1][2]*V[1][0]
+                   + dp1dxj[2][2]*V[2][0] + dp1dxj[3][2]*V[3][0];
+    double DD = - oorho * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz);
+
+    if (negSA) {
+      double BBneg = cb1 * s * mutilde;
+      double CCneg = cw1 * oorho * mutilde * mutilde * ood2wall2;
+      double DDneg = - oorho * mu5neg * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz);
+
+      for (int j=0; j<4; ++j) {
+        if (V[j][5] < 0.0)
+          S[j][5] = AA+BBneg+CCneg+DDneg;
+        else
+          S[j][5] = AA+BB+CC+DD;
+      }
+    }
+    else {
+      for (int j=0; j<4; ++j)
+        S[j][5] = AA+BB+CC+DD;
+    }
+  }
+  else {
+    for (int j=0; j<4; ++j)
+      S[j][5] = 0.0;
+  }
+
+/*
+
+  // double negSA;
+  bool negSA;
+  if (SAform < 3) {  // for original or fv3, clip nutilde and use standard form
+    mutilde = max(mutilde, 0.0);
+
+    // negSA = 0.0;
+    negSA = false;
+  }
+  else {  // use negative SA model where appropriate
+    // negSA = 0.25*((V[0][5]<0.0) + (V[1][5]<0.0) + (V[2][5]<0.0) + (V[3][5]<0.0));
+    negSA = ((V[0][5]<0.0) || (V[1][5]<0.0) || (V[2][5]<0.0) || (V[3][5]<0.0));
+    // negSA = (mutilde < 0.0);
+  }
+
+  if ((V[0][5]<0.0) || (V[1][5]<0.0) || (V[2][5]<0.0) || (V[3][5]<0.0)) {
+    fprintf(stderr,"Using negative SA model: mutilde = %e, nutilde = %e, %e, %e, %e\n",
+      mutilde,V[0][5],V[1][5],V[2][5],V[3][5]);
+    exit(1);
+  }
+
+  // double mu5;
+  double mu5, mu5neg;
+  // if (negSA >= 0.25) {
+  if (negSA) {
     double chi = mutilde/mul;
     double chi3 = chi*chi*chi;
     double fn = (cn1+chi3)/(cn1-chi3);
-    mu5 = oosigma * (mul + fn*mutilde);
+
+    // mu5 = oosigma * (mul + mutilde*(negSA*fn + (1.0-negSA)));
+    // mu5 = oosigma * (mul + mutilde*fn);
+    mu5neg = oosigma * (mul + mutilde*fn);
   }
+  // else {
+    mu5 = oosigma * (mul + mutilde);
+  // }
 
-  R[0][5] = mu5 * dnutildedx;
-  R[1][5] = mu5 * dnutildedy;
-  R[2][5] = mu5 * dnutildedz;
+  for (int j=0; j<4; ++j) {
 
-  S[0] = 0.0;
-  S[1] = 0.0;
-  S[2] = 0.0;
-  S[3] = 0.0;
-  S[4] = 0.0;
+    if (V[j][5] < 0.0) {
+      R[j][0][5] = mu5neg * dnutildedx;
+      R[j][1][5] = mu5neg * dnutildedy;
+      R[j][2][5] = mu5neg * dnutildedz;
+    }
+    else {
+      R[j][0][5] = mu5 * dnutildedx;
+      R[j][1][5] = mu5 * dnutildedy;
+      R[j][2][5] = mu5 * dnutildedz;
+    }
+
+    S[j][0] = 0.0;
+    S[j][1] = 0.0;
+    S[j][2] = 0.0;
+    S[j][3] = 0.0;
+    S[j][4] = 0.0;
+  }
 
   double d2wall = 0.25 * (d2w[0] + d2w[1] + d2w[2] + d2w[3]);
 
@@ -774,46 +1007,67 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
     double s = sqrt(s12*s12 + s23*s23 + s31*s31);
 
     double AA, BB, CC;
+    AA = oosigma * cb2 * rho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
 
-    if (!negSA) {
-      double chi = mutilde/mul; // chi = 0 is OK except for fv3
-      double chi3 = chi*chi*chi;
-      double fv1 = chi3 / (chi3 + cv1_pow3);
-      double fv2  = 1.-chi/(1.+chi*fv1);
-      double fv3  = 1.0;
-      if (SAform == 2) {
-        fv2 = 1.0 + oocv2*chi;
-        fv2 = 1.0 / (fv2*fv2*fv2);
-        fv3 = (chi==0.0) ? 3.0*oocv2 : (1.0 + chi*fv1) * (1.0 - fv2) / chi;
-      }
+    // if (negSA) {
+    //   BB = cb1 * s * mutilde;
+    //   CC = cw1 * oorho * mutilde * mutilde * ood2wall2;
+    // }
+    // else {
 
-      double zz = ooreynolds_mu * oovkcst2 * mutilde * oorho * ood2wall2;
-      double Stilde, Sbar = zz*fv2;
-      if (Sbar >= -c2*s)
-        Stilde = s*fv3+Sbar;
-      else
-        Stilde = s*fv3+s*(c2*c2*s+c3*Sbar)/((c3-2.0*c2)*s-Sbar);
+    // if (negSA >= 0.25) {
+    //   BB = cb1 * s * mutilde;
+    //   CC = cw1 * oorho * mutilde * mutilde * ood2wall2;
+    // }
+    // else {
 
-      double rr;
-      if (Stilde == 0.0)
-        rr = rlim;
-      else
-        rr = min(zz/Stilde, rlim);
-
-      double rr2 = rr*rr;
-      double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
-      double gg2 = gg*gg;
-      double fw = opcw3_pow * gg * pow(gg2*gg2*gg2 + cw3_pow6, -sixth);
-
-      AA = oosigma * cb2 * rho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
-      BB = cb1 * Stilde * mutilde;
-      CC = - cw1 * fw * oorho * mutilde * mutilde * ood2wall2;
+    double chi = mutilde/mul; // chi = 0 is OK except for fv3
+    double chi3 = chi*chi*chi;
+    double fv1 = chi3 / (chi3 + cv1_pow3);
+    double fv2  = 1.-chi/(1.+chi*fv1);
+    double fv3  = 1.0;
+    if (SAform == 2) {
+      fv2 = 1.0 + oocv2*chi;
+      fv2 = 1.0 / (fv2*fv2*fv2);
+      fv3 = (chi==0.0) ? 3.0*oocv2 : (1.0 + chi*fv1) * (1.0 - fv2) / chi;
     }
-    else {
-      AA = oosigma * cb2 * rho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
-      BB = cb1 * s * mutilde;
-      CC = cw1 * oorho * mutilde *mutilde * ood2wall2;
+
+    double zz = ooreynolds_mu * oovkcst2 * mutilde * oorho * ood2wall2;
+    double Stilde, Sbar = zz*fv2;
+    if (Sbar >= -c2*s)
+      Stilde = s*fv3+Sbar;
+    else
+      Stilde = s*fv3+s*(c2*c2*s+c3*Sbar)/((c3-2.0*c2)*s-Sbar);
+
+    double rr;
+    if (Stilde == 0.0)
+      rr = rlim;
+    else
+      rr = min(zz/Stilde, rlim);
+
+    double rr2 = rr*rr;
+    double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
+    double gg2 = gg*gg;
+    double fw = opcw3_pow * gg * pow(gg2*gg2*gg2 + cw3_pow6, -sixth);
+
+    BB = cb1 * Stilde * mutilde;
+    CC = - cw1 * fw * oorho * mutilde * mutilde * ood2wall2;
+
+    // }
+
+    double BBneg, CCneg;
+    if (negSA) {
+      BBneg = cb1 * s * mutilde;
+      CCneg = cw1 * oorho * mutilde * mutilde * ood2wall2;
     }
+
+    // if (negSA >= 0.25) {
+    //   // BB = (1.0-negSA)*BB + negSA*(cb1 * s * mutilde);
+    //   // CC = (1.0-negSA)*CC + negSA*(cw1 * oorho * mutilde * mutilde * ood2wall2);
+
+    //   BB = cb1 * s * mutilde;
+    //   CC = cw1 * oorho * mutilde * mutilde * ood2wall2;
+    // }
 
     // sjg, 06/2017: forgotten term in conversion to conservation form
     double drhodx = dp1dxj[0][0]*V[0][0] + dp1dxj[1][0]*V[1][0]
@@ -824,12 +1078,23 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
                    + dp1dxj[2][2]*V[2][0] + dp1dxj[3][2]*V[3][0];
     double DD = - oorho * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz);
 
+
+
+
+
     // S[5] = AA + BB + CC;
     S[5] = AA + BB + CC + DD;
+
+
   }
   else {
-    S[5] = 0.0;
+
+    for (int j=0; j<4; ++j)
+      S[j][5] = 0.0;
+
   }
+
+  */
 
   // Initialize PR (porous media term)
   for (int j=0; j<3*4; ++j) PR[j] = 0.0;
@@ -852,10 +1117,66 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
 
   // In all cases, porous media or not, compute viscous term for Navier-Stokes equations
   double mu, lambda, kappa;
+  // double mu, lambda, kappa, rNS[3][5];
   mu     = ooreynolds_mu * (mul + mut);
   lambda = ooreynolds_mu * (lambdal + lambdat);
   kappa  = ooreynolds_mu * (kappal + kappat);
-  computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, R);
+  computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, R[0]);
+  // computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, rNS);
+
+
+  // // TESTING
+  // double rNS[3][5];
+  // computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, rNS);
+  // for (int k=0; k<3; ++k) {
+  //   for (int l=0; l<3; ++l) {
+  //     if (R[0][k][l] != rNS [k][l]) {
+  //       fprintf(stderr,"*** Problem with NS flux calculations!\n");
+  //       exit(1);
+  //     }
+  //   }
+  // }
+
+
+  for (int j=1; j<4; ++j) {
+    R[j][0][0] = R[0][0][0];
+    R[j][0][1] = R[0][0][1];
+    R[j][0][2] = R[0][0][2];
+    R[j][0][3] = R[0][0][3];
+    R[j][0][4] = R[0][0][4];
+
+    R[j][1][0] = R[0][1][0];
+    R[j][1][1] = R[0][1][1];
+    R[j][1][2] = R[0][1][2];
+    R[j][1][3] = R[0][1][3];
+    R[j][1][4] = R[0][1][4];
+
+    R[j][2][0] = R[0][2][0];
+    R[j][2][1] = R[0][2][1];
+    R[j][2][2] = R[0][2][2];
+    R[j][2][3] = R[0][2][3];
+    R[j][2][4] = R[0][2][4];
+  }
+
+  // for (int j=0; j<4; ++j) {
+  //   R[j][0][0] = rNS[0][0];
+  //   R[j][0][1] = rNS[0][1];
+  //   R[j][0][2] = rNS[0][2];
+  //   R[j][0][3] = rNS[0][3];
+  //   R[j][0][4] = rNS[0][4];
+
+  //   R[j][1][0] = rNS[1][0];
+  //   R[j][1][1] = rNS[1][1];
+  //   R[j][1][2] = rNS[1][2];
+  //   R[j][1][3] = rNS[1][3];
+  //   R[j][1][4] = rNS[1][4];
+
+  //   R[j][2][0] = rNS[2][0];
+  //   R[j][2][1] = rNS[2][1];
+  //   R[j][2][2] = rNS[2][2];
+  //   R[j][2][3] = rNS[2][3];
+  //   R[j][2][4] = rNS[2][4];
+  // }
 
   return (porousmedia);
 
@@ -865,12 +1186,15 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
 // Compute SA equation residual distance sensitivity (sjg, 08/2017)
 
 void FemEquationTermSA::computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3], double d2w[4],
-            double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS)
+            double *V[4], SVec<double,3> &X, int nodeNum[4], double dS[4])
 {
 
   double d2wall = 0.25 * (d2w[0] + d2w[1] + d2w[2] + d2w[3]);
   if (d2wall < 1.e-15) {
-    dS = 0.0;
+    dS[0] = 0.0;
+    dS[1] = 0.0;
+    dS[2] = 0.0;
+    dS[3] = 0.0;
     return;
   }
 
@@ -895,67 +1219,153 @@ void FemEquationTermSA::computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3
   double mut, lambdat, kappat;
   computeTurbulentTransportCoefficients(V, nodeNum, X, mul, lambdal, kappal, mutilde, mut, lambdat, kappat);
 
+  bool negSA;
+  if (SAform < 3) {  // for original or fv3, clip nutilde and use standard form
+    mutilde = max(mutilde, 0.0);
+    negSA = false;
+  }
+  else {  // use negative SA model where appropriate
+    negSA = ((V[0][5]<0.0) || (V[1][5]<0.0) || (V[2][5]<0.0) || (V[3][5]<0.0));
+  }
+
+  double rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
+  double oorho = 1.0 / rho;
+  double ood2wall = 1.0 / d2wall;
+  double ood2wall2 = ood2wall*ood2wall;
+
+  double chi = mutilde/mul;
+  double chi3 = chi*chi*chi;
+  double fv1 = chi3 / (chi3 + cv1_pow3);
+  double fv2  = 1.-chi/(1.+chi*fv1);
+  double fv3  = 1.0;
+  if (SAform == 2) {
+    fv2 = 1.0 + oocv2*chi;
+    fv2 = 1.0 / (fv2*fv2*fv2);
+    fv3 = (chi==0.0) ? 3.0*oocv2 : (1.0 + chi*fv1) * (1.0 - fv2) / chi;
+  }
+
+  double s12 = dudxj[0][1] - dudxj[1][0];
+  double s23 = dudxj[1][2] - dudxj[2][1];
+  double s31 = dudxj[2][0] - dudxj[0][2];
+  double s = sqrt(s12*s12 + s23*s23 + s31*s31);
+  double zz = ooreynolds_mu * oovkcst2 * mutilde * oorho * ood2wall2;
+  double Stilde, Sbar = zz*fv2;
+  if (Sbar >= -c2*s)
+    Stilde = s*fv3+Sbar;
+  else
+    Stilde = s*fv3+s*(c2*c2*s+c3*Sbar)/((c3-2.0*c2)*s-Sbar);
+
+  double rr;
+  if (Stilde == 0.0)
+    rr = rlim;
+  else
+    rr = min(zz/Stilde, rlim);
+
+  double rr2 = rr*rr;
+  double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
+  double gg2 = gg*gg;
+  double fw = opcw3_pow * gg * pow(gg2*gg2*gg2 + cw3_pow6, -sixth);
+
+  double drdStilde = (rr>rlim) ? -zz / (Stilde*Stilde) : 0.0;
+  double dgdr = 1.0 + cw2 * (6.0 * rr * rr2 * rr2 - 1.0);
+  double dfwdg = cw3_pow6 * pow(gg2*gg2*gg2 + cw3_pow6, -7.0*sixth) * opcw3_pow;
+
+  double Lambda = cb1 * mutilde - cw1 * mutilde * mutilde * oorho * ood2wall2
+    * dfwdg * dgdr * drdStilde;
+  double dStildedd = -2.0 * fv2 * zz * ood2wall;
+
+  double ds = 2.0 * cw1 * fw * mutilde * mutilde * oorho * ood2wall2 * ood2wall
+    + Lambda * dStildedd;
+
+  if (negSA) {
+    double dsneg = -2.0 * cw1 * mutilde * mutilde * oorho * ood2wall2 * ood2wall;
+
+    for (int j=0; j<4; ++j) {
+      if (V[j][5] < 0.0)
+        dS[j] = dsneg;
+      else
+        dS[j] = ds;
+    }
+  }
+  else {
+    for (int j=0; j<4; ++j)
+        dS[j] = ds;
+  }
+
+/*
   double ood2wall = 1.0 / d2wall;
   double ood2wall2 = ood2wall * ood2wall;
   double rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
   double oorho = 1.0 / rho;
 
+  // double negSA;
   bool negSA;
-  if (SAform != 3) {  // for original or fv3, clip nutilde and use standard form
+
+  if (SAform < 3) {  // for original or fv3, clip nutilde and use standard form
     mutilde = max(mutilde, 0.0);
+
+    // negSA = 0.0;
     negSA = false;
   }
-  else  // use negative SA model where appropriate
-    negSA = (V[0][5]<0.0 || V[1][5]<0.0 || V[2][5]<0.0 || V[3][5]<0.0);
-
-  if (!negSA) {
-    double chi = mutilde/mul;
-    double chi3 = chi*chi*chi;
-    double fv1 = chi3 / (chi3 + cv1_pow3);
-    double fv2  = 1.-chi/(1.+chi*fv1);
-    double fv3  = 1.0;
-    if (SAform == 2) {
-      fv2 = 1.0 + oocv2*chi;
-      fv2 = 1.0 / (fv2*fv2*fv2);
-      fv3 = (chi==0.0) ? 3.0*oocv2 : (1.0 + chi*fv1) * (1.0 - fv2) / chi;
-    }
-
-    double s12 = dudxj[0][1] - dudxj[1][0];
-    double s23 = dudxj[1][2] - dudxj[2][1];
-    double s31 = dudxj[2][0] - dudxj[0][2];
-    double s = sqrt(s12*s12 + s23*s23 + s31*s31);
-    double zz = ooreynolds_mu * oovkcst2 * mutilde * oorho * ood2wall2;
-    double Stilde, Sbar = zz*fv2;
-    if (Sbar >= -c2*s)
-      Stilde = s*fv3+Sbar;
-    else
-      Stilde = s*fv3+s*(c2*c2*s+c3*Sbar)/((c3-2.0*c2)*s-Sbar);
-
-    double rr;
-    if (Stilde == 0.0)
-      rr = rlim;
-    else
-      rr = min(zz/Stilde, rlim);
-
-    double rr2 = rr*rr;
-    double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
-    double gg2 = gg*gg;
-    double fw = opcw3_pow * gg * pow(gg2*gg2*gg2 + cw3_pow6, -sixth);
-
-    double drdStilde = (rr>rlim) ? -zz / (Stilde*Stilde) : 0.0;
-    double dgdr = 1.0 + cw2 * (6.0 * rr * rr2 * rr2 - 1.0);
-    double dfwdg = cw3_pow6 * pow(gg2*gg2*gg2 + cw3_pow6, -7.0*sixth) * opcw3_pow;
-
-    double Lambda = cb1 * mutilde - cw1 * mutilde * mutilde * oorho * ood2wall2
-      * dfwdg * dgdr * drdStilde;
-    double dStildedd = -2.0 * fv2 * zz * ood2wall;
-
-    dS = 2.0 * cw1 * fw * mutilde * mutilde * oorho * ood2wall2 * ood2wall
-      + Lambda * dStildedd;
+  else {  // use negative SA model where appropriate
+    // negSA = 0.25*((V[0][5]<0.0) + (V[1][5]<0.0) + (V[2][5]<0.0) + (V[3][5]<0.0));
+    negSA = ((V[0][5]<0.0) || (V[1][5]<0.0) || (V[2][5]<0.0) || (V[3][5]<0.0));
   }
-  else
-    dS = - 2.0 * cw1 * mutilde * mutilde * oorho * ood2wall2 * ood2wall;
 
+  if (negSA) {
+    dS = -2.0 * cw1 * mutilde * mutilde * oorho * ood2wall2 * ood2wall;
+  }
+  else {
+
+  double chi = mutilde/mul;
+  double chi3 = chi*chi*chi;
+  double fv1 = chi3 / (chi3 + cv1_pow3);
+  double fv2  = 1.-chi/(1.+chi*fv1);
+  double fv3  = 1.0;
+  if (SAform == 2) {
+    fv2 = 1.0 + oocv2*chi;
+    fv2 = 1.0 / (fv2*fv2*fv2);
+    fv3 = (chi==0.0) ? 3.0*oocv2 : (1.0 + chi*fv1) * (1.0 - fv2) / chi;
+  }
+
+  double s12 = dudxj[0][1] - dudxj[1][0];
+  double s23 = dudxj[1][2] - dudxj[2][1];
+  double s31 = dudxj[2][0] - dudxj[0][2];
+  double s = sqrt(s12*s12 + s23*s23 + s31*s31);
+  double zz = ooreynolds_mu * oovkcst2 * mutilde * oorho * ood2wall2;
+  double Stilde, Sbar = zz*fv2;
+  if (Sbar >= -c2*s)
+    Stilde = s*fv3+Sbar;
+  else
+    Stilde = s*fv3+s*(c2*c2*s+c3*Sbar)/((c3-2.0*c2)*s-Sbar);
+
+  double rr;
+  if (Stilde == 0.0)
+    rr = rlim;
+  else
+    rr = min(zz/Stilde, rlim);
+
+  double rr2 = rr*rr;
+  double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
+  double gg2 = gg*gg;
+  double fw = opcw3_pow * gg * pow(gg2*gg2*gg2 + cw3_pow6, -sixth);
+
+  double drdStilde = (rr>rlim) ? -zz / (Stilde*Stilde) : 0.0;
+  double dgdr = 1.0 + cw2 * (6.0 * rr * rr2 * rr2 - 1.0);
+  double dfwdg = cw3_pow6 * pow(gg2*gg2*gg2 + cw3_pow6, -7.0*sixth) * opcw3_pow;
+
+  double Lambda = cb1 * mutilde - cw1 * mutilde * mutilde * oorho * ood2wall2
+    * dfwdg * dgdr * drdStilde;
+  double dStildedd = -2.0 * fv2 * zz * ood2wall;
+
+  dS = 2.0 * cw1 * fw * mutilde * mutilde * oorho * ood2wall2 * ood2wall
+    + Lambda * dStildedd;
+
+  }
+
+  // if (negSA >= 0.25)
+  //   dS = (1.0-negSA)*dS - negSA*(2.0 * cw1 * mutilde * mutilde * oorho * ood2wall2 * ood2wall);
+*/
 }
 
 //------------------------------------------------------------------------------
@@ -1075,7 +1485,7 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(
        double *dV[4],       //Derivative of the 4 fluid state vectors
        double dMach,        //flag for mach-sensitivity
        double *dr,          //residual derivative contribution
-       double *dS,          //?
+       double *ds,          //?
        double *dPR,         //?
        double dtetVol,      //Derivative of tetrahedra volume
        SVec<double,3> &X,   //mesh positions
@@ -1160,7 +1570,18 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(
   double kappa;
   double dkappa;
 
-  double (*dR)[6] = reinterpret_cast<double (*)[6]>(dr);
+  // double (*dR)[6] = reinterpret_cast<double (*)[6]>(dr);
+  double (*dR)[3][6] = reinterpret_cast<double (*)[3][6]>(ds);
+  double (*dS)[6] = reinterpret_cast<double (*)[6]>(ds);
+
+  bool negSA;
+  if (SAform < 3) {  // for original or fv3, clip nutilde and use standard form
+    mutilde = max(mutilde, 0.0);
+    negSA = false;
+  }
+  else {  // use negative SA model where appropriate
+    negSA = ((V[0][5]<0.0) || (V[1][5]<0.0) || (V[2][5]<0.0) || (V[3][5]<0.0));
+  }
 
   // These values can be non-zero.
   double d_oosigma = (SATerm::oosigma / NavierStokesTerm::ooreynolds) * dooreynolds_mu;
@@ -1183,42 +1604,67 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(
   double ddnutildedz = ddp1dxj[0][2]*V[0][5] + dp1dxj[0][2]*dV[0][5] + ddp1dxj[1][2]*V[1][5] + dp1dxj[1][2]*dV[1][5] +
     ddp1dxj[2][2]*V[2][5] + dp1dxj[2][2]*dV[2][5] + ddp1dxj[3][2]*V[3][5] + dp1dxj[3][2]*dV[3][5];
 
-  double mu5, dmu5;
-  bool negSA;
-  if (SAform != 3) {  // for original or fv3, clip nutilde and use standard form
-    mutilde = max(mutilde, 0.0);
-    negSA = false;
+  // double mu5, dmu5;
+  // if (negSA) {
+  //   double chi = mutilde/mul;
+  //   double dchi = dmutilde/mul - mutilde/(mul*mul)*dmul;
+  //   double chi2 = chi*chi;
+  //   double chi3 = chi*chi*chi;
+  //   double fn = (cn1+chi3)/(cn1-chi3);
+  //   double dfn = 6.0*chi2*cn1/((cn1-chi3)*(cn1-chi3))*dchi;
+
+  //   mu5 = oosigma * (mul + mutilde*fn);
+  //   dmu5 = oosigma * (dmul + fn*dmutilde + dfn*mutilde) + d_oosigma * (mul + fn*mutilde);
+  // }
+  // else {
+  //   mu5 = oosigma * (mul + mutilde);
+  //   dmu5 = oosigma * (dmul + dmutilde) + d_oosigma * (mul + mutilde);
+  // }
+
+  // dR[0][5] = dmu5 * dnutildedx + mu5 * ddnutildedx;
+  // dR[1][5] = dmu5 * dnutildedy + mu5 * ddnutildedy;
+  // dR[2][5] = dmu5 * dnutildedz + mu5 * ddnutildedz;
+
+  // diffusive flux
+  double mu5neg, mu5 = oosigma * (mul + mutilde);
+  double dmu5neg, dmu5 = oosigma * (dmul + dmutilde) + d_oosigma * (mul + mutilde);
+  double chi = mutilde/mul;
+  double chi3 = chi*chi*chi;
+  double dchi = dmutilde/mul - mutilde/(mul*mul)*dmul;
+  double fn, dfn;
+  if (negSA) {
+    fn = (cn1+chi3)/(cn1-chi3);
+    dfn = 6.0*chi*chi*cn1/((cn1-chi3)*(cn1-chi3))*dchi;
+    mu5neg = oosigma * (mul + mutilde*fn);
+    dmu5neg = oosigma * (dmul + fn*dmutilde + dfn*mutilde) + d_oosigma * (mul + fn*mutilde);
   }
-  else  // use negative SA model where appropriate
-    negSA = (V[0][5]<0.0 || V[1][5]<0.0 || V[2][5]<0.0 || V[3][5]<0.0);
-
-  if (!negSA) {
-    mu5 = oosigma * (mul + mutilde);
-    dmu5 = oosigma * (dmul + dmutilde) + d_oosigma * (mul + mutilde);
-  }
-  else {
-    double chi = mutilde/mul;
-
-    double dchi = dmutilde/mul - mutilde/(mul*mul)*dmul;
-    double chi2 = chi*chi;
-    double chi3 = chi*chi*chi;
-    double fn = (cn1+chi3)/(cn1-chi3);
-    double dfn = 6.0*chi2*cn1/((cn1-chi3)*(cn1-chi3))*dchi;
-
-    mu5 = oosigma * (mul + fn*mutilde);
-    dmu5 = oosigma * (dmul + fn*dmutilde + dfn*mutilde) + d_oosigma * (mul + fn*mutilde);
+  for (int j=0; j<4; ++j) {
+    if (V[j][5] < 0.0  && negSA) {
+      dR[j][0][5] = dmu5neg * dnutildedx + mu5neg * ddnutildedx;
+      dR[j][1][5] = dmu5neg * dnutildedy + mu5neg * ddnutildedy;
+      dR[j][2][5] = dmu5neg * dnutildedz + mu5neg * ddnutildedz;
+    }
+    else {
+      dR[j][0][5] = dmu5 * dnutildedx + mu5 * ddnutildedx;
+      dR[j][1][5] = dmu5 * dnutildedy + mu5 * ddnutildedy;
+      dR[j][2][5] = dmu5 * dnutildedz + mu5 * ddnutildedz;
+    }
   }
 
-  dR[0][5] = dmu5 * dnutildedx + mu5 * ddnutildedx;
-  dR[1][5] = dmu5 * dnutildedy + mu5 * ddnutildedy;
-  dR[2][5] = dmu5 * dnutildedz + mu5 * ddnutildedz;
+  for (int j=0; j<4; ++j) {
+    dS[j][0] = 0.0;
+    dS[j][1] = 0.0;
+    dS[j][2] = 0.0;
+    dS[j][3] = 0.0;
+    dS[j][4] = 0.0;
+  }
 
-  dS[0] = 0.0;
-  dS[1] = 0.0;
-  dS[2] = 0.0;
-  dS[3] = 0.0;
-  dS[4] = 0.0;
-  dS[5] = 0.0;
+  // dS[0] = 0.0;
+  // dS[1] = 0.0;
+  // dS[2] = 0.0;
+  // dS[3] = 0.0;
+  // dS[4] = 0.0;
+  // dS[5] = 0.0;
 
   double d2wall = 0.25 * (d2w[0] + d2w[1] + d2w[2] + d2w[3]);
   if (d2wall >= 1.e-15) { // RANS contribution only for nodes closest to the surface
@@ -1237,104 +1683,81 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(
     double s = sqrt(s12*s12 + s23*s23 + s31*s31);
     double ds = 1.0 / ( 2.0*s ) * (2.0*s12*ds12 + 2.0*s23*ds23 + 2.0*s31*ds31);
 
-    double dAA, dBB, dCC;
+    // double chi = mutilde/mul;
+    // double dchi = ( dmutilde * mul - mutilde * dmul ) / ( mul * mul );
+    // double chi3 = chi*chi*chi;
+    double fv1 = chi3 / (chi3 + cv1_pow3);
+    double dfv1 = ( 3.0*chi*chi*dchi*(chi3 + cv1_pow3) - chi3 * 3.0*chi*chi*dchi ) / ( (chi3 + cv1_pow3) * (chi3 + cv1_pow3) );
+    double fv2  = 1.-chi/(1.+chi*fv1);
+    double dfv2 = (chi==0.0) ?
+      -dchi : (fv2-1.)*dchi/chi+(1.-fv2)*(1.-fv2)*(dfv1+fv1*dchi/chi);
 
-    if (!negSA) {
-      double chi = mutilde/mul;
-      double dchi = ( dmutilde * mul - mutilde * dmul ) / ( mul * mul );
-
-      double chi3 = chi*chi*chi;
-      double fv1 = chi3 / (chi3 + cv1_pow3);
-      double dfv1 = ( 3.0*chi*chi*dchi*(chi3 + cv1_pow3) - chi3 * 3.0*chi*chi*dchi ) / ( (chi3 + cv1_pow3) * (chi3 + cv1_pow3) );
-
-      double fv2  = 1.-chi/(1.+chi*fv1);
-      double dfv2 = (chi==0.0) ?
-        -dchi : (fv2-1.)*dchi/chi+(1.-fv2)*(1.-fv2)*(dfv1+fv1*dchi/chi);
-
-      double fv3 = 1.0;
-      double dfv3 = 0.0;
-      if (SAform == 2) {
-        fv2 = 1.0 + oocv2*chi;
-        dfv2 = oocv2*dchi;
-        dfv2 = -3.0 / (fv2*fv2*fv2*fv2)*dfv2;
-        fv2 = 1.0 / (fv2*fv2*fv2);
-        if (chi == 0.0) {
-          fv3 = 3.0*oocv2;
-          dfv3 = 0.0;
-        }
-        else {
-          fv3 = (1.0 + chi*fv1) * (1.0 - fv2) / chi;
-          dfv3 = ( ( dchi*fv1 + chi*dfv1 ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi ) / ( chi * chi );
-        }
-      }
-
-      // WTF this is ugly
-      double zz = ooreynolds * oovkcst2 * mutilde * oorho * ood2wall2;
-      double dzz = dooreynolds_mu * oovkcst2 * mutilde * oorho * ood2wall2 + ooreynolds_mu * oovkcst2 * dmutilde * oorho * ood2wall2 + ooreynolds * oovkcst2 * mutilde * doorho * ood2wall2;
-      double dStilde, Stilde, Sbar = zz*fv2, dSbar = dzz*fv2 + zz*dfv2;
-      if (Sbar >= -c2*s) {
-        Stilde = s*fv3+Sbar;
-        dStilde = ds*fv3 + s*dfv3 + dzz*fv2 + zz*dfv2;
+    double fv3 = 1.0;
+    double dfv3 = 0.0;
+    if (SAform == 2) {
+      fv2 = 1.0 + oocv2*chi;
+      dfv2 = oocv2*dchi;
+      dfv2 = -3.0 / (fv2*fv2*fv2*fv2)*dfv2;
+      fv2 = 1.0 / (fv2*fv2*fv2);
+      if (chi == 0.0) {
+        fv3 = 3.0*oocv2;
+        dfv3 = 0.0;
       }
       else {
-        Stilde = s*fv3+s*(c2*c2*s+c3*Sbar)/((c3-2.0*c2)*s-Sbar);
-        dStilde = ds*fv3 + s*dfv3 + ds*(c2*c2*s+c3*Sbar)/((c3-2.0*c2)*s-Sbar)
-          + s*(c2*c2*ds+c3*dSbar)/((c3-2.0*c2)*s-Sbar)
-          - s*(c2*c2*s+c3*Sbar)/(((c3-2.0*c2)*s-Sbar)*((c3-2.0*c2)*s-Sbar))*((c3-2.0*c2)*ds-dSbar);
+        fv3 = (1.0 + chi*fv1) * (1.0 - fv2) / chi;
+        dfv3 = ( ( dchi*fv1 + chi*dfv1 ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi ) / ( chi * chi );
       }
+    }
 
-      double rr, drr;
-      if (Stilde == 0.0)
-        rr = rlim;
-      else
-        rr = min(zz/Stilde, rlim);
-
-      if (rr==rlim)
-        drr = 0.0;
-      else
-        drr = ( dzz * Stilde - zz*dStilde ) / ( Stilde * Stilde );
-
-      double rr2 = rr*rr;
-      double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
-      double dgg = drr + cw2 * (6.0*rr*rr2*rr2*drr - drr);
-      double gg2 = gg*gg;
-      double fw = opcw3_pow * gg * pow(gg2*gg2*gg2 + cw3_pow6, -sixth);
-      double dfw = opcw3_pow * dgg * pow(gg2*gg2*gg2 + cw3_pow6, -sixth) + opcw3_pow * gg * (-sixth) * pow(gg2*gg2*gg2 + cw3_pow6, (-sixth - 1.0) ) * 6.0*gg*gg2*gg2*dgg;
-
-  //  double AA = oosigma * cb2 * rho *
-  //    (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
-      dAA = 0.0;
-      dAA += d_oosigma * cb2 * rho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
-      dAA += oosigma * cb2 * drho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
-      dAA += oosigma * cb2 * rho * (2.0*dnutildedx*ddnutildedx + 2.0*dnutildedy*ddnutildedy + 2.0*dnutildedz*ddnutildedz);
-
-  //  double BB = cb1 * Stilde * mutilde;
-      dBB = cb1 * dStilde * mutilde + cb1 * Stilde * dmutilde;
-
-  //  double CC = - cw1 * fw * oorho * mutilde * mutilde * ood2wall2;
-      dCC = 0.0;
-      dCC -= d_cw1 * fw * oorho * mutilde * mutilde * ood2wall2;
-      dCC -= cw1 * dfw * oorho * mutilde * mutilde * ood2wall2;
-      dCC -= cw1 * fw * doorho * mutilde * mutilde * ood2wall2;
-      dCC -= cw1 * fw * oorho * 2.0 * mutilde * dmutilde * ood2wall2;
+    // WTF this is ugly
+    double zz = ooreynolds * oovkcst2 * mutilde * oorho * ood2wall2;
+    double dzz = dooreynolds_mu * oovkcst2 * mutilde * oorho * ood2wall2 + ooreynolds_mu * oovkcst2 * dmutilde * oorho * ood2wall2 + ooreynolds * oovkcst2 * mutilde * doorho * ood2wall2;
+    double dStilde, Stilde, Sbar = zz*fv2, dSbar = dzz*fv2 + zz*dfv2;
+    if (Sbar >= -c2*s) {
+      Stilde = s*fv3+Sbar;
+      dStilde = ds*fv3 + s*dfv3 + dzz*fv2 + zz*dfv2;
     }
     else {
-  //  double AA = oosigma * cb2 * rho *
-  //    (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
-      dAA = 0.0;
-      dAA += d_oosigma * cb2 * rho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
-      dAA += oosigma * cb2 * drho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
-      dAA += oosigma * cb2 * rho * (2.0*dnutildedx*ddnutildedx + 2.0*dnutildedy*ddnutildedy + 2.0*dnutildedz*ddnutildedz);
-
-  //  double BB = cb1 * s * mutilde
-      dBB = cb1 * ds * mutilde + cb1 * s * dmutilde;
-
-  //  double CC = cw1 * oorho * mutilde * mutilde * ood2wall2;
-      dCC = 0.0;
-      dCC += d_cw1 * oorho * mutilde * mutilde * ood2wall2;
-      dCC += cw1 * doorho * mutilde * mutilde * ood2wall2;
-      dCC += cw1 * oorho * 2.0 * mutilde * dmutilde * ood2wall2;
+      Stilde = s*fv3+s*(c2*c2*s+c3*Sbar)/((c3-2.0*c2)*s-Sbar);
+      dStilde = ds*fv3 + s*dfv3 + ds*(c2*c2*s+c3*Sbar)/((c3-2.0*c2)*s-Sbar)
+        + s*(c2*c2*ds+c3*dSbar)/((c3-2.0*c2)*s-Sbar)
+        - s*(c2*c2*s+c3*Sbar)/(((c3-2.0*c2)*s-Sbar)*((c3-2.0*c2)*s-Sbar))*((c3-2.0*c2)*ds-dSbar);
     }
+
+    double rr, drr;
+    if (Stilde == 0.0)
+      rr = rlim;
+    else
+      rr = min(zz/Stilde, rlim);
+
+    if (rr==rlim)
+      drr = 0.0;
+    else
+      drr = ( dzz * Stilde - zz*dStilde ) / ( Stilde * Stilde );
+
+    double rr2 = rr*rr;
+    double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
+    double dgg = drr + cw2 * (6.0*rr*rr2*rr2*drr - drr);
+    double gg2 = gg*gg;
+    double fw = opcw3_pow * gg * pow(gg2*gg2*gg2 + cw3_pow6, -sixth);
+    double dfw = opcw3_pow * dgg * pow(gg2*gg2*gg2 + cw3_pow6, -sixth) + opcw3_pow * gg * (-sixth) * pow(gg2*gg2*gg2 + cw3_pow6, (-sixth - 1.0) ) * 6.0*gg*gg2*gg2*dgg;
+
+//  double AA = oosigma * cb2 * rho *
+//    (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
+    double dAA = 0.0;
+    dAA += d_oosigma * cb2 * rho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
+    dAA += oosigma * cb2 * drho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
+    dAA += oosigma * cb2 * rho * (2.0*dnutildedx*ddnutildedx + 2.0*dnutildedy*ddnutildedy + 2.0*dnutildedz*ddnutildedz);
+
+//  double BB = cb1 * Stilde * mutilde;
+    double dBB = cb1 * dStilde * mutilde + cb1 * Stilde * dmutilde;
+
+//  double CC = - cw1 * fw * oorho * mutilde * mutilde * ood2wall2;
+    double dCC = 0.0;
+    dCC -= d_cw1 * fw * oorho * mutilde * mutilde * ood2wall2;
+    dCC -= cw1 * dfw * oorho * mutilde * mutilde * ood2wall2;
+    dCC -= cw1 * fw * doorho * mutilde * mutilde * ood2wall2;
+    dCC -= cw1 * fw * oorho * 2.0 * mutilde * dmutilde * ood2wall2;
 
     // sjg, 06/2017: forgotten term in conversion to conservation form
     double drhodx = dp1dxj[0][0]*V[0][0] + dp1dxj[1][0]*V[1][0] +
@@ -1357,12 +1780,181 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(
       + ddnutildedy*drhody + dnutildedy*ddrhody
       + ddnutildedz*drhodz + dnutildedz*ddrhodz);
 
-    // dS[5] = dAA + dBB + dCC;
-    dS[5] = dAA + dBB + dCC + dDD;
+
+    double dBBneg, dCCneg, dDDneg;
+    if (negSA) {
+  //  double BB = cb1 * s * mutilde
+      dBBneg = cb1 * ds * mutilde + cb1 * s * dmutilde;
+
+  //  double CC = cw1 * oorho * mutilde * mutilde * ood2wall2;
+      dCCneg = 0.0;
+      dCCneg += d_cw1 * oorho * mutilde * mutilde * ood2wall2;
+      dCCneg += cw1 * doorho * mutilde * mutilde * ood2wall2;
+      dCCneg += cw1 * oorho * 2.0 * mutilde * dmutilde * ood2wall2;
+
+      double dDDneg = 0.0;
+      dDDneg -= doorho * mu5neg * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz);
+      dDDneg -= oorho * dmu5neg * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz);
+      dDDneg -= oorho * mu5neg * (ddnutildedx*drhodx + dnutildedx*ddrhodx
+        + ddnutildedy*drhody + dnutildedy*ddrhody
+        + ddnutildedz*drhodz + dnutildedz*ddrhodz);
+    }
+
+    for (int j=0; j<4; ++j) {
+      if (V[j][5] < 0.0 && negSA)
+        dS[j][5] = dAA + dBBneg + dCCneg + dDDneg;
+      else
+        dS[j][5] = dAA + dBB + dCC + dDD;
+    }
   }
   else {
-    dS[5] = 0.0;
+    for (int j=0; j<4; ++j)
+      dS[j][5] = 0.0;
   }
+
+  // double d2wall = 0.25 * (d2w[0] + d2w[1] + d2w[2] + d2w[3]);
+  // if (d2wall >= 1.e-15) { // RANS contribution only for nodes closest to the surface
+  //   double rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
+  //   double drho = 0.25 * (dV[0][0] + dV[1][0] + dV[2][0] + dV[3][0]);
+  //   double oorho = 1.0 / rho;
+  //   double doorho = -1.0 / ( rho * rho ) * drho;
+  //   double ood2wall2 = 1.0 / (d2wall * d2wall);
+
+  //   double s12 = dudxj[0][1] - dudxj[1][0];
+  //   double ds12 = ddudxj[0][1] - ddudxj[1][0];
+  //   double s23 = dudxj[1][2] - dudxj[2][1];
+  //   double ds23 = ddudxj[1][2] - ddudxj[2][1];
+  //   double s31 = dudxj[2][0] - dudxj[0][2];
+  //   double ds31 = ddudxj[2][0] - ddudxj[0][2];
+  //   double s = sqrt(s12*s12 + s23*s23 + s31*s31);
+  //   double ds = 1.0 / ( 2.0*s ) * (2.0*s12*ds12 + 2.0*s23*ds23 + 2.0*s31*ds31);
+
+  //   double dAA, dBB, dCC;
+
+  //   if (negSA) {
+  // //  double AA = oosigma * cb2 * rho *
+  // //    (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
+  //     dAA = 0.0;
+  //     dAA += d_oosigma * cb2 * rho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
+  //     dAA += oosigma * cb2 * drho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
+  //     dAA += oosigma * cb2 * rho * (2.0*dnutildedx*ddnutildedx + 2.0*dnutildedy*ddnutildedy + 2.0*dnutildedz*ddnutildedz);
+
+  // //  double BB = cb1 * s * mutilde
+  //     dBB = cb1 * ds * mutilde + cb1 * s * dmutilde;
+
+  // //  double CC = cw1 * oorho * mutilde * mutilde * ood2wall2;
+  //     dCC = 0.0;
+  //     dCC += d_cw1 * oorho * mutilde * mutilde * ood2wall2;
+  //     dCC += cw1 * doorho * mutilde * mutilde * ood2wall2;
+  //     dCC += cw1 * oorho * 2.0 * mutilde * dmutilde * ood2wall2;
+  //   }
+  //   else {
+  //     double chi = mutilde/mul;
+  //     double dchi = ( dmutilde * mul - mutilde * dmul ) / ( mul * mul );
+
+  //     double chi3 = chi*chi*chi;
+  //     double fv1 = chi3 / (chi3 + cv1_pow3);
+  //     double dfv1 = ( 3.0*chi*chi*dchi*(chi3 + cv1_pow3) - chi3 * 3.0*chi*chi*dchi ) / ( (chi3 + cv1_pow3) * (chi3 + cv1_pow3) );
+
+  //     double fv2  = 1.-chi/(1.+chi*fv1);
+  //     double dfv2 = (chi==0.0) ?
+  //       -dchi : (fv2-1.)*dchi/chi+(1.-fv2)*(1.-fv2)*(dfv1+fv1*dchi/chi);
+
+  //     double fv3 = 1.0;
+  //     double dfv3 = 0.0;
+  //     if (SAform == 2) {
+  //       fv2 = 1.0 + oocv2*chi;
+  //       dfv2 = oocv2*dchi;
+  //       dfv2 = -3.0 / (fv2*fv2*fv2*fv2)*dfv2;
+  //       fv2 = 1.0 / (fv2*fv2*fv2);
+  //       if (chi == 0.0) {
+  //         fv3 = 3.0*oocv2;
+  //         dfv3 = 0.0;
+  //       }
+  //       else {
+  //         fv3 = (1.0 + chi*fv1) * (1.0 - fv2) / chi;
+  //         dfv3 = ( ( dchi*fv1 + chi*dfv1 ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi ) / ( chi * chi );
+  //       }
+  //     }
+
+  //     // WTF this is ugly
+  //     double zz = ooreynolds * oovkcst2 * mutilde * oorho * ood2wall2;
+  //     double dzz = dooreynolds_mu * oovkcst2 * mutilde * oorho * ood2wall2 + ooreynolds_mu * oovkcst2 * dmutilde * oorho * ood2wall2 + ooreynolds * oovkcst2 * mutilde * doorho * ood2wall2;
+  //     double dStilde, Stilde, Sbar = zz*fv2, dSbar = dzz*fv2 + zz*dfv2;
+  //     if (Sbar >= -c2*s) {
+  //       Stilde = s*fv3+Sbar;
+  //       dStilde = ds*fv3 + s*dfv3 + dzz*fv2 + zz*dfv2;
+  //     }
+  //     else {
+  //       Stilde = s*fv3+s*(c2*c2*s+c3*Sbar)/((c3-2.0*c2)*s-Sbar);
+  //       dStilde = ds*fv3 + s*dfv3 + ds*(c2*c2*s+c3*Sbar)/((c3-2.0*c2)*s-Sbar)
+  //         + s*(c2*c2*ds+c3*dSbar)/((c3-2.0*c2)*s-Sbar)
+  //         - s*(c2*c2*s+c3*Sbar)/(((c3-2.0*c2)*s-Sbar)*((c3-2.0*c2)*s-Sbar))*((c3-2.0*c2)*ds-dSbar);
+  //     }
+
+  //     double rr, drr;
+  //     if (Stilde == 0.0)
+  //       rr = rlim;
+  //     else
+  //       rr = min(zz/Stilde, rlim);
+
+  //     if (rr==rlim)
+  //       drr = 0.0;
+  //     else
+  //       drr = ( dzz * Stilde - zz*dStilde ) / ( Stilde * Stilde );
+
+  //     double rr2 = rr*rr;
+  //     double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
+  //     double dgg = drr + cw2 * (6.0*rr*rr2*rr2*drr - drr);
+  //     double gg2 = gg*gg;
+  //     double fw = opcw3_pow * gg * pow(gg2*gg2*gg2 + cw3_pow6, -sixth);
+  //     double dfw = opcw3_pow * dgg * pow(gg2*gg2*gg2 + cw3_pow6, -sixth) + opcw3_pow * gg * (-sixth) * pow(gg2*gg2*gg2 + cw3_pow6, (-sixth - 1.0) ) * 6.0*gg*gg2*gg2*dgg;
+
+  // //  double AA = oosigma * cb2 * rho *
+  // //    (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
+  //     dAA = 0.0;
+  //     dAA += d_oosigma * cb2 * rho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
+  //     dAA += oosigma * cb2 * drho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
+  //     dAA += oosigma * cb2 * rho * (2.0*dnutildedx*ddnutildedx + 2.0*dnutildedy*ddnutildedy + 2.0*dnutildedz*ddnutildedz);
+
+  // //  double BB = cb1 * Stilde * mutilde;
+  //     dBB = cb1 * dStilde * mutilde + cb1 * Stilde * dmutilde;
+
+  // //  double CC = - cw1 * fw * oorho * mutilde * mutilde * ood2wall2;
+  //     dCC = 0.0;
+  //     dCC -= d_cw1 * fw * oorho * mutilde * mutilde * ood2wall2;
+  //     dCC -= cw1 * dfw * oorho * mutilde * mutilde * ood2wall2;
+  //     dCC -= cw1 * fw * doorho * mutilde * mutilde * ood2wall2;
+  //     dCC -= cw1 * fw * oorho * 2.0 * mutilde * dmutilde * ood2wall2;
+  //   }
+
+  //   // sjg, 06/2017: forgotten term in conversion to conservation form
+  //   double drhodx = dp1dxj[0][0]*V[0][0] + dp1dxj[1][0]*V[1][0] +
+  //     dp1dxj[2][0]*V[2][0] + dp1dxj[3][0]*V[3][0];
+  //   double ddrhodx = ddp1dxj[0][0]*V[0][0] + dp1dxj[0][0]*dV[0][0] + ddp1dxj[1][0]*V[1][0] + dp1dxj[1][0]*dV[1][0] +
+  //     ddp1dxj[2][0]*V[2][0] + dp1dxj[2][0]*dV[2][0] + ddp1dxj[3][0]*V[3][0] + dp1dxj[3][0]*dV[3][0];
+  //   double drhody = dp1dxj[0][1]*V[0][0] + dp1dxj[1][1]*V[1][0] +
+  //     dp1dxj[2][1]*V[2][0] + dp1dxj[3][1]*V[3][0];
+  //   double ddrhody = ddp1dxj[0][1]*V[0][0] + dp1dxj[0][1]*dV[0][0] + ddp1dxj[1][1]*V[1][0] + dp1dxj[1][1]*dV[1][0] +
+  //     ddp1dxj[2][1]*V[2][0] + dp1dxj[2][1]*dV[2][0] + ddp1dxj[3][1]*V[3][0] + dp1dxj[3][1]*dV[3][0];
+  //   double drhodz = dp1dxj[0][2]*V[0][0] + dp1dxj[1][2]*V[1][0] +
+  //     dp1dxj[2][2]*V[2][0] + dp1dxj[3][2]*V[3][0];
+  //   double ddrhodz = ddp1dxj[0][2]*V[0][0] + dp1dxj[0][2]*dV[0][0] + ddp1dxj[1][2]*V[1][0] + dp1dxj[1][2]*dV[1][0] +
+  //     ddp1dxj[2][2]*V[2][0] + dp1dxj[2][2]*dV[2][0] + ddp1dxj[3][2]*V[3][0] + dp1dxj[3][2]*dV[3][0];
+
+  //   double dDD = 0.0;
+  //   dDD -= doorho * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz);
+  //   dDD -= oorho * dmu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz);
+  //   dDD -= oorho * mu5 * (ddnutildedx*drhodx + dnutildedx*ddrhodx
+  //     + ddnutildedy*drhody + dnutildedy*ddrhody
+  //     + ddnutildedz*drhodz + dnutildedz*ddrhodz);
+
+  //   // dS[5] = dAA + dBB + dCC;
+  //   dS[5] = dAA + dBB + dCC + dDD;
+  // }
+  // else {
+  //   dS[5] = 0.0;
+  // }
 
   // Initialize PR (porous media term)
   for (int j=0; j<3*4; ++j) dPR[j] = 0.0;
@@ -1391,7 +1983,28 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(
         dooreynolds_mu * (kappal + kappat) +
         ooreynolds_mu  * (dkappal + turbThermalCondFcn.turbulentConductivityDerivative(dmut));
 
-    computeDerivativeOfVolumeTermNS(mu, dmu, lambda, dlambda, kappa, dkappa, ucg, ducg, dudxj, ddudxj, dTdxj, ddTdxj, dR);
+    // computeDerivativeOfVolumeTermNS(mu, dmu, lambda, dlambda, kappa, dkappa, ucg, ducg, dudxj, ddudxj, dTdxj, ddTdxj, dR);
+    computeDerivativeOfVolumeTermNS(mu, dmu, lambda, dlambda, kappa, dkappa, ucg, ducg, dudxj, ddudxj, dTdxj, ddTdxj, dR[0]);
+
+    for (int j=1; j<4; ++j) {
+      dR[j][0][0] = dR[0][0][0];
+      dR[j][0][1] = dR[0][0][1];
+      dR[j][0][2] = dR[0][0][2];
+      dR[j][0][3] = dR[0][0][3];
+      dR[j][0][4] = dR[0][0][4];
+
+      dR[j][1][0] = dR[0][1][0];
+      dR[j][1][1] = dR[0][1][1];
+      dR[j][1][2] = dR[0][1][2];
+      dR[j][1][3] = dR[0][1][3];
+      dR[j][1][4] = dR[0][1][4];
+
+      dR[j][2][0] = dR[0][2][0];
+      dR[j][2][1] = dR[0][2][1];
+      dR[j][2][2] = dR[0][2][2];
+      dR[j][2][3] = dR[0][2][3];
+      dR[j][2][4] = dR[0][2][4];
+    }
   }
 
   return (porousmedia);
@@ -1404,7 +2017,7 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(
 // Included (MB*)
 bool FemEquationTermSA::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2w[4],
 						  double *V[4], double *drdu, double *dsdu, double *dpdu, double tetVol,
-                                                  SVec<double,3> &X, int nodeNum[4], int material_id)
+              SVec<double,3> &X, int nodeNum[4], int material_id)
 {
 
   bool porousmedia = false;
@@ -2036,11 +2649,254 @@ double FemEquationTermDES::computeDerivativeOfViscousTimeStep(double X[3], doubl
 //               original implementation
 
 bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
-					  double *V[4], double *r, double *S, double *PR, double tetVol,
-                                          SVec<double,3> &X,
-                                          int nodeNum[4], int material_id)
+					  double *V[4], double *r, double *s, double *PR, double tetVol,
+            SVec<double,3> &X, int nodeNum[4], int material_id)
 {
 
+
+  bool porousmedia = false;
+
+  const double sixth = 1.0/6.0;
+
+  double u[4][3], ucg[3];
+  computeVelocity(V, u, ucg);
+
+  double T[4], Tcg;
+  computeTemperature(V, T, Tcg);
+
+  double dudxj[3][3];
+  computeVelocityGradient(dp1dxj, u, dudxj);
+
+  double dTdxj[3];
+  computeTemperatureGradient(dp1dxj, T, dTdxj);
+
+  double mul, lambdal, kappal;
+  computeLaminarTransportCoefficients(Tcg, mul, lambdal, kappal);
+
+  double mutilde;
+  double mut, lambdat, kappat;
+  computeTurbulentTransportCoefficients(V, nodeNum, X, mul, lambdal, kappal, mutilde, mut, lambdat, kappat);
+
+  // double (*R)[6] = reinterpret_cast<double (*)[6]>(r);
+  double (*R)[3][6] = reinterpret_cast<double (*)[3][6]>(r);  // SJG, testing
+  double (*S)[6] = reinterpret_cast<double (*)[6]>(s);
+
+  double dnutildedx = dp1dxj[0][0]*V[0][5]
+                   + dp1dxj[1][0]*V[1][5]
+                   + dp1dxj[2][0]*V[2][5]
+                   + dp1dxj[3][0]*V[3][5];
+
+  double dnutildedy = dp1dxj[0][1]*V[0][5]
+                   + dp1dxj[1][1]*V[1][5]
+                   + dp1dxj[2][1]*V[2][5]
+                   + dp1dxj[3][1]*V[3][5];
+
+  double dnutildedz = dp1dxj[0][2]*V[0][5]
+                   + dp1dxj[1][2]*V[1][5]
+                   + dp1dxj[2][2]*V[2][5]
+                   + dp1dxj[3][2]*V[3][5];
+
+  bool negSA;
+  if (SAform < 3) {  // for original or fv3, clip nutilde and use standard form
+    mutilde = max(mutilde, 0.0);
+    negSA = false;
+  }
+  else {  // use negative SA model where appropriate
+    negSA = ((V[0][5]<0.0) || (V[1][5]<0.0) || (V[2][5]<0.0) || (V[3][5]<0.0));
+  }
+
+  // diffusive flux
+  double mu5neg, mu5 = oosigma * (mul + mutilde);
+  double chi = mutilde/mul;
+  double chi3 = chi*chi*chi;
+  if (negSA) {
+    double fn = (cn1+chi3)/(cn1-chi3);
+    mu5neg = oosigma * (mul + mutilde*fn);
+
+    for (int j=0; j<4; ++j) {
+      if (V[j][5] < 0.0) {
+        R[j][0][5] = mu5neg * dnutildedx;
+        R[j][1][5] = mu5neg * dnutildedy;
+        R[j][2][5] = mu5neg * dnutildedz;
+      }
+      else {
+        R[j][0][5] = mu5 * dnutildedx;
+        R[j][1][5] = mu5 * dnutildedy;
+        R[j][2][5] = mu5 * dnutildedz;
+      }
+    }
+  }
+  else {
+    for (int j=0; j<4; ++j) {
+      R[j][0][5] = mu5 * dnutildedx;
+      R[j][1][5] = mu5 * dnutildedy;
+      R[j][2][5] = mu5 * dnutildedz;
+    }
+  }
+
+  // source term
+  for (int j=0; j<4; ++j) {
+    S[j][0] = 0.0;
+    S[j][1] = 0.0;
+    S[j][2] = 0.0;
+    S[j][3] = 0.0;
+    S[j][4] = 0.0;
+  }
+
+  double maxl,sidel;
+  maxl=-1.0;
+
+  for (int i=0; i<4; i++) {
+    for (int j=i+1; j<4; j++){
+      sidel=sqrt((X[nodeNum[i]][0]-X[nodeNum[j]][0])*(X[nodeNum[i]][0]-X[nodeNum[j]][0]) +
+       (X[nodeNum[i]][1]-X[nodeNum[j]][1])*(X[nodeNum[i]][1]-X[nodeNum[j]][1]) +
+        (X[nodeNum[i]][2]-X[nodeNum[j]][2])*(X[nodeNum[i]][2]-X[nodeNum[j]][2]));
+      maxl = max(maxl,sidel);
+    }
+  }
+
+  double d2wall = 0.25 * (d2w[0] + d2w[1] + d2w[2] + d2w[3]);
+  d2wall = min(d2wall,cdes*maxl);
+
+  if (d2wall >= 1.e-15) {
+    double rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
+    double oorho = 1.0 / rho;
+    double ood2wall2 = 1.0 / (d2wall * d2wall);
+
+    double s12 = dudxj[0][1] - dudxj[1][0];
+    double s23 = dudxj[1][2] - dudxj[2][1];
+    double s31 = dudxj[2][0] - dudxj[0][2];
+    double s = sqrt(s12*s12 + s23*s23 + s31*s31);
+
+    // double chi = mutilde/mul; // chi = 0 is OK except for fv3
+    // double chi3 = chi*chi*chi;
+    double fv1 = chi3 / (chi3 + cv1_pow3);
+    double fv2  = 1.-chi/(1.+chi*fv1);
+    double fv3  = 1.0;
+    if (SAform == 2) {
+      fv2 = 1.0 + oocv2*chi;
+      fv2 = 1.0 / (fv2*fv2*fv2);
+      fv3 = (chi==0.0) ? 3.0*oocv2 : (1.0 + chi*fv1) * (1.0 - fv2) / chi;
+    }
+
+    double zz = ooreynolds_mu * oovkcst2 * mutilde * oorho * ood2wall2;
+    double Stilde, Sbar = zz*fv2;
+    if (Sbar >= -c2*s)
+      Stilde = s*fv3+Sbar;
+    else
+      Stilde = s*fv3+s*(c2*c2*s+c3*Sbar)/((c3-2.0*c2)*s-Sbar);
+
+    double rr;
+    if (Stilde == 0.0)
+      rr = rlim;
+    else
+      rr = min(zz/Stilde, rlim);
+
+    double rr2 = rr*rr;
+    double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
+    double gg2 = gg*gg;
+    double fw = opcw3_pow * gg * pow(gg2*gg2*gg2 + cw3_pow6, -sixth);
+
+    double AA = oosigma * cb2 * rho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
+    double BB = cb1 * Stilde * mutilde;
+    double CC = - cw1 * fw * oorho * mutilde * mutilde * ood2wall2;
+
+    // sjg, 06/2017: forgotten term in conversion to conservation form
+    double drhodx = dp1dxj[0][0]*V[0][0] + dp1dxj[1][0]*V[1][0]
+                   + dp1dxj[2][0]*V[2][0] + dp1dxj[3][0]*V[3][0];
+    double drhody = dp1dxj[0][1]*V[0][0] + dp1dxj[1][1]*V[1][0]
+                   + dp1dxj[2][1]*V[2][0] + dp1dxj[3][1]*V[3][0];
+    double drhodz = dp1dxj[0][2]*V[0][0] + dp1dxj[1][2]*V[1][0]
+                   + dp1dxj[2][2]*V[2][0] + dp1dxj[3][2]*V[3][0];
+    double DD = - oorho * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz);
+
+    if (negSA) {
+      double BBneg = cb1 * s * mutilde;
+      double CCneg = cw1 * oorho * mutilde * mutilde * ood2wall2;
+      double DDneg = - oorho * mu5neg * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz);
+
+      for (int j=0; j<4; ++j) {
+        if (V[j][5] < 0.0)
+          S[j][5] = AA+BBneg+CCneg+DDneg;
+        else
+          S[j][5] = AA+BB+CC+DD;
+      }
+    }
+    else {
+      for (int j=0; j<4; ++j)
+        S[j][5] = AA+BB+CC+DD;
+    }
+  }
+  else {
+    for (int j=0; j<4; ++j)
+      S[j][5] = 0.0;
+  }
+
+  // Initialize PR (porous media term)
+  for (int j=0; j<3*4; ++j) PR[j] = 0.0;
+
+  if(material_id>0)
+  {
+    map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
+    if(it != volInfo.end())
+    {
+      // if porous media with material_id has been defined in the input file
+      porousmedia = true;
+
+      mut     = computePorousTurbulentViscosity(it, ucg, length);
+      lambdat = computeSecondPorousTurbulentViscosity(lambdal, mul, mut);
+      kappat  = turbThermalCondFcn.turbulentConductivity(mut);
+
+      porousmedia = computeVolumeTermPorousCore(tetVol, it, length, density, velocity, ucg, V, PR);
+    }
+  }
+
+  // In all cases, porous media or not, compute viscous term for Navier-Stokes equations
+  double mu, lambda, kappa;
+  // double mu, lambda, kappa, rNS[3][5];
+  mu     = ooreynolds_mu * (mul + mut);
+  lambda = ooreynolds_mu * (lambdal + lambdat);
+  kappa  = ooreynolds_mu * (kappal + kappat);
+  computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, R[0]);
+  // computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, rNS);
+
+
+  // // TESTING
+  // double rNS[3][5];
+  // computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, rNS);
+  // for (int k=0; k<3; ++k) {
+  //   for (int l=0; l<3; ++l) {
+  //     if (R[0][k][l] != rNS [k][l]) {
+  //       fprintf(stderr,"*** Problem with NS flux calculations!\n");
+  //       exit(1);
+  //     }
+  //   }
+  // }
+
+
+  for (int j=1; j<4; ++j) {
+    R[j][0][0] = R[0][0][0];
+    R[j][0][1] = R[0][0][1];
+    R[j][0][2] = R[0][0][2];
+    R[j][0][3] = R[0][0][3];
+    R[j][0][4] = R[0][0][4];
+
+    R[j][1][0] = R[0][1][0];
+    R[j][1][1] = R[0][1][1];
+    R[j][1][2] = R[0][1][2];
+    R[j][1][3] = R[0][1][3];
+    R[j][1][4] = R[0][1][4];
+
+    R[j][2][0] = R[0][2][0];
+    R[j][2][1] = R[0][2][1];
+    R[j][2][2] = R[0][2][2];
+    R[j][2][3] = R[0][2][3];
+    R[j][2][4] = R[0][2][4];
+  }
+
+  return (porousmedia);
+
+  /*
   bool porousmedia = false;
 
   const double sixth = 1.0/6.0;
@@ -2081,22 +2937,30 @@ bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
                     + dp1dxj[2][2]*V[2][5]
                    + dp1dxj[3][2]*V[3][5];
 
+  // double negSA;
   bool negSA;
-  if (SAform != 3) {  // for original or fv3, clip nutilde and use standard form
+  if (SAform < 3) {  // for original or fv3, clip nutilde and use standard form
     mutilde = max(mutilde, 0.0);
+
+    // negSA = 0.0;
     negSA = false;
   }
-  else  // use negative SA model where appropriate
-    negSA = (V[0][5]<0.0 || V[1][5]<0.0 || V[2][5]<0.0 || V[3][5]<0.0);
+  else {  // use negative SA model where appropriate
+    // negSA = 0.25*((V[0][5]<0.0) + (V[1][5]<0.0) + (V[2][5]<0.0) + (V[3][5]<0.0));
+    negSA = ((V[0][5]<0.0) + (V[1][5]<0.0) + (V[2][5]<0.0) + (V[3][5]<0.0));
+    // negSA = (mutilde < 0.0);
+  }
 
   double mu5;
-  if (!negSA)
-    mu5 = oosigma * (mul + mutilde);
-  else {
+  // if (negSA >= 0.25)
+  if (negSA) {
     double chi = mutilde/mul;
     double chi3 = chi*chi*chi;
     double fn = (cn1+chi3)/(cn1-chi3);
-    mu5 = oosigma * (mul + fn*mutilde);
+    mu5 = oosigma * (mul + mutilde*(negSA*fn + (1.0-negSA)));
+  }
+  else {
+    mu5 = oosigma * (mul + mutilde);
   }
 
   R[0][5] = mu5 * dnutildedx;
@@ -2135,46 +2999,52 @@ bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
     double s = sqrt(s12*s12 + s23*s23 + s31*s31);
 
     double AA, BB, CC;
+    AA = oosigma * cb2 * rho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
 
-    if (!negSA) {
-      double chi = mutilde/mul; // chi = 0 is OK except for fv3
-      double chi3 = chi*chi*chi;
-      double fv1 = chi3 / (chi3 + cv1_pow3);
-      double fv2  = 1.-chi/(1.+chi*fv1);
-      double fv3  = 1.0;
-      if (SAform == 2) {
-        fv2 = 1.0 + oocv2*chi;
-        fv2 = 1.0 / (fv2*fv2*fv2);
-        fv3 = (chi==0.0) ? 3.0*oocv2 : (1.0 + chi*fv1) * (1.0 - fv2) / chi;
-      }
-
-      double zz = ooreynolds_mu * oovkcst2 * mutilde * oorho * ood2wall2;
-      double Stilde, Sbar = zz*fv2;
-      if (Sbar >= -c2*s)
-        Stilde = s*fv3+Sbar;
-      else
-        Stilde = s*fv3+s*(c2*c2*s+c3*Sbar)/((c3-2.0*c2)*s-Sbar);
-
-      double rr;
-      if (Stilde == 0.0)
-        rr = rlim;
-      else
-        rr = min(zz/Stilde, rlim);
-
-      double rr2 = rr*rr;
-      double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
-      double gg2 = gg*gg;
-      double fw = opcw3_pow * gg * pow(gg2*gg2*gg2 + cw3_pow6, -sixth);
-
-      AA = oosigma * cb2 * rho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
-      BB = cb1 * Stilde * mutilde;
-      CC = - cw1 * fw * oorho * mutilde * mutilde * ood2wall2;
-    }
-    else {
-      AA = oosigma * cb2 * rho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
+    if (negSA) {
       BB = cb1 * s * mutilde;
       CC = cw1 * oorho * mutilde *mutilde * ood2wall2;
     }
+    else {
+
+    double chi = mutilde/mul; // chi = 0 is OK except for fv3
+    double chi3 = chi*chi*chi;
+    double fv1 = chi3 / (chi3 + cv1_pow3);
+    double fv2  = 1.-chi/(1.+chi*fv1);
+    double fv3  = 1.0;
+    if (SAform == 2) {
+      fv2 = 1.0 + oocv2*chi;
+      fv2 = 1.0 / (fv2*fv2*fv2);
+      fv3 = (chi==0.0) ? 3.0*oocv2 : (1.0 + chi*fv1) * (1.0 - fv2) / chi;
+    }
+
+    double zz = ooreynolds_mu * oovkcst2 * mutilde * oorho * ood2wall2;
+    double Stilde, Sbar = zz*fv2;
+    if (Sbar >= -c2*s)
+      Stilde = s*fv3+Sbar;
+    else
+      Stilde = s*fv3+s*(c2*c2*s+c3*Sbar)/((c3-2.0*c2)*s-Sbar);
+
+    double rr;
+    if (Stilde == 0.0)
+      rr = rlim;
+    else
+      rr = min(zz/Stilde, rlim);
+
+    double rr2 = rr*rr;
+    double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
+    double gg2 = gg*gg;
+    double fw = opcw3_pow * gg * pow(gg2*gg2*gg2 + cw3_pow6, -sixth);
+
+    BB = cb1 * Stilde * mutilde;
+    CC = - cw1 * fw * oorho * mutilde * mutilde * ood2wall2;
+
+    }
+
+    // if (negSA >= 0.25) {
+    //   BB = (1.0-negSA)*BB + negSA*(cb1 * s * mutilde);
+    //   CC = (1.0-negSA)*CC + negSA*(cw1 * oorho * mutilde *mutilde * ood2wall2);
+    // }
 
     // sjg, 06/2017: forgotten term in conversion to conservation form
     double drhodx = dp1dxj[0][0]*V[0][0] + dp1dxj[1][0]*V[1][0]
@@ -2216,6 +3086,7 @@ bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
   computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, R);
 
   return (porousmedia);
+  */
 
 }
 
@@ -2223,7 +3094,7 @@ bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
 // Compute SA equation residual distance sensitivity (sjg, 08/2017)
 
 void FemEquationTermDES::computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3], double d2w[4],
-            double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS)
+            double *V[4], SVec<double,3> &X, int nodeNum[4], double dS[4])
 {
 
   double maxl,sidel;
@@ -2241,7 +3112,10 @@ void FemEquationTermDES::computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][
   double d2wall = 0.25 * (d2w[0] + d2w[1] + d2w[2] + d2w[3]);
   d2wall = min(d2wall,cdes*maxl);
   if (d2wall < 1.e-15) {
-    dS = 0.0;
+    dS[0] = 0.0;
+    dS[1] = 0.0;
+    dS[2] = 0.0;
+    dS[3] = 0.0;
     return;
   }
 
@@ -2266,66 +3140,78 @@ void FemEquationTermDES::computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][
   double mut, lambdat, kappat;
   computeTurbulentTransportCoefficients(V, nodeNum, X, mul, lambdal, kappal, mutilde, mut, lambdat, kappat);
 
-  double ood2wall = 1.0 / d2wall;
-  double ood2wall2 = ood2wall * ood2wall;
-  double rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
-  double oorho = 1.0 / rho;
-
   bool negSA;
-  if (SAform != 3) {  // for original or fv3, clip nutilde and use standard form
+  if (SAform < 3) {  // for original or fv3, clip nutilde and use standard form
     mutilde = max(mutilde, 0.0);
     negSA = false;
   }
-  else  // use negative SA model where appropriate
-    negSA = (V[0][5]<0.0 || V[1][5]<0.0 || V[2][5]<0.0 || V[3][5]<0.0);
-
-  if (!negSA) {
-    double chi = mutilde/mul;
-    double chi3 = chi*chi*chi;
-    double fv1 = chi3 / (chi3 + cv1_pow3);
-    double fv2  = 1.-chi/(1.+chi*fv1);
-    double fv3  = 1.0;
-    if (SAform == 2) {
-      fv2 = 1.0 + oocv2*chi;
-      fv2 = 1.0 / (fv2*fv2*fv2);
-      fv3 = (chi==0.0) ? 3.0*oocv2 : (1.0 + chi*fv1) * (1.0 - fv2) / chi;
-    }
-
-    double zz = ooreynolds_mu * oovkcst2 * mutilde * oorho * ood2wall2;
-    double s12 = dudxj[0][1] - dudxj[1][0];
-    double s23 = dudxj[1][2] - dudxj[2][1];
-    double s31 = dudxj[2][0] - dudxj[0][2];
-    double s = sqrt(s12*s12 + s23*s23 + s31*s31);
-    double Stilde, Sbar = zz*fv2;
-    if (Sbar >= -c2*s)
-      Stilde = s*fv3+Sbar;
-    else
-      Stilde = s*fv3+s*(c2*c2*s+c3*Sbar)/((c3-2.0*c2)*s-Sbar);
-
-    double rr;
-    if (Stilde == 0.0)
-      rr = rlim;
-    else
-      rr = min(zz/Stilde, rlim);
-
-    double rr2 = rr*rr;
-    double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
-    double gg2 = gg*gg;
-    double fw = opcw3_pow * gg * pow(gg2*gg2*gg2 + cw3_pow6, -sixth);
-
-    double drdStilde = (rr>rlim) ? -zz / (Stilde*Stilde) : 0.0;
-    double dgdr = 1.0 + cw2 * (6.0 * rr * rr2 * rr2 - 1.0);
-    double dfwdg = cw3_pow6 * pow(gg2*gg2*gg2 + cw3_pow6, -7.0*sixth) * opcw3_pow;
-
-    double Lambda = cb1 * mutilde - cw1 * mutilde * mutilde * oorho * ood2wall2
-      * dfwdg * dgdr * drdStilde;
-    double dStildedd = -2.0 * fv2 * zz * ood2wall;
-
-    dS = 2.0 * cw1 * fw * mutilde * mutilde * oorho * ood2wall2 * ood2wall
-      + Lambda * dStildedd;
+  else {  // use negative SA model where appropriate
+    negSA = ((V[0][5]<0.0) || (V[1][5]<0.0) || (V[2][5]<0.0) || (V[3][5]<0.0));
   }
+
+  double rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
+  double oorho = 1.0 / rho;
+  double ood2wall = 1.0 / d2wall;
+  double ood2wall2 = ood2wall*ood2wall;
+
+  double chi = mutilde/mul;
+  double chi3 = chi*chi*chi;
+  double fv1 = chi3 / (chi3 + cv1_pow3);
+  double fv2  = 1.-chi/(1.+chi*fv1);
+  double fv3  = 1.0;
+  if (SAform == 2) {
+    fv2 = 1.0 + oocv2*chi;
+    fv2 = 1.0 / (fv2*fv2*fv2);
+    fv3 = (chi==0.0) ? 3.0*oocv2 : (1.0 + chi*fv1) * (1.0 - fv2) / chi;
+  }
+
+  double s12 = dudxj[0][1] - dudxj[1][0];
+  double s23 = dudxj[1][2] - dudxj[2][1];
+  double s31 = dudxj[2][0] - dudxj[0][2];
+  double s = sqrt(s12*s12 + s23*s23 + s31*s31);
+  double zz = ooreynolds_mu * oovkcst2 * mutilde * oorho * ood2wall2;
+  double Stilde, Sbar = zz*fv2;
+  if (Sbar >= -c2*s)
+    Stilde = s*fv3+Sbar;
   else
-    dS = - 2.0 * cw1 * mutilde * mutilde * oorho * ood2wall2 * ood2wall;
+    Stilde = s*fv3+s*(c2*c2*s+c3*Sbar)/((c3-2.0*c2)*s-Sbar);
+
+  double rr;
+  if (Stilde == 0.0)
+    rr = rlim;
+  else
+    rr = min(zz/Stilde, rlim);
+
+  double rr2 = rr*rr;
+  double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
+  double gg2 = gg*gg;
+  double fw = opcw3_pow * gg * pow(gg2*gg2*gg2 + cw3_pow6, -sixth);
+
+  double drdStilde = (rr>rlim) ? -zz / (Stilde*Stilde) : 0.0;
+  double dgdr = 1.0 + cw2 * (6.0 * rr * rr2 * rr2 - 1.0);
+  double dfwdg = cw3_pow6 * pow(gg2*gg2*gg2 + cw3_pow6, -7.0*sixth) * opcw3_pow;
+
+  double Lambda = cb1 * mutilde - cw1 * mutilde * mutilde * oorho * ood2wall2
+    * dfwdg * dgdr * drdStilde;
+  double dStildedd = -2.0 * fv2 * zz * ood2wall;
+
+  double ds = 2.0 * cw1 * fw * mutilde * mutilde * oorho * ood2wall2 * ood2wall
+    + Lambda * dStildedd;
+
+  if (negSA) {
+    double dsneg = -2.0 * cw1 * mutilde * mutilde * oorho * ood2wall2 * ood2wall;
+
+    for (int j=0; j<4; ++j) {
+      if (V[j][5] < 0.0)
+        dS[j] = dsneg;
+      else
+        dS[j] = ds;
+    }
+  }
+  else {
+    for (int j=0; j<4; ++j)
+        dS[j] = ds;
+  }
 
 }
 
@@ -2886,7 +3772,7 @@ double FemEquationTermKE::computeDerivativeOfViscousTimeStep(double X[3], double
 //------------------------------------------------------------------------------
 
 bool FemEquationTermKE::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
-					  double *V[4], double *r, double *S, double *PR, double tetVol,
+					  double *V[4], double *r, double *s, double *PR, double tetVol,
                                           SVec<double,3> &X, int nodeNum[4], int material_id)
 {
   bool porousmedia = false;
@@ -2912,25 +3798,38 @@ bool FemEquationTermKE::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
 
   // compute viscous term for k-epsilon turbulence model equation
 
-  double (*R)[7] = reinterpret_cast<double (*)[7]>(r);
+  // double (*R)[7] = reinterpret_cast<double (*)[7]>(r);
+  double (*R)[3][7] = reinterpret_cast<double (*)[3][7]>(r);
+  double (*S)[7] = reinterpret_cast<double (*)[7]>(s);
 
   double muk = ooreynolds_mu * (mul + sigma_k * mut);
   double mueps = ooreynolds_mu * (mul + sigma_eps * mut);
 
-  R[0][5] = muk * (dp1dxj[0][0]*V[0][5] + dp1dxj[1][0]*V[1][5] +
+  R[0][0][5] = muk * (dp1dxj[0][0]*V[0][5] + dp1dxj[1][0]*V[1][5] +
 		   dp1dxj[2][0]*V[2][5] + dp1dxj[3][0]*V[3][5]);
-  R[0][6] = mueps * (dp1dxj[0][0]*V[0][6] + dp1dxj[1][0]*V[1][6] +
+  R[0][0][6] = mueps * (dp1dxj[0][0]*V[0][6] + dp1dxj[1][0]*V[1][6] +
 		     dp1dxj[2][0]*V[2][6] + dp1dxj[3][0]*V[3][6]);
 
-  R[1][5] = muk * (dp1dxj[0][1]*V[0][5] + dp1dxj[1][1]*V[1][5] +
+  R[0][1][5] = muk * (dp1dxj[0][1]*V[0][5] + dp1dxj[1][1]*V[1][5] +
 		   dp1dxj[2][1]*V[2][5] + dp1dxj[3][1]*V[3][5]);
-  R[1][6] = mueps * (dp1dxj[0][1]*V[0][6] + dp1dxj[1][1]*V[1][6] +
+  R[0][1][6] = mueps * (dp1dxj[0][1]*V[0][6] + dp1dxj[1][1]*V[1][6] +
 		     dp1dxj[2][1]*V[2][6] + dp1dxj[3][1]*V[3][6]);
 
-  R[2][5] = muk * (dp1dxj[0][2]*V[0][5] + dp1dxj[1][2]*V[1][5] +
+  R[0][2][5] = muk * (dp1dxj[0][2]*V[0][5] + dp1dxj[1][2]*V[1][5] +
 		   dp1dxj[2][2]*V[2][5] + dp1dxj[3][2]*V[3][5]);
-  R[2][6] = mueps * (dp1dxj[0][2]*V[0][6] + dp1dxj[1][2]*V[1][6] +
+  R[0][2][6] = mueps * (dp1dxj[0][2]*V[0][6] + dp1dxj[1][2]*V[1][6] +
 		     dp1dxj[2][2]*V[2][6] + dp1dxj[3][2]*V[3][6]);
+
+  for (int j=1; j<4; ++j) {
+    R[j][0][5] = R[0][0][5];
+    R[j][0][6] = R[0][0][6];
+
+    R[j][1][5] = R[0][1][5];
+    R[j][1][6] = R[0][1][6];
+
+    R[j][2][5] = R[0][2][5];
+    R[j][2][6] = R[0][2][6];
+  }
 
   double div = dudxj[0][0] + dudxj[1][1] + dudxj[2][2];
   double div2 = dudxj[0][0]*dudxj[0][0] + dudxj[1][1]*dudxj[1][1] + dudxj[2][2]*dudxj[2][2];
@@ -2940,14 +3839,25 @@ bool FemEquationTermKE::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
   double prod = ooreynolds_mu * mut * (2.0 * div2 - twothird * div*div + a*a + b*b + c*c)
     - twothird * rhok * div;
 
-  S[0] = 0.0;
-  S[1] = 0.0;
-  S[2] = 0.0;
-  S[3] = 0.0;
-  S[4] = 0.0;
-  S[5] = - rhoeps + prod;
-  S[6] = (sigma_eps1 * rhoeps * prod - sigma_eps2 * rhoeps*rhoeps) / rhok;
+  S[0][0] = 0.0;
+  S[0][1] = 0.0;
+  S[0][2] = 0.0;
+  S[0][3] = 0.0;
+  S[0][4] = 0.0;
+  S[0][5] = - rhoeps + prod;
+  S[0][6] = (sigma_eps1 * rhoeps * prod - sigma_eps2 * rhoeps*rhoeps) / rhok;
 
+  for (int j=1; j<4; ++j) {
+    S[j][0] = S[0][0];
+    S[j][1] = S[0][1];
+    S[j][2] = S[0][2];
+    S[j][3] = S[0][3];
+    S[j][4] = S[0][4];
+    S[j][5] = S[0][5];
+    S[j][6] = S[0][6];
+  }
+
+/*
   // initialize porous term
   for (int j=0; j<3*4; ++j) PR[j] = 0.0;
 
@@ -2974,15 +3884,65 @@ bool FemEquationTermKE::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
   computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, R);
 
   return(porousmedia);
+*/
+
+  // Initialize PR (porous media term)
+  for (int j=0; j<3*4; ++j) PR[j] = 0.0;
+
+  if(material_id>0)
+  {
+    map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
+    if(it != volInfo.end())
+    {
+      // if porous media with material_id has been defined in the input file
+      porousmedia = true;
+
+      mut     = computePorousTurbulentViscosity(it, ucg, length);
+      lambdat = computeSecondPorousTurbulentViscosity(lambdal, mul, mut);
+      kappat  = turbThermalCondFcn.turbulentConductivity(mut);
+
+      porousmedia = computeVolumeTermPorousCore(tetVol, it, length, density, velocity, ucg, V, PR);
+    }
+  }
+
+  // In all cases, porous media or not, compute viscous term for Navier-Stokes equations
+  // double mu, lambda, kappa;
+  double mu, lambda, kappa, rNS[3][5];
+  mu     = ooreynolds_mu * (mul + mut);
+  lambda = ooreynolds_mu * (lambdal + lambdat);
+  kappa  = ooreynolds_mu * (kappal + kappat);
+  computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, R[0]);
+
+  for (int j=1; j<4; ++j) {
+    R[j][0][0] = R[0][0][0];
+    R[j][0][1] = R[0][0][1];
+    R[j][0][2] = R[0][0][2];
+    R[j][0][3] = R[0][0][3];
+    R[j][0][4] = R[0][0][4];
+
+    R[j][1][0] = R[0][1][0];
+    R[j][1][1] = R[0][1][1];
+    R[j][1][2] = R[0][1][2];
+    R[j][1][3] = R[0][1][3];
+    R[j][1][4] = R[0][1][4];
+
+    R[j][2][0] = R[0][2][0];
+    R[j][2][1] = R[0][2][1];
+    R[j][2][2] = R[0][2][2];
+    R[j][2][3] = R[0][2][3];
+    R[j][2][4] = R[0][2][4];
+  }
+
+  return(porousmedia);
 
 }
 
 //------------------------------------------------------------------------------
 
 // Included (MB)
-bool FemEquationTermKE::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], double ddp1dxj[4][3], double d2w[4],
-					  double *V[4], double *dV[4], double dMach, double *dr, double *dS, double *dPR, double dtetVol, SVec<double,3> &X,
-                                          int nodeNum[4], int material_id)
+bool FemEquationTermKE::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], double ddp1dxj[4][3],
+            double d2w[4], double *V[4], double *dV[4], double dMach, double *dr, double *ds,
+            double *dPR, double dtetVol, SVec<double,3> &X, int nodeNum[4], int material_id)
 {
 
   bool porousmedia = false;
@@ -3048,39 +4008,52 @@ bool FemEquationTermKE::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
   double kappa;
   double dkappa;
 
-  double (*dR)[7] = reinterpret_cast<double (*)[7]>(dr);
+  // double (*dR)[7] = reinterpret_cast<double (*)[7]>(dr);
+  double (*dR)[3][7] = reinterpret_cast<double (*)[3][7]>(dr);
+  double (*dS)[7] = reinterpret_cast<double (*)[7]>(ds);
 
   double muk = ooreynolds_mu * (mul + sigma_k * mut);
   double dmuk = dooreynolds_mu * (mul + sigma_k * mut) + ooreynolds_mu * (dmul + sigma_k * dmut);
   double mueps = ooreynolds_mu * (mul + sigma_eps * mut);
   double dmueps = dooreynolds_mu * (mul + sigma_eps * mut) + ooreynolds_mu * (dmul + sigma_eps * dmut);
 
-  dR[0][5] = dmuk * (dp1dxj[0][0]*V[0][5] + dp1dxj[1][0]*V[1][5] +
+  dR[0][0][5] = dmuk * (dp1dxj[0][0]*V[0][5] + dp1dxj[1][0]*V[1][5] +
 		   dp1dxj[2][0]*V[2][5] + dp1dxj[3][0]*V[3][5]) +
            muk * (ddp1dxj[0][0]*V[0][5] + dp1dxj[0][0]*dV[0][5] + ddp1dxj[1][0]*V[1][5] + dp1dxj[1][0]*dV[1][5] +
 		   ddp1dxj[2][0]*V[2][5] + dp1dxj[2][0]*dV[2][5] + ddp1dxj[3][0]*V[3][5] + dp1dxj[3][0]*dV[3][5]);
-  dR[0][6] = dmueps * (dp1dxj[0][0]*V[0][6] + dp1dxj[1][0]*V[1][6] +
+  dR[0][0][6] = dmueps * (dp1dxj[0][0]*V[0][6] + dp1dxj[1][0]*V[1][6] +
 		     dp1dxj[2][0]*V[2][6] + dp1dxj[3][0]*V[3][6]) +
              mueps * (ddp1dxj[0][0]*V[0][6] + dp1dxj[0][0]*dV[0][6] + ddp1dxj[1][0]*V[1][6] + dp1dxj[1][0]*dV[1][6] +
 		     ddp1dxj[2][0]*V[2][6] + dp1dxj[2][0]*dV[2][6] + ddp1dxj[3][0]*V[3][6] + dp1dxj[3][0]*dV[3][6]);
 
-  dR[1][5] = dmuk * (dp1dxj[0][1]*V[0][5] + dp1dxj[1][1]*V[1][5] +
+  dR[0][1][5] = dmuk * (dp1dxj[0][1]*V[0][5] + dp1dxj[1][1]*V[1][5] +
 		   dp1dxj[2][1]*V[2][5] + dp1dxj[3][1]*V[3][5]) +
            muk * (ddp1dxj[0][1]*V[0][5] + dp1dxj[0][1]*dV[0][5] + ddp1dxj[1][1]*V[1][5] + dp1dxj[1][1]*dV[1][5] +
 		   ddp1dxj[2][1]*V[2][5] + dp1dxj[2][1]*dV[2][5] + ddp1dxj[3][1]*V[3][5] + dp1dxj[3][1]*dV[3][5]);
-  dR[1][6] = dmueps * (dp1dxj[0][1]*V[0][6] + dp1dxj[1][1]*V[1][6] +
+  dR[0][1][6] = dmueps * (dp1dxj[0][1]*V[0][6] + dp1dxj[1][1]*V[1][6] +
 		     dp1dxj[2][1]*V[2][6] + dp1dxj[3][1]*V[3][6]) +
              mueps * (ddp1dxj[0][1]*V[0][6] + dp1dxj[0][1]*dV[0][6] + ddp1dxj[1][1]*V[1][6] + dp1dxj[1][1]*dV[1][6] +
 		     ddp1dxj[2][1]*V[2][6] + dp1dxj[2][1]*dV[2][6] + ddp1dxj[3][1]*V[3][6] + dp1dxj[3][1]*dV[3][6]);
 
-  dR[2][5] = dmuk * (dp1dxj[0][2]*V[0][5] + dp1dxj[1][2]*V[1][5] +
+  dR[0][2][5] = dmuk * (dp1dxj[0][2]*V[0][5] + dp1dxj[1][2]*V[1][5] +
 		   dp1dxj[2][2]*V[2][5] + dp1dxj[3][2]*V[3][5]) +
            muk * (ddp1dxj[0][2]*V[0][5] + dp1dxj[0][2]*dV[0][5] + ddp1dxj[1][2]*V[1][5] + dp1dxj[1][2]*dV[1][5] +
 		   ddp1dxj[2][2]*V[2][5] + dp1dxj[2][2]*dV[2][5] + ddp1dxj[3][2]*V[3][5] + dp1dxj[3][2]*dV[3][5]);
-  dR[2][6] = dmueps * (dp1dxj[0][2]*V[0][6] + dp1dxj[1][2]*V[1][6] +
+  dR[0][2][6] = dmueps * (dp1dxj[0][2]*V[0][6] + dp1dxj[1][2]*V[1][6] +
 		     dp1dxj[2][2]*V[2][6] + dp1dxj[3][2]*V[3][6]) +
              mueps * (ddp1dxj[0][2]*V[0][6] + dp1dxj[0][2]*dV[0][6] + ddp1dxj[1][2]*V[1][6] + dp1dxj[1][2]*dV[1][6] +
 		     ddp1dxj[2][2]*V[2][6] + dp1dxj[2][2]*dV[2][6] + ddp1dxj[3][2]*V[3][6] + dp1dxj[3][2]*dV[3][6]);
+
+  for (int j=1; j<4; ++j) {
+    dR[j][0][5] = dR[0][0][5];
+    dR[j][0][6] = dR[0][0][6];
+
+    dR[j][1][5] = dR[0][1][5];
+    dR[j][1][6] = dR[0][1][6];
+
+    dR[j][2][5] = dR[0][2][5];
+    dR[j][2][6] = dR[0][2][6];
+  }
 
   double div = dudxj[0][0] + dudxj[1][1] + dudxj[2][2];
   double ddiv = ddudxj[0][0] + ddudxj[1][1] + ddudxj[2][2];
@@ -3100,13 +4073,23 @@ bool FemEquationTermKE::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
                  ooreynolds_mu * mut * (2.0 * ddiv2 - twothird * 2.0*div*ddiv + 2.0*a*da + 2.0*b*db + 2.0*c*dc)
                  - twothird * drhok * div - twothird * rhok * ddiv;
 
-  dS[0] = 0.0;
-  dS[1] = 0.0;
-  dS[2] = 0.0;
-  dS[3] = 0.0;
-  dS[4] = 0.0;
-  dS[5] = - drhoeps + dprod;
-  dS[6] = ( (sigma_eps1 * drhoeps * prod + sigma_eps1 * rhoeps * dprod  - sigma_eps2 * 2.0*rhoeps*drhoeps) * rhok -  (sigma_eps1 * rhoeps * prod - sigma_eps2 * rhoeps*rhoeps) * drhok ) / ( rhok * rhok );
+  dS[0][0] = 0.0;
+  dS[0][1] = 0.0;
+  dS[0][2] = 0.0;
+  dS[0][3] = 0.0;
+  dS[0][4] = 0.0;
+  dS[0][5] = - drhoeps + dprod;
+  dS[0][6] = ( (sigma_eps1 * drhoeps * prod + sigma_eps1 * rhoeps * dprod  - sigma_eps2 * 2.0*rhoeps*drhoeps) * rhok -  (sigma_eps1 * rhoeps * prod - sigma_eps2 * rhoeps*rhoeps) * drhok ) / ( rhok * rhok );
+
+  for (int j=1; j<4; ++j) {
+    dS[j][0] = dS[0][0];
+    dS[j][1] = dS[0][1];
+    dS[j][2] = dS[0][2];
+    dS[j][3] = dS[0][3];
+    dS[j][4] = dS[0][4];
+    dS[j][5] = dS[0][5];
+    dS[j][6] = dS[0][6];
+  }
 
   // Initialize dPR (porous media term)
   for (int j=0; j<3*4; ++j) dPR[j] = 0.0;
@@ -3135,8 +4118,31 @@ bool FemEquationTermKE::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
         dooreynolds_mu * (kappal + turbThermalCondFcn.turbulentConductivity(mut)) +
         ooreynolds_mu  * (dkappal + turbThermalCondFcn.turbulentConductivityDerivative(dmut));
 
+    // computeDerivativeOfVolumeTermNS(mu, dmu, lambda, dlambda, kappa, dkappa,
+	   //                                ucg, ducg, dudxj, ddudxj, dTdxj, ddTdxj, dR);
+
     computeDerivativeOfVolumeTermNS(mu, dmu, lambda, dlambda, kappa, dkappa,
-	ucg, ducg, dudxj, ddudxj, dTdxj, ddTdxj, dR);
+                                    ucg, ducg, dudxj, ddudxj, dTdxj, ddTdxj, dR[0]);
+
+    for (int j=1; j<4; ++j) {
+      dR[j][0][0] = dR[0][0][0];
+      dR[j][0][1] = dR[0][0][1];
+      dR[j][0][2] = dR[0][0][2];
+      dR[j][0][3] = dR[0][0][3];
+      dR[j][0][4] = dR[0][0][4];
+
+      dR[j][1][0] = dR[0][1][0];
+      dR[j][1][1] = dR[0][1][1];
+      dR[j][1][2] = dR[0][1][2];
+      dR[j][1][3] = dR[0][1][3];
+      dR[j][1][4] = dR[0][1][4];
+
+      dR[j][2][0] = dR[0][2][0];
+      dR[j][2][1] = dR[0][2][1];
+      dR[j][2][2] = dR[0][2][2];
+      dR[j][2][3] = dR[0][2][3];
+      dR[j][2][4] = dR[0][2][4];
+    }
   }
 
   return(porousmedia);
