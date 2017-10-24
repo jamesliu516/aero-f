@@ -41,7 +41,7 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
   phaseChangeChoice  = (ioData.embed.eosChange==EmbeddedFramework::RIEMANN_SOLUTION) ? 1 : 0;
   phaseChangeAlg	 = (ioData.embed.phaseChangeAlg==EmbeddedFramework::LEAST_SQUARES) ? 1 : 0;
-  interfaceAlg		 = (ioData.embed.interfaceAlg==EmbeddedFramework::INTERSECTION) ? 1 : 0;
+  typehalfriemannproblem		 = (ioData.embed.typehalfriemannproblem==EmbeddedFramework::REAL) ? 1 : 0;
   intersectAlpha	 = ioData.embed.alpha;
 
   multiPhaseSpaceOp = new MultiPhaseSpaceOperator<dim,dimLS>(ioData, this->varFcn, this->bcData, this->geoState, 
@@ -129,7 +129,7 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   }
 
 
-  if (interfaceAlg == 1) {
+  if (typehalfriemannproblem == 1) {
 
     dom->createHigherOrderFSI(ioData);
 

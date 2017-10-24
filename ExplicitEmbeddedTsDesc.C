@@ -136,7 +136,7 @@ void ExplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
   }
 
   // Reset countWstar if second-order surrogate interface treatment is chosen
-  if (this->interfaceAlg) {
+  if (this->typehalfriemannproblem) {
     *this->countWstarij = 0;
     *this->countWstarji = 0;
     *this->Wstarij = 0.0;

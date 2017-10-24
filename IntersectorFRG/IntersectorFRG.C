@@ -667,7 +667,7 @@ DistIntersectorFRG::DistIntersectorFRG(IoData &iodata,
 													int nElems, int (*abc)[3]) : DistLevelSetStructure(),iod(iodata)
 {
 
-  externalSI = (iod.embed.surrogateinterface == EmbeddedFramework::EXTERNAL) ? true : false;
+  externalSI = (iod.embed.definitionactiveinactive == EmbeddedFramework::CONTROLVOLUME) ? true : false;
 
   if(externalSI) comm->fprintf(stdout, " +++ Using external-based surrogate interface +++ \n");
 

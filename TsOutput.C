@@ -148,7 +148,7 @@ exactforces(false)
   fdResiduals = (iod.output.rom.fdResiduals == ROMOutputData::FD_RESIDUALS_ON) ? true : false;
   fdResidualsLimit = (iod.output.rom.fdResidualsLimit == ROMOutputData::FD_RESIDUALS_LIMIT_ON) ? true : false;
 
-  externalSI = (iod.embed.surrogateinterface == EmbeddedFramework::EXTERNAL) ? true : false;
+  externalSI = (iod.embed.definitionactiveinactive == EmbeddedFramework::CONTROLVOLUME) ? true : false;
 
   int sp = strlen(iod.output.transient.prefix) + 1;
   int spn = strlen(iod.output.transient.probes.prefix) + 1;

@@ -81,9 +81,9 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   int phaseChangeAlg;	 // = 0. use averaged value, given phaseChangeChocie==0
   						 // = 1. use least-squares, given phaseChangeChoice==0
-  int interfaceAlg;		 // = 0. do not use information of intersection at surrogate interface
+  int typehalfriemannproblem;		 // = 0. do not use information of intersection at surrogate interface
   						 // = 1. use information of intersection at surrogate interface
-  double intersectAlpha; //	relevant only if interfaceAlg==1
+  double intersectAlpha; //	relevant only if typehalfriemannproblem==1
 
   // EulerFSI: FS communication
   DistSVec<double,dim> Wtemp;

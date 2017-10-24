@@ -2405,9 +2405,9 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
              reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::copyCloseNodes),2,
              "False", 0, "True", 1);
 
-  new ClassToken<MultiFluidData>(ca, "InterfaceAlgorithm", this,
+  new ClassToken<MultiFluidData>(ca, "TypeHalfRiemannProblem", this,
                                  reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::interfaceTreatment),2,
-                                 "MidEdge", 0, "Intersection", 1);
+                                 "Surrogate", 0, "Real", 1);
   new ClassToken<MultiFluidData>(ca, "ExtrapolationOrder", this,
                                  reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::interfaceExtrapolation),2,
                                  "FirstOrder", 0, "SecondOrder", 1);
@@ -5289,8 +5289,8 @@ EmbeddedFramework::EmbeddedFramework() {
   forceAlg = EMBEDDED_SURFACE;
   riemannNormal = STRUCTURE;
   phaseChangeAlg = AUTO;
-  interfaceAlg = MID_EDGE;
-  secondOrderEulerFlux = INTERSECTPOINT;
+  typehalfriemannproblem = SURROGATE;
+  locationhalfriemannproblem = INTERSECTPOINT;
 
   prec = NON_PRECONDITIONED;
   alpha = 0.1;
@@ -5303,7 +5303,7 @@ EmbeddedFramework::EmbeddedFramework() {
 
   viscousboundarycondition = WEAK;
 
-  surrogateinterface = HYBRID;
+  definitionactiveinactive = NODE;
 
   stabil_alpha = 0.0;
 
@@ -5333,9 +5333,9 @@ void EmbeddedFramework::setup(const char *name) {
                                       "Structure", 0, "Fluid", 1);
   new ClassToken<EmbeddedFramework> (ca, "ExtrapolationOrder", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::phaseChangeAlg), 2,
                                      "FirstOrder", 0, "SecondOrder", 1);
-  new ClassToken<EmbeddedFramework> (ca, "InterfaceAlgorithm", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::interfaceAlg), 2,
-                                     "MidEdge", 0, "Intersection", 1);
-  new ClassToken<EmbeddedFramework> (ca, "SecondOrderEulerFlux", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::secondOrderEulerFlux), 2,
+  new ClassToken<EmbeddedFramework> (ca, "TypeHalfRiemannProblem", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::typehalfriemannproblem), 2,
+                                     "Surrogate", 0, "Real", 1);
+  new ClassToken<EmbeddedFramework> (ca, "LocationHalfRiemannProblem", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::locationhalfriemannproblem), 2,
                                      "Intersection", 0, "ClosestPoint", 1);
   embedIC.setup("InitialConditions", ca);
 
@@ -5359,8 +5359,8 @@ void EmbeddedFramework::setup(const char *name) {
   new ClassToken<EmbeddedFramework> (ca, "ViscousBoundaryCondition", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::viscousboundarycondition), 2,
 												 "Weak", 0, "Strong", 1);
 
-  new ClassToken<EmbeddedFramework> (ca, "SurrogateInterface", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::surrogateinterface), 2,
-												 "Hybrid", 0, "External", 1);
+  new ClassToken<EmbeddedFramework> (ca, "DefinitionActiveInactive", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::definitionactiveinactive), 2,
+												 "Node", 0, "ControlVolume", 1);
 
 
   new ClassInt<EmbeddedFramework>(ca, "TestCase", this,
@@ -6270,7 +6270,7 @@ void IoData::resetInputValues()
   }
 
   if(embed.eosChange == EmbeddedFramework::NODAL_STATE && embed.phaseChangeAlg == EmbeddedFramework::AUTO) {
-    embed.phaseChangeAlg = (embed.interfaceAlg == EmbeddedFramework::INTERSECTION) ?
+    embed.phaseChangeAlg = (embed.typehalfriemannproblem == EmbeddedFramework::REAL) ?
                            EmbeddedFramework::LEAST_SQUARES : EmbeddedFramework::AVERAGE;
   }
 
@@ -6299,12 +6299,12 @@ void IoData::resetInputValues()
     mf.prec = MultiFluidData::NON_PRECONDITIONED;
   }
 
-  if(embed.interfaceAlg == EmbeddedFramework::INTERSECTION && schemes.ns.reconstruction == SchemeData::LINEAR) {
+  if(embed.typehalfriemannproblem == EmbeddedFramework::REAL && schemes.ns.reconstruction == SchemeData::LINEAR) {
     embed.reconstruct = EmbeddedFramework::LINEAR;
   }
 
   //d2d
-  if(embed.surrogateinterface == EmbeddedFramework::EXTERNAL)
+  if(embed.definitionactiveinactive == EmbeddedFramework::CONTROLVOLUME)
   {
 	  if(schemes.ns.reconstruction != SchemeData::LINEAR)
 		  schemes.ns.reconstruction = SchemeData::LINEAR;
