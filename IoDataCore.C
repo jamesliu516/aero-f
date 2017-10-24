@@ -5362,7 +5362,6 @@ void EmbeddedFramework::setup(const char *name) {
   new ClassToken<EmbeddedFramework> (ca, "DefinitionActiveInactive", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::definitionactiveinactive), 2,
 												 "Node", 0, "ControlVolume", 1);
 
-
   new ClassInt<EmbeddedFramework>(ca, "TestCase", this,
                                   &EmbeddedFramework::testCase);
 
