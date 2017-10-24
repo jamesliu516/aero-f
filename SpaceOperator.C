@@ -159,7 +159,7 @@ SpaceOperator<dim>::SpaceOperator(IoData &ioData, VarFcn *vf, DistBcData<dim> *b
   else
     order = 2;
 
-  externalSI = (ioData.embed.surrogateinterface == EmbeddedFramework::EXTERNAL) ? true : false;
+  externalSI = (ioData.embed.definitionactiveinactive == EmbeddedFramework::CONTROLVOLUME) ? true : false;
   ccc = 0;
 }
 
@@ -2610,7 +2610,7 @@ domain->populateGhostPoints(ghostPoints, X, U, ngrad, varFcn, distLSS, viscSecOr
 template<int dim>
 void SpaceOperator<dim>::setSIstencil(DistSVec<double,3> &X, DistLevelSetStructure *distLSS, DistVec<int> &fluidId, DistSVec<double,dim> &U)
 {
-	if(!externalSI && !((iod->embed).interfaceAlg == EmbeddedFramework::INTERSECTION && (iod->embed).secondOrderEulerFlux == EmbeddedFramework::CLOSESTPOINT))
+	if(!externalSI && !((iod->embed).typehalfriemannproblem == EmbeddedFramework::REAL && (iod->embed).locationhalfriemannproblem == EmbeddedFramework::CLOSESTPOINT))
 	{
 		fprintf(stderr, "setSIstencil : you're not supposed to be here\n");
 		exit(-1);

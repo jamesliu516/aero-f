@@ -8,7 +8,7 @@
 inline
 HigherOrderFSI::HigherOrderFSI(const IoData & iod)
 {
-  secondOrderEulerFlux = iod.embed.secondOrderEulerFlux;
+  locationhalfriemannproblem = iod.embed.locationhalfriemannproblem;
   lastPhaseChangeState = NULL;
   limitExtrap = false;
 }

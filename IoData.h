@@ -2963,8 +2963,8 @@ struct EmbeddedFramework {
   enum ForceAlgorithm {RECONSTRUCTED_SURFACE = 0, CONTROL_VOLUME_BOUNDARY = 1, EMBEDDED_SURFACE = 2} forceAlg;
   enum RiemannNormal {STRUCTURE = 0, FLUID = 1} riemannNormal;
   enum PhaseChangeAlgorithm {AVERAGE = 0, LEAST_SQUARES = 1, AUTO = 2} phaseChangeAlg;
-  enum InterfaceAlgorithm {MID_EDGE = 0, INTERSECTION = 1} interfaceAlg;
-  enum SecondOrderEulerFlux {INTERSECTPOINT = 0, CLOSESTPOINT = 1} secondOrderEulerFlux;
+  enum TypeHalfRiemannProblem {SURROGATE = 0, REAL = 1} typehalfriemannproblem;
+  enum LocationHalfRiemannProblem {INTERSECTPOINT = 0, CLOSESTPOINT = 1} locationhalfriemannproblem;
 
   enum InterfaceLimiter {LIMITERNONE = 0, LIMITERALEX1 = 1} interfaceLimiter;
   // Low mach preconditioning of the exact Riemann problem.
@@ -2991,7 +2991,7 @@ struct EmbeddedFramework {
   enum Reconstruction {CONSTANT = 0, LINEAR = 1} reconstruct;
   enum ViscousInterfaceOrder {FIRST = 0, SECOND = 1} viscousinterfaceorder;
   enum ViscousBoundaryCondition {WEAK = 0, STRONG = 1} viscousboundarycondition;
-  enum SurrogateInterface{HYBRID = 0, EXTERNAL = 1} surrogateinterface;
+  enum DefinitionActiveInactive{NODE = 0, CONTROLVOLUME = 1} definitionactiveinactive;
 
   int testCase;
 

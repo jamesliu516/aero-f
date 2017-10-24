@@ -51,7 +51,7 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
   phaseChangeChoice  = (ioData.embed.eosChange==EmbeddedFramework::RIEMANN_SOLUTION) ? 1 : 0;
   phaseChangeAlg	 = (ioData.embed.phaseChangeAlg==EmbeddedFramework::LEAST_SQUARES) ? 1 : 0;
-  interfaceAlg		 = (ioData.embed.interfaceAlg==EmbeddedFramework::INTERSECTION) ? 1 : 0;
+  typehalfriemannproblem		 = (ioData.embed.typehalfriemannproblem==EmbeddedFramework::REAL) ? 1 : 0;
   intersectAlpha	 = ioData.embed.alpha;
   switch (ioData.embed.forceAlg) {
     case EmbeddedFramework::CONTROL_VOLUME_BOUNDARY :
@@ -79,13 +79,13 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
         viscSecOrder = false;
     }
 
-    if(interfaceAlg == 1 || ioData.embed.surrogateinterface == EmbeddedFramework::EXTERNAL)
+    if(typehalfriemannproblem == 1 || ioData.embed.definitionactiveinactive == EmbeddedFramework::CONTROLVOLUME)
     {
         dom->createHigherOrderFSI(ioData);
 
-        if(ioData.embed.surrogateinterface == EmbeddedFramework::HYBRID)
+        if(ioData.embed.definitionactiveinactive == EmbeddedFramework::NODE)
         {
-            if(ioData.embed.secondOrderEulerFlux == EmbeddedFramework::INTERSECTPOINT) {//Original FIVER which might compute second order euler flux at the edge embeddedsurface intersection
+            if(ioData.embed.locationhalfriemannproblem == EmbeddedFramework::INTERSECTPOINT) {//Original FIVER which might compute second order euler flux at the edge embeddedsurface intersection
 #pragma omp parallel for
                 for (int iSub = 0; iSub < dom->getNumLocSub(); ++iSub) {
                     V6NodeData (*v6data)[2];
@@ -101,8 +101,8 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
                     if (ioData.embed.interfaceLimiter == EmbeddedFramework::LIMITERALEX1)
                         dom->getSubDomain()[iSub]->getHigherOrderFSI()->setLimitedExtrapolation();
                 }
-            }else if(ioData.embed.secondOrderEulerFlux == EmbeddedFramework::CLOSESTPOINT){//Original FIVER which might compute second order euler flux at the closest point
-                bool hmode = (interfaceAlg == 1) ? true : false;
+            }else if(ioData.embed.locationhalfriemannproblem == EmbeddedFramework::CLOSESTPOINT){//Original FIVER which might compute second order euler flux at the closest point
+                bool hmode = (typehalfriemannproblem == 1) ? true : false;
 #pragma omp parallel for
                 for (int iSub = 0; iSub < dom->getNumLocSub(); ++iSub)
                     dom->getSubDomain()[iSub]->getHigherOrderFSI()->initialize<dim>(ioData, this->com, dom->getNodeDistInfo().subSize(iSub),
@@ -111,9 +111,9 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
             }
 
         }
-        else if(ioData.embed.surrogateinterface == EmbeddedFramework::EXTERNAL)
+        else if(ioData.embed.definitionactiveinactive == EmbeddedFramework::CONTROLVOLUME)
         {
-            bool hmode = (interfaceAlg == 1) ? true : false;
+            bool hmode = (typehalfriemannproblem == 1) ? true : false;
 
 #pragma omp parallel for
             for (int iSub = 0; iSub < dom->getNumLocSub(); ++iSub)
@@ -206,7 +206,7 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   *Wstarji = 0.0;
 
   //linRecAtInterface  = (ioData.embed.reconstruct==EmbeddedFramework::LINEAR) ? true : false;
-  if (interfaceAlg) {
+  if (typehalfriemannproblem) {
     countWstarij = new DistVec<int>(this->domain->getEdgeDistInfo());
     countWstarji = new DistVec<int>(this->domain->getEdgeDistInfo());
     *countWstarij = 0;
@@ -403,13 +403,13 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
 
 
     //d2d
-	if(ioData.embed.surrogateinterface == EmbeddedFramework::EXTERNAL)
+	if(ioData.embed.definitionactiveinactive == EmbeddedFramework::CONTROLVOLUME)
 	{
 		this->spaceOp->setSIstencil(*this->X, distLSS, this->nodeTag, *U);
 
 		if(eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
 			this->spaceOp->setFEMstencil(*this->X, distLSS, this->nodeTag, *U);
-	}else if(ioData.embed.interfaceAlg == EmbeddedFramework::INTERSECTION && ioData.embed.secondOrderEulerFlux == EmbeddedFramework::CLOSESTPOINT) {
+	}else if(ioData.embed.typehalfriemannproblem == EmbeddedFramework::REAL && ioData.embed.locationhalfriemannproblem == EmbeddedFramework::CLOSESTPOINT) {
       // If use original FIVER but choose to compute second order Euler flux based on Closest Point;
       this->spaceOp->setSIstencil(*this->X, distLSS, this->nodeTag, *U);
     }
