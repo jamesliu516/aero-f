@@ -52,7 +52,7 @@ public:
 				 double *r, double *s, double *, double, SVec<double,3> &, int [4], int) = 0;
 
   virtual void computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3], double d2w[4],
-            double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS) = 0;
+            double *V[4], SVec<double,3> &X, int nodeNum[4], double dS[4]) = 0;
 
   virtual bool computeJacobianVolumeTerm(double dp1dxj[4][3], double d2w[4], double *v[4],
 					 double *drdu, double *dsdu, double *dpdu, double, SVec<double,3> &, int [4], int) = 0;

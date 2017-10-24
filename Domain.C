@@ -5023,16 +5023,16 @@ void Domain::populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints, DistSVe
 //------------------------------------------------------------------------------
 //
 template<int dim, class Scalar, int neq>
-void Domain::populateGhostJacobian(DistVec<GhostPoint<dim>*> *ghostPoints, 
-                        DistSVec<double,dim> &U, FluxFcn** fluxFcn, VarFcn *varFcn, 
-                        DistLevelSetStructure *distLSS, DistVec<int> &tag, DistMat<Scalar,neq>& A, bool viscSecOrder) 
+void Domain::populateGhostJacobian(DistVec<GhostPoint<dim>*> *ghostPoints,
+                        DistSVec<double,dim> &U, FluxFcn** fluxFcn, VarFcn *varFcn,
+                        DistLevelSetStructure *distLSS, DistVec<int> &tag, DistMat<Scalar,neq>& A, bool viscSecOrder)
 {
 
   int iSub;
 #pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub) 
+  for (iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->populateGhostJacobian((*ghostPoints)(iSub), U(iSub), fluxFcn, varFcn, (*distLSS)(iSub), tag(iSub), A(iSub), viscSecOrder);
- 
+
 }
 
 //------------------------------------------------------------------------------
@@ -5514,9 +5514,9 @@ template<int dim>
 void Domain::computederivativeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orderOfAccuracy, DistSVec<double,3> &X,
                 double (*dFs)[3], int sizedFs, DistLevelSetStructure *distLSS,
                 double pInfty, double dpInfty,
-                DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, 
+                DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
                 DistSVec<double,dim> &V, DistSVec<double,dim> &dV_,DistSVec<double,dim> &dUghost,
-                DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, 
+                DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn,
                 DistNodalGrad<dim, double> *gradV, DistNodalGrad<dim, double> *graddV,
                 VarFcn* vf, DistVec<int> *fid){
 
@@ -5536,11 +5536,11 @@ void Domain::computederivativeEmbSurfBasedForceLoad(IoData &iod, int forceApp, i
 
     for (int is=0; is<sizedFs; is++) subdFs[iSub][is][0] = subdFs[iSub][is][1] = subdFs[iSub][is][2] = 0.0;
     if(ghostPoints) gp = ghostPoints->operator[](iSub);
-    subDomain[iSub]->computederivativeEmbSurfBasedForceLoad(iod, forceApp, orderOfAccuracy, X(iSub), 
-                  subdFs[iSub], sizedFs, 
-                  numStructElems, stElem, Xstruct, dXstruct, (*distLSS)(iSub), 
+    subDomain[iSub]->computederivativeEmbSurfBasedForceLoad(iod, forceApp, orderOfAccuracy, X(iSub),
+                  subdFs[iSub], sizedFs,
+                  numStructElems, stElem, Xstruct, dXstruct, (*distLSS)(iSub),
                   pInfty, dpInfty,
-                  Wstarij(iSub), Wstarji(iSub), V(iSub), dV_(iSub), dUghost(iSub), gp, postFcn, 
+                  Wstarij(iSub), Wstarji(iSub), V(iSub), dV_(iSub), dUghost(iSub), gp, postFcn,
                   (*gradV)(iSub), (*graddV)(iSub), vf, fid?&((*fid)(iSub)):0);
   }
 

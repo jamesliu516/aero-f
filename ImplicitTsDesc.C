@@ -21,7 +21,7 @@ ImplicitTsDesc<dim>::ImplicitTsDesc(IoData &ioData, GeoSource &geoSource, Domain
 
   failSafeNewton = ioData.ts.implicit.newton.failsafe;
   maxItsNewton = ioData.ts.implicit.newton.maxIts;
-  epsNewton = ioData.ts.implicit.newton.eps;  
+  epsNewton = ioData.ts.implicit.newton.eps;
   epsAbsResNewton = ioData.ts.implicit.newton.epsAbsRes;
   epsAbsIncNewton = ioData.ts.implicit.newton.epsAbsInc;
   maxItsLS = ioData.ts.implicit.newton.lineSearch.maxIts;
@@ -45,14 +45,14 @@ ImplicitTsDesc<dim>::ImplicitTsDesc(IoData &ioData, GeoSource &geoSource, Domain
   ns = new NewtonSolver<ImplicitTsDesc<dim> >(this);
 
   myIoDataPtr = &ioData;
-  
+
   if (strcmp(ioData.output.rom.krylovVector,"")==0) {
     kspBinaryOutput = NULL;
   } else {
     kspBinaryOutput = new KspBinaryOutput<DistSVec<double,dim> >(this->domain->getCommunicator(), &ioData, this->domain);
   }
 
-  prevOutputState = NULL; 
+  prevOutputState = NULL;
   stateIncrement = NULL;
 
 }
@@ -123,7 +123,7 @@ void ImplicitTsDesc<dim>::doErrorEstimation(DistSVec<double,dim> &U)
 //------------------------------------------------------------------------------
 // this function evaluates (Aw),t + F(w,x,v)
 template<int dim>
-void ImplicitTsDesc<dim>::computeFunction(int it, DistSVec<double,dim> &Q, 
+void ImplicitTsDesc<dim>::computeFunction(int it, DistSVec<double,dim> &Q,
 					  DistSVec<double,dim> &F)
 {
   // XML
@@ -162,15 +162,15 @@ KspPrec<neq> *ImplicitTsDesc<dim>::createPreconditioner(PcData &pcdata, Domain *
     _pc = new IdentityPrec<neq>();
   else if (pcdata.type == PcData::JACOBI)
     _pc = new JacobiPrec<Scalar,neq>(DiagMat<Scalar,neq>::DENSE, dom);
-  else if (pcdata.type == PcData::AS || 
-	   pcdata.type == PcData::RAS || 
-	   pcdata.type == PcData::ASH || 
+  else if (pcdata.type == PcData::AS ||
+	   pcdata.type == PcData::RAS ||
+	   pcdata.type == PcData::ASH ||
 	   pcdata.type == PcData::AAS ||
            (pcdata.type == PcData::MG && neq < 5))
     _pc = new IluPrec<Scalar,neq>(pcdata, dom);
   else if (pcdata.type == PcData::MG)  {
     // I just need something to compile
-    _pc = new MultiGridPrec<Scalar,neq>(dom,*this->geoState, 
+    _pc = new MultiGridPrec<Scalar,neq>(dom,*this->geoState,
                                         *myIoDataPtr);
   }
 
@@ -183,22 +183,22 @@ KspPrec<neq> *ImplicitTsDesc<dim>::createPreconditioner(PcData &pcdata, Domain *
 template<int dim>
 template<int neq>
 KspSolver<DistSVec<double,neq>, MatVecProd<dim,neq>, KspPrec<neq>, Communicator> *
-ImplicitTsDesc<dim>::createKrylovSolver(const DistInfo &info, KspData &kspdata, 
-					MatVecProd<dim,neq> *_mvp, KspPrec<neq> *_pc, 
+ImplicitTsDesc<dim>::createKrylovSolver(const DistInfo &info, KspData &kspdata,
+					MatVecProd<dim,neq> *_mvp, KspPrec<neq> *_pc,
 					Communicator *_com)
 {
 
-  KspSolver<DistSVec<double,neq>, MatVecProd<dim,neq>, 
+  KspSolver<DistSVec<double,neq>, MatVecProd<dim,neq>,
     KspPrec<neq>, Communicator> *_ksp = 0;
 
   if (kspdata.type == KspData::RICHARDSON)
-    _ksp = new RichardsonSolver<DistSVec<double,neq>, MatVecProd<dim,neq>, 
+    _ksp = new RichardsonSolver<DistSVec<double,neq>, MatVecProd<dim,neq>,
       KspPrec<neq>, Communicator>(info, kspdata, _mvp, _pc, _com);
   else if (kspdata.type == KspData::CG)
-    _ksp = new CgSolver<DistSVec<double,neq>, MatVecProd<dim,neq>, 
+    _ksp = new CgSolver<DistSVec<double,neq>, MatVecProd<dim,neq>,
       KspPrec<neq>, Communicator>(info, kspdata, _mvp, _pc, _com);
   else if (kspdata.type == KspData::GMRES)
-    _ksp = new GmresSolver<DistSVec<double,neq>, MatVecProd<dim,neq>, 
+    _ksp = new GmresSolver<DistSVec<double,neq>, MatVecProd<dim,neq>,
       KspPrec<neq>, Communicator>(info, kspdata, _mvp, _pc, _com);
   else if (kspdata.type == KspData::GCR)
      _ksp = new GcrSolver<DistSVec<double,neq>, MatVecProd<dim,neq>,
@@ -236,7 +236,7 @@ void ImplicitTsDesc<dim>::resetFixesTag()
 //------------------------------------------------------------------------------
 
 template<int dim>
-void ImplicitTsDesc<dim>::writeBinaryVectorsToDiskRom(bool lastNewtonIt, int timeStep, int newtonIt, 
+void ImplicitTsDesc<dim>::writeBinaryVectorsToDiskRom(bool lastNewtonIt, int timeStep, int newtonIt,
                                                         DistSVec<double,dim> *state, DistSVec<double,dim> *residual)
 {
   if (myIoDataPtr->output.rom.avgStateIncrements) {
@@ -254,7 +254,7 @@ void ImplicitTsDesc<dim>::writeBinaryVectorsToDiskRom(bool lastNewtonIt, int tim
       }
     }
   } else {
-    int status = this->output->writeBinaryVectorsToDiskRom(lastNewtonIt, timeStep, newtonIt, state, residual); 
+    int status = this->output->writeBinaryVectorsToDiskRom(lastNewtonIt, timeStep, newtonIt, state, residual);
   }
 }
 

@@ -5362,7 +5362,6 @@ void EmbeddedFramework::setup(const char *name) {
   new ClassToken<EmbeddedFramework> (ca, "SurrogateInterface", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::surrogateinterface), 2,
 												 "Hybrid", 0, "External", 1);
 
-
   new ClassInt<EmbeddedFramework>(ca, "TestCase", this,
                                   &EmbeddedFramework::testCase);
 
