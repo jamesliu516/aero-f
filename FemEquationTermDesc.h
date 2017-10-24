@@ -73,7 +73,7 @@ public:
    );
 
   void computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3], double d2w[4],
-    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS) {
+    double *V[4], SVec<double,3> &X, int nodeNum[4], double dS[4]) {
     fprintf(stderr, "*** Error: computeDistanceDerivativeOfVolumeTerm should not be called\n");
     exit(1);
   }
@@ -136,13 +136,10 @@ public:
 		  const double mul, const double lambdal, double kappal,
 		  double &mutilde, double &mut, double &lambdat, double &kappat);
 
-  bool computeVolumeTerm
-  (
-   double dp1dxj[4][3], double d2w[4], double *V[4],
-   double *r, double *S, double *PR,
-   double tetVol, SVec<double,3> &X,
-   int nodeNum[4], int material_id
-   );
+  bool computeVolumeTerm(double dp1dxj[4][3], double d2w[4], double *V[4],
+                         double *r, double *S, double *PR,
+                         double tetVol, SVec<double,3> &X,
+                         int nodeNum[4], int material_id);
 
   bool computeJacobianVolumeTerm(double [4][3], double [4], double *[4], double *, double *, double *, double,
                                  SVec<double,3> &, int [4], int);
@@ -180,7 +177,7 @@ public:
                                       double *, double *, double *[4], double *[4], double, double *);
 
   void computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3], double d2w[4],
-    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS);
+    double *V[4], SVec<double,3> &X, int nodeNum[4], double dS[4]);
 
   // no longer called from MultiGridOperator.C
   // void computeSourceTerm(double dudxj[3][3],double dnudx[3],double d2wall,
@@ -291,7 +288,7 @@ public:
    );
 
   void computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3], double d2w[4],
-    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS);
+    double *V[4], SVec<double,3> &X, int nodeNum[4], double dS[4]);
 
   void rstVar(IoData &ioData, Communicator *com)
   {
@@ -424,7 +421,7 @@ public:
   }
 
   void computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3], double d2w[4],
-    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS) {
+    double *V[4], SVec<double,3> &X, int nodeNum[4], double dS[4]) {
     fprintf(stderr, "*** Error: computeDistanceDerivativeOfVolumeTerm should not be called\n");
     exit(1);
   }
@@ -559,7 +556,7 @@ public:
   }
 
   void computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3], double d2w[4],
-    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS) {
+    double *V[4], SVec<double,3> &X, int nodeNum[4], double dS[4]) {
     fprintf(stderr, "*** Error: computeDistanceDerivativeOfVolumeTerm should not be called\n");
     exit(1);
   }
@@ -695,7 +692,7 @@ public:
   }
 
   void computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3], double d2w[4],
-    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS) {
+    double *V[4], SVec<double,3> &X, int nodeNum[4], double dS[4]) {
     fprintf(stderr, "*** Error: computeDistanceDerivativeOfVolumeTerm should not be called\n");
     exit(1);
   }
@@ -833,7 +830,7 @@ public:
   }
 
   void computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3], double d2w[4],
-    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS) {
+    double *V[4], SVec<double,3> &X, int nodeNum[4], double dS[4]) {
     fprintf(stderr, "*** Error: computeDistanceDerivativeOfVolumeTerm should not be called\n");
     exit(1);
   }
@@ -953,7 +950,7 @@ public:
   }
 
   void computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3], double d2w[4],
-    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS) {
+    double *V[4], SVec<double,3> &X, int nodeNum[4], double dS[4]) {
     fprintf(stderr, "*** Error: computeDistanceDerivativeOfVolumeTerm should not be called\n");
     exit(1);
   }
@@ -1091,7 +1088,7 @@ public:
   }
 
   void computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3], double d2w[4],
-    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS) {
+    double *V[4], SVec<double,3> &X, int nodeNum[4], double dS[4]) {
     fprintf(stderr, "*** Error: computeDistanceDerivativeOfVolumeTerm should not be called\n");
     exit(1);
   }
@@ -1225,7 +1222,7 @@ public:
   }
 
   void computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3], double d2w[4],
-    double *V[4], SVec<double,3> &X, int nodeNum[4], double &dS) {
+    double *V[4], SVec<double,3> &X, int nodeNum[4], double dS[4]) {
     fprintf(stderr, "*** Error: computeDistanceDerivativeOfVolumeTerm should not be called\n");
     exit(1);
   }
