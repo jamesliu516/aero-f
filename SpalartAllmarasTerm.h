@@ -352,8 +352,6 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
   double s31 = dudxj[2][0] - dudxj[0][2];
   double s = sqrt(s12*s12 + s23*s23 + s31*s31);
 
-  // double chi = mutilde/mul;
-  // double chi3 = chi*chi*chi;
   double fv1 = chi3 / (chi3 + cv1_pow3);
   double fv2  = 1.-chi/(1.+chi*fv1);
   double fv3  = 1.0;
@@ -381,8 +379,6 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
   double gg2 = gg*gg;
   double fw = opcw3_pow * gg * pow(gg2*gg2*gg2 + cw3_pow6, -sixth);
 
-  // double chi2 = chi*chi;
-  // double dchi = 1.0 / mul;  // this may be incorrect, should use dmutilde
   double coef1 = 1.0 / (chi3 + cv1_pow3);
   double dfv1 = 3.0*chi2*dchi*cv1_pow3*coef1*coef1;
   double coef2 = 1.0 / (1.0 + chi*oocv2);

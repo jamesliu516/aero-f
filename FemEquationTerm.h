@@ -49,21 +49,22 @@ public:
   virtual double computeViscousTimeStep(double *, double *) = 0;
 
   virtual bool computeVolumeTerm(double dp1dxj[4][3], double d2w[4], double *v[4],
-				 double *r, double *s, double *, double, SVec<double,3> &, int [4], int) = 0;
+          double *r, double *s, double *, double, SVec<double,3> &, int [4], int,
+          std::pair<std::vector<std::pair<int,int> >,std::vector<double> > &) = 0;
 
   virtual void computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3], double d2w[4],
-            double *V[4], SVec<double,3> &X, int nodeNum[4], double dS[4]) = 0;
+               double *V[4], SVec<double,3> &X, int nodeNum[4], double dS[4]) = 0;
 
   virtual bool computeJacobianVolumeTerm(double dp1dxj[4][3], double d2w[4], double *v[4],
-					 double *drdu, double *dsdu, double *dpdu, double, SVec<double,3> &, int [4], int) = 0;
+					double *drdu, double *dsdu, double *dpdu, double, SVec<double,3> &, int [4], int) = 0;
   virtual void computeSurfaceTerm(int c, Vec3D &n, double d2w[3],
 				  double *vw, double *v[3], double *r) = 0;
   virtual void computeJacobianSurfaceTerm(int c, Vec3D &n, double d2w[3],
-					  double *vw, double *v[3], double *drdu) = 0;
+				  double *vw, double *v[3], double *drdu) = 0;
   virtual void computeSurfaceTerm(double dp1dxj[4][3], int c, Vec3D &n, double d2w[4],
 				  double *vw, double *v[4], double *r) = 0;
   virtual void computeJacobianSurfaceTerm(double dp1dxj[4][3], int c, Vec3D &n, double d2w[4],
-					  double *vw, double *v[4], double *drdu) = 0;
+				  double *vw, double *v[4], double *drdu) = 0;
 
   virtual double computeNormDerivWallFcn(double rho, double T,
 													double Du1, double DT1,	double d2w,
@@ -91,7 +92,8 @@ public:
 
 // Included (MB)
   virtual bool computeDerivativeOfVolumeTerm(double dp1dxj[4][3], double ddp1dxj[4][3], double d2w[4], double *v[4],
-				 double *dv[4], double dMach, double *dr, double *ds, double *dpr, double dtetvol, SVec<double,3> &x, int nodenum[4], int volid) = 0;
+				 double *dv[4], double dMach, double *dr, double *ds, double *dpr, double dtetvol, SVec<double,3> &x,
+         int nodenum[4], int volid, std::pair<std::vector<std::pair<int,int> >,std::vector<double> > &drx) = 0;
   virtual void computeDerivativeOperatorsOfVolumeTerm(double dp1dxj[4][3], double *v[4],
   			 double (*drddp1dxj)[5][4][3], double (*drdV)[5][4][5], double (*drdMach)[5]) = 0;
   virtual void computeDerivativeOfSurfaceTerm(int c, Vec3D &n, Vec3D &dn, double d2w[3],
