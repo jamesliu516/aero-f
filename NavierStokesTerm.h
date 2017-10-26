@@ -684,8 +684,6 @@ void NavierStokesTerm::computeDerivativeOperatorsOfHeatFluxVector(double kappa, 
 
 //------------------------------------------------------------------------------
 
-
-
 template<int dim>
 inline
 void NavierStokesTerm::computeVolumeTermNS(

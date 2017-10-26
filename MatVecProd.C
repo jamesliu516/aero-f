@@ -24,11 +24,11 @@
 template<int dim, int neq>
 MatVecProdFD<dim, neq>::MatVecProdFD
 (
-  ImplicitData &data, 
+  ImplicitData &data,
   DistTimeState<dim> *ts,
-  DistGeoState *gs, 
-  SpaceOperator<dim> *spo, 
-  Domain *domain, 
+  DistGeoState *gs,
+  SpaceOperator<dim> *spo,
+  Domain *domain,
   IoData &ioData
 )
   : geoState(gs), Qeps(domain->getNodeDistInfo()), Feps(domain->getNodeDistInfo())
@@ -57,7 +57,7 @@ MatVecProdFD<dim, neq>::MatVecProdFD
     }
   }
 
-  fdOrder = ioData.ts.implicit.fdOrder; 
+  fdOrder = ioData.ts.implicit.fdOrder;
 
   output = NULL;
 
@@ -67,7 +67,7 @@ MatVecProdFD<dim, neq>::MatVecProdFD
 
 template<int dim, int neq>
 MatVecProdFD<dim, neq>::~MatVecProdFD()
-{ 
+{
   if (spaceOp) delete spaceOp;
   if (timeState) delete timeState;
   recFcnCon = 0; // deleted by spaceOp
@@ -98,7 +98,7 @@ void MatVecProdFD<dim, neq>::evaluate(
   ctrlVol = &cv;
   Qeps = q;
 
-	if(recFcnCon && !this->isFSI) 
+	if(recFcnCon && !this->isFSI)
 	{
     spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
 
@@ -110,7 +110,7 @@ void MatVecProdFD<dim, neq>::evaluate(
 	  Feps = f;
 	}
 
-	if(timeState && iod->ts.dualtimestepping == TsData::ON) 
+	if(timeState && iod->ts.dualtimestepping == TsData::ON)
 	{
 		timeState->add_dAW_dtau(it, *geoState, *ctrlVol, Qeps, Feps);
 
@@ -119,7 +119,7 @@ void MatVecProdFD<dim, neq>::evaluate(
 
   Qeps.strip(Q);
   Feps.strip(F);
-  
+
 }
 
 //------------------------------------------------------------------------------
@@ -201,7 +201,7 @@ void MatVecProdFD<dim, neq>::evaluateRestrict(int it, DistSVec<double,3> &x,
     Feps = f;
   }
   Feps.strip(F);
-  
+
 }
 //------------------------------------------------------------------------------
 
@@ -231,7 +231,7 @@ void MatVecProdFD<dim, neq>::evaluateInviscid(int it, DistSVec<double,3> &x, Dis
     timeState->add_dAW_dtau(it, *geoState, *ctrlVol, Qeps, Feps);
     spaceOp->applyBCsToResidual(Qeps, Feps);
   }
-  
+
   Qeps.strip(Q);
   Feps.strip(F);
 
@@ -276,7 +276,7 @@ void MatVecProdFD<dim, neq>::evaluateViscous(int it, DistSVec<double,3> &x, Dist
         spaceOp->computeViscousResidual(*X, *ctrlVol, Qeps, Feps, timeState);
       }
       else{//FSI case
-        spaceOp->computeViscousResidual(*X, *ctrlVol, Qeps, 
+        spaceOp->computeViscousResidual(*X, *ctrlVol, Qeps,
                   *(this->fsi.Wtemp), *(this->fsi.Wtemp), *(this->fsi.Wtemp), this->fsi.LSS,
                     this->fsi.linRecAtInterface, this->fsi.viscSecOrder,
                   *(this->fsi.fluidId), Feps, this->fsi.riemann,
@@ -304,7 +304,7 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
   Qepstmp = Q + eps * p;
 
   Qepstmp.pad(Qeps);
-  
+
   if (!this->isFSI)
     spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
   else
@@ -329,21 +329,21 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
   if (fdOrder == 1) {
 
     prod = (1.0/eps) * (Fepstmp - F);
- 
+
   }
   else if (fdOrder == 2) {
 
     Qepstmp = Q - eps * p;
-    
+
     Qepstmp.pad(Qeps);
-  
+
     if (!this->isFSI)
       spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
     else
       spaceOp->computeResidual(*X,*ctrlVol, Qeps, *(this->fsi.Wtemp),*(this->fsi.Wtemp),*(this->fsi.Wtemp),
                                this->fsi.LSS, this->fsi.linRecAtInterface, this->fsi.viscSecOrder, *(this->fsi.fluidId),
                                Feps, this->fsi.riemann, this->fsi.Nriemann, 0, this->fsi.ghostPoints);
- 
+
     if (timeState) {
       timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
       if (iod->ts.dualtimestepping == TsData::ON)
@@ -400,7 +400,7 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
   spaceOp->applyBCsToResidual(Qeps, Feps);
 
   Feps.strip(Fepstmp);
-  
+
   prod = (1.0/eps) * (Fepstmp - F);
 */
 
@@ -440,12 +440,12 @@ void MatVecProdFD<dim, neq>::applyRestrict(DistSVec<double,neq> &p,
   if (fdOrder == 1) {
 
     prod = (1.0/eps) * (Fepstmp - F);
- 
+
   }
   else if (fdOrder == 2) {
 
     Qepstmp = Q - eps * p;
-    
+
     Qepstmp.pad(Qeps);
 
     spaceOp->computeResidualRestrict(*X, *ctrlVol, Qeps, Feps, timeState, sampledLocNodes);
@@ -539,9 +539,9 @@ void MatVecProdFD<dim, neq>::applyWeighted(DistSVec<double,neq> &p, DistSVec<dou
   } else if (fdOrder == 2) {
 
     Qepstmp = Q - eps * p;
-    
+
     Qepstmp.pad(Qeps);
-  
+
     if (!this->isFSI)
       spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
     else
@@ -549,7 +549,7 @@ void MatVecProdFD<dim, neq>::applyWeighted(DistSVec<double,neq> &p, DistSVec<dou
                                this->fsi.LSS, this->fsi.linRecAtInterface, this->fsi.viscSecOrder, *(this->fsi.fluidId),
                                Feps, this->fsi.riemann, this->fsi.Nriemann, 0, this->fsi.ghostPoints);
 
- 
+
     if (timeState) {
       timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
       if (iod->ts.dualtimestepping == TsData::ON)
@@ -681,7 +681,7 @@ void MatVecProdFD<dim, neq>::applyWeightedRestrict(DistSVec<double,neq> &p,
 //--------------------------------------------------
 //Computes prod=J*p
 template<int dim, int neq>
-void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedVec<double,neq> & prod) 
+void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedVec<double,neq> & prod)
 {
 	// ***
   double eps = computeEpsilon(Q, p.real());
@@ -690,7 +690,7 @@ void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedV
   Qepstmp = Q + eps * p.real();
 
   Qepstmp.pad(Qeps);
-  
+
 
 	if(p.hasHHBoundaryTerm())
 	{
@@ -702,22 +702,22 @@ void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedV
     spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
   }
   else{//FSI case
-	  spaceOp->computeResidual(*X, *ctrlVol, Qeps, 
+	  spaceOp->computeResidual(*X, *ctrlVol, Qeps,
               *(this->fsi.Wtemp), *(this->fsi.Wtemp), *(this->fsi.Wtemp), this->fsi.LSS,
                 this->fsi.linRecAtInterface, this->fsi.viscSecOrder,
               *(this->fsi.fluidId), Feps, this->fsi.riemann,
                 this->fsi.Nriemann, 0, this->fsi.ghostPoints);
 }
-	if(p.hasHHBoundaryTerm()) 
+	if(p.hasHHBoundaryTerm())
 	{
     *hhEps = 0.0;
 
 		spaceOp->getDomain()->computeHHBoundaryTermResidual(*spaceOp->getDistBcData(),Qeps,*hhEps, spaceOp->getVarFcn());
-       
+
 		timeState->add_dAW_dt_HH(-1, *geoState, *ctrlVol,*spaceOp->getDistBcData()->getBoundaryStateHH(), *hhEps);
   }
 
-	if(timeState) 
+	if(timeState)
 	{
 		timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps, this->fsi.LSS);
 		if(iod->ts.dualtimestepping == TsData::ON) timeState->add_dAW_dtau(-1, *geoState, *ctrlVol, Qeps, Feps, this->fsi.LSS);
@@ -728,7 +728,7 @@ void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedV
 
   Feps.strip(Fepstmp);
 
-	if(fdOrder == 1) 
+	if(fdOrder == 1)
 	{
     prod.real() = (1.0/eps) * (Fepstmp - F);
 
@@ -737,36 +737,36 @@ void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedV
       *hhEps = (1.0/eps) * (*hhEps - *hhRes);
       prod.setHH(*hhEps);
     }
- 
+
   }
-	else if(fdOrder == 2) 
+	else if(fdOrder == 2)
 	{
     Qepstmp = Q - eps * p.real();
-    
+
     Qepstmp.pad(Qeps);
-  
+
 		if(!this->isFSI)	spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
 		else              spaceOp->computeResidual(*X,*ctrlVol, Qeps, *(this->fsi.Wtemp), *(this->fsi.Wtemp),*(this->fsi.Wtemp),
                         this->fsi.LSS, this->fsi.linRecAtInterface,
                         this->fsi.viscSecOrder, *(this->fsi.fluidId),
                         Feps, this->fsi.riemann, this->fsi.Nriemann, 0, this->fsi.ghostPoints);
- 
-		if(timeState) 
+
+		if(timeState)
 		{
 			timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps, this->fsi.LSS);
 
 			if (iod->ts.dualtimestepping == TsData::ON) timeState->add_dAW_dtau(-1, *geoState, *ctrlVol, Qeps, Feps, this->fsi.LSS);
     }
 
-		if(p.hasHHBoundaryTerm()) 
+		if(p.hasHHBoundaryTerm())
 		{
       prod.setHH(*hhEps);
       *hhEps = *hhVal - eps*p.hh();
       *spaceOp->getDistBcData()->getBoundaryStateHH() = *hhEps;
       *hhEps = 0.0;
-			
+
 			spaceOp->getDomain()->computeHHBoundaryTermResidual(*spaceOp->getDistBcData(),Qeps,*hhEps, spaceOp->getVarFcn());
-       
+
 			timeState->add_dAW_dt_HH(-1, *geoState, *ctrlVol,*spaceOp->getDistBcData()->getBoundaryStateHH(), *hhEps);
 
       prod.hh() = (0.5/eps)*(prod.hh()-*hhEps);
@@ -785,7 +785,7 @@ void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedV
 //--------------------------------------------------
 //Computes prod=J*p
 template<int dim, int neq>
-void MatVecProdFD<dim,neq>::applyViscous(DistEmbeddedVec<double,neq> & p, DistEmbeddedVec<double,neq> & prod) 
+void MatVecProdFD<dim,neq>::applyViscous(DistEmbeddedVec<double,neq> & p, DistEmbeddedVec<double,neq> & prod)
 {
   // ***
   double eps = computeEpsilon(Q, p.real());
@@ -794,7 +794,7 @@ void MatVecProdFD<dim,neq>::applyViscous(DistEmbeddedVec<double,neq> & p, DistEm
   Qepstmp = Q + eps * p.real();
 
   Qepstmp.pad(Qeps);
-  
+
 
   if(p.hasHHBoundaryTerm())
   {
@@ -805,23 +805,23 @@ void MatVecProdFD<dim,neq>::applyViscous(DistEmbeddedVec<double,neq> & p, DistEm
     spaceOp->computeViscousResidual(*X, *ctrlVol, Qeps, Feps, timeState);
   }
   else{//FSI case
-    spaceOp->computeViscousResidual(*X, *ctrlVol, Qeps, 
+    spaceOp->computeViscousResidual(*X, *ctrlVol, Qeps,
               *(this->fsi.Wtemp), *(this->fsi.Wtemp), *(this->fsi.Wtemp), this->fsi.LSS,
                 this->fsi.linRecAtInterface, this->fsi.viscSecOrder,
               *(this->fsi.fluidId), Feps, this->fsi.riemann,
                 this->fsi.Nriemann, 0, this->fsi.ghostPoints);
 }
 
-  if(p.hasHHBoundaryTerm()) 
+  if(p.hasHHBoundaryTerm())
   {
     *hhEps = 0.0;
 
     spaceOp->getDomain()->computeHHBoundaryTermResidual(*spaceOp->getDistBcData(),Qeps,*hhEps, spaceOp->getVarFcn());
-       
+
     timeState->add_dAW_dt_HH(-1, *geoState, *ctrlVol,*spaceOp->getDistBcData()->getBoundaryStateHH(), *hhEps);
   }
 
-  if(timeState) 
+  if(timeState)
   {
     timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps, this->fsi.LSS);
     if(iod->ts.dualtimestepping == TsData::ON) timeState->add_dAW_dtau(-1, *geoState, *ctrlVol, Qeps, Feps, this->fsi.LSS);
@@ -831,7 +831,7 @@ void MatVecProdFD<dim,neq>::applyViscous(DistEmbeddedVec<double,neq> & p, DistEm
 
   Feps.strip(Fepstmp);
 
-  if(fdOrder == 1) 
+  if(fdOrder == 1)
   {
     prod.real() = (1.0/eps) * (Fepstmp - F);
 
@@ -840,40 +840,40 @@ void MatVecProdFD<dim,neq>::applyViscous(DistEmbeddedVec<double,neq> & p, DistEm
       *hhEps = (1.0/eps) * (*hhEps - *hhRes);
       prod.setHH(*hhEps);
     }
- 
+
   }
-  else if(fdOrder == 2) 
+  else if(fdOrder == 2)
   {
     Qepstmp = Q - eps * p.real();
-    
+
     Qepstmp.pad(Qeps);
-  
+
     if (!this->isFSI){
       spaceOp->computeViscousResidual(*X, *ctrlVol, Qeps, Feps, timeState);
     }
     else{//FSI case
-      spaceOp->computeViscousResidual(*X, *ctrlVol, Qeps, 
+      spaceOp->computeViscousResidual(*X, *ctrlVol, Qeps,
                 *(this->fsi.Wtemp), *(this->fsi.Wtemp), *(this->fsi.Wtemp), this->fsi.LSS,
                   this->fsi.linRecAtInterface, this->fsi.viscSecOrder,
                 *(this->fsi.fluidId), Feps, this->fsi.riemann,
                   this->fsi.Nriemann, 0, this->fsi.ghostPoints);
     }
-    if(timeState) 
+    if(timeState)
     {
       timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps, this->fsi.LSS);
 
       if (iod->ts.dualtimestepping == TsData::ON) timeState->add_dAW_dtau(-1, *geoState, *ctrlVol, Qeps, Feps, this->fsi.LSS);
     }
 
-    if(p.hasHHBoundaryTerm()) 
+    if(p.hasHHBoundaryTerm())
     {
       prod.setHH(*hhEps);
       *hhEps = *hhVal - eps*p.hh();
       *spaceOp->getDistBcData()->getBoundaryStateHH() = *hhEps;
       *hhEps = 0.0;
-      
+
       spaceOp->getDomain()->computeHHBoundaryTermResidual(*spaceOp->getDistBcData(),Qeps,*hhEps, spaceOp->getVarFcn());
-       
+
       timeState->add_dAW_dt_HH(-1, *geoState, *ctrlVol,*spaceOp->getDistBcData()->getBoundaryStateHH(), *hhEps);
 
       prod.hh() = (0.5/eps)*(prod.hh()-*hhEps);
@@ -916,7 +916,7 @@ void MatVecProdFD<dim, neq>::applyInviscid(DistSVec<double,neq> &p, DistSVec<dou
   Feps.strip(Fepstmp);
 
   if (output) int status = output->writeBinaryVectorsToDiskRom(false, 0, 0, NULL, &Feps);
- 
+
   if (fdOrder == 1) {
 
     spaceOp->computeInviscidResidual(*X, *ctrlVol, Qeps, Feps, timeState);
@@ -930,9 +930,9 @@ void MatVecProdFD<dim, neq>::applyInviscid(DistSVec<double,neq> &p, DistSVec<dou
     spaceOp->applyBCsToResidual(Qeps, Feps);
 
     Feps.strip(Ftmp);
-    
+
     prod += (1.0/eps) * (Fepstmp - Ftmp);
- 
+
   }
   else if (fdOrder == 2) {
 
@@ -979,7 +979,7 @@ void MatVecProdFD<dim, neq>::applyViscous(DistSVec<double,neq> &p, DistSVec<doub
   spaceOp->applyBCsToResidual(Qeps, Feps);
 
   Feps.strip(Fepstmp);
-  
+
   if (output) int status = output->writeBinaryVectorsToDiskRom(false, 0, 0, NULL, &Feps);
 
   if (fdOrder == 1) {
@@ -993,7 +993,7 @@ void MatVecProdFD<dim, neq>::applyViscous(DistSVec<double,neq> &p, DistSVec<doub
     Feps.strip(Ftmp);
 
     prod += (1.0/eps) * (Fepstmp - Ftmp);
- 
+
   }
   else if (fdOrder == 2) {
 
@@ -1065,7 +1065,7 @@ double MatVecProdFD<dim, neq>::computeEpsilon(DistSVec<double,neq> &U, DistSVec<
   for (iSub=0; iSub<distInfo.numGlobSub; ++iSub) eps += alleps[iSub];
 
   eps /= double(size) * norm;
- 
+
   return eps;
 
 }
@@ -1088,10 +1088,10 @@ void MatVecProdFD<dim, neq>::rstSpaceOp(IoData & ioData, VarFcn *varFcn, SpaceOp
 
 template<int dim, class Scalar, int neq>
 MatVecProdH1<dim,Scalar,neq>::MatVecProdH1(DistTimeState<dim> *ts, SpaceOperator<dim> *spo,
-					   Domain *domain) : 
+					   Domain *domain) :
   DistMat<Scalar,neq>(domain), timeState(ts), spaceOp(spo)
 {
-#ifdef _OPENMP 
+#ifdef _OPENMP
   this->numLocSub = DistMat<Scalar,neq>::numLocSub; //BUG omp
 #endif
 
@@ -1111,12 +1111,12 @@ MatVecProdH1<dim,Scalar,neq>::MatVecProdH1(DistTimeState<dim> *ts, SpaceOperator
   areHHTermsActive = false;
 
   this->com->globalSum(1, &size);
-  
+
   this->com->printf(2, "Memory required for matvec with H1 (dim=%d): %3.2f MB\n", neq, size);
 
 }
 //------------------------------------------------------------------------------
-                                                                                                  
+
 template<int dim, class Scalar, int neq>
 MatVecProdH1<dim,Scalar,neq>::MatVecProdH1(DistTimeState<dim> *ts, SpaceOperator<dim> *spo,
                                            Domain *domain, IoData &ioData) :
@@ -1166,7 +1166,7 @@ MatVecProdH1<dim,Scalar,neq>::~MatVecProdH1()
 
   if (A) {
 #pragma omp parallel for
-    for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+    for (int iSub = 0; iSub < this->numLocSub; ++iSub)
       if (A[iSub]) delete A[iSub];
 
     delete [] A;
@@ -1197,7 +1197,7 @@ void MatVecProdH1<dim,Scalar,neq>::exportMemory(MemoryPool *mp)
   if (!mp) return;
 
   for (int iSub = 0; iSub < this->numLocSub; ++iSub)
-    mp->set(A[iSub]->numNonZeroBlocks() * neq*neq * sizeof(Scalar), 
+    mp->set(A[iSub]->numNonZeroBlocks() * neq*neq * sizeof(Scalar),
 	    reinterpret_cast<void *>(A[iSub]->data()));
 
 }
@@ -1223,7 +1223,7 @@ void MatVecProdH1<dim,Scalar,neq>::evaluate(
   if (!this->isFSI)
     spaceOp->computeJacobian(X, ctrlVol, Q, *this, timeState);
   else
-    spaceOp->computeJacobian(X,ctrlVol, Q, this->fsi.LSS, *(this->fsi.fluidId), 
+    spaceOp->computeJacobian(X,ctrlVol, Q, this->fsi.LSS, *(this->fsi.fluidId),
                              this->fsi.riemann, this->fsi.Nriemann,
                              this->fsi.ghostPoints, *this,timeState, this->fsi.viscSecOrder);
 
@@ -1245,7 +1245,7 @@ void MatVecProdH1<dim,Scalar,neq>::evaluate(
 							       (*spaceOp->getGeoState())(iSub),
 							       ctrlVol(iSub), Q(iSub), *A[iSub], spaceOp->getVarFcn());
     }
-    
+
     this->timeState->addToHHJacobian(ctrlVol, *this, *hhVal);
   }
 
@@ -1255,7 +1255,7 @@ void MatVecProdH1<dim,Scalar,neq>::evaluate(
 
 template<int dim, class Scalar, int neq>
 void MatVecProdH1<dim,Scalar,neq>::evaluateRestrict(int it, DistSVec<double,3> &X, DistVec<double> &ctrlVol,
-                                            DistSVec<double,dim> &Q, DistSVec<double,dim> &F, 
+                                            DistSVec<double,dim> &Q, DistSVec<double,dim> &F,
                                             RestrictionMapping<dim> & restrictionMapping,
                                             TsDesc<dim>* probDesc,
                                             int (TsDesc<dim>::*checkSolution)(DistSVec<double,dim> &)) {
@@ -1290,7 +1290,7 @@ void MatVecProdH1<dim,Scalar,neq>::evaluate(DistExactRiemannSolver<dim> &riemann
 							       ctrlVol(iSub), Q(iSub), *A[iSub], spaceOp->getVarFcn());
     }
     this->timeState->addToHHJacobian(ctrlVol, *this, *hhVal);
-    
+
   }
 }
 
@@ -1327,7 +1327,7 @@ void MatVecProdH1<dim,Scalar,neq>::apply(DistSVec<double,neq> &p, DistSVec<doubl
 {
 
   int iSub;
-  
+
 #pragma omp parallel for
   for (iSub = 0; iSub < this->numLocSub; ++iSub) {
     this->subDomain[iSub]->computeMatVecProdH1(p.getMasterFlag(iSub), *A[iSub],
@@ -1348,7 +1348,7 @@ void MatVecProdH1<dim,Scalar,neq>::applyTranspose(DistSVec<double,neq> &p, DistS
 {
 
   int iSub;
-  
+
 #pragma omp parallel for
   for (iSub = 0; iSub < this->numLocSub; ++iSub) {
     this->subDomain[iSub]->computeMatVecProdH1transpose(p.getMasterFlag(iSub), *A[iSub],
@@ -1381,22 +1381,22 @@ void MatVecProdH1<dim,Scalar,neq>::apply(DistEmbeddedVec<double,neq> &p, DistEmb
 {
 
   int iSub;
-  
+
 #pragma omp parallel for
   for (iSub = 0; iSub < this->numLocSub; ++iSub) {
     this->subDomain[iSub]->computeMatVecProdH1(p.real().getMasterFlag(iSub), *A[iSub],
-					       p.real()(iSub), prod.real()(iSub), 
+					       p.real()(iSub), prod.real()(iSub),
                                                p.ghost()(iSub), prod.ghost()(iSub) );
 
     if (p.hasHHBoundaryTerm()) {
       if (!prod.hasHHBoundaryTerm()) {
-    
+
         prod.setHH(p.hh());
       }
       prod.hh() = 0.0;
       this->subDomain[iSub]->
 	computeMatVecProdH1FarFieldHH(p.real().getMasterFlag(iSub),
-				      *A[iSub],p.real()(iSub), prod.real()(iSub), 
+				      *A[iSub],p.real()(iSub), prod.real()(iSub),
 				      p.hh()(iSub), prod.hh()(iSub));
     }
 
@@ -1471,7 +1471,7 @@ MatVecProdH2<dim,Scalar,neq>::MatVecProdH2
   , vProdEmb(0)
 {
 
-#ifdef _OPENMP 
+#ifdef _OPENMP
   this->numLocSub = DistMat<Scalar,dim>::numLocSub; //BUG omp
 #endif
 
@@ -1511,13 +1511,13 @@ MatVecProdH2<dim,Scalar,neq>::MatVecProdH2
 
   this->com->globalSum(1, &size);
   this->com->globalSum(1, &coefsize);
-  
+
   this->com->printf(2, "Memory required for matvec with H2: ");
   this->com->printf(2, "%3.2f+%3.2f=%3.2f MB\n", size, coefsize, size+coefsize);
-  
+
 
 // Included (MB)
-  fluxFcn = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1]; 
+  fluxFcn = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1];
   fluxFcn -= BC_MIN_CODE;
   if(BC_MAX_CODE-BC_MIN_CODE+1 < 22)
     fprintf(stderr,"Be prepared to see a segmentation fault shortly...\n");
@@ -1575,14 +1575,14 @@ MatVecProdH2<dim,Scalar,neq>::MatVecProdH2
 
 template<int dim, class Scalar, int neq>
 MatVecProdH2<dim,Scalar,neq>::~MatVecProdH2()
-{ 
+{
 
   if (spaceOp) delete spaceOp;
   fluxFcn = 0; // deleted by spaceOperator.
 
   if (A) {
 #pragma omp parallel for
-    for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+    for (int iSub = 0; iSub < this->numLocSub; ++iSub)
       if (A[iSub]) delete A[iSub];
 
     delete [] A;
@@ -1618,7 +1618,7 @@ DistMat<Scalar,dim> &MatVecProdH2<dim,Scalar,neq>::operator= (const Scalar x)
 //------------------------------------------------------------------------------
 
 template<int dim, class Scalar, int neq>
-void MatVecProdH2<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &x, DistVec<double> &cv, 
+void MatVecProdH2<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &x, DistVec<double> &cv,
 					DistSVec<double,dim> &q, DistSVec<double,dim> &f)
 {
 
@@ -1632,7 +1632,7 @@ void MatVecProdH2<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &x, DistV
 
 template<int dim, class Scalar, int neq>
 void MatVecProdH2<dim,Scalar,neq>::evaluateRestrict(int it, DistSVec<double,3> &X, DistVec<double> &ctrlVol,
-                                            DistSVec<double,dim> &Q, DistSVec<double,dim> &F, 
+                                            DistSVec<double,dim> &Q, DistSVec<double,dim> &F,
                                             RestrictionMapping<dim> & restrictionMapping,
                                             TsDesc<dim>* probDesc,
                                             int (TsDesc<dim>::*checkSolution)(DistSVec<double,dim> &)) {
@@ -1647,7 +1647,7 @@ void MatVecProdH2<dim,Scalar,neq>::evaluateRestrict(int it, DistSVec<double,3> &
 
 // Included (MB)
 template<int dim, class Scalar, int neq>
-void MatVecProdH2<dim,Scalar,neq>::evaluateInviscid(int it, DistSVec<double,3> &x, DistVec<double> &cv, 
+void MatVecProdH2<dim,Scalar,neq>::evaluateInviscid(int it, DistSVec<double,3> &x, DistVec<double> &cv,
 					DistSVec<double,dim> &q, DistSVec<double,dim> &f)
 {
 
@@ -1658,7 +1658,7 @@ void MatVecProdH2<dim,Scalar,neq>::evaluateInviscid(int it, DistSVec<double,3> &
   if (!this->isFSI){
     spaceOp->computeH2(*X, *ctrlVol, *Q, *this, aij, aji, bij, bji);
   }else{
-    spaceOp->computeH2(*X, *ctrlVol, *Q, this->fsi.LSS, *(this->fsi.fluidId), 
+    spaceOp->computeH2(*X, *ctrlVol, *Q, this->fsi.LSS, *(this->fsi.fluidId),
 		       this->fsi.riemann, this->fsi.Nriemann,
 		       this->fsi.ghostPoints, *this, aij, aji, bij, bji, betaij, betaji);
   }
@@ -1675,7 +1675,7 @@ void MatVecProdH2<dim,Scalar,neq>::evaluateInviscid(int it, DistSVec<double,3> &
 
 // Included (MB)
 template<int dim, class Scalar, int neq>
-void MatVecProdH2<dim,Scalar,neq>::evaluateViscous(int it, DistSVec<double,3> &x, DistVec<double> &cv, 
+void MatVecProdH2<dim,Scalar,neq>::evaluateViscous(int it, DistSVec<double,3> &x, DistVec<double> &cv,
 					DistSVec<double,dim> &q, DistSVec<double,dim> &f)
 {
 
@@ -1708,8 +1708,8 @@ void MatVecProdH2<dim,Scalar,neq>::evaluateViscous(int it, DistSVec<double,3> &x
 //------------------------------------------------------------------------------
 
 template<int dim, class Scalar, int neq>
-void MatVecProdH2<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &x, 
-                               DistVec<double> &cv, DistSVec<double,dim> &q, 
+void MatVecProdH2<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &x,
+                               DistVec<double> &cv, DistSVec<double,dim> &q,
                                DistSVec<double,dim> &F, Scalar shift)
 {
 
@@ -1724,7 +1724,7 @@ void MatVecProdH2<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &x,
        //case for the construction of the POD
        case 0:
          timeState->addToH2(*ctrlVol, *Q, *this, shift, 1.0);
-         break;   
+         break;
        case 1:
          timeState->addToH2(*ctrlVol, *Q, *this, Scalar(2.0), 1.0);
          break;
@@ -1761,7 +1761,7 @@ void MatVecProdH2<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &x,
 //------------------------------------------------------------------------------
 
 template<int dim, class Scalar, int neq>
-void MatVecProdH2<dim,Scalar,neq>::evaluate2(int it, DistSVec<double,3> &x, DistVec<double> &cv, 
+void MatVecProdH2<dim,Scalar,neq>::evaluate2(int it, DistSVec<double,3> &x, DistVec<double> &cv,
                                          DistSVec<double,dim> &q, DistSVec<double,dim> &F)
 {
 
@@ -1781,7 +1781,7 @@ void MatVecProdH2<dim,Scalar,neq>::evaluate2(int it, DistSVec<double,3> &x, Dist
 
 template<int dim, class Scalar, int neq>
 void MatVecProdH2<dim,Scalar,neq>::evalH(int it, DistSVec<double,3> &x,
-                               DistVec<double> &cv, DistSVec<double,dim> &q)  
+                               DistVec<double> &cv, DistSVec<double,dim> &q)
 {
 
   X = &x;
@@ -1848,11 +1848,11 @@ template<int dim, class Scalar, int neq>
 void MatVecProdH2<dim,Scalar,neq>::apply(DistEmbeddedVec<double,dim> &p, DistEmbeddedVec<double,dim> &prod)
 {
 
-  // spaceOp->applyH2(*X, *ctrlVol, *Q, 
-  //      this->fsi.LSS, *(this->fsi.fluidId), 
+  // spaceOp->applyH2(*X, *ctrlVol, *Q,
+  //      this->fsi.LSS, *(this->fsi.fluidId),
   //      this->fsi.linRecAtInterface, this->fsi.viscSecOrder,
   //      this->fsi.riemann, this->fsi.Nriemann,
-  //      this->fsi.ghostPoints, 
+  //      this->fsi.ghostPoints,
   //      *this, aij, aji, bij, bji, betaij, betaji,
   //      p.real(), prod.real());
   Multiplier<dim,neq,Scalar,double> Operator;
@@ -1864,11 +1864,11 @@ void MatVecProdH2<dim,Scalar,neq>::apply(DistEmbeddedVec<double,dim> &p, DistEmb
 template<int dim, class Scalar, int neq>
 void MatVecProdH2<dim,Scalar,neq>::applyTranspose(DistEmbeddedVec<double,dim> &p, DistEmbeddedVec<double,dim> &prod)
 {
-  spaceOp->applyH2transpose(*X, *ctrlVol, *Q, 
-		   this->fsi.LSS, *(this->fsi.fluidId), 
+  spaceOp->applyH2transpose(*X, *ctrlVol, *Q,
+		   this->fsi.LSS, *(this->fsi.fluidId),
 		   this->fsi.linRecAtInterface, this->fsi.viscSecOrder,
 		   this->fsi.riemann, this->fsi.Nriemann,
-		   this->fsi.ghostPoints, 
+		   this->fsi.ghostPoints,
 		   *this, aij, aji, bij, bji, betaij, betaji,
 		   p.real(), prod.real());
   // Multiplier<dim,neq,Scalar,double> Operator;
@@ -2086,7 +2086,7 @@ void MatVecProdH2<dim,Scalar,neq>::Multiplier<dd,dd,Scalar1,Scalar2>::ApplyTrans
     R->applyTranspose(p, *vProd);
     prod += *vProd;
   }
-  else if (RFD) //TODO: YC: have not checked this works -- 
+  else if (RFD) //TODO: YC: have not checked this works --
   {
     *vProd = (Scalar2) 0;
     RFD->applyViscous(p, *vProd);
@@ -2116,16 +2116,16 @@ void MatVecProdH2<dim,Scalar,neq>::Multiplier<dd,dd,Scalar1,Scalar2>::Apply
   , DistEmbeddedVec<Scalar2, dd> *vProdEmb
 )
 {
-  spaceOp->applyH2(X, ctrlVol, U, 
-       fsi.LSS, *(fsi.fluidId), 
+  spaceOp->applyH2(X, ctrlVol, U,
+       fsi.LSS, *(fsi.fluidId),
        fsi.linRecAtInterface, fsi.viscSecOrder,
        fsi.riemann, fsi.Nriemann,
-       fsi.ghostPoints, 
+       fsi.ghostPoints,
        H2, aij, aji, bij, bji, betaij, betaji,
        p.real(), prod.real());
 
   if (R)
-  { 
+  {
     R->apply(p, *vProdEmb);
     prod.real() += vProdEmb->real();
   }
@@ -2159,7 +2159,7 @@ void MatVecProdH2<dim,Scalar,neq>::apply(DistSVec<bcomp,neq> &p,
 template<int dim, class Scalar, int neq>
 void MatVecProdH2<dim,Scalar,neq>::rstSpaceOp
 (
-  IoData & ioData, VarFcn *varFcn, SpaceOperator<dim> *spo, 
+  IoData & ioData, VarFcn *varFcn, SpaceOperator<dim> *spo,
   bool typeAlloc, SpaceOperator<dim> *spofd
 )
 {
@@ -2177,7 +2177,7 @@ void MatVecProdH2<dim,Scalar,neq>::rstSpaceOp
   // UH (09/10) -> Check for memory leak
   // No FluxFcn pointer is deleted.
 
-  fluxFcn = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1]; 
+  fluxFcn = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1];
   fluxFcn -= BC_MIN_CODE;
   if(BC_MAX_CODE-BC_MIN_CODE+1 < 22)
     fprintf(stderr,"Be prepared to see a segmentation fault shortly...\n");
@@ -2278,7 +2278,7 @@ void MatVecProdFDMultiPhase<dim, dimLS>::evaluate(int it,
                                  DistSVec<double,dim> &q, DistSVec<double,dimLS> &phi,
                                  DistSVec<double,dim> &f)
 {
-  
+
   X = &x;
   ctrlVol = &cv;
   Qeps = q;
@@ -2293,12 +2293,12 @@ void MatVecProdFDMultiPhase<dim, dimLS>::evaluate(int it,
 */
   Q = Qeps;
   F = f;//Feps;
-  
+
   if (this->timeState && iod->ts.dualtimestepping == TsData::ON) {
     this->timeState->add_dAW_dtau(it, *geoState, *ctrlVol, Q, F);
     this->spaceOp->applyBCsToResidual(Q, F);
   }
-  
+
 }
 
 //------------------------------------------------------------------------------
@@ -2313,14 +2313,14 @@ void MatVecProdFDMultiPhase<dim, dimLS>::apply(DistSVec<double,dim> &p,
 // Included (MB)
   Qeps = Q + eps * p;
 
-  //com->fprintf(stderr,"Computed eps = %e; p.p = %e; Q.Q = %e\n",eps,p*p, Q*Q);  
+  //com->fprintf(stderr,"Computed eps = %e; p.p = %e; Q.Q = %e\n",eps,p*p, Q*Q);
   if (!this->isFSI)
     this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, Feps, this->riemann,this->timeState, -1);
   else
     this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *this->fsi.Wtemp, *this->fsi.Wtemp,
                                    this->fsi.LSS, this->fsi.linRecAtInterface, this->fsi.viscSecOrder,
-                                   this->riemann, this->fsi.Nriemann, *Phi, 
-                                   *this->fluidSelector, Feps, 0, this->fsi.ghostPoints);    
+                                   this->riemann, this->fsi.Nriemann, *Phi,
+                                   *this->fluidSelector, Feps, 0, this->fsi.ghostPoints);
 
   if (this->timeState)
     this->timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
@@ -2330,21 +2330,21 @@ void MatVecProdFDMultiPhase<dim, dimLS>::apply(DistSVec<double,dim> &p,
   this->spaceOp->applyBCsToResidual(Qeps, Feps);
 
   if (fdOrder == 1) {
-    
+
     prod = (1.0/eps) * (Feps - F);
- 
+
   }
   else if (fdOrder == 2) {
 
     Qeps = Q - eps * p;
-    
+
     if (!this->isFSI)
       this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, F, this->riemann,this->timeState, -1);
     else
       this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *this->fsi.Wtemp, *this->fsi.Wtemp,
                                    this->fsi.LSS, this->fsi.linRecAtInterface, this->fsi.viscSecOrder,
-                                   this->riemann,this->fsi.Nriemann, *Phi, 
-                                   *this->fluidSelector, F, 0, this->fsi.ghostPoints);    
+                                   this->riemann,this->fsi.Nriemann, *Phi,
+                                   *this->fluidSelector, F, 0, this->fsi.ghostPoints);
 
     if (this->timeState)
       this->timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, F);
@@ -2369,7 +2369,7 @@ void MatVecProdFDMultiPhase<dim, dimLS>::apply(DistEmbeddedVec<double,dim> &p,
 // Included (MB)
   Qeps = Q + eps * p.real();
 
-  //com->fprintf(stderr,"Computed eps = %e; p.p = %e; Q.Q = %e\n",eps,p*p, Q*Q);  
+  //com->fprintf(stderr,"Computed eps = %e; p.p = %e; Q.Q = %e\n",eps,p*p, Q*Q);
   if (p.hasHHBoundaryTerm()) {
     *hhEps = *hhVal + eps*p.hh();
     *this->spaceOp->getDistBcData()->getBoundaryStateHH() = *hhEps;
@@ -2379,8 +2379,8 @@ void MatVecProdFDMultiPhase<dim, dimLS>::apply(DistEmbeddedVec<double,dim> &p,
   else
     this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *this->fsi.Wtemp, *this->fsi.Wtemp,
                                    this->fsi.LSS, this->fsi.linRecAtInterface, this->fsi.viscSecOrder,
-                                   this->riemann, this->fsi.Nriemann, *Phi, 
-                                   *this->fluidSelector, Feps, 0, this->fsi.ghostPoints);    
+                                   this->riemann, this->fsi.Nriemann, *Phi,
+                                   *this->fluidSelector, Feps, 0, this->fsi.ghostPoints);
 
   //std::cout << iod->ts.dualtimestepping << std::endl;
   if (this->timeState)
@@ -2394,7 +2394,7 @@ void MatVecProdFDMultiPhase<dim, dimLS>::apply(DistEmbeddedVec<double,dim> &p,
     *hhEps = 0.0;
     this->spaceOp->getDomain()->
       computeHHBoundaryTermResidual(*this->spaceOp->getDistBcData(),Qeps,*hhEps, this->spaceOp->getVarFcn());
-       
+
     this->timeState->add_dAW_dt_HH(-1, *geoState, *ctrlVol,*this->spaceOp->getDistBcData()->getBoundaryStateHH()
 			     , *hhEps);
   }
@@ -2402,9 +2402,9 @@ void MatVecProdFDMultiPhase<dim, dimLS>::apply(DistEmbeddedVec<double,dim> &p,
 
 
   if (fdOrder == 1) {
-    
+
     prod.real() = (1.0/eps) * (Feps - F);
- 
+
     if (p.hasHHBoundaryTerm()) {
       *hhEps = (1.0/eps) * (*hhEps - *hhRes);
       prod.setHH(*hhEps);
@@ -2414,14 +2414,14 @@ void MatVecProdFDMultiPhase<dim, dimLS>::apply(DistEmbeddedVec<double,dim> &p,
   else if (fdOrder == 2) {
 
     Qeps = Q - eps * p.real();
-    
+
     if (!this->isFSI)
       this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, F, this->riemann,this->timeState, -1);
     else
       this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *this->fsi.Wtemp, *this->fsi.Wtemp,
                                    this->fsi.LSS, this->fsi.linRecAtInterface, this->fsi.viscSecOrder,
-                                   this->riemann,this->fsi.Nriemann, *Phi, 
-                                   *this->fluidSelector, F, 0, this->fsi.ghostPoints);    
+                                   this->riemann,this->fsi.Nriemann, *Phi,
+                                   *this->fluidSelector, F, 0, this->fsi.ghostPoints);
 
     if (this->timeState)
       this->timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, F);
@@ -2436,7 +2436,7 @@ void MatVecProdFDMultiPhase<dim, dimLS>::apply(DistEmbeddedVec<double,dim> &p,
       *hhEps = 0.0;
       this->spaceOp->getDomain()->
         computeHHBoundaryTermResidual(*this->spaceOp->getDistBcData(),Qeps,*hhEps, this->spaceOp->getVarFcn());
-       
+
       this->timeState->add_dAW_dt_HH(-1, *geoState, *ctrlVol,*this->spaceOp->getDistBcData()->getBoundaryStateHH()
   			       , *hhEps);
       prod.hh() = (0.5/eps)*(prod.hh()-*hhEps);
@@ -2463,7 +2463,7 @@ double MatVecProdFDMultiPhase<dim, dimLS>::computeEpsilon(DistSVec<double,dim> &
   const DistInfo &distInfo = U.info();
 
   //double *alleps = reinterpret_cast<double *>(alloca(sizeof(double) * distInfo.numGlobSub));
- 
+
   double* alleps = new double[distInfo.numGlobSub];
 
   for (iSub=0; iSub<distInfo.numGlobSub; ++iSub) alleps[iSub] = 0.0;
@@ -2506,13 +2506,13 @@ double MatVecProdFDMultiPhase<dim, dimLS>::computeEpsilon(DistSVec<double,dim> &
   delete [] alleps;
 
   return eps;
- 
+
 /*
   DistSVec<double,dim> Up(U);
   Up *= eps0;
 
-  double totsum = Up.norm(); 
-  
+  double totsum = Up.norm();
+
   double norm = sqrt(p*p);
 
   if (norm > 1.0e-14)
@@ -2578,7 +2578,7 @@ MatVecProdH1MultiPhase<dim,dimLS>::~MatVecProdH1MultiPhase()
 
   if (A) {
 #pragma omp parallel for
-    for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
+    for (int iSub = 0; iSub < this->numLocSub; ++iSub)
       if (A[iSub]) delete A[iSub];
 
     delete [] A;
@@ -2588,7 +2588,7 @@ MatVecProdH1MultiPhase<dim,dimLS>::~MatVecProdH1MultiPhase()
   this->spaceOp   = 0;
   this->riemann   = 0;
   this->fluidSelector = 0;
-  
+
 }
 //------------------------------------------------------------------------------
 
@@ -2613,7 +2613,7 @@ void MatVecProdH1MultiPhase<dim,dimLS>::exportMemory(MemoryPool *mp)
   if (!mp) return;
 
   for (int iSub = 0; iSub < this->numLocSub; ++iSub)
-    mp->set(A[iSub]->numNonZeroBlocks() * dim*dim * sizeof(double), 
+    mp->set(A[iSub]->numNonZeroBlocks() * dim*dim * sizeof(double),
 	    reinterpret_cast<void *>(A[iSub]->data()));
 
 }
@@ -2653,9 +2653,9 @@ void MatVecProdH1MultiPhase<dim,dimLS>::evaluate(int it, DistSVec<double,3> &X, 
 							       (*this->spaceOp->getDistBcData())(iSub) ,
 							       (*this->spaceOp->getGeoState())(iSub),
 							       ctrlVol, Q, *A[iSub],this->spaceOp->getVarFcn());
-							      
+
     }
-    
+
     this->timeState->addToHHJacobian(ctrlVol, *this, *hhVal);
   }
 
@@ -2669,7 +2669,7 @@ void MatVecProdH1MultiPhase<dim,dimLS>::apply(DistSVec<double,dim> &p, DistSVec<
 {
 
   int iSub;
-  
+
 #pragma omp parallel for
   for (iSub = 0; iSub < this->numLocSub; ++iSub) {
     this->subDomain[iSub]->computeMatVecProdH1(p.getMasterFlag(iSub), *A[iSub],
@@ -2690,22 +2690,22 @@ void MatVecProdH1MultiPhase<dim,dimLS>::apply(DistEmbeddedVec<double,dim> &p, Di
 {
 
   int iSub;
-  
+
 #pragma omp parallel for
   for (iSub = 0; iSub < this->numLocSub; ++iSub) {
     this->subDomain[iSub]->computeMatVecProdH1(p.real().getMasterFlag(iSub), *A[iSub],
-					       p.real()(iSub), prod.real()(iSub)/*, 
+					       p.real()(iSub), prod.real()(iSub)/*,
                                                p.ghost()(iSub), prod.ghost()(iSub)*/ );
 
     if (p.hasHHBoundaryTerm()) {
       if (!prod.hasHHBoundaryTerm()) {
-    
+
         prod.setHH(p.hh());
       }
       prod.hh() = 0.0;
       this->subDomain[iSub]->
 	computeMatVecProdH1FarFieldHH(p.real().getMasterFlag(iSub),
-				      *A[iSub],p.real()(iSub), prod.real()(iSub), 
+				      *A[iSub],p.real()(iSub), prod.real()(iSub),
 				      p.hh()(iSub), prod.hh()(iSub));
     }
 
@@ -2739,9 +2739,9 @@ void MatVecProdH1MultiPhase<dim,dimLS>::apply(DistEmbeddedVec<double,dim> &p, Di
 
 template<int dim, int dimLS>
 MatVecProdLS<dim,dimLS>::MatVecProdLS(DistTimeState<dim> *ts, DistGeoState *gs,
-                                      MultiPhaseSpaceOperator<dim,dimLS> *spo, 
+                                      MultiPhaseSpaceOperator<dim,dimLS> *spo,
                                       Domain *dom, LevelSet<dimLS> *ls) :
-  timeState(ts), spaceOp(spo), levelSet(ls), geoState(gs), 
+  timeState(ts), spaceOp(spo), levelSet(ls), geoState(gs),
   Qeps(dom->getNodeDistInfo()), Feps(dom->getNodeDistInfo()), DistMat<double,dimLS>(dom)
 {
   X = 0; ctrlVol = 0; Q = 0; U = 0; F = 0; FluidId = 0;
@@ -2780,10 +2780,10 @@ MatVecProdLS<dim,dimLS>::~MatVecProdLS()
 
 template<int dim, int dimLS>
 void MatVecProdLS<dim,dimLS>::apply(DistSVec<double,dimLS> &p, DistSVec<double,dimLS> &prod)
-{  
+{
 
   int iSub;
-  
+
 #pragma omp parallel for
   for (iSub = 0; iSub < this->numLocSub; ++iSub) {
     this->subDomain[iSub]->computeMatVecProdH1(p.getMasterFlag(iSub), *A[iSub],
@@ -2796,7 +2796,7 @@ void MatVecProdLS<dim,dimLS>::apply(DistSVec<double,dimLS> &p, DistSVec<double,d
 #pragma omp parallel for
   for (iSub = 0; iSub < this->numLocSub; ++iSub)
     this->subDomain[iSub]->addRcvData(*this->vecPat, prod.subData(iSub));
-  
+
 }
 
 //------------------------------------------------------------------------------
@@ -2804,7 +2804,7 @@ void MatVecProdLS<dim,dimLS>::apply(DistSVec<double,dimLS> &p, DistSVec<double,d
 template<int dim, int dimLS>
 void MatVecProdLS<dim,dimLS>::evaluate(int it, DistSVec<double,3> &x, DistVec<double> &cv,
 				       DistSVec<double,dimLS> &q, DistSVec<double,dim> &u,
-				       DistSVec<double,dim> &v, DistSVec<double,dimLS> &f, 
+				       DistSVec<double,dim> &v, DistSVec<double,dimLS> &f,
 				       DistVec<int> &fluidId,bool requireSpecialBDF,DistLevelSetStructure* distLSS,
 				       int lsMethod)
 {
@@ -2873,7 +2873,7 @@ double MatVecProdLS<dim, dimLS>::computeEpsilon(DistSVec<double,dimLS> &U, DistS
 
   if (norm > 1.e-14) eps /= double(size) * norm;
   else eps = eps0;
- 
+
   return eps;
 
 }
@@ -3021,11 +3021,11 @@ MatVecProd_dRdX<dim,Scalar,neq>::MatVecProd_dRdX
   }
 
   com->globalSum(1, &size);
-  
+
   com->printf(2, "Memory required for matvec with dRdX: ");
   com->printf(2, "%3.2f MB\n", size);
 
-  fluxFcn = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1]; 
+  fluxFcn = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1];
   fluxFcn -= BC_MIN_CODE;
   if(BC_MAX_CODE-BC_MIN_CODE+1 < 22)
     fprintf(stderr,"Be prepared to see a segmentation fault shortly...\n");
@@ -3059,7 +3059,7 @@ MatVecProd_dRdX<dim,Scalar,neq>::MatVecProd_dRdX
 
 template<int dim, class Scalar, int neq>
 MatVecProd_dRdX<dim,Scalar,neq>::~MatVecProd_dRdX()
-{ 
+{
 
   if (spaceOp) delete spaceOp;
   fluxFcn = 0; // deleted by spaceOperator.
@@ -3145,7 +3145,7 @@ void MatVecProd_dRdX<dim,Scalar,neq>::constructOperatorsEmb(Vec3D &x0,
                                                          DistVec<double> &ctrlVol,
                                                          DistSVec<double,dim> &U,
                                                          DistLevelSetStructure *distLSS,
-                                                         bool linRecAtInterface, 
+                                                         bool linRecAtInterface,
                                                          bool viscSecOrder,
                                                          double dMach,
                                                          DistSVec<double,dim> &R,
