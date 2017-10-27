@@ -202,7 +202,7 @@ double SATerm::computeDerivativeOfTurbulentViscosity(double *V[4], double *dV[4]
   double dfv1 = cv1_pow3 * 3.0 * chi * chi * dchi / ((chi3 + cv1_pow3) * (chi3 + cv1_pow3));
 
   // return dmutilde*fv1 + mutilde*dfv1;
-  return (mutilde>=0.0) ? dmutilde*fv1 + mutilde*dfv1:0.0;
+  return (mutilde>=0.0) ? dmutilde*fv1 + mutilde*dfv1 : 0.0;
 
 }
 
@@ -222,7 +222,7 @@ double SATerm::computeDerivativeOfTurbulentViscosity(double *V[4], double mul, d
   double dfv1 = cv1_pow3 * 3.0 * chi * chi * dchi / ((chi3 + cv1_pow3) * (chi3 + cv1_pow3));
 
   // return dmutilde*fv1 + mutilde*dfv1;
-  return (mutilde>=0.0) ? dmutilde*fv1 + mutilde*dfv1:0.0;
+  return (mutilde>=0.0) ? dmutilde*fv1 + mutilde*dfv1 : 0.0;
 
 }
 
@@ -243,7 +243,7 @@ double SATerm::computeDerivativeOfTurbulentViscosity(double *V, double *dV, doub
   double dfv1 = (dchi3*(chi3 + cv1_pow3)-chi3*dchi3) / ((chi3 + cv1_pow3)*(chi3 + cv1_pow3));
 
   // return dmutilde*fv1 + mutilde*dfv1;
-  return (mutilde>=0.0) ? dmutilde*fv1 + mutilde*dfv1:0.0;
+  return (mutilde>=0.0) ? dmutilde*fv1 + mutilde*dfv1 : 0.0;
 
 }
 
@@ -283,9 +283,11 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
   double dmutilde;
   if (SAform < 3) {  // for original or fv3, clip nutilde and use standard form
     negSA = false;
-    mutilde = max(mutilde, 0.0);
-    if (mutilde == 0.0)
+    // mutilde = std::max(mutilde, 0.0);
+    if (mutilde < 0.0) {
+      mutilde = 0.0;
       dmutilde = 0.0;
+    }
     else
       dmutilde = 1.0;
   }
@@ -323,7 +325,7 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
   int k;
   double nu;
   for (k=0; k<4; ++k) {
-    if (V[k][5] < 0.0 && negSA) {
+    if (negSA && V[k][5] < 0.0) {
       nu = mu5neg / V[k][0];
       dRdU[k][0][shift][shift] = drdxneg + nu * dp1dxj[k][0];
       dRdU[k][1][shift][shift] = drdyneg + nu * dp1dxj[k][1];
@@ -339,8 +341,9 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
 
   double d2wall = 0.25 * (d2w[0] + d2w[1] + d2w[2] + d2w[3]);
   if (d2wall < 1.e-15) {
-    for (k=0; k<4; ++k)
-      dSdU[k][shift][shift] = 0.0;
+    // dSdU set to 0 by default
+    // for (k=0; k<4; ++k)
+    //   dSdU[k][shift][shift] = 0.0;
     return;
   }
 
@@ -443,7 +446,7 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
   }
 
   for (k=0; k<4; ++k) {
-    if (V[k][5] < 0.0 && negSA)
+    if (negSA && V[k][5] < 0.0)
       dSdU[k][shift][shift] =
           coef4 / V[k][0] * (dnutildedx*dp1dxj[k][0] + dnutildedy*dp1dxj[k][1] + dnutildedz*dp1dxj[k][2])
         - oorho * mu5neg / V[k][0] * (drhodx*dp1dxj[k][0] + drhody*dp1dxj[k][1] + drhodz*dp1dxj[k][2])
@@ -454,16 +457,6 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
         - oorho * mu5 / V[k][0] * (drhodx*dp1dxj[k][0] + drhody*dp1dxj[k][1] + drhodz*dp1dxj[k][2])
         - coef5 / V[k][0] - s00;
   }
-
-  // for (k=0; k<4; ++k)
-  //   dSdU[k][shift][shift] = coef4 / V[k][0] *
-  //     (dnutildedx*dp1dxj[k][0] + dnutildedy*dp1dxj[k][1] + dnutildedz*dp1dxj[k][2]) - s00;
-
-  // for (k=0; k<4; ++k)
-  //   dSdU[k][shift][shift] =
-  //       coef4 / V[k][0] * (dnutildedx*dp1dxj[k][0] + dnutildedy*dp1dxj[k][1] + dnutildedz*dp1dxj[k][2])
-  //     - oorho * mu5 / V[k][0] * (drhodx*dp1dxj[k][0] + drhody*dp1dxj[k][1] + drhodz*dp1dxj[k][2])
-  //     - coef5 / V[k][0] - s00;
 }
 
 //------------------------------------------------------------------------------
@@ -485,14 +478,16 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
   bool negSA;
   if (SAform != 3) {  // for original or fv3, clip nutilde and use standard form
     negSA = false;
-    mutilde = max(mutilde, 0.0);
-    if (mutilde == 0.0)  {
+    // mutilde = std::max(mutilde, 0.0);
+    if (mutilde < 0.0) {
+      mutilde = 0.0;
       for (k=0; k<4; ++k) {
-        dmutilde[k][0] = 0.0;
-        dmutilde[k][1] = 0.0;
-        dmutilde[k][2] = 0.0;
-        dmutilde[k][3] = 0.0;
-        dmutilde[k][4] = 0.0;
+        // these are already set to 0 in FemEquationTerm
+        // dmutilde[k][0] = 0.0;
+        // dmutilde[k][1] = 0.0;
+        // dmutilde[k][2] = 0.0;
+        // dmutilde[k][3] = 0.0;
+        // dmutilde[k][4] = 0.0;
         dmutilde[k][5] = 0.0;
       }
     }
@@ -546,7 +541,7 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
   }
 
   for (k=0; k<4; ++k) {
-    if (V[k][5] < 0.0 && negSA) {
+    if (negSA && V[k][5] < 0.0) {
       dRdU[k][0][5][0] = dmu5neg[k][0] * dnutildedx - mu5neg * dp1dxj[k][0] * V[k][5] / V[k][0];
       dRdU[k][0][5][1] = dmu5neg[k][1] * dnutildedx;
       dRdU[k][0][5][2] = dmu5neg[k][2] * dnutildedx;
@@ -592,88 +587,14 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
     }
   }
 
-  // double dmu5[4][6], mu5;
-  // if (negSA) {
-  //   double chi = mutilde/mul;
-  //   double chi3 = chi*chi*chi;
-  //   double chi2 = chi*chi;
-  //   double fn = (cn1+chi3)/(cn1-chi3);
-  //   mu5 = oosigma * (mul + fn*mutilde);
-
-  //   double oomul = 1.0/mul;
-  //   double coef1 = -mutilde*oomul*oomul;
-  //   double coef2 = 6.0*chi2*cn1/((cn1-chi3)*(cn1-chi3));
-
-  //   double dchi[6], dfn[6];
-  //   for (k=0; k<4; ++k) {
-  //     dchi[0] = oomul*dmutilde[k][0]+coef1*dmul[k][0];
-  //     dchi[1] = oomul*dmutilde[k][1]+coef1*dmul[k][1];
-  //     dchi[2] = oomul*dmutilde[k][2]+coef1*dmul[k][2];
-  //     dchi[3] = oomul*dmutilde[k][3]+coef1*dmul[k][3];
-  //     dchi[4] = oomul*dmutilde[k][4]+coef1*dmul[k][4];
-  //     dchi[5] = oomul*dmutilde[k][5]+coef1*dmul[k][5];
-
-  //     dfn[0] = coef2*dchi[0];
-  //     dfn[1] = coef2*dchi[1];
-  //     dfn[2] = coef2*dchi[2];
-  //     dfn[3] = coef2*dchi[3];
-  //     dfn[4] = coef2*dchi[4];
-  //     dfn[5] = coef2*dchi[5];
-
-  //     dmu5[k][0] = oosigma * (dmul[k][0] + fn*dmutilde[k][0] + dfn[0]*mutilde);
-  //     dmu5[k][1] = oosigma * (dmul[k][1] + fn*dmutilde[k][1] + dfn[1]*mutilde);
-  //     dmu5[k][2] = oosigma * (dmul[k][2] + fn*dmutilde[k][2] + dfn[2]*mutilde);
-  //     dmu5[k][3] = oosigma * (dmul[k][3] + fn*dmutilde[k][3] + dfn[3]*mutilde);
-  //     dmu5[k][4] = oosigma * (dmul[k][4] + fn*dmutilde[k][4] + dfn[4]*mutilde);
-  //     dmu5[k][5] = oosigma * (dmul[k][5] + fn*dmutilde[k][5] + dfn[5]*mutilde);
-  //   }
-  // }
-  // else {
-  //   mu5 = oosigma * (mul + mutilde);
-
-  //   for (k=0; k<4; ++k) {
-  //     dmu5[k][0] = oosigma * (dmul[k][0] + dmutilde[k][0]);
-  //     dmu5[k][1] = oosigma * (dmul[k][1] + dmutilde[k][1]);
-  //     dmu5[k][2] = oosigma * (dmul[k][2] + dmutilde[k][2]);
-  //     dmu5[k][3] = oosigma * (dmul[k][3] + dmutilde[k][3]);
-  //     dmu5[k][4] = oosigma * (dmul[k][4] + dmutilde[k][4]);
-  //     dmu5[k][5] = oosigma * (dmul[k][5] + dmutilde[k][5]);
-  //   }
-  // }
-
-  // for (k=0; k<4; ++k) {
-  //   dRdU[k][0][5][0] = dmu5[k][0] * dnutildedx - mu5 * dp1dxj[k][0] * V[k][5] / V[k][0];
-  //   dRdU[k][0][5][1] = dmu5[k][1] * dnutildedx;
-  //   dRdU[k][0][5][2] = dmu5[k][2] * dnutildedx;
-  //   dRdU[k][0][5][3] = dmu5[k][3] * dnutildedx;
-  //   dRdU[k][0][5][4] = dmu5[k][4] * dnutildedx;
-  //   dRdU[k][0][5][5] = dmu5[k][5] * dnutildedx + mu5 * dp1dxj[k][0] / V[k][0];
-
-  //   dRdU[k][1][5][0] = dmu5[k][0] * dnutildedy - mu5 * dp1dxj[k][1] * V[k][5] / V[k][0];
-  //   dRdU[k][1][5][1] = dmu5[k][1] * dnutildedy;
-  //   dRdU[k][1][5][2] = dmu5[k][2] * dnutildedy;
-  //   dRdU[k][1][5][3] = dmu5[k][3] * dnutildedy;
-  //   dRdU[k][1][5][4] = dmu5[k][4] * dnutildedy;
-  //   dRdU[k][1][5][5] = dmu5[k][5] * dnutildedy + mu5 * dp1dxj[k][1] / V[k][0];
-
-  //   dRdU[k][2][5][0] = dmu5[k][0] * dnutildedz - mu5 * dp1dxj[k][2] * V[k][5] / V[k][0];
-  //   dRdU[k][2][5][1] = dmu5[k][1] * dnutildedz;
-  //   dRdU[k][2][5][2] = dmu5[k][2] * dnutildedz;
-  //   dRdU[k][2][5][3] = dmu5[k][3] * dnutildedz;
-  //   dRdU[k][2][5][4] = dmu5[k][4] * dnutildedz;
-  //   dRdU[k][2][5][5] = dmu5[k][5] * dnutildedz + mu5 * dp1dxj[k][2] / V[k][0];
-  // }
-
   double d2wall = 0.25 * (d2w[0] + d2w[1] + d2w[2] + d2w[3]);
   if (d2wall < 1.e-15) {
-    for (k=0; k<4; ++k)
-      dSdU[k][5][5] = 0.0;
+    // dSdU set to 0 by default
+    // for (k=0; k<4; ++k)
+    //   dSdU[k][5][5] = 0.0;
     return;
   }
 
-  // double chi;
-  // double dchi[4][6];
-  // double chi3;
   double fv1;
   double dfv1[4][6];
   double fv2;
@@ -713,7 +634,7 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
   double dBB[4][6];
 //  double CC;
   double dCC[4][6];
-//  double DD;        // sjg, 06/2017: missing term from conservation form
+//  double DD;          // sjg, 06/2017: missing term from conservation form
   double dDD[4][6];
 
   double drhodx = dp1dxj[0][0]*V[0][0] + dp1dxj[1][0]*V[1][0] + dp1dxj[2][0]*V[2][0] + dp1dxj[3][0]*V[3][0];
@@ -1009,268 +930,8 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
     }
   }
 
-  /*
-  if (negSA) {
-    for (k=0; k<4; ++k) {
-      // AA = oosigma * cb2 * rho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
-      dAA[k][0] = oosigma * cb2 * drho[k][0] * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz) - oosigma * cb2 * rho * 2.0 * (dnutildedx*dp1dxj[k][0]*V[k][5] + dnutildedy*dp1dxj[k][1]*V[k][5] + dnutildedz*dp1dxj[k][2]*V[k][5]) / V[k][0];
-      dAA[k][1] = 0.0;
-      dAA[k][2] = 0.0;
-      dAA[k][3] = 0.0;
-      dAA[k][4] = 0.0;
-      dAA[k][5] = oosigma * cb2 * rho * 2.0 * (dnutildedx*dp1dxj[k][0] + dnutildedy*dp1dxj[k][1] + dnutildedz*dp1dxj[k][2]) / V[k][0];
-
-      // BB = cb1 * s * absmutilde;
-      dBB[k][0] = cb1 * ds[k][0] * mutilde + cb1 * s * dmutilde[k][0];
-      dBB[k][1] = cb1 * ds[k][1] * mutilde + cb1 * s * dmutilde[k][1];
-      dBB[k][2] = cb1 * ds[k][2] * mutilde + cb1 * s * dmutilde[k][2];
-      dBB[k][3] = cb1 * ds[k][3] * mutilde + cb1 * s * dmutilde[k][3];
-      dBB[k][4] = cb1 * ds[k][4] * mutilde + cb1 * s * dmutilde[k][4];
-      dBB[k][5] = cb1 * ds[k][5] * mutilde + cb1 * s * dmutilde[k][5];
-
-      // CC = - cw1 * oorho * maxmutilde*maxmutilde * ood2wall2;
-      dCC[k][0] = cw1 * doorho[k][0] * mutilde*mutilde * ood2wall2 + cw1 * oorho * 2.0*mutilde*dmutilde[k][0] * ood2wall2;
-      dCC[k][1] = cw1 * doorho[k][1] * mutilde*mutilde * ood2wall2 + cw1 * oorho * 2.0*mutilde*dmutilde[k][1] * ood2wall2;
-      dCC[k][2] = cw1 * doorho[k][2] * mutilde*mutilde * ood2wall2 + cw1 * oorho * 2.0*mutilde*dmutilde[k][2] * ood2wall2;
-      dCC[k][3] = cw1 * doorho[k][3] * mutilde*mutilde * ood2wall2 + cw1 * oorho * 2.0*mutilde*dmutilde[k][3] * ood2wall2;
-      dCC[k][4] = cw1 * doorho[k][4] * mutilde*mutilde * ood2wall2 + cw1 * oorho * 2.0*mutilde*dmutilde[k][4] * ood2wall2;
-      dCC[k][5] = cw1 * doorho[k][5] * mutilde*mutilde * ood2wall2 + cw1 * oorho * 2.0*mutilde*dmutilde[k][5] * ood2wall2;
-
-      // DD = - oorho * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz);
-      dDD[k][0] = - (doorho[k][0] * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz)
-        + oorho * dmu5[k][0] * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz)
-        + oorho * mu5 * (dnutildedx*dp1dxj[k][0] + dnutildedy*dp1dxj[k][1] + dnutildedz*dp1dxj[k][2]))
-        + oorho * mu5 * (drhodx*dp1dxj[k][0]*V[k][5] + drhody*dp1dxj[k][1]*V[k][5] + drhodz*dp1dxj[k][2]*V[k][5]) / V[k][0];
-      dDD[k][1] = - (doorho[k][1] * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz)
-        + oorho * dmu5[k][1] * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz));
-      dDD[k][2] = - (doorho[k][2] * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz)
-        + oorho * dmu5[k][2] * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz));
-      dDD[k][3] = - (doorho[k][3] * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz)
-        + oorho * dmu5[k][3] * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz));
-      dDD[k][4] = - (doorho[k][4] * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz)
-        + oorho * dmu5[k][4] * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz));
-      dDD[k][5] = - (doorho[k][5] * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz)
-        + oorho * dmu5[k][5] * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz)
-        + oorho * mu5 * (drhodx*dp1dxj[k][0] + drhody*dp1dxj[k][1] + drhodz*dp1dxj[k][2]) / V[k][0]);
-    }
-  }
-  else {
-    for (k=0; k<4; ++k) {
-      chi = mutilde/mul;
-
-      dchi[k][0] = - mutilde / (mul * mul) * dmul[k][0] + dmutilde[k][0] / mul;
-      dchi[k][1] = - mutilde / (mul * mul) * dmul[k][1] + dmutilde[k][1] / mul;
-      dchi[k][2] = - mutilde / (mul * mul) * dmul[k][2] + dmutilde[k][2] / mul;
-      dchi[k][3] = - mutilde / (mul * mul) * dmul[k][3] + dmutilde[k][3] / mul;
-      dchi[k][4] = - mutilde / (mul * mul) * dmul[k][4] + dmutilde[k][4] / mul;
-      dchi[k][5] = - mutilde / (mul * mul) * dmul[k][5] + dmutilde[k][5] / mul;
-
-      chi3 = chi*chi*chi;
-      fv1 = chi3 / (chi3 + cv1_pow3);
-      dfv1[k][0] = ( 3.0*chi*chi*dchi[k][0]*(chi3 + cv1_pow3) - chi3 * 3.0*chi*chi*dchi[k][0] ) / ( (chi3 + cv1_pow3) * (chi3 + cv1_pow3) );
-      dfv1[k][1] = ( 3.0*chi*chi*dchi[k][1]*(chi3 + cv1_pow3) - chi3 * 3.0*chi*chi*dchi[k][1] ) / ( (chi3 + cv1_pow3) * (chi3 + cv1_pow3) );
-      dfv1[k][2] = ( 3.0*chi*chi*dchi[k][2]*(chi3 + cv1_pow3) - chi3 * 3.0*chi*chi*dchi[k][2] ) / ( (chi3 + cv1_pow3) * (chi3 + cv1_pow3) );
-      dfv1[k][3] = ( 3.0*chi*chi*dchi[k][3]*(chi3 + cv1_pow3) - chi3 * 3.0*chi*chi*dchi[k][3] ) / ( (chi3 + cv1_pow3) * (chi3 + cv1_pow3) );
-      dfv1[k][4] = ( 3.0*chi*chi*dchi[k][4]*(chi3 + cv1_pow3) - chi3 * 3.0*chi*chi*dchi[k][4] ) / ( (chi3 + cv1_pow3) * (chi3 + cv1_pow3) );
-      dfv1[k][5] = ( 3.0*chi*chi*dchi[k][5]*(chi3 + cv1_pow3) - chi3 * 3.0*chi*chi*dchi[k][5] ) / ( (chi3 + cv1_pow3) * (chi3 + cv1_pow3) );
-
-      fv2  = 1.-chi/(1.+chi*fv1);
-      if (chi == 0.0) {
-        dfv2[k][0] = -dchi[k][0];
-        dfv2[k][1] = -dchi[k][1];
-        dfv2[k][2] = -dchi[k][2];
-        dfv2[k][3] = -dchi[k][3];
-        dfv2[k][4] = -dchi[k][4];
-        dfv2[k][5] = -dchi[k][5];
-      }
-      else {
-        dfv2[k][0] = (fv2-1.)*dchi[k][0]/chi+(1.-fv2)*(1-fv2)*(dfv1[k][0]+fv1*dchi[k][0]/chi);
-        dfv2[k][1] = (fv2-1.)*dchi[k][1]/chi+(1.-fv2)*(1-fv2)*(dfv1[k][1]+fv1*dchi[k][1]/chi);
-        dfv2[k][2] = (fv2-1.)*dchi[k][2]/chi+(1.-fv2)*(1-fv2)*(dfv1[k][2]+fv1*dchi[k][2]/chi);
-        dfv2[k][3] = (fv2-1.)*dchi[k][3]/chi+(1.-fv2)*(1-fv2)*(dfv1[k][3]+fv1*dchi[k][3]/chi);
-        dfv2[k][4] = (fv2-1.)*dchi[k][4]/chi+(1.-fv2)*(1-fv2)*(dfv1[k][4]+fv1*dchi[k][4]/chi);
-        dfv2[k][5] = (fv2-1.)*dchi[k][5]/chi+(1.-fv2)*(1-fv2)*(dfv1[k][5]+fv1*dchi[k][5]/chi);
-      }
-
-      fv3  = 1.0;
-      dfv3[k][0] = 0.;
-      dfv3[k][1] = 0.;
-      dfv3[k][2] = 0.;
-      dfv3[k][3] = 0.;
-      dfv3[k][4] = 0.;
-      dfv3[k][5] = 0.;
-
-      if (SAform == 2) {
-        fv2 = 1.0 + oocv2*chi;
-        dfv2[k][0] = oocv2*dchi[k][0];
-        dfv2[k][1] = oocv2*dchi[k][1];
-        dfv2[k][2] = oocv2*dchi[k][2];
-        dfv2[k][3] = oocv2*dchi[k][3];
-        dfv2[k][4] = oocv2*dchi[k][4];
-        dfv2[k][5] = oocv2*dchi[k][5];
-        dfv2[k][0] = -3.0 / (fv2*fv2*fv2*fv2)*dfv2[k][0];
-        dfv2[k][1] = -3.0 / (fv2*fv2*fv2*fv2)*dfv2[k][1];
-        dfv2[k][2] = -3.0 / (fv2*fv2*fv2*fv2)*dfv2[k][2];
-        dfv2[k][3] = -3.0 / (fv2*fv2*fv2*fv2)*dfv2[k][3];
-        dfv2[k][4] = -3.0 / (fv2*fv2*fv2*fv2)*dfv2[k][4];
-        dfv2[k][5] = -3.0 / (fv2*fv2*fv2*fv2)*dfv2[k][5];
-        fv2 = 1.0 / (fv2*fv2*fv2);
-
-        if (chi == 0.0) {
-          fv3 = 3.0*oocv2;
-          dfv3[k][0] = 0.0;
-          dfv3[k][1] = 0.0;
-          dfv3[k][2] = 0.0;
-          dfv3[k][3] = 0.0;
-          dfv3[k][4] = 0.0;
-          dfv3[k][5] = 0.0;
-        }
-        else {
-          fv3 = (1.0 + chi*fv1) * (1.0 - fv2) / chi;
-          dfv3[k][0] = ( ( dchi[k][0]*fv1 + chi*dfv1[k][0] ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2[k][0]) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi[k][0] ) / ( chi * chi );
-          dfv3[k][1] = ( ( dchi[k][1]*fv1 + chi*dfv1[k][1] ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2[k][1]) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi[k][1] ) / ( chi * chi );
-          dfv3[k][2] = ( ( dchi[k][2]*fv1 + chi*dfv1[k][2] ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2[k][2]) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi[k][2] ) / ( chi * chi );
-          dfv3[k][3] = ( ( dchi[k][3]*fv1 + chi*dfv1[k][3] ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2[k][3]) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi[k][3] ) / ( chi * chi );
-          dfv3[k][4] = ( ( dchi[k][4]*fv1 + chi*dfv1[k][4] ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2[k][4]) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi[k][4] ) / ( chi * chi );
-          dfv3[k][5] = ( ( dchi[k][5]*fv1 + chi*dfv1[k][5] ) * (1.0 - fv2) * chi + (1.0 + chi*fv1) * (- dfv2[k][5]) * chi - (1.0 + chi*fv1) * (1.0 - fv2) * dchi[k][5] ) / ( chi * chi );
-        }
-      }
-
-      zz = oorey * oovkcst2 * mutilde * oorho * ood2wall2;
-      dzz[k][0] = oorey*oovkcst2*dmutilde[k][0]*oorho*ood2wall2 + oorey*oovkcst2*mutilde*doorho[k][0]*ood2wall2;
-      dzz[k][1] = oorey*oovkcst2*dmutilde[k][1]*oorho*ood2wall2 + oorey*oovkcst2*mutilde*doorho[k][1]*ood2wall2;
-      dzz[k][2] = oorey*oovkcst2*dmutilde[k][2]*oorho*ood2wall2 + oorey*oovkcst2*mutilde*doorho[k][2]*ood2wall2;
-      dzz[k][3] = oorey*oovkcst2*dmutilde[k][3]*oorho*ood2wall2 + oorey*oovkcst2*mutilde*doorho[k][3]*ood2wall2;
-      dzz[k][4] = oorey*oovkcst2*dmutilde[k][4]*oorho*ood2wall2 + oorey*oovkcst2*mutilde*doorho[k][4]*ood2wall2;
-      dzz[k][5] = oorey*oovkcst2*dmutilde[k][5]*oorho*ood2wall2 + oorey*oovkcst2*mutilde*doorho[k][5]*ood2wall2;
-
-      Sbar = zz*fv2;
-      if (Sbar >= -c2*s) {
-        Stilde = s*fv3+Sbar;
-
-        dStilde[k][0] = ds[k][0]*fv3 + s*dfv3[k][0] + dzz[k][0]*fv2 + zz*dfv2[k][0];
-        dStilde[k][1] = ds[k][1]*fv3 + s*dfv3[k][1] + dzz[k][1]*fv2 + zz*dfv2[k][1];
-        dStilde[k][2] = ds[k][2]*fv3 + s*dfv3[k][2] + dzz[k][2]*fv2 + zz*dfv2[k][2];
-        dStilde[k][3] = ds[k][3]*fv3 + s*dfv3[k][3] + dzz[k][3]*fv2 + zz*dfv2[k][3];
-        dStilde[k][4] = ds[k][4]*fv3 + s*dfv3[k][4] + dzz[k][4]*fv2 + zz*dfv2[k][4];
-        dStilde[k][5] = ds[k][5]*fv3 + s*dfv3[k][5] + dzz[k][5]*fv2 + zz*dfv2[k][5];
-      }
-      else {
-        Stilde = s*fv3+s*(c2*c2*s+c3*Sbar)/((c3-2.0*c2)*s-Sbar);
-
-        dStilde[k][0] = ds[k][0]*fv3 + s*dfv3[k][0]
-          + ds[k][0]*(c2*c2*s+c3*Sbar)/((c3-2.0*c2)*s-Sbar)
-          + s*(c2*c2*ds[k][0]+c3*(dzz[k][0]*fv2 + zz*dfv2[k][0]))/((c3-2.0*c2)*s-Sbar)
-          - s*(c2*c2*s+c3*Sbar)/(((c3-2.0*c2)*s-Sbar)*((c3-2.0*c2)*s-Sbar))*((c3-2.0*c2)*ds[k][0]-(dzz[k][0]*fv2 + zz*dfv2[k][0]));
-        dStilde[k][1] = ds[k][1]*fv3 + s*dfv3[k][1]
-          + ds[k][1]*(c2*c2*s+c3*Sbar)/((c3-2.0*c2)*s-Sbar)
-          + s*(c2*c2*ds[k][1]+c3*(dzz[k][1]*fv2 + zz*dfv2[k][1]))/((c3-2.0*c2)*s-Sbar)
-          - s*(c2*c2*s+c3*Sbar)/(((c3-2.0*c2)*s-Sbar)*((c3-2.0*c2)*s-Sbar))*((c3-2.0*c2)*ds[k][1]-(dzz[k][1]*fv2 + zz*dfv2[k][1]));
-        dStilde[k][2] = ds[k][2]*fv3 + s*dfv3[k][2]
-          + ds[k][2]*(c2*c2*s+c3*Sbar)/((c3-2.0*c2)*s-Sbar)
-          + s*(c2*c2*ds[k][2]+c3*(dzz[k][2]*fv2 + zz*dfv2[k][2]))/((c3-2.0*c2)*s-Sbar)
-          - s*(c2*c2*s+c3*Sbar)/(((c3-2.0*c2)*s-Sbar)*((c3-2.0*c2)*s-Sbar))*((c3-2.0*c2)*ds[k][2]-(dzz[k][2]*fv2 + zz*dfv2[k][2]));
-        dStilde[k][3] = ds[k][3]*fv3 + s*dfv3[k][3]
-          + ds[k][3]*(c2*c2*s+c3*Sbar)/((c3-2.0*c2)*s-Sbar)
-          + s*(c2*c2*ds[k][3]+c3*(dzz[k][3]*fv2 + zz*dfv2[k][3]))/((c3-2.0*c2)*s-Sbar)
-          - s*(c2*c2*s+c3*Sbar)/(((c3-2.0*c2)*s-Sbar)*((c3-2.0*c2)*s-Sbar))*((c3-2.0*c2)*ds[k][3]-(dzz[k][3]*fv2 + zz*dfv2[k][3]));
-        dStilde[k][4] = ds[k][4]*fv3 + s*dfv3[k][4]
-          + ds[k][4]*(c2*c2*s+c3*Sbar)/((c3-2.0*c2)*s-Sbar)
-          + s*(c2*c2*ds[k][4]+c3*(dzz[k][4]*fv2 + zz*dfv2[k][4]))/((c3-2.0*c2)*s-Sbar)
-          - s*(c2*c2*s+c3*Sbar)/(((c3-2.0*c2)*s-Sbar)*((c3-2.0*c2)*s-Sbar))*((c3-2.0*c2)*ds[k][4]-(dzz[k][4]*fv2 + zz*dfv2[k][4]));
-        dStilde[k][5] = ds[k][5]*fv3 + s*dfv3[k][5]
-          + ds[k][5]*(c2*c2*s+c3*Sbar)/((c3-2.0*c2)*s-Sbar)
-          + s*(c2*c2*ds[k][5]+c3*(dzz[k][5]*fv2 + zz*dfv2[k][5]))/((c3-2.0*c2)*s-Sbar)
-          - s*(c2*c2*s+c3*Sbar)/(((c3-2.0*c2)*s-Sbar)*((c3-2.0*c2)*s-Sbar))*((c3-2.0*c2)*ds[k][5]-(dzz[k][5]*fv2 + zz*dfv2[k][5]));
-      }
-
-      if (Stilde == 0.0)
-        rr = rlim;
-      else
-        rr = min(zz/Stilde, rlim);
-
-      if (rr==rlim) {
-        drr[k][0] = 0.0;
-        drr[k][1] = 0.0;
-        drr[k][2] = 0.0;
-        drr[k][3] = 0.0;
-        drr[k][4] = 0.0;
-        drr[k][5] = 0.0;
-      }
-      else {
-        drr[k][0] = ( dzz[k][0] * Stilde - zz * dStilde[k][0] ) / ( Stilde * Stilde );
-        drr[k][1] = ( dzz[k][1] * Stilde - zz * dStilde[k][1] ) / ( Stilde * Stilde );
-        drr[k][2] = ( dzz[k][2] * Stilde - zz * dStilde[k][2] ) / ( Stilde * Stilde );
-        drr[k][3] = ( dzz[k][3] * Stilde - zz * dStilde[k][3] ) / ( Stilde * Stilde );
-        drr[k][4] = ( dzz[k][4] * Stilde - zz * dStilde[k][4] ) / ( Stilde * Stilde );
-        drr[k][5] = ( dzz[k][5] * Stilde - zz * dStilde[k][5] ) / ( Stilde * Stilde );
-      }
-      rr2 = rr*rr;
-
-      gg = rr + cw2 * (rr2*rr2*rr2 - rr);
-      dgg[k][0] = drr[k][0] + cw2 * (6.0*rr*rr2*rr2*drr[k][0] - drr[k][0]);
-      dgg[k][1] = drr[k][1] + cw2 * (6.0*rr*rr2*rr2*drr[k][1] - drr[k][1]);
-      dgg[k][2] = drr[k][2] + cw2 * (6.0*rr*rr2*rr2*drr[k][2] - drr[k][2]);
-      dgg[k][3] = drr[k][3] + cw2 * (6.0*rr*rr2*rr2*drr[k][3] - drr[k][3]);
-      dgg[k][4] = drr[k][4] + cw2 * (6.0*rr*rr2*rr2*drr[k][4] - drr[k][4]);
-      dgg[k][5] = drr[k][5] + cw2 * (6.0*rr*rr2*rr2*drr[k][5] - drr[k][5]);
-      gg2 = gg*gg;
-
-      fw = opcw3_pow * gg * pow(gg2*gg2*gg2 + cw3_pow6, -sixth);
-      dfw[k][0] = opcw3_pow * dgg[k][0] * pow(gg2*gg2*gg2 + cw3_pow6, -sixth) + opcw3_pow * gg * (-sixth) * pow(gg2*gg2*gg2 + cw3_pow6, (-sixth - 1.0) ) * 6.0*gg*gg2*gg2*dgg[k][0];
-      dfw[k][1] = opcw3_pow * dgg[k][1] * pow(gg2*gg2*gg2 + cw3_pow6, -sixth) + opcw3_pow * gg * (-sixth) * pow(gg2*gg2*gg2 + cw3_pow6, (-sixth - 1.0) ) * 6.0*gg*gg2*gg2*dgg[k][1];
-      dfw[k][2] = opcw3_pow * dgg[k][2] * pow(gg2*gg2*gg2 + cw3_pow6, -sixth) + opcw3_pow * gg * (-sixth) * pow(gg2*gg2*gg2 + cw3_pow6, (-sixth - 1.0) ) * 6.0*gg*gg2*gg2*dgg[k][2];
-      dfw[k][3] = opcw3_pow * dgg[k][3] * pow(gg2*gg2*gg2 + cw3_pow6, -sixth) + opcw3_pow * gg * (-sixth) * pow(gg2*gg2*gg2 + cw3_pow6, (-sixth - 1.0) ) * 6.0*gg*gg2*gg2*dgg[k][3];
-      dfw[k][4] = opcw3_pow * dgg[k][4] * pow(gg2*gg2*gg2 + cw3_pow6, -sixth) + opcw3_pow * gg * (-sixth) * pow(gg2*gg2*gg2 + cw3_pow6, (-sixth - 1.0) ) * 6.0*gg*gg2*gg2*dgg[k][4];
-      dfw[k][5] = opcw3_pow * dgg[k][5] * pow(gg2*gg2*gg2 + cw3_pow6, -sixth) + opcw3_pow * gg * (-sixth) * pow(gg2*gg2*gg2 + cw3_pow6, (-sixth - 1.0) ) * 6.0*gg*gg2*gg2*dgg[k][5];
-
-      // AA = oosigma * cb2 * rho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
-      dAA[k][0] = oosigma * cb2 * drho[k][0] * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz) - oosigma * cb2 * rho * 2.0 * (dnutildedx*dp1dxj[k][0]*V[k][5] + dnutildedy*dp1dxj[k][1]*V[k][5] + dnutildedz*dp1dxj[k][2]*V[k][5]) / V[k][0];
-      dAA[k][1] = 0.0;
-      dAA[k][2] = 0.0;
-      dAA[k][3] = 0.0;
-      dAA[k][4] = 0.0;
-      dAA[k][5] = oosigma * cb2 * rho * 2.0 * (dnutildedx*dp1dxj[k][0] + dnutildedy*dp1dxj[k][1] + dnutildedz*dp1dxj[k][2]) / V[k][0];
-
-      // BB = cb1 * Stilde * absmutilde;
-      dBB[k][0] = cb1 * dStilde[k][0] * mutilde + cb1 * Stilde * dmutilde[k][0];
-      dBB[k][1] = cb1 * dStilde[k][1] * mutilde + cb1 * Stilde * dmutilde[k][1];
-      dBB[k][2] = cb1 * dStilde[k][2] * mutilde + cb1 * Stilde * dmutilde[k][2];
-      dBB[k][3] = cb1 * dStilde[k][3] * mutilde + cb1 * Stilde * dmutilde[k][3];
-      dBB[k][4] = cb1 * dStilde[k][4] * mutilde + cb1 * Stilde * dmutilde[k][4];
-      dBB[k][5] = cb1 * dStilde[k][5] * mutilde + cb1 * Stilde * dmutilde[k][5];
-
-      // CC = - cw1 * fw * oorho * maxmutilde*maxmutilde * ood2wall2;
-      dCC[k][0] = - cw1 * dfw[k][0] * oorho * mutilde*mutilde * ood2wall2 - cw1 * fw * doorho[k][0] * mutilde*mutilde * ood2wall2 - cw1 * fw * oorho * 2.0*mutilde*dmutilde[k][0] * ood2wall2;
-      dCC[k][1] = - cw1 * dfw[k][1] * oorho * mutilde*mutilde * ood2wall2 - cw1 * fw * doorho[k][1] * mutilde*mutilde * ood2wall2 - cw1 * fw * oorho * 2.0*mutilde*dmutilde[k][1] * ood2wall2;
-      dCC[k][2] = - cw1 * dfw[k][2] * oorho * mutilde*mutilde * ood2wall2 - cw1 * fw * doorho[k][2] * mutilde*mutilde * ood2wall2 - cw1 * fw * oorho * 2.0*mutilde*dmutilde[k][2] * ood2wall2;
-      dCC[k][3] = - cw1 * dfw[k][3] * oorho * mutilde*mutilde * ood2wall2 - cw1 * fw * doorho[k][3] * mutilde*mutilde * ood2wall2 - cw1 * fw * oorho * 2.0*mutilde*dmutilde[k][3] * ood2wall2;
-      dCC[k][4] = - cw1 * dfw[k][4] * oorho * mutilde*mutilde * ood2wall2 - cw1 * fw * doorho[k][4] * mutilde*mutilde * ood2wall2 - cw1 * fw * oorho * 2.0*mutilde*dmutilde[k][4] * ood2wall2;
-      dCC[k][5] = - cw1 * dfw[k][5] * oorho * mutilde*mutilde * ood2wall2 - cw1 * fw * doorho[k][5] * mutilde*mutilde * ood2wall2 - cw1 * fw * oorho * 2.0*mutilde*dmutilde[k][5] * ood2wall2;
-
-      // DD = - oorho * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz);
-      dDD[k][0] = - (doorho[k][0] * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz)
-        + oorho * dmu5[k][0] * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz)
-        + oorho * mu5 * (dnutildedx*dp1dxj[k][0] + dnutildedy*dp1dxj[k][1] + dnutildedz*dp1dxj[k][2]))
-        + oorho * mu5 * (drhodx*dp1dxj[k][0]*V[k][5] + drhody*dp1dxj[k][1]*V[k][5] + drhodz*dp1dxj[k][2]*V[k][5]) / V[k][0];
-      dDD[k][1] = - (doorho[k][1] * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz)
-        + oorho * dmu5[k][1] * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz));
-      dDD[k][2] = - (doorho[k][2] * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz)
-        + oorho * dmu5[k][2] * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz));
-      dDD[k][3] = - (doorho[k][3] * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz)
-        + oorho * dmu5[k][3] * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz));
-      dDD[k][4] = - (doorho[k][4] * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz)
-        + oorho * dmu5[k][4] * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz));
-      dDD[k][5] = - (doorho[k][5] * mu5 * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz)
-        + oorho * dmu5[k][5] * (dnutildedx*drhodx + dnutildedy*drhody + dnutildedz*drhodz)
-        + oorho * mu5 * (drhodx*dp1dxj[k][0] + drhody*dp1dxj[k][1] + drhodz*dp1dxj[k][2]) / V[k][0]);
-    }
-  }
-
-  */
-
   for (k=0; k<4; ++k) {
-    if (V[k][5] < 0.0 && negSA) {
+    if (negSA && V[k][5] < 0.0) {
       dSdU[k][5][0] = dAA[k][0] + dBBneg[k][0] + dCCneg[k][0] + dDDneg[k][0];
       dSdU[k][5][1] = dAA[k][1] + dBBneg[k][1] + dCCneg[k][1] + dDDneg[k][1];
       dSdU[k][5][2] = dAA[k][2] + dBBneg[k][2] + dCCneg[k][2] + dDDneg[k][2];

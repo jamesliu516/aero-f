@@ -718,7 +718,8 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
 
   bool negSA;
   if (SAform < 3) {  // for original or fv3, clip nutilde and use standard form
-    mutilde = max(mutilde, 0.0);
+    // mutilde = max(mutilde, 0.0);
+    if (mutilde < 0.0) mutilde = 0.0;
     negSA = false;
   }
   else {  // use negative SA model where appropriate
@@ -757,6 +758,7 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
     Rx.second[1] = mu5neg * dnutildedy - R[1][5];
     Rx.second[2] = mu5neg * dnutildedz - R[2][5];
 
+    Rx.first.clear();
     for (int j=0; j<4; ++j)
       if (V[j][5] < 0.0)
         Rx.first.push_back(std::make_pair(j,5));
@@ -905,7 +907,8 @@ void FemEquationTermSA::computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3
 
   bool negSA;
   if (SAform < 3) {  // for original or fv3, clip nutilde and use standard form
-    mutilde = max(mutilde, 0.0);
+    // mutilde = std::max(mutilde, 0.0);
+    if (mutilde < 0.0) mutilde = 0.0;
     negSA = false;
   }
   else {  // use negative SA model where appropriate
@@ -1184,7 +1187,8 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(
 
   bool negSA;
   if (SAform < 3) {  // for original or fv3, clip nutilde and use standard form
-    mutilde = max(mutilde, 0.0);
+    // mutilde = std::max(mutilde, 0.0);
+    if (mutilde < 0.0) mutilde = 0.0;
     negSA = false;
   }
   else {  // use negative SA model where appropriate
@@ -1233,6 +1237,7 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(
     dRx.second[1] = dmu5neg * dnutildedy + mu5neg * ddnutildedy - dR[1][5];
     dRx.second[2] = dmu5neg * dnutildedz + mu5neg * ddnutildedz - dR[2][5];
 
+    dRx.first.clear();
     for (int j=0; j<4; ++j)
       if (V[j][5] < 0.0)
         dRx.first.push_back(std::make_pair(j,5));
@@ -2125,6 +2130,7 @@ bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
     Rx.second[1] = mu5neg * dnutildedy - R[1][5];
     Rx.second[2] = mu5neg * dnutildedz - R[2][5];
 
+    Rx.first.clear();
     for (int j=0; j<4; ++j)
       if (V[j][5] < 0.0)
         Rx.first.push_back(std::make_pair(j,5));
@@ -2299,7 +2305,8 @@ void FemEquationTermDES::computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][
 
   bool negSA;
   if (SAform < 3) {  // for original or fv3, clip nutilde and use standard form
-    mutilde = max(mutilde, 0.0);
+    // mutilde = std::max(mutilde, 0.0);
+    if (mutilde < 0.0) mutilde = 0.0;
     negSA = false;
   }
   else {  // use negative SA model where appropriate
