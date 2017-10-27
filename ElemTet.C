@@ -51,7 +51,7 @@ void ElemTet::computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
   double v_ave[4][dim];
   double r[3][dim], s[dim], pr[12];
 
-  // Correction indices and quantities for cell fluxes (only populated for SA
+  // correction indices and quantities for cell fluxes (only populated for SA
   // and DES when SA form is negative)
   std::pair<std::vector<std::pair<int,int> >,std::vector<double> > rx;
   rx.first.reserve(4); rx.second.resize(4);
@@ -108,8 +108,8 @@ void ElemTet::computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
 
         for (int k=0; k<dim; ++k)
         {
-            R[idx][k] += vol * ( (r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] +
-                                  r[2][k] * dp1dxj[j][2]) - fourth * s[k] );
+          R[idx][k] += vol * ( (r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] +
+                                r[2][k] * dp1dxj[j][2]) - fourth * s[k] );
         }
 
         // Flux correction for SA model
@@ -337,7 +337,8 @@ void ElemTet::computeDerivativeOfGalerkinTermEmb(
 
         //actual residual derivative computations
         //j is the index of the node
-        for (int k=0; k<dim; ++k){
+        for (int k=0; k<dim; ++k)
+        {
             dR[idx][k] += dvol * ( ( r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] +   r[2][k] * dp1dxj[j][2]) - fourth * s[k] )
                        + vol   * ( (dr[0][k] * dp1dxj[j][0] + r[0][k] * ddp1dxj[j][0] + dr[1][k] * dp1dxj[j][1] + r[1][k] * ddp1dxj[j][1] +
                                     dr[2][k] * dp1dxj[j][2] + r[2][k] * ddp1dxj[j][2]) - fourth * ds[k] );
@@ -1959,7 +1960,7 @@ void ElemTet::computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &
 						/* The edge is (i,j)
 						 * Aij is the matrix dr_i/du_j
 						 */
-      Aij = 0;
+            Aij = 0;
 						if(LSS->edgeIntersectsWall(0.0,edgeNum(e)))
             {
 							Aij = A.getRealNodeElem_ij(nodeNum(i),nodeNum(j));
@@ -1969,11 +1970,11 @@ void ElemTet::computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &
               if(nodeNum(i) < nodeNum(j))
               {
 								Aij = A.getElem_ij(edgeNum(e));
-        }
+              }
               else
               {
 								Aij = A.getElem_ji(edgeNum(e));
-        }
+              }
 						}
 
             if(Aij)
@@ -2082,7 +2083,6 @@ void ElemTet::computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &
 					Aji[m] += cji * dPdU[j][i][m];
 				}
 			}
-
 		}
 	}
 }
