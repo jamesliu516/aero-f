@@ -718,7 +718,7 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
 
   bool negSA;
   if (SAform < 3) {  // for original or fv3, clip nutilde and use standard form
-    // mutilde = max(mutilde, 0.0);
+    // mutilde = std::max(mutilde, 0.0);
     if (mutilde < 0.0) mutilde = 0.0;
     negSA = false;
   }
@@ -2091,7 +2091,8 @@ bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
 
   bool negSA;
   if (SAform < 3) {  // for original or fv3, clip nutilde and use standard form
-    mutilde = max(mutilde, 0.0);
+    // mutilde = std::max(mutilde, 0.0);
+    if (mutilde < 0.0) mutilde = 0.0;
     negSA = false;
   }
   else {  // use negative SA model where appropriate
@@ -2266,7 +2267,7 @@ void FemEquationTermDES::computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][
   for (int i=0; i<4; i++) {
     for (int j=i+1; j<4; j++){
       sidel=sqrt((X[nodeNum[i]][0]-X[nodeNum[j]][0])*(X[nodeNum[i]][0]-X[nodeNum[j]][0]) +
-       (X[nodeNum[i]][1]-X[nodeNum[j]][1])*(X[nodeNum[i]][1]-X[nodeNum[j]][1]) +
+        (X[nodeNum[i]][1]-X[nodeNum[j]][1])*(X[nodeNum[i]][1]-X[nodeNum[j]][1]) +
         (X[nodeNum[i]][2]-X[nodeNum[j]][2])*(X[nodeNum[i]][2]-X[nodeNum[j]][2]));
       maxl = max(maxl,sidel);
     }

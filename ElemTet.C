@@ -58,7 +58,7 @@ void ElemTet::computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
 
   if(ghostPoints && isAtTheInterface)
   {
-    // We don't want to update States associated to ghost points
+    // We don't want to update states associated to ghost points
     GhostPoint<dim> *gp;
 
     for(int j=0; j<4; ++j)
@@ -117,7 +117,7 @@ void ElemTet::computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
         {
           if (j != it->first) continue;
           R[idx][it->second] += vol * ( (rx.second[0] * dp1dxj[j][0] + rx.second[1] * dp1dxj[j][1] +
-                                rx.second[2] * dp1dxj[j][2]) - fourth * rx.second[3] );
+                                         rx.second[2] * dp1dxj[j][2]) - fourth * rx.second[3] );
         }
       }
     }
@@ -146,7 +146,7 @@ void ElemTet::computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
       int j = it->first;
       int idx = nodeNum(j);
       R[idx][it->second] += vol * ( (rx.second[0] * dp1dxj[j][0] + rx.second[1] * dp1dxj[j][1] +
-                            rx.second[2] * dp1dxj[j][2]) - fourth * rx.second[3] );
+                                     rx.second[2] * dp1dxj[j][2]) - fourth * rx.second[3] );
     }
 
     if (porousTermExists)
