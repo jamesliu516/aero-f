@@ -9769,9 +9769,9 @@ void SubDomain::computeSADistanceSensitivity(FemEquationTerm *fet, SVec<double,3
 
 template<int dimLS>
 void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
-					SVec<double,dimLS> &d2wall, int level, int iterativeLevel,
-					Vec<int> &sortedNodes, int &nSortedNodes, int &firstCheckedNode,
-           			Vec<int> &isSharedNode, int &commFlag, LevelSetStructure *LSS)
+					SVec<double,dimLS> &d2wall, int level, Vec<int> &sortedNodes,
+          int &nSortedNodes, int &firstCheckedNode,	Vec<int> &isSharedNode,
+          int &commFlag, LevelSetStructure *LSS)
 {
   if (!NodeToNode)
      NodeToNode = createEdgeBasedConnectivity();

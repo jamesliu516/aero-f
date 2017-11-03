@@ -1234,7 +1234,7 @@ void DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X,
       }
   }
 
-  // *distance=0.0; // sjg, 06/2017: unsure why this was done?
+  // *distance=0.0; // sjg, 06/2017: don't reset this, need for wall distance!
   *status0=*status;
   *occluded_node0=*is_occluded;
 #pragma omp parallel for

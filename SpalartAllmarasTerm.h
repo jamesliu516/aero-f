@@ -86,9 +86,6 @@ public:
 
   void rstVarSA(IoData &);
 
-  template <int dimLS, int dim>
-  friend class ReinitializeDistanceToWall;  // so that d2wall calc can access SA constants for sensititivites
-
 };
 
 //------------------------------------------------------------------------------

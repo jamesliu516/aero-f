@@ -1257,12 +1257,9 @@ public:
 
   template<int dimLS>
   void pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
-        SVec<double,dimLS> &d2wall, int level, int iterativeLevel,
-        Vec<int> &sortedNodes, int &nSortedNodes, int &firstCheckedNode,
-        Vec<int> &isSharedNode, int &commFlag, LevelSetStructure *LSS=0);
-
-  // template<int dimLS>
-  // void FinishReinitialization(Vec<int> &Tag, SVec<double,dimLS> &Psi, int level);
+        SVec<double,dimLS> &d2wall, int level, Vec<int> &sortedNodes,
+        int &nSortedNodes, int &firstCheckedNode, Vec<int> &isSharedNode,
+        int &commFlag, LevelSetStructure *LSS=0);
 
   template<int dim>
   void computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights,
@@ -1905,12 +1902,12 @@ public:
 
   template<int dim>
   void computederivativeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int order, SVec<double,3> &X,
-					      double (*dFs)[3], int sizeFs, int numStructElems, int (*stElem)[3], 
-					      Vec<Vec3D>& Xstruct, Vec<Vec3D>& dXstruct, LevelSetStructure &LSS, 
-					      double pInfty, double dpInfty, 
-					      SVec<double,dim> &Wstarij, SVec<double,dim> &Wstarji, 
-					      SVec<double,dim> &V, SVec<double,dim> &dV_, SVec<double,dim> &dUghost, 
-					      Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, 
+					      double (*dFs)[3], int sizeFs, int numStructElems, int (*stElem)[3],
+					      Vec<Vec3D>& Xstruct, Vec<Vec3D>& dXstruct, LevelSetStructure &LSS,
+					      double pInfty, double dpInfty,
+					      SVec<double,dim> &Wstarij, SVec<double,dim> &Wstarji,
+					      SVec<double,dim> &V, SVec<double,dim> &dV_, SVec<double,dim> &dUghost,
+					      Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn,
 					      NodalGrad<dim, double> &gradV, NodalGrad<dim, double> &graddV, VarFcn* vf, Vec<int>* fid);
   template<int dim>
   void computederivativeOperatorsEmbSurfBasedForceLoad(IoData &iod, int forceApp, int order, SVec<double,3> &X,

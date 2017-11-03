@@ -130,7 +130,7 @@ void ReinitializeDistanceToWall<dimLS,dim>::PseudoFastMarchingMethod(
 
   int nSub = dom.getNumLocSub(), isDone = 0, level = 1; // Level 0 (inActive nodes) and 1 (Embedded surface neighbors)
   while (!isDone) { // Tag and update d at every level
-    dom.pseudoFastMarchingMethod<1>(tag, X, d2wall, level, 0, sortedNodes,
+    dom.pseudoFastMarchingMethod<1>(tag, X, d2wall, level, sortedNodes,
       nSortedNodes, firstCheckedNode, isSharedNode, &LSS);
     isDone = 1;
     for (int iSub = 0; iSub < nSub; ++iSub) { // I don't think it is a good idea to OMP parallelize this loop. nSub should be small, though!
@@ -171,13 +171,13 @@ void ReinitializeDistanceToWall<dimLS,dim>::IterativeMethodUpdate(DistLevelSetSt
   tag = -1;
   int level = 1, isDone = 0, it = 1, isConverged = 0, checkConverged = 0;
 
-  dom.pseudoFastMarchingMethodSerial<1>(tag, X, d2wall, level, 0,
+  dom.pseudoFastMarchingMethodSerial<1>(tag, X, d2wall, level,
     sortedNodes, nSortedNodes, firstCheckedNode, isSharedNode, &LSS);
   dom.pseudoFastMarchingMethodComm<1>(tag, d2wall, sortedNodes, nSortedNodes, it);
   level++;
 
   while (!isDone) {
-    dom.pseudoFastMarchingMethodSerial<1>(tag, X, d2wall, level, 0,
+    dom.pseudoFastMarchingMethodSerial<1>(tag, X, d2wall, level,
       sortedNodes, nSortedNodes, firstCheckedNode, isSharedNode, &LSS);
     isDone = 1;
     for (int iSub = 0; iSub < nSub; ++iSub) {
@@ -229,7 +229,7 @@ void ReinitializeDistanceToWall<dimLS,dim>::IterativeMethodUpdate(DistLevelSetSt
     resnm1 = d2wall;
     level = 2, isDone = 0;  // active list already populated in comm, tags reset
     while (!isDone) {
-      dom.pseudoFastMarchingMethodSerial<1>(tag, X, d2wall, level, 1,
+      dom.pseudoFastMarchingMethodSerial<1>(tag, X, d2wall, level,
         sortedNodes, nSortedNodes, firstCheckedNode, isSharedNode, &LSS);
       isDone = 1;
       for (int iSub = 0; iSub < nSub; ++iSub) {

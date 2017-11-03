@@ -5796,16 +5796,16 @@ void Domain::computeSADistanceSensitivity(FemEquationTerm *fet, DistSVec<double,
 
 template<int dimLS>
 void Domain::pseudoFastMarchingMethod(DistVec<int> &Tag, DistSVec<double,3> &X,
-				DistSVec<double,dimLS> &d2wall, int level,  int iterativeLevel,
-				DistVec<int> &sortedNodes, int *nSortedNodes, int *firstCheckedNode,
-        		DistVec<int> &isSharedNode, DistLevelSetStructure *distLSS)
+				DistSVec<double,dimLS> &d2wall, int level, DistVec<int> &sortedNodes,
+        int *nSortedNodes, int *firstCheckedNode, DistVec<int> &isSharedNode,
+        DistLevelSetStructure *distLSS)
 {
   int iSub, commFlag = 0;
 
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
     subDomain[iSub]->pseudoFastMarchingMethod<dimLS>
-      (Tag(iSub),X(iSub),d2wall(iSub),level,iterativeLevel,sortedNodes(iSub),
+      (Tag(iSub),X(iSub),d2wall(iSub),level,sortedNodes(iSub),
       *(nSortedNodes+iSub),*(firstCheckedNode+iSub),isSharedNode(iSub),commFlag,
       distLSS?&((*distLSS)(iSub)):NULL);
     // subDomain[iSub]->sndData(*levelPat,reinterpret_cast<int (*)[1]>(Tag.subData(iSub)));
@@ -5838,16 +5838,16 @@ void Domain::pseudoFastMarchingMethod(DistVec<int> &Tag, DistSVec<double,3> &X,
 
 template<int dimLS>
 void Domain::pseudoFastMarchingMethodSerial(DistVec<int> &Tag, DistSVec<double,3> &X,
-				DistSVec<double,dimLS> &d2wall, int level,  int iterativeLevel,
-				DistVec<int> &sortedNodes, int *nSortedNodes, int *firstCheckedNode,
-        DistVec<int> &isSharedNode, DistLevelSetStructure *distLSS)
+				DistSVec<double,dimLS> &d2wall, int level, DistVec<int> &sortedNodes,
+        int *nSortedNodes, int *firstCheckedNode, DistVec<int> &isSharedNode,
+        DistLevelSetStructure *distLSS)
 {
   int iSub, commFlag = 0;
 
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
     subDomain[iSub]->pseudoFastMarchingMethod<dimLS>
-      (Tag(iSub),X(iSub),d2wall(iSub),level,iterativeLevel,sortedNodes(iSub),
+      (Tag(iSub),X(iSub),d2wall(iSub),level,sortedNodes(iSub),
       *(nSortedNodes+iSub),*(firstCheckedNode+iSub),isSharedNode(iSub),commFlag,
       distLSS?&((*distLSS)(iSub)):NULL);
   }

@@ -447,20 +447,17 @@ public:
 
   template<int dimLS>
   void pseudoFastMarchingMethod(DistVec<int> &Tag, DistSVec<double,3> &X,
-				DistSVec<double,dimLS> &d2wall, int level, int iterativeLevel,
-				DistVec<int> &sortedNodes, int *nSortedNodes, int *firstCheckedNode,
-        DistVec<int> &isSharedNode, DistLevelSetStructure *distLSS=0);
+				DistSVec<double,dimLS> &d2wall, int level, DistVec<int> &sortedNodes,
+        int *nSortedNodes, int *firstCheckedNode, DistVec<int> &isSharedNode,
+        DistLevelSetStructure *distLSS=0);
   template<int dimLS>
   void pseudoFastMarchingMethodSerial(DistVec<int> &Tag, DistSVec<double,3> &X,
-				DistSVec<double,dimLS> &d2wall, int level, int iterativeLevel,
-				DistVec<int> &sortedNodes, int *nSortedNodes,
-				int *firstCheckedNode, DistVec<int> &isSharedNode, DistLevelSetStructure *distLSS=0);
+				DistSVec<double,dimLS> &d2wall, int level, DistVec<int> &sortedNodes,
+        int *nSortedNodes, int *firstCheckedNode, DistVec<int> &isSharedNode,
+        DistLevelSetStructure *distLSS=0);
   template<int dimLS>
   void pseudoFastMarchingMethodComm(DistVec<int> &Tag, DistSVec<double,dimLS> &d2wall,
           DistVec<int> &sortedNodes, int *nSortedNodes, int it, DistSVec<double,dimLS> *d2wnm1=0);
-
-  //template<int dimLS>
-  //void FinishReinitialization(DistVec<int> &Tag, DistSVec<double,dimLS> &Psi, int level);
 
   template<int dim>
   void setupUVolumesInitialConditions(const int volid, double UU[dim], DistSVec<double,dim> &U);
@@ -1359,13 +1356,13 @@ public:
 												DistNodalGrad<dim, double> *ngrad, VarFcn* vf, DistVec<int>* fid, bool externalSI=false);
 
   template<int dim>
-  void computederivativeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orderOfAccuracy, DistSVec<double,3> &X, 
-					      double (*dFs)[3], int sizedFs, DistLevelSetStructure *distLSS, 
-					      double pInfty, double dpInfty, 
-					      DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, 
+  void computederivativeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orderOfAccuracy, DistSVec<double,3> &X,
+					      double (*dFs)[3], int sizedFs, DistLevelSetStructure *distLSS,
+					      double pInfty, double dpInfty,
+					      DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
 					      DistSVec<double,dim> &V, DistSVec<double,dim> &dV_, DistSVec<double,dim> &dUghost,
-					      DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, 
-					      DistNodalGrad<dim, double> *gradV, DistNodalGrad<dim, double> *graddV, 
+					      DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn,
+					      DistNodalGrad<dim, double> *gradV, DistNodalGrad<dim, double> *graddV,
 					      VarFcn* vf, DistVec<int> *fid);
   template<int dim>
   void computederivativeOperatorsEmbSurfBasedForceLoad(dRdXoperators<dim> &, IoData &iod, int forceApp, int orderOfAccuracy, DistSVec<double,3> &X,
