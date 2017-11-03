@@ -1904,7 +1904,7 @@ void TsOutput<dim>::openAsciiFiles()
 
   if (embeddedsurface) {
     if (it0 != 0)
-      fpEmbeddedSurface = backupAsciiFile(embeddedsurface);
+      fpEmbeddedSurface = fopen(embeddedsurface, "a");
     if (it0 == 0 || fpEmbeddedSurface == 0) {
       fpEmbeddedSurface = fopen(embeddedsurface, "w");
       if (!fpEmbeddedSurface) {
