@@ -9794,7 +9794,7 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
       nSortedNodes,isSharedNode,commFlag,LSS);
   }
   else {
-    // Tag nodes that are neighbours of already Tagged nodes and compute their distance
+    // Tag nodes that are neighbours of already tagged nodes and compute their distance
     int nNeighs, nTets, nei, tet, lowerlevel = level-1;
     int inter = nSortedNodes, fixedNode;
     for (int i = firstCheckedNode; i < inter; i++) {
