@@ -1368,10 +1368,12 @@ void EmbeddedTsDesc<dim>::computeDistanceToWall(IoData &ioData, double t)
     if (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
          ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES)
 		{
+      this->com->barrier();
       double t0 = this->timer->getTime();
 
       int update = wall_computer->ComputeWallFunction(*this->distLSS,*this->X,*this->geoState,t);
 
+      this->timer->addFluidSolutionTime(t0);  // in either case, add to fluid solution time
       this->timer->addWallDistanceTime(t0);
       if (update > 0)
         this->timer->addWallDistanceCount(t0);

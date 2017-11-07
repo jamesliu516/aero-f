@@ -36,7 +36,7 @@ ReinitializeDistanceToWall<dimLS,dim>::ReinitializeDistanceToWall(IoData &ioData
     for (int i = 0; i < dom.getSubDomain()[iSub]->getNumNeighb(); i++) {
       sharedNodes = dom.getSubDomain()[iSub]->getSharedNodes();
       for (int j = 0; j < sharedNodes->num(i); j++)
-        isSharedNode(iSub)[(*sharedNodes)[i][j]]++;
+        isSharedNode(iSub)[(*sharedNodes)[i][j]] = 1;
     }
   }
 
@@ -66,7 +66,6 @@ int ReinitializeDistanceToWall<dimLS,dim>::ComputeWallFunction(DistLevelSetStruc
                                                             DistGeoState &distGeoState,
                                                             const double t)
 {
-
   // // no updates after t0
   // if (predictorTime[0] >= 0.0) return;
 
@@ -77,7 +76,6 @@ int ReinitializeDistanceToWall<dimLS,dim>::ComputeWallFunction(DistLevelSetStruc
     update = 3;
 
   if (update > 0) {
-
     // store with previous exact updates
     predictorTime[2] = predictorTime[1];
     predictorTime[1] = predictorTime[0];
@@ -85,7 +83,7 @@ int ReinitializeDistanceToWall<dimLS,dim>::ComputeWallFunction(DistLevelSetStruc
     d2wnm2 = d2wnm1;
     d2wnm1 = d2wall;
 
-    // compute distance in full domain
+    // compute distance in entire domain
     if (iod.eqs.tc.tm.d2wall.type == WallDistanceMethodData::NONITERATIVE) {
       PseudoFastMarchingMethod(LSS, X);
     }
@@ -290,7 +288,6 @@ int ReinitializeDistanceToWall<dimLS,dim>::UpdatePredictorsCheckTol(
   DistLevelSetStructure &LSS, DistGeoState &distGeoState, const double t)
 {
   int update = 0;
-
   if (predictorTime[1] < 0.0)
     return 3;
   else if (predictorTime[2] < 0.0)
@@ -300,19 +297,17 @@ int ReinitializeDistanceToWall<dimLS,dim>::UpdatePredictorsCheckTol(
   double dtnm2 = predictorTime[1]-predictorTime[2];
   double dtnm1 = predictorTime[0]-predictorTime[1];
   double dtn = t-predictorTime[0];
-
   double dtnodtnm1 = dtn/dtnm1;
   double dtnodtnm2 = dtn/dtnm2;
   double dtnm1odtnm2 = dtnm1/dtnm2;
   double dtnpdtnm1odtnm1pdtnm2 = (dtn+dtnm1)/(dtnm1+dtnm2);
-
-  double d2wp, delta, meandelta = 0.0;  // RMS error
+  double d2wp, delta;
+  double deltanorm[2] = {0.0, SAsensitivScale};
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < dom.getNumLocSub(); ++iSub) {
     for (int k = 0; k < d2wall(iSub).len; k++) {
       if (predictorTag(iSub)[k] > 1) {
-
         // predicted distance
         d2wp = (1.0+dtnodtnm1*(1.0+dtnpdtnm1odtnm1pdtnm2))*d2wall(iSub)[k][0]
           - dtnodtnm1*(dtnodtnm2+dtnm1odtnm2+1.0)*d2wnm1(iSub)[k][0]
@@ -320,22 +315,18 @@ int ReinitializeDistanceToWall<dimLS,dim>::UpdatePredictorsCheckTol(
 
         // local delta definition based on SA source error
         delta = SAsensitiv(iSub)[k]*(d2wp-d2wall(iSub)[k][0]);
-        meandelta += delta*delta;
+        deltanorm[0] += delta*delta;
       }
-      else if (LSS(iSub).isActive(0.0,k) && predictorTag(iSub)[k] < 1) { // ghost real transition
-
+      else if (predictorTag(iSub)[k] < 1 && LSS(iSub).isActive(0.0,k)) { // ghost real transition
         distGeoState(iSub).getDistanceToWall()[k] = LSS(iSub).distToInterface(0.0,k);
         predictorTag(iSub)[k] = 1; // modify tag so it is ignored as a predictor node
-
       }
     }
   }
 
   // global error metric reduction
-  dom.getCommunicator()->globalSum(1,&meandelta);
-  meandelta = sqrt(meandelta)/SAsensitivScale;
-
-  if (meandelta > iod.eqs.tc.tm.d2wall.distanceeps)
+  dom.getCommunicator()->globalSum(2,deltanorm);
+  if (sqrt(deltanorm[0])/sqrt(deltanorm[1]) > iod.eqs.tc.tm.d2wall.distanceeps)
     update = 2;
 
   return update;
@@ -363,27 +354,23 @@ void ReinitializeDistanceToWall<dimLS,dim>::ReinitializePredictors(
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < dom.getNumLocSub(); ++iSub) {
+    bool *flag = RR.getMasterFlag(iSub);
     for (int k = 0; k < d2wall(iSub).len; k++) {
-      if (d2wall(iSub)[k][0] < 1.0e-15) // currently a ghost node (predictorTag = 0)
-        predictorTag(iSub)[k] = 0;
-      else if (d2wnm1(iSub)[k][0] < 1.0e-15 || d2wnm2(iSub)[k][0] < 1.0e-15) // node is active but should not be used for predictors
-        predictorTag(iSub)[k] = 1;
-      else { // label node as predictor
-        if (isSharedNode(iSub)[k]) {  // avoid double counting shared nodes
-          SAsensitivScale += RR(iSub)[k][5]*RR(iSub)[k][5]/(1.0 + (double)isSharedNode(iSub)[k]);
-          SAsensitiv(iSub)[k] /= sqrt((1.0 + (double)isSharedNode(iSub)[k]));
-        }
-        else
+      if (flag[k]) {
+        if (d2wall(iSub)[k][0] < 1.0e-15) // currently an inactive node
+          predictorTag(iSub)[k] = 0;
+        else if (d2wnm1(iSub)[k][0] < 1.0e-15 || d2wnm2(iSub)[k][0] < 1.0e-15) // node is active was previously inactive
+          predictorTag(iSub)[k] = 1;
+        else { // label node as predictor
           SAsensitivScale += RR(iSub)[k][5]*RR(iSub)[k][5];
-
-        predictorTag(iSub)[k] = 2;
+          predictorTag(iSub)[k] = 2;
+        }
+      }
+      else {
+        predictorTag(iSub)[k] = 1;
       }
     }
   }
-
-  // L2 norm of SA residual for predictor nodes (for scaling)
-  dom.getCommunicator()->globalSum(1,&SAsensitivScale);
-  SAsensitivScale = sqrt(SAsensitivScale);
 }
 
 //------------------------------------------------------------------------------
