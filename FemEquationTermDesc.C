@@ -802,7 +802,7 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
     if (Stilde == 0.0)
       rr = rlim;
     else
-      rr = min(zz/Stilde, rlim);
+      rr = std::min(zz/Stilde, rlim);
 
     double rr2 = rr*rr;
     double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
@@ -946,7 +946,7 @@ void FemEquationTermSA::computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3
   if (Stilde == 0.0)
     rr = rlim;
   else
-    rr = min(zz/Stilde, rlim);
+    rr = std::min(zz/Stilde, rlim);
 
   double rr2 = rr*rr;
   double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
@@ -959,7 +959,7 @@ void FemEquationTermSA::computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][3
 
   double Lambda = cb1 * mutilde - cw1 * mutilde * mutilde * oorho * ood2wall2
     * dfwdg * dgdr * drdStilde;
-  double dStildedd = -2.0 * fv2 * zz * ood2wall;
+  double dStildedd = (Sbar >= -c2*s) ? -2.0 * fv2 * zz * ood2wall : 0.0;
 
   double ds = 2.0 * cw1 * fw * mutilde * mutilde * oorho * ood2wall2 * ood2wall
     + Lambda * dStildedd;
@@ -1309,7 +1309,7 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(
     if (Stilde == 0.0)
       rr = rlim;
     else
-      rr = min(zz/Stilde, rlim);
+      rr = std::min(zz/Stilde, rlim);
 
     if (rr==rlim)
       drr = 0.0;
@@ -2152,12 +2152,12 @@ bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
       sidel=sqrt((X[nodeNum[i]][0]-X[nodeNum[j]][0])*(X[nodeNum[i]][0]-X[nodeNum[j]][0]) +
        (X[nodeNum[i]][1]-X[nodeNum[j]][1])*(X[nodeNum[i]][1]-X[nodeNum[j]][1]) +
         (X[nodeNum[i]][2]-X[nodeNum[j]][2])*(X[nodeNum[i]][2]-X[nodeNum[j]][2]));
-      maxl = max(maxl,sidel);
+      maxl = std::max(maxl,sidel);
     }
   }
 
   double d2wall = 0.25 * (d2w[0] + d2w[1] + d2w[2] + d2w[3]);
-  d2wall = min(d2wall,cdes*maxl);
+  d2wall = std::min(d2wall,cdes*maxl);
   if (d2wall >= 1.e-15) {
     double rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
     double oorho = 1.0 / rho;
@@ -2188,7 +2188,7 @@ bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
     if (Stilde == 0.0)
       rr = rlim;
     else
-      rr = min(zz/Stilde, rlim);
+      rr = std::min(zz/Stilde, rlim);
 
     double rr2 = rr*rr;
     double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
@@ -2269,12 +2269,12 @@ void FemEquationTermDES::computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][
       sidel=sqrt((X[nodeNum[i]][0]-X[nodeNum[j]][0])*(X[nodeNum[i]][0]-X[nodeNum[j]][0]) +
         (X[nodeNum[i]][1]-X[nodeNum[j]][1])*(X[nodeNum[i]][1]-X[nodeNum[j]][1]) +
         (X[nodeNum[i]][2]-X[nodeNum[j]][2])*(X[nodeNum[i]][2]-X[nodeNum[j]][2]));
-      maxl = max(maxl,sidel);
+      maxl = std::max(maxl,sidel);
     }
   }
 
   double d2wall = 0.25 * (d2w[0] + d2w[1] + d2w[2] + d2w[3]);
-  d2wall = min(d2wall,cdes*maxl);
+  d2wall = std::min(d2wall,cdes*maxl);
   if (d2wall < 1.e-15) {
     dS[0] = 0.0;
     dS[1] = 0.0;
@@ -2345,7 +2345,7 @@ void FemEquationTermDES::computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][
   if (Stilde == 0.0)
     rr = rlim;
   else
-    rr = min(zz/Stilde, rlim);
+    rr = std::min(zz/Stilde, rlim);
 
   double rr2 = rr*rr;
   double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
@@ -2358,7 +2358,7 @@ void FemEquationTermDES::computeDistanceDerivativeOfVolumeTerm(double dp1dxj[4][
 
   double Lambda = cb1 * mutilde - cw1 * mutilde * mutilde * oorho * ood2wall2
     * dfwdg * dgdr * drdStilde;
-  double dStildedd = -2.0 * fv2 * zz * ood2wall;
+  double dStildedd = (Sbar >= -c2*s) ? -2.0 * fv2 * zz * ood2wall : 0.0;
 
   double ds = 2.0 * cw1 * fw * mutilde * mutilde * oorho * ood2wall2 * ood2wall
     + Lambda * dStildedd;

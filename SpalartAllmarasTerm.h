@@ -50,9 +50,9 @@ protected:
   double oovkcst2;
 
   double rlim;
-  double cn1;
   double c2;
   double c3;
+  double cn1;
 
   // bool usefv3;
   int SAform;
@@ -160,7 +160,7 @@ double SATerm::computeTurbulentViscosity(double *V[4], double mul, double &mutil
   double fv1 = chi3 / (chi3 + cv1_pow3);
 
   // return mutilde*fv1;
-  return std::max(mutilde*fv1,0.0);
+  return max(mutilde*fv1,0.0);
 
 }
 
@@ -177,7 +177,7 @@ double SATerm::computeTurbulentViscosity(double *V, double mul)
   double fv1 = chi3 / (chi3 + cv1_pow3);
 
   // return mutilde*fv1;
-  return std::max(mutilde*fv1,0.0);
+  return max(mutilde*fv1,0.0);
 
 }
 

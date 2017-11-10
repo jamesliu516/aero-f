@@ -1171,7 +1171,6 @@ void DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X,
 #pragma omp parallel for
   for(int i = 0; i < numLocSub; ++i) {
     intersector[i]->hasCloseTriangle(X(i), Xn(i), (*boxMin)(i), (*boxMax)(i), tId(i));
-
     numIntersectedEdges += intersector[i]->findIntersections(X(i), tId(i), *com);
   }
 

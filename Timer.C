@@ -929,8 +929,8 @@ double Timer::addWallDistanceTime(double t0)
 
   double t = getTime() - t0;
 
-  // counter[walldistance]++;
   data[walldistance] += t;
+  data[fluid] += t;  // wall distance is subset of fluid solution
 
   return t;
 
