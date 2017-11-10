@@ -5778,7 +5778,7 @@ void Domain::computeSADistanceSensitivity(FemEquationTerm *fet, DistSVec<double,
                               V(iSub), dS(iSub), LSS?&((*LSS)(iSub)):NULL);
 
   // add for shared nodes
-#pragma omp parallel for reduction(+: ierr)
+#pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->sndData(*volPat,
       reinterpret_cast<double (*)[1]> (dS.subData(iSub)));

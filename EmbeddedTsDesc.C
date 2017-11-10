@@ -1373,7 +1373,6 @@ void EmbeddedTsDesc<dim>::computeDistanceToWall(IoData &ioData, double t)
 
       int update = wall_computer->ComputeWallFunction(*this->distLSS,*this->X,*this->geoState,t);
 
-      this->timer->addFluidSolutionTime(t0);  // in either case, add to fluid solution time
       this->timer->addWallDistanceTime(t0);
       if (update > 0)
         this->timer->addWallDistanceCount(t0);
