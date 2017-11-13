@@ -9,10 +9,12 @@
 #include <WaleLESTerm.h>
 #include <DynamicLESTerm.h>
 #include <GenMatrix.h>
-#include <cmath>
 #include <GeoState.h>
 #include <BasicGeometry.h>
 #include <PolygonReconstructionData.h>
+
+#include <cmath>
+#include <utility>
 
 
 //------------------------------------------------------------------------------
@@ -113,7 +115,7 @@ void ElemTet::computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
         }
 
         // Flux correction for SA model
-        for (std::vector<pair<int,int> >::iterator it = rx.first.begin(); it != rx.first.end(); ++it)
+        for (std::vector<std::pair<int,int> >::iterator it = rx.first.begin(); it != rx.first.end(); ++it)
         {
           if (j != it->first) continue;
           R[idx][it->second] += vol * ( (rx.second[0] * dp1dxj[j][0] + rx.second[1] * dp1dxj[j][1] +
@@ -141,7 +143,7 @@ void ElemTet::computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
     }
 
     // Flux correction for SA model
-    for (std::vector<pair<int,int> >::iterator it = rx.first.begin(); it != rx.first.end(); ++it)
+    for (std::vector<std::pair<int,int> >::iterator it = rx.first.begin(); it != rx.first.end(); ++it)
     {
       int j = it->first;
       int idx = nodeNum(j);
@@ -243,7 +245,7 @@ void ElemTet::computeDerivativeOfGalerkinTerm(FemEquationTerm *fet,
   }
 
   // add correction terms (for negative SA model)
-  for (std::vector<pair<int,int> >::iterator it = rx.first.begin(); it != rx.first.end(); ++it) {
+  for (std::vector<std::pair<int,int> >::iterator it = rx.first.begin(); it != rx.first.end(); ++it) {
     int j = it->first;
     int idx = nodeNum(j);
     dR[idx][it->second] += dvol * ( ( rx.second[0] * dp1dxj[j][0] + rx.second[1] * dp1dxj[j][1] +   rx.second[2] * dp1dxj[j][2]) - fourth * rx.second[3] )
@@ -345,7 +347,7 @@ void ElemTet::computeDerivativeOfGalerkinTermEmb(
         }
 
         // Flux correction for SA model
-        for (std::vector<pair<int,int> >::iterator it = rx.first.begin(); it != rx.first.end(); ++it)
+        for (std::vector<std::pair<int,int> >::iterator it = rx.first.begin(); it != rx.first.end(); ++it)
         {
           if (j != it->first) continue;
           dR[idx][it->second] += dvol * ( ( rx.second[0] * dp1dxj[j][0] + rx.second[1] * dp1dxj[j][1] + rx.second[2] * dp1dxj[j][2]) - fourth * rx.second[3] )
@@ -379,7 +381,7 @@ void ElemTet::computeDerivativeOfGalerkinTermEmb(
                                 dr[2][k] * dp1dxj[j][2] + r[2][k] * ddp1dxj[j][2]) - fourth * ds[k] );
     }
 
-    for (std::vector<pair<int,int> >::iterator it = rx.first.begin(); it != rx.first.end(); ++it)
+    for (std::vector<std::pair<int,int> >::iterator it = rx.first.begin(); it != rx.first.end(); ++it)
     {
       int j = it->first;
       int idx = nodeNum(j);
@@ -559,7 +561,7 @@ void ElemTet::computeGalerkinTerm_e(FemEquationTerm *fet, SVec<double,3> &X,
 			}
 
       // correction for negative SA model
-      for (std::vector<pair<int,int> >::iterator it = rx.first.begin(); it != rx.first.end(); ++it)
+      for (std::vector<std::pair<int,int> >::iterator it = rx.first.begin(); it != rx.first.end(); ++it)
       {
         if (i != it->first) continue;
         R[Ni][it->second] += Vol * ( (rx.second[0] * dp1dxj[i][0] + rx.second[1] * dp1dxj[i][1] +
@@ -592,7 +594,7 @@ void ElemTet::computeGalerkinTerm_e(FemEquationTerm *fet, SVec<double,3> &X,
 		}
 
     // correction for negative SA model
-    for (std::vector<pair<int,int> >::iterator it = rx.first.begin(); it != rx.first.end(); ++it)
+    for (std::vector<std::pair<int,int> >::iterator it = rx.first.begin(); it != rx.first.end(); ++it)
     {
       int i = it->first;
       int Ni = nodeNum(i);
