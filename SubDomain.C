@@ -5597,63 +5597,6 @@ void SubDomain::minRcvData(CommPattern<Scalar> &sp, Scalar (*w)[dim])
 
 //------------------------------------------------------------------------------
 
-// sjg, 06/2017: Called from Domain::pseudoFastMarchingMethodComm at it > 1,
-// reference point becomes point with largest change after update
-template<class Scalar, int dim>
-void SubDomain::minRcvDataAndTagRef(CommPattern<Scalar> &sp, Scalar (*w)[dim],
-  double &maxErr, int &minNode)
-{
-  assert(dim == 1); // if you intend to use it in Vectorial mode, modify it your way
-  int sharedNodeID;
-  double err;
-
-  for (int iSub = 0; iSub < numNeighb; ++iSub) {
-    SubRecInfo<Scalar> sInfo = sp.recData(rcvChannel[iSub]);
-    Scalar (*buffer)[dim] = reinterpret_cast<Scalar (*)[dim]>(sInfo.data);
-    for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode) {
-      sharedNodeID = (*sharedNodes)[iSub][iNode];
-      err = (w[sharedNodeID][0]-buffer[iNode][0]);
-      if (err > 1.0e-10) {
-        // err = (w[sharedNodeID][0]-buffer[iNode][0]); // always > 0 because of conditional above
-        err /= w[sharedNodeID][0];
-        if (err > maxErr) {
-          maxErr = err;
-          minNode = sharedNodeID;
-        }
-        w[sharedNodeID][0] = buffer[iNode][0];
-      }
-    }
-  }
-}
-
-//------------------------------------------------------------------------------
-
-// sjg, 07/2017: Called from Domain::pseudoFastMarchingMethodComm, search for
-// new reference node on all inlet/outlet boundaries
-template<class Scalar, int dim>
-void SubDomain::minTagBoundaries(SVec<Scalar,dim> &res, SVec<Scalar,dim> &resnm1,
-  double &maxErr, int &minNode)
-{
-  assert(dim == 1); // if you intend to use it in Vectorial mode, modify it your way
-  int sharedNodeID;
-  double err;
-
-  for (int i = 0; i < farFieldNodes.size(); i++) {
-    sharedNodeID = farFieldNodes[i];
-    err = (resnm1[sharedNodeID][0]-res[sharedNodeID][0]);
-    // if (err < 0.0) fprintf(stderr,"PROBLEM: updated value is LARGER than previous sweep (err = %e)\n",err);
-    if (err > 1.0e-10) {
-      err /= resnm1[sharedNodeID][0];
-      if (err > maxErr) {
-        maxErr = err;
-        minNode = sharedNodeID;
-      }
-    }
-  }
-}
-
-//------------------------------------------------------------------------------
-
 // sjg, 07/2017: Called from Domain::pseudoFastMarchingMethod and " " Comm,
 // adds updates nodes to active list
 template<class Scalar, int dim>
@@ -9781,15 +9724,15 @@ void SubDomain::pseudoFastMarchingMethod(Vec<int> &Tag, SVec<double,3> &X,
   if (level == 1) {
     // Tag is globally set to -1, level 0 are inactive nodes
     nSortedNodes     = 0;
-    firstCheckedNode = 0;
-
+    // firstCheckedNode = 0;
     for (int i=0; i<Tag.size(); ++i) {
       if (!LSS->isActive(0.0,i)) {
         Tag[i] = 0;
         d2wall[i][0] = 0.0; // inactive nodes should be marked as ghost on all subdomains
+        nSortedNodes++; // iterative method needs to know subdomain has been visited even if fully inactive
       }
     }
-
+    firstCheckedNode = nSortedNodes;
     edges.pseudoFastMarchingMethodInitialization(Tag,d2wall,sortedNodes,
       nSortedNodes,isSharedNode,commFlag,LSS);
   }

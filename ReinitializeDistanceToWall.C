@@ -67,7 +67,7 @@ int ReinitializeDistanceToWall<dimLS,dim>::ComputeWallFunction(DistLevelSetStruc
                                                             const double t)
 {
   // // no updates after t0
-  // if (predictorTime[0] >= 0.0) return;
+  // if (predictorTime[0] >= 0.0) return 0;
 
   int update;
   if (iod.eqs.tc.tm.d2wall.frequencyadaptation == WallDistanceMethodData::ON)
@@ -148,10 +148,8 @@ void ReinitializeDistanceToWall<dimLS,dim>::PseudoFastMarchingMethod(
 
 template <int dimLS, int dim>
 void ReinitializeDistanceToWall<dimLS,dim>::IterativeMethodUpdate(DistLevelSetStructure &LSS,
-                                                              DistSVec<double, 3> &X)
+                                                                  DistSVec<double, 3> &X)
 {
-  int nSub = dom.getNumLocSub();
-
   /* NOTE: max level and hybrid method no longer possible with full domain
            iteration (enforce instead using a max distance if desired)
   int max_level = level-1;
@@ -159,70 +157,31 @@ void ReinitializeDistanceToWall<dimLS,dim>::IterativeMethodUpdate(DistLevelSetSt
       iod.eqs.tc.tm.d2wall.iterativelvl > 1)
     max_level = min(iod.eqs.tc.tm.d2wall.iterativelvl, max_level); */
 
+  int nSub = dom.getNumLocSub();
   double res0, resScale;
   DistSVec<double, 1> resnm1(dom.getNodeDistInfo());
-  DistVec<int> tag0(dom.getNodeDistInfo());
 
-  // initialization (levels 0, 1) and first local sweep pass
+  // initialization (levels 0, 1)
   d2wall = 1.0e10;
-  resnm1 = d2wall;
   tag = -1;
   int level = 1, isDone = 0, it = 1, isConverged = 0, checkConverged = 0;
+  dom.pseudoFastMarchingMethod<1>(tag, X, d2wall, level, sortedNodes,
+      nSortedNodes, firstCheckedNode, isSharedNode, &LSS);
 
-  dom.pseudoFastMarchingMethodSerial<1>(tag, X, d2wall, level,
-    sortedNodes, nSortedNodes, firstCheckedNode, isSharedNode, &LSS);
-  dom.pseudoFastMarchingMethodComm<1>(tag, d2wall, sortedNodes, nSortedNodes, it);
-  level++;
-
-  while (!isDone) {
-    dom.pseudoFastMarchingMethodSerial<1>(tag, X, d2wall, level,
-      sortedNodes, nSortedNodes, firstCheckedNode, isSharedNode, &LSS);
-    isDone = 1;
-    for (int iSub = 0; iSub < nSub; ++iSub) {
-      if (nSortedNodes[iSub] != firstCheckedNode[iSub]) {
-        isDone = 0;
-        break;
-      }
-    }
-    level++;
-  }
-  it++;
-
-  // for convergence check
-  checkConverged = 1;
-  for (int iSub = 0; iSub < nSub; ++iSub)
-    if (!nSortedNodes[iSub]) { checkConverged = 0; break; } // have not visited processor yet
-  if (checkConverged) { // compute scaling residual at first valid iteration for subdomain
-    resScale = 0.0;
-    for (int iSub = 0; iSub < nSub; ++iSub) {
-      for (int i = 0; i < d2wall(iSub).len; i++) {
-        resScale += d2wall(iSub)[i][0]*d2wall(iSub)[i][0];
-      }
-    }
-    resScale = 1.0/sqrt(resScale);
-  }
-
-  // wipe all tags, set embedded surface neighbors fixed (tag = 0)
+  // store inactive and embedded surface neighbors for fixing (tag = 0)
+  bool *visited = new bool[nSub];
+  DistVec<int> tag0(dom.getNodeDistInfo());
   tag0 = -1;
   for (int iSub = 0; iSub < nSub; ++iSub) {
-    for (int i = 0; i < d2wall(iSub).len; i++) {
+    if (nSortedNodes[iSub] > 0)
+      visited[iSub] = true;
+    else
+      visited[iSub] = false;
+    for (int i = 0; i < d2wall(iSub).len; i++)
       if (tag(iSub)[i] == 1 || tag(iSub)[i] == 0) tag0(iSub)[i] = 0;
-    }
   }
 
-  // iteration loop
-  while (!isConverged) {
-
-    // reset tags, nSortedNodes and firstCheckedNode at start of each iteration
-    tag = tag0;
-    for (int iSub = 0; iSub < nSub; ++iSub) {
-      firstCheckedNode[iSub] = 0;
-      nSortedNodes[iSub] = 0;
-    }
-
-    // share information across processes (min node tag and active list level 1 populate)
-    dom.pseudoFastMarchingMethodComm<1>(tag, d2wall, sortedNodes, nSortedNodes, it, &resnm1);
-
+  while (true) {
     // sweep subdomains
     resnm1 = d2wall;
     level = 2, isDone = 0;  // active list already populated in comm, tags reset
@@ -231,6 +190,8 @@ void ReinitializeDistanceToWall<dimLS,dim>::IterativeMethodUpdate(DistLevelSetSt
         sortedNodes, nSortedNodes, firstCheckedNode, isSharedNode, &LSS);
       isDone = 1;
       for (int iSub = 0; iSub < nSub; ++iSub) {
+        if (nSortedNodes[iSub] > 0 && !visited[iSub])
+          visited[iSub] = true;
         if (nSortedNodes[iSub] != firstCheckedNode[iSub]) {
           isDone = 0;
           break;
@@ -239,22 +200,25 @@ void ReinitializeDistanceToWall<dimLS,dim>::IterativeMethodUpdate(DistLevelSetSt
       ++level;
     }
 
-    if (checkConverged) { // scaled 2-norm convergence check (local norm)
+    if (checkConverged) { // scaled 2-norm convergence check (global norm)
       res0 = 0.0;
-      int nActiveNodes = 0;
       for (int iSub = 0; iSub < nSub; ++iSub) {
         for (int i = 0; i < d2wall(iSub).len; i++) {
           res0 += (d2wall(iSub)[i][0]-resnm1(iSub)[i][0])
                  *(d2wall(iSub)[i][0]-resnm1(iSub)[i][0]);
         }
       }
+      dom.getCommunicator()->globalSum(1,&res0);
       res0 = sqrt(res0)*resScale;
-      isConverged = (res0 < iod.eqs.tc.tm.d2wall.eps || it > iod.eqs.tc.tm.d2wall.maxIts);
+      isConverged = (res0 < iod.eqs.tc.tm.d2wall.eps || it >= iod.eqs.tc.tm.d2wall.maxIts);
+      if (isConverged) break;
+      it++;
     }
     else {
       checkConverged = 1;
       for (int iSub = 0; iSub < nSub; ++iSub)
-        if (!nSortedNodes[iSub]) {checkConverged = 0; break;} // have not visited processor yet
+        if (!visited[iSub]) {checkConverged = 0; break;} // have not visited subdomain yet
+      dom.getCommunicator()->globalMin(1, &checkConverged);
       if (checkConverged) { // compute scaling residual at first valid iteration for subdomain
         resScale = 0.0;
         for (int iSub = 0; iSub < nSub; ++iSub) {
@@ -262,18 +226,24 @@ void ReinitializeDistanceToWall<dimLS,dim>::IterativeMethodUpdate(DistLevelSetSt
             resScale += d2wall(iSub)[i][0]*d2wall(iSub)[i][0];
           }
         }
+        dom.getCommunicator()->globalSum(1,&resScale);
         resScale = 1.0/sqrt(resScale);
       }
     }
-    dom.getCommunicator()->globalMin(1, &isConverged);
-    it++;
-  }
 
-  // dom.getCommunicator()->globalSum(1,&res0);
-  // res0 /= dom.getCommunicator()->size();
-  // dom.getCommunicator()->fprintf(stderr,
-  //   "Iterative distance to wall: final residual (CPU avg) = %e, target = %e @ it %d\n\n",
-  //   res0, iod.eqs.tc.tm.d2wall.eps, it-1);
+    // reset tags, nSortedNodes and firstCheckedNode for next iteration
+    tag = tag0;
+    for (int iSub = 0; iSub < nSub; ++iSub) {
+      firstCheckedNode[iSub] = 0;
+      nSortedNodes[iSub] = 0;
+    }
+    dom.pseudoFastMarchingMethodComm<1>(tag, d2wall, resnm1, sortedNodes, nSortedNodes);
+  }
+  if (it == iod.eqs.tc.tm.d2wall.maxIts)
+    dom.getCommunicator()->fprintf(stderr,
+      "*** Warning: iterative distance to wall reached maximum %d iterations (final residual = %e, target = %e)\n",
+      it,res0, iod.eqs.tc.tm.d2wall.eps);
+  delete[] visited;
 }
 
 //------------------------------------------------------------------------------
