@@ -97,10 +97,10 @@ DESTerm::DESTerm(IoData &iod)
   cw1 /= iod.ref.reynolds_mu;
   oosigma /= iod.ref.reynolds_mu;
 
-  rlim = iod.eqs.tc.tm.sa.rlim;
-  c2 = iod.eqs.tc.tm.sa.c2;
-  c3 = iod.eqs.tc.tm.sa.c3;
-  cn1 = iod.eqs.tc.tm.sa.cn1;
+  rlim = iod.eqs.tc.tm.des.rlim;
+  c2 = iod.eqs.tc.tm.des.c2;
+  c3 = iod.eqs.tc.tm.des.c3;
+  cn1 = iod.eqs.tc.tm.des.cn1;
 
   if (iod.eqs.tc.tm.des.form == DESModelData::ORIGINAL) {
     SAform = 1;
@@ -157,7 +157,7 @@ double DESTerm::computeTurbulentViscosity(double *V[4], double mul, double &muti
   double fv1 = chi3 / (chi3 + cv1_pow3);
 
   // return mutilde*fv1;
-  return std::max(mutilde*fv1,0.0);
+  return max(mutilde*fv1,0.0);
 
 }
 
@@ -173,7 +173,7 @@ double DESTerm::computeTurbulentViscosity(double *V, double mul)
   double fv1 = chi3 / (chi3 + cv1_pow3);
 
   // return mutilde*fv1;
-  return std::max(mutilde*fv1,0.0);
+  return max(mutilde*fv1,0.0);
 
 }
 

@@ -457,7 +457,7 @@ public:
         DistLevelSetStructure *distLSS=0);
   template<int dimLS>
   void pseudoFastMarchingMethodComm(DistVec<int> &Tag, DistSVec<double,dimLS> &d2wall,
-          DistVec<int> &sortedNodes, int *nSortedNodes, int it, DistSVec<double,dimLS> *d2wnm1=0);
+          DistSVec<double,dimLS> &d2wnm1, DistVec<int> &sortedNodes, int *nSortedNodes);
 
   template<int dim>
   void setupUVolumesInitialConditions(const int volid, double UU[dim], DistSVec<double,dim> &U);

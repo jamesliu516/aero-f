@@ -3522,6 +3522,10 @@ void ElemTet::computeSADistanceSensitivity(FemEquationTerm *fet, SVec<double,3> 
     if (LSS->edgeIntersectsWall(0,edgeNum(l)))
       return; // no distance sensitivity contribution due to cut elements
   }
+  for (int i = 0; i < 4; ++i) {
+    if (!LSS->isActive(0, nodeNum(i)))
+      return;
+  }
 
   double dp1dxj[4][3];
   double vol = computeGradientP1Function(X, dp1dxj);
