@@ -1447,7 +1447,7 @@ SAModelData::SAModelData()
 void SAModelData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 8, father);
+  ClassAssigner *ca = new ClassAssigner(name, 13, father);
 
   new ClassDouble<SAModelData>(ca, "Cb1", this, &SAModelData::cb1);
   new ClassDouble<SAModelData>(ca, "Cb2", this, &SAModelData::cb2);
@@ -1457,6 +1457,10 @@ void SAModelData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<SAModelData>(ca, "Cv2", this, &SAModelData::cv2);
   new ClassDouble<SAModelData>(ca, "Sigma", this, &SAModelData::sigma);
   new ClassDouble<SAModelData>(ca, "Kappa", this, &SAModelData::vkcst);
+  new ClassDouble<SAModelData>(ca, "Rlim", this, &SAModelData::rlim);
+  new ClassDouble<SAModelData>(ca, "C2", this, &SAModelData::c2);
+  new ClassDouble<SAModelData>(ca, "C3", this, &SAModelData::c3);
+  new ClassDouble<SAModelData>(ca, "Cn1", this, &SAModelData::cn1);
   new ClassToken<SAModelData>
     (ca, "Form", this,
      reinterpret_cast<int SAModelData::*>(&SAModelData::form), 3,
@@ -1494,7 +1498,7 @@ DESModelData::DESModelData()
 void DESModelData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 9, father);
+  ClassAssigner *ca = new ClassAssigner(name, 13, father);
 
   new ClassDouble<DESModelData>(ca, "Cb1", this, &DESModelData::cb1);
   new ClassDouble<DESModelData>(ca, "Cb2", this, &DESModelData::cb2);
@@ -1505,6 +1509,10 @@ void DESModelData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<DESModelData>(ca, "CDes", this, &DESModelData::cdes);
   new ClassDouble<DESModelData>(ca, "Sigma", this, &DESModelData::sigma);
   new ClassDouble<DESModelData>(ca, "Kappa", this, &DESModelData::vkcst);
+  new ClassDouble<DESModelData>(ca, "Rlim", this, &DESModelData::rlim);
+  new ClassDouble<DESModelData>(ca, "C2", this, &DESModelData::c2);
+  new ClassDouble<DESModelData>(ca, "C3", this, &DESModelData::c3);
+  new ClassDouble<DESModelData>(ca, "Cn1", this, &DESModelData::cn1);
   new ClassToken<DESModelData>
     (ca, "Form", this,
      reinterpret_cast<int DESModelData::*>(&DESModelData::form), 3,
