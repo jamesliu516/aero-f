@@ -1127,14 +1127,6 @@ public:
     Vec<int> &, Vec<int> &, int &, int);
 
   template<class Scalar, int dim>
-  void minRcvDataAndTagRef(CommPattern<Scalar> &sp, Scalar (*w)[dim],
-    double &, int &);
-
-  template<class Scalar, int dim>
-  void minTagBoundaries(SVec<Scalar,dim> &, SVec<Scalar,dim> &,
-    double &, int &);
-
-  template<class Scalar, int dim>
   void maxRcvData(CommPattern<Scalar> &, Scalar (*)[dim]);
 
 /* no longer used (sjg, 2017)

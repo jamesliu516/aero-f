@@ -5851,7 +5851,7 @@ void Domain::pseudoFastMarchingMethodSerial(DistVec<int> &Tag, DistSVec<double,3
 
 template<int dimLS>
 void Domain::pseudoFastMarchingMethodComm(DistVec<int> &Tag, DistSVec<double,dimLS> &d2wall,
-  DistVec<int> &sortedNodes, int *nSortedNodes, int it, DistSVec<double,dimLS> *d2wnm1)
+          DistSVec<double,dimLS> &d2wnm1, DistVec<int> &sortedNodes, int *nSortedNodes)
 {
   int iSub;
 
@@ -5861,35 +5861,24 @@ void Domain::pseudoFastMarchingMethodComm(DistVec<int> &Tag, DistSVec<double,dim
 
   volPat->exchange();
 
-  if (it==1) {
 #pragma omp parallel for
-    for (iSub = 0; iSub < numLocSub; ++iSub)
-      subDomain[iSub]->minRcvDataAndCountUpdates
-        (*volPat,reinterpret_cast<double (*)[dimLS]>(d2wall.subData(iSub)),Tag(iSub),
-        sortedNodes(iSub),*(nSortedNodes+iSub),it);
-  }
-  else {
-    double maxErr;
-    int minNode;
-#pragma omp parallel for
-    for (iSub = 0; iSub < numLocSub; ++iSub) {
-      maxErr = 1.0e-10;
-      minNode = -1;
+  for (iSub = 0; iSub < numLocSub; ++iSub) {
+    subDomain[iSub]->minRcvData(*volPat,reinterpret_cast<double (*)[dimLS]>(d2wall.subData(iSub)));
 
-      // first, look at shared subdomain boundaries
-      subDomain[iSub]->minRcvDataAndTagRef
-        (*volPat,reinterpret_cast<double (*)[dimLS]>(d2wall.subData(iSub)),maxErr,minNode);
-
-      // then, examine local inlet/outlet boundaries
-      subDomain[iSub]->minTagBoundaries
-        (d2wall(iSub),(*d2wnm1)(iSub),maxErr,minNode);
-
-      // tag reference node
-      if (minNode >= 0) {
-        Tag(iSub)[minNode] = 1;
-        sortedNodes(iSub)[nSortedNodes[iSub]] = minNode;
-        nSortedNodes[iSub]++;
+    double maxErr = 0.0;
+    int minNode = -1;
+    for (int k = 0; k < d2wall(iSub).size(); ++k) {
+      double diff = fabs(d2wall(iSub)[k][0]-d2wnm1(iSub)[k][0]);
+      if (diff > maxErr) { // should never capture inactive or fixed nodes as their diff = 0 always
+        assert(Tag(iSub)[k]!=0);
+        minNode = k;
+        maxErr = diff;
       }
+    }
+    if (minNode >= 0) {
+      Tag(iSub)[minNode] = 1;
+      sortedNodes(iSub)[nSortedNodes[iSub]] = minNode;
+      nSortedNodes[iSub]++;
     }
   }
 }
