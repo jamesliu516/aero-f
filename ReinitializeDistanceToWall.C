@@ -91,8 +91,10 @@ int ReinitializeDistanceToWall<dimLS,dim>::ComputeWallFunction(DistLevelSetStruc
       IterativeMethodUpdate(LSS, X);
     }
     else if (iod.eqs.tc.tm.d2wall.type == WallDistanceMethodData::HYBRID) {
-      fprintf(stderr,"*** Warning *** Hybrid wall distance is depreciated, using non-iterative instead\n");
-      PseudoFastMarchingMethod(LSS, X);
+      if (predictorTime[1] < 0.0)
+        dom.getCommunicator()->fprintf(stderr,
+          "*** Warning *** Hybrid wall distance is depreciated, using iterative method instead\n");
+      IterativeMethodUpdate(LSS, X);
     }
     else {
       fprintf(stderr, " *** Error *** Unknown wall distance method\n");
