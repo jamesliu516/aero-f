@@ -166,7 +166,7 @@ void ImplicitEmbeddedCoupledTsDesc<dim>::setOperators(DistSVec<double,dim> &Q)
       this->spaceOp->computeJacobian(*this->X, *this->A, Q, 
 				     this->distLSS, this->nodeTag, this->riemann,
                                      this->riemannNormal, this->ghostPoints, 
-				     *_pc, this->timeState);
+				     *_pc, this->timeState, this->viscSecOrder);
 
       this->timeState->addToJacobian(*this->A, *_pc, Q);
       this->spaceOp->applyBCsToJacobian(Q, *_pc, this->distLSS);
@@ -212,6 +212,8 @@ int ImplicitEmbeddedCoupledTsDesc<dim>::solveLinearSystem(int it,
     ksp->setup(it, this->maxItsNewton, this->embeddedB);
 
     int lits = ksp->solve(this->embeddedB, this->embeddeddQ);
+
+
 
     if(lits==ksp->maxits) this->errorHandler->localErrors[ErrorHandler::SATURATED_LS] += 1;
 

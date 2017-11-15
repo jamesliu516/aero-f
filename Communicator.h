@@ -80,6 +80,8 @@ public:
   void printf(int, const char *, ...);
   void fprintf(FILE *, const char *, ...);
 
+  void system(const char* message);
+
   template<class Scalar>
   void sendTo(int, int, Scalar *, int);
 

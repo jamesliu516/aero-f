@@ -2,7 +2,7 @@
 module load intel/intel-13 openmpi/openmpi161_intel13
 export CMAKE_INCLUDE_PATH=$CMAKE_INCLUDE_PATH:/home/pavery/Intel/eigen
 export CMAKE_LIBRARY_PATH=$CMAKE_LIBRARY_PATH:/home/pavery/Intel/ARPACK
-/home/pavery/bin/cmake \
+cmake \
 -DCMAKE_C_COMPILER:FILEPATH=/opt/intel/composer_xe_2013.0.079/bin/intel64/icc \
 -DCMAKE_CXX_COMPILER:FILEPATH=/opt/intel/composer_xe_2013.0.079/bin/intel64/icpc \
 -DCMAKE_Fortran_COMPILER:FILEPATH=/opt/intel/composer_xe_2013.0.079/bin/intel64/ifort \

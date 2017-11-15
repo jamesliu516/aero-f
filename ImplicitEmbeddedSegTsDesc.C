@@ -274,13 +274,13 @@ void ImplicitEmbeddedSegTsDesc<dim,neq1,neq2>::setOperator(MatVecProd<dim,neq> *
     if (mvpfd)  {
       if (neq > 2)  {
         spaceOp1->computeJacobian(*this->X, *this->A, Q,this->distLSS, this->nodeTag, this->riemann,
-                                   this->riemannNormal, this->ghostPoints, *_pc,this->timeState);
+                                   this->riemannNormal, this->ghostPoints, *_pc,this->timeState, this->viscSecOrder);
         this->timeState->addToJacobian(*this->A, *_pc, Q);
         spaceOp1->applyBCsToJacobian(Q, *_pc, this->distLSS);
       }
       else  {
         spaceOp2->computeJacobian(*this->X, *this->A, Q,this->distLSS, this->nodeTag, this->riemann,
-                                   this->riemannNormal, this->ghostPoints, *_pc,this->timeState);
+                                   this->riemannNormal, this->ghostPoints, *_pc,this->timeState, this->viscSecOrder);
         this->timeState->addToJacobian(*this->A, *_pc, Q);
         spaceOp2->applyBCsToJacobian(Q, *_pc, this->distLSS);
       }

@@ -428,9 +428,9 @@ AeroMeshMotionHandler::~AeroMeshMotionHandler()
 
 //------------------------------------------------------------------------------
 
-void AeroMeshMotionHandler::sendForceSensitivity(DistSVec<double,3> *dFdS)
+void AeroMeshMotionHandler::sendForceSensitivity(DistSVec<double,3> *dFdS, bool applyScale)
 {
-  strExc->sendForceSensitivity(*dFdS);
+	strExc->sendForce(*dFdS, applyScale);
 }
 
 //------------------------------------------------------------------------------
@@ -673,7 +673,7 @@ void AeroMeshMotionHandler::setPositionVector(DistSVec<double,3> &X)
   dXdSb = boundary displacement sensitivity
 */
 
-void AeroMeshMotionHandler::updateDStep2(DistSVec<double,3> &X, DistSVec<double,3> &dXdSb)
+void AeroMeshMotionHandler::updateDStep2(DistSVec<double,3> &X, DistSVec<double,3> &dXdSb, bool applyScale)
 {
   int verbose = com->getMaxVerbose();
   Timer *timer;

@@ -41,7 +41,7 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
   phaseChangeChoice  = (ioData.embed.eosChange==EmbeddedFramework::RIEMANN_SOLUTION) ? 1 : 0;
   phaseChangeAlg	 = (ioData.embed.phaseChangeAlg==EmbeddedFramework::LEAST_SQUARES) ? 1 : 0;
-  interfaceAlg		 = (ioData.embed.interfaceAlg==EmbeddedFramework::INTERSECTION) ? 1 : 0;
+  typehalfriemannproblem		 = (ioData.embed.typehalfriemannproblem==EmbeddedFramework::REAL) ? 1 : 0;
   intersectAlpha	 = ioData.embed.alpha;
 
   multiPhaseSpaceOp = new MultiPhaseSpaceOperator<dim,dimLS>(ioData, this->varFcn, this->bcData, this->geoState, 
@@ -129,7 +129,7 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   }
 
 
-  if (interfaceAlg == 1) {
+  if (typehalfriemannproblem == 1) {
 
     dom->createHigherOrderFSI(ioData);
 
@@ -814,12 +814,33 @@ void MultiPhysicsTsDesc<dim,dimLS>::getForcesAndMoments(map<int,int> & surfOutMa
 //-------------------------------------------------------------------------------
 template <int dim, int dimLS>
 void MultiPhysicsTsDesc<dim,dimLS>::getderivativeOfForcesAndMoments(map<int,int> & surfOutMap, 
-								    DistSVec<double,dim> &U, DistSVec<double,dim> &dU, 
+								    DistSVec<double,dim> &U, DistSVec<double,dim> &dU, DistSVec<double,dim> &dUghost,
 								    DistSVec<double,3> &X, double dS[3],
 								    Vec3D *dFi, Vec3D *dMi) 
 {
   
   fprintf(stderr, "ERROR: MultiPhys getderivativeOfForcesAndMoments not implemented \n");
+
+}
+
+template <int dim, int dimLS>
+void MultiPhysicsTsDesc<dim,dimLS>::getderivativeOperatorsOfForcesAndMoments(dRdXoperators<dim> &dRdXop,
+                map<int,int> & surfOutMap, 
+                DistSVec<double,dim> &V,  
+                DistSVec<double,3> &X, double dS[3]) 
+{
+  
+  fprintf(stderr, "ERROR: MultiPhys getderivativeOperatorsOfForcesAndMoments not implemented \n");
+
+}
+template <int dim, int dimLS>
+void MultiPhysicsTsDesc<dim,dimLS>::getderivativeOfForcesAndMomentsSurfMotion(Vec3D *dFidS,
+                map<int,int> & surfOutMap, 
+                DistSVec<double,dim> &V,  
+                DistSVec<double,3> &X, double dS[3]) 
+{
+  
+  fprintf(stderr, "ERROR: MultiPhys getderivativeOfForcesAndMomentsSurfMotion not implemented \n");
 
 }
 //-------------------------------------------------------------------------------
