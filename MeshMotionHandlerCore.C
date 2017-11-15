@@ -880,8 +880,15 @@ double DeformingMeshMotionHandler::update(bool *lastIt, int it, double t,
   if (*lastIt) return dt;
 
   if (dXmax) {
-    dX = sin(omega * (t + dt)) * (*dXmax) - (X - X0);
-    Xdot = omega * cos(omega * (t + dt)) * (*dXmax);
+    //dX = sin(omega * (t + dt)) * (*dXmax) - (X - X0);
+    // Xdot = omega * cos(omega * (t + dt)) * (*dXmax);
+    // RT: new definition as of 07/31/2017 (Xdot?)
+    double damping = (1.0-exp(-omega*omega*(t + dt)*(t + dt)));
+    dX = damping * sin(omega * (t + dt)) * (*dXmax) - (X - X0);
+    Xdot = ( damping * omega * cos(omega * (t + dt)) +
+             damping * omega * sin(omega * (t + dt))  *
+            (-2.0*omega*omega*(t + dt))*exp(-omega*omega*(t + dt)*(t + dt)) ) *
+            (*dXmax);
   }
   else
   {
@@ -1083,11 +1090,19 @@ double PitchingMeshMotionHandler::update(bool *lastIt, int it, double t,
 {
 
   if (*lastIt) return dt;
-  double theta = (omega==0.0 && alpha_slope!=0.0) ? alpha_in + alpha_slope * (t + dt) : alpha_in + alpha_max * sin(omega * (t + dt));
+  // RT: new definition as of 07/31/2017
+  double theta = (omega==0.0 && alpha_slope!=0.0) ? alpha_in + alpha_slope * (t + dt) :
+                  alpha_in + (1.0-exp(-omega*omega*(t + dt)*(t + dt))) * 
+                              alpha_max * sin(omega * (t + dt));
+  //double theta = (omega==0.0 && alpha_slope!=0.0) ? alpha_in + alpha_slope * (t + dt) : alpha_in + alpha_max * sin(omega * (t + dt));
   double costheta = cos(theta);
   double sintheta = sin(theta);
 
-  double phi = (omega==0.0 && beta_slope!=0.0) ? beta_in + beta_slope * (t + dt) : beta_in + beta_max * sin(omega * (t + dt)); 
+  // RT: new definition as of 07/31/2017
+  double phi = (omega==0.0 && beta_slope!=0.0) ? beta_in + beta_slope * (t + dt) :
+                beta_in + (1.0-exp(-omega*omega*(t + dt)*(t + dt))) * 
+                           beta_max * sin(omega * (t + dt)); 
+  //double phi = (omega==0.0 && beta_slope!=0.0) ? beta_in + beta_slope * (t + dt) : beta_in + beta_max * sin(omega * (t + dt)); 
   double cosphi = cos(phi);
   double sinphi = sin(phi);
 
@@ -1322,8 +1337,11 @@ double HeavingMeshMotionHandler::update(bool *lastIt, int it, double t,
   
  if (*lastIt) return dt;
 
- double hsintheta = 1.0 - cos(omega * (t + dt));
-   // double hsintheta = t + dt;
+ //double hsintheta = 1.0 - cos(omega * (t + dt));
+ // RT: new definition as of 07/31/2017
+ double hsintheta = (1.0-exp(-omega*omega*(t + dt)*(t + dt))) *
+                     sin(omega * (t + dt));
+ // double hsintheta = t + dt;
 
  int numLocSub = domain->getNumLocSub();
  this->com->printf(9, "debugging: inside Heaving Mesh Motion Handler\n");
