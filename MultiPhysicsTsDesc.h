@@ -81,9 +81,9 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   int phaseChangeAlg;	 // = 0. use averaged value, given phaseChangeChocie==0
   						 // = 1. use least-squares, given phaseChangeChoice==0
-  int interfaceAlg;		 // = 0. do not use information of intersection at surrogate interface
+  int typehalfriemannproblem;		 // = 0. do not use information of intersection at surrogate interface
   						 // = 1. use information of intersection at surrogate interface
-  double intersectAlpha; //	relevant only if interfaceAlg==1
+  double intersectAlpha; //	relevant only if typehalfriemannproblem==1
 
   // EulerFSI: FS communication
   DistSVec<double,dim> Wtemp;
@@ -160,9 +160,19 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
                                            Vec3D* Fi, Vec3D* Mi);
 
   void getderivativeOfForcesAndMoments(map<int,int> & surfOutMap, 
-				       DistSVec<double,dim> &U, DistSVec<double,dim> &dU, 
+				       DistSVec<double,dim> &U, DistSVec<double,dim> &dU, DistSVec<double,dim> &dUghost, 
 				       DistSVec<double,3> &X, double dS[3],
 				       Vec3D *dFi, Vec3D *dMi);
+  void getderivativeOperatorsOfForcesAndMoments(dRdXoperators<dim> &dRdXop,
+                map<int,int> & surfOutMap, 
+                DistSVec<double,dim> &V,  
+                DistSVec<double,3> &X, double dS[3]) ;
+
+  void getderivativeOfForcesAndMomentsSurfMotion(Vec3D *dFidS,
+                map<int,int> & surfOutMap, 
+                DistSVec<double,dim> &V,  
+                DistSVec<double,3> &X, double dS[3]) ;
+
 
   bool IncreasePressure(int it, double dt, double t, DistSVec<double,dim> &U);
 

@@ -25,7 +25,7 @@ private:
   Vec<Scalar> **subVec;
 
 public:
-  
+
   DistVec(const DistInfo &);
   DistVec(const DistVec<Scalar> &);
   DistVec(const DistInfo &, Scalar *);
@@ -55,7 +55,7 @@ public:
 
   template<class T>
   DistVec<Scalar> &operator-=(const Expr<T, Scalar> &);
-  
+
   template<class T>
   Scalar operator*(const Expr<T, Scalar> &);
 
@@ -87,19 +87,19 @@ public:
 
   bool *getMasterFlag(int i) const { return distInfo.getMasterFlag(i); }
 
-  void zeroNonMaster(); 
+  void zeroNonMaster();
 
-  // Adam April 2010 : 
+  // Adam April 2010 :
   // nullifyPointers has to be called is the object is a DistVec<Scalar *>
   // otherwise call nullify and Scalar::nullify must be defined.
-  void nullifyPointers() 
+  void nullifyPointers()
   {
-    for(int i=0;i<this->len;++i) 
+    for(int i=0;i<this->len;++i)
       {
         this->v[i]=0;
       }
   }
-  void nullify() 
+  void nullify()
   {
     for(int i=0;i<this->len;++i) this->v[i].nullify();
   }
@@ -116,7 +116,7 @@ public:
 //------------------------------------------------------------------------------
 
 template <class Scalar>
-DistVec<Scalar>::DistVec(const DistInfo &dI) : 
+DistVec<Scalar>::DistVec(const DistInfo &dI) :
   Vec<Scalar>(dI.totLen), distInfo(dI), subVec(0)
 {
   createSubVec();
@@ -134,7 +134,7 @@ DistVec<Scalar>::DistVec(const DistVec<Scalar> &v2) :
      int locOffset = distInfo.subOffsetReg[iSub];
      int locLen = distInfo.subLenReg[iSub];
 
-     for (int i = 0; i < locLen; ++i) 
+     for (int i = 0; i < locLen; ++i)
        this->v[locOffset+i] = v2.v[locOffset+i];
   }
   createSubVec();
@@ -143,7 +143,7 @@ DistVec<Scalar>::DistVec(const DistVec<Scalar> &v2) :
 //------------------------------------------------------------------------------
 
 template<class Scalar>
-DistVec<Scalar>::DistVec(const DistInfo &dI, Scalar *vv) : 
+DistVec<Scalar>::DistVec(const DistInfo &dI, Scalar *vv) :
   Vec<Scalar>(dI.totLen, vv), distInfo(dI), subVec(0)
 {
   createSubVec();
@@ -152,8 +152,8 @@ DistVec<Scalar>::DistVec(const DistInfo &dI, Scalar *vv) :
 //------------------------------------------------------------------------------
 
 template <class Scalar>
-DistVec<Scalar>::~DistVec() 
-{ 
+DistVec<Scalar>::~DistVec()
+{
   if (subVec) {
     //#pragma omp parallel for BUG alloc
     for (int iSub = 0; iSub < distInfo.numLocSub; ++iSub)
@@ -166,7 +166,7 @@ DistVec<Scalar>::~DistVec()
 
 template <class Scalar>
 inline
-void 
+void
 DistVec<Scalar>::createSubVec()
 {
   subVec = new Vec<Scalar>*[distInfo.numLocSub];
@@ -183,7 +183,7 @@ inline
 DistVec<Scalar> *
 DistVec<Scalar>::alias() const
 {
-  return new DistVec<Scalar>(distInfo, this->v); 
+  return new DistVec<Scalar>(distInfo, this->v);
 }
 
 //------------------------------------------------------------------------------
@@ -201,7 +201,7 @@ DistVec<Scalar>::operator=(const T y)
     int locOffset = distInfo.subOffsetReg[iSub];
     int locLen = distInfo.subLenReg[iSub];
 
-    for (int i = 0; i < locLen; ++i) 
+    for (int i = 0; i < locLen; ++i)
       this->v[locOffset+i] = y;
 
   }
@@ -224,7 +224,7 @@ DistVec<Scalar>::operator=(const Scalar& y)
     int locOffset = distInfo.subOffsetReg[iSub];
     int locLen = distInfo.subLenReg[iSub];
 
-    for (int i = 0; i < locLen; ++i) 
+    for (int i = 0; i < locLen; ++i)
       this->v[locOffset+i] = y;
 
   }
@@ -248,7 +248,7 @@ DistVec<Scalar>::operator*=(const T y)
     int locOffset = distInfo.subOffsetReg[iSub];
     int locLen = distInfo.subLenReg[iSub];
 
-    for (int i = 0; i < locLen; ++i) 
+    for (int i = 0; i < locLen; ++i)
       this->v[locOffset+i] *= y;
 
   }
@@ -271,7 +271,7 @@ DistVec<Scalar>::operator=(const DistVec<Scalar> &v2)
     int locOffset = distInfo.subOffsetReg[iSub];
     int locLen = distInfo.subLenReg[iSub];
 
-    for (int i = 0; i < locLen; ++i) 
+    for (int i = 0; i < locLen; ++i)
       this->v[locOffset+i] = v2.v[locOffset+i];
 
   }
@@ -294,7 +294,7 @@ DistVec<Scalar>::operator+=(const DistVec<Scalar> &v2)
     int locOffset = distInfo.subOffsetReg[iSub];
     int locLen = distInfo.subLenReg[iSub];
 
-    for (int i = 0; i < locLen; ++i) 
+    for (int i = 0; i < locLen; ++i)
       this->v[locOffset+i] += v2.v[locOffset+i];
 
   }
@@ -317,7 +317,7 @@ DistVec<Scalar>::operator-=(const DistVec<Scalar> &v2)
     int locOffset = distInfo.subOffsetReg[iSub];
     int locLen = distInfo.subLenReg[iSub];
 
-    for (int i = 0; i < locLen; ++i) 
+    for (int i = 0; i < locLen; ++i)
       this->v[locOffset+i] -= v2.v[locOffset+i];
 
   }
@@ -375,13 +375,13 @@ DistVec<Scalar> & DistVec<Scalar>::pow(const DistVec<Scalar> &v2, double exp)
 
 template<class Scalar>
 inline
-Scalar 
+Scalar
 DistVec<Scalar>::operator*(const DistVec<Scalar> &x)
 {
 
   int iSub;
 
-  Scalar res = 0;
+  Scalar res = 0.0;
 
 #ifndef MPI_OMP_REDUCTION
   Scalar *allres = reinterpret_cast<Scalar *>(alloca(sizeof(Scalar) * distInfo.numGlobSub));
@@ -401,7 +401,7 @@ DistVec<Scalar>::operator*(const DistVec<Scalar> &x)
       int locOffset = distInfo.subOffset[iSub];
       int locLen = distInfo.subLen[iSub];
 
-      Scalar locres = 0;
+      Scalar locres = 0.0;
 
       for (int i = 0; i < locLen; ++i)
         if (distInfo.masterFlag[locOffset+i])
@@ -415,7 +415,7 @@ DistVec<Scalar>::operator*(const DistVec<Scalar> &x)
 
     }
 
-  } 
+  }
   else {
 
 #ifdef MPI_OMP_REDUCTION
@@ -428,7 +428,7 @@ DistVec<Scalar>::operator*(const DistVec<Scalar> &x)
       int locOffset = distInfo.subOffset[iSub];
       int locLen = distInfo.subLen[iSub];
 
-      Scalar locres = 0;
+      Scalar locres = 0.0;
 
       for (int i = 0; i < locLen; ++i)
         locres += this->v[locOffset+i] * x.v[locOffset+i];
@@ -438,7 +438,7 @@ DistVec<Scalar>::operator*(const DistVec<Scalar> &x)
 #else
       allres[distInfo.locSubToGlobSub[iSub]] = locres;
 #endif
-      
+
     }
 
   }
@@ -473,7 +473,7 @@ DistVec<Scalar>::operator=(const Expr<T, Scalar> &expr)
     int locOffset = distInfo.subOffsetReg[iSub];
     int locLen = distInfo.subLenReg[iSub];
 
-    for (int i = 0; i < locLen; ++i) 
+    for (int i = 0; i < locLen; ++i)
       this->v[locOffset+i] = x[locOffset+i];
 
   }
@@ -498,7 +498,7 @@ DistVec<Scalar>::operator+=(const Expr<T, Scalar> &expr)
     int locOffset = distInfo.subOffsetReg[iSub];
     int locLen = distInfo.subLenReg[iSub];
 
-    for (int i = 0; i < locLen; ++i) 
+    for (int i = 0; i < locLen; ++i)
       this->v[locOffset+i] += x[locOffset+i];
 
   }
@@ -524,7 +524,7 @@ DistVec<Scalar>::operator-=(const Expr<T, Scalar> &expr)
     int locOffset = distInfo.subOffsetReg[iSub];
     int locLen = distInfo.subLenReg[iSub];
 
-    for (int i = 0; i < locLen; ++i) 
+    for (int i = 0; i < locLen; ++i)
       this->v[locOffset+i] -= x[locOffset+i];
 
   }
@@ -534,11 +534,11 @@ DistVec<Scalar>::operator-=(const Expr<T, Scalar> &expr)
 }
 
 //------------------------------------------------------------------------------
-    
+
 template<class Scalar>
 template<class T>
 inline
-Scalar 
+Scalar
 DistVec<Scalar>::operator*(const Expr<T, Scalar> &expr)
 {
 
@@ -580,7 +580,7 @@ DistVec<Scalar>::operator*(const Expr<T, Scalar> &expr)
 
     }
 
-  } 
+  }
   else {
 
 #ifdef MPI_OMP_REDUCTION
@@ -603,7 +603,7 @@ DistVec<Scalar>::operator*(const Expr<T, Scalar> &expr)
 #else
       allres[distInfo.locSubToGlobSub[iSub]] = locres;
 #endif
-      
+
     }
 
   }
@@ -622,13 +622,13 @@ DistVec<Scalar>::operator*(const Expr<T, Scalar> &expr)
 }
 
 //------------------------------------------------------------------------------
-    
+
 template<class Scalar>
 inline
-Scalar 
+Scalar
 DistVec<Scalar>::sum() const
 {
-  
+
   int iSub;
 
   Scalar res = 0;
@@ -665,7 +665,7 @@ DistVec<Scalar>::sum() const
 
     }
 
-  } 
+  }
   else {
 
 #ifdef MPI_OMP_REDUCTION
@@ -707,13 +707,13 @@ DistVec<Scalar>::sum() const
 }
 
 //------------------------------------------------------------------------------
-    
+
 template<class Scalar>
 inline
-Scalar 
+Scalar
 DistVec<Scalar>::min() const
 {
-  
+
   int iSub;
 
   Scalar *allmin = reinterpret_cast<Scalar *>(alloca(sizeof(Scalar) * distInfo.numLocSub));
@@ -733,13 +733,13 @@ DistVec<Scalar>::min() const
 }
 
 //------------------------------------------------------------------------------
-    
+
 template<class Scalar>
 inline
-Scalar 
+Scalar
 DistVec<Scalar>::max() const
 {
-  
+
   int iSub;
 
   Scalar *allmax = reinterpret_cast<Scalar *>(alloca(sizeof(Scalar) * distInfo.numLocSub));
@@ -763,7 +763,7 @@ DistVec<Scalar>::max() const
 template<class Scalar>
 inline
 void
-DistVec<Scalar>::zeroNonMaster() 
+DistVec<Scalar>::zeroNonMaster()
 {
 
   int iSub;
@@ -829,7 +829,7 @@ public:
   Scalar operator*(const DistSVec<Scalar,dim> &);
 
   void min(Scalar vmin[dim]) const;
-  
+
   void max(Scalar vmax[dim]) const;
 
   template<class T>
@@ -861,7 +861,7 @@ public:
   void createSubVec();
 
   void set(const Scalar *);
-  
+
   void killSlave();
 
   void average();
@@ -890,7 +890,7 @@ public:
 //------------------------------------------------------------------------------
 
 template<class Scalar, int dim>
-DistSVec<Scalar,dim>::DistSVec(const DistInfo &dI) : 
+DistSVec<Scalar,dim>::DistSVec(const DistInfo &dI) :
   SVec<Scalar,dim>(dI.totLen), distInfo(dI), subVec(0)
 {
 
@@ -950,8 +950,8 @@ DistSVec<Scalar,dim>::DistSVec(const DistInfo &dI, Scalar (*vv)[dim]) :
 //------------------------------------------------------------------------------
 
 template<class Scalar, int dim>
-DistSVec<Scalar,dim>::~DistSVec() 
-{ 
+DistSVec<Scalar,dim>::~DistSVec()
+{
 
   if (subVec) {
     //#pragma omp parallel for BUG alloc
@@ -965,7 +965,7 @@ DistSVec<Scalar,dim>::~DistSVec()
 
 template<class Scalar, int dim>
 inline
-void 
+void
 DistSVec<Scalar,dim>::createSubVec()
 {
 
@@ -991,10 +991,10 @@ DistSVec<Scalar,dim>::set(const Scalar *y)
     int locOffset = distInfo.subOffsetReg[iSub];
     int locLen = distInfo.subLenReg[iSub];
 
-    for (int i = 0; i < locLen; ++i) 
+    for (int i = 0; i < locLen; ++i)
       for (int j = 0; j < dim; ++j)
 	this->v[locOffset+i][j] = y[j];
-    
+
   }
 
 }
@@ -1081,7 +1081,7 @@ DistSVec<Scalar,dim> *
 DistSVec<Scalar,dim>::alias() const
 {
 
-  return new DistSVec<Scalar,dim>(distInfo, this->v); 
+  return new DistSVec<Scalar,dim>(distInfo, this->v);
 
 }
 
@@ -1303,7 +1303,7 @@ DistSVec<Scalar,dim>::operator=(const DistVec<Scalar> &y)
     int locOffset = distInfo.subOffsetReg[iSub];
     int locLen = distInfo.subLenReg[iSub];
 
-    for (int i = 0; i < locLen; ++i) 
+    for (int i = 0; i < locLen; ++i)
       for (int j = 0; j < dim; ++j)
 	this->v[locOffset+i][j] = yy[locOffset+i];
 
@@ -1415,10 +1415,10 @@ DistSVec<Scalar,dim>::operator-=(const DistSVec<Scalar,dim> &y)
 }
 
 //------------------------------------------------------------------------------
-    
+
 template<class Scalar, int dim>
 inline
-Scalar 
+Scalar
 DistSVec<Scalar,dim>::operator*(const DistSVec<Scalar,dim> &x)
 {
 
@@ -1459,7 +1459,7 @@ DistSVec<Scalar,dim>::operator*(const DistSVec<Scalar,dim> &x)
 
     }
 
-  } 
+  }
 
   else {
 
@@ -1478,7 +1478,7 @@ DistSVec<Scalar,dim>::operator*(const DistSVec<Scalar,dim> &x)
       for (int i = 0; i < locLen; ++i)
         for (int j = 0; j < dim; ++j)
           locres += DotTerm(this->v[locOffset+i][j], x.v[locOffset+i][j]);
-      
+
 #ifdef MPI_OMP_REDUCTION
       res += locres;
 #else
@@ -1679,11 +1679,11 @@ DistSVec<Scalar,dim>::operator-=(const Expr<T, Scalar> &expr)
 }
 
 //------------------------------------------------------------------------------
-    
+
 template<class Scalar, int dim>
 template<class T>
 inline
-Scalar 
+Scalar
 DistSVec<Scalar,dim>::operator*(const Expr<T, Scalar> &expr)
 {
 
@@ -1727,7 +1727,7 @@ DistSVec<Scalar,dim>::operator*(const Expr<T, Scalar> &expr)
 
     }
 
-  } 
+  }
   else {
 
 #ifdef MPI_OMP_REDUCTION
@@ -1745,7 +1745,7 @@ DistSVec<Scalar,dim>::operator*(const Expr<T, Scalar> &expr)
       for (int i = 0; i < locLen; ++i)
 	for (int j = 0; j < dim; ++j)
 	  locres += vv[(locOffset+i)*dim + j] * x[(locOffset+i)*dim + j];
-      
+
 #ifdef MPI_OMP_REDUCTION
       res += locres;
 #else
@@ -1773,7 +1773,7 @@ DistSVec<Scalar,dim>::operator*(const Expr<T, Scalar> &expr)
 
 template<class Scalar, int dim>
 inline
-int 
+int
 DistSVec<Scalar,dim>::nonOverlapSize() const
 {
 
@@ -1790,7 +1790,7 @@ DistSVec<Scalar,dim>::nonOverlapSize() const
     }
     distInfo.com->globalSum(1, &tsize);
 
-  } 
+  }
   else
     tsize = distInfo.totLen;
 
@@ -1810,13 +1810,13 @@ DistSVec<Scalar,dim>::killSlave()
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < distInfo.numLocSub; ++iSub) {
- 
+
     int locOffset = distInfo.subOffset[iSub];
-    
+
     for (int i=0; i<distInfo.subLen[iSub]; ++i)
       if (!distInfo.masterFlag[locOffset+i])
 	for (int j=0; j<dim; ++j) this->v[locOffset+i][j] = 0;
-      
+
   }
 
 }
@@ -1833,9 +1833,9 @@ DistSVec<Scalar,dim>::average()
   for (int iSub = 0; iSub < distInfo.numLocSub; ++iSub) {
 
     int locOffset = distInfo.subOffset[iSub];
-   
+
     for (int i=0; i<distInfo.subLen[iSub]; ++i) {
-       for (int j=0; j<dim; ++j) 
+       for (int j=0; j<dim; ++j)
           this->v[locOffset+i][j] *= distInfo.invNdWeight[locOffset+i];
     }
    }
@@ -1853,17 +1853,17 @@ DistSVec<Scalar,dim>::split(DistSVec<Scalar,dim1> &y, DistSVec<Scalar,dim2> &z)
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < distInfo.numLocSub; ++iSub) {
- 
+
     int locOffset = distInfo.subOffset[iSub];
-    
+
     for (int i=0; i<distInfo.subLen[iSub]; ++i) {
       int j;
-      for (j=0; j<dim1; ++j) 
+      for (j=0; j<dim1; ++j)
 	y.v[locOffset+i][j] = this->v[locOffset+i][j];
-      for (j=0; j<dim2; ++j) 
+      for (j=0; j<dim2; ++j)
 	z.v[locOffset+i][j] = this->v[locOffset+i][dim1 + j];
     }
-      
+
   }
 
 }
@@ -1879,17 +1879,17 @@ DistSVec<Scalar,dim>::merge(DistSVec<Scalar,dim1> &y, DistSVec<Scalar,dim2> &z)
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < distInfo.numLocSub; ++iSub) {
- 
+
     int locOffset = distInfo.subOffset[iSub];
-    
+
     for (int i=0; i<distInfo.subLen[iSub]; ++i) {
       int j;
-      for (j=0; j<dim1; ++j) 
+      for (j=0; j<dim1; ++j)
 	this->v[locOffset+i][j] = y.v[locOffset+i][j];
-      for (j=0; j<dim2; ++j) 
+      for (j=0; j<dim2; ++j)
 	this->v[locOffset+i][dim1 + j] = z.v[locOffset+i][j];
     }
-      
+
   }
 
 }
@@ -1953,12 +1953,12 @@ DistSVec<Scalar,dim>::pad(DistSVec<Scalar,dim1> &y)
 }
 
 //------------------------------------------------------------------------------
-    
+
 template<class Scalar, int dim>
 inline
 void DistSVec<Scalar,dim>::sum(Scalar sumres[dim]) const
 {
-  
+
   int iSub, idim;
 
   Scalar sum = 0;
@@ -1999,7 +1999,7 @@ void DistSVec<Scalar,dim>::sum(Scalar sumres[dim]) const
 
       }
 
-    } 
+    }
     else {
 
 #ifdef MPI_OMP_REDUCTION

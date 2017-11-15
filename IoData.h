@@ -37,7 +37,7 @@ struct FluidRemapData {
 
   FluidRemapData();
   ~FluidRemapData() {}
-  
+
   int oldID,newID;
 
   void setup(const char *, ClassAssigner * = 0);
@@ -58,7 +58,7 @@ struct OneDimensionalInputData {
 
   void setup(const char *, ClassAssigner * = 0);
 };
-  
+
 
 struct InputData {
 
@@ -130,7 +130,7 @@ struct InputData {
   //const char *stateVecFile;//CBM
 
   const char* convergence_file;
-  
+
   const char* exactInterfaceLocation;
 
   //
@@ -159,14 +159,14 @@ struct InputData {
 struct Probes {
 
   const static int MAXNODES = 3176;
-  struct Node { 
+  struct Node {
     Node() { id = -1; locationX = locationY = locationZ = -1.0e20; subId = localNodeId = -1;
              isLocationBased = false; }
     int id;
     int subId;
     int localNodeId;
     double locationX,locationY,locationZ;
-    bool isLocationBased;  
+    bool isLocationBased;
     void setup(const char *, ClassAssigner * = 0);
   };
 
@@ -179,7 +179,7 @@ struct Probes {
   const char *temperature;
   const char *velocity;
   const char *displacement;
-  
+
   // UH >> for Aeroacoustic
   const char *farfieldpattern;
 
@@ -192,14 +192,14 @@ struct Probes {
 struct LinePlot {
 
   LinePlot();
-  ~LinePlot() {} 
+  ~LinePlot() {}
 
   Assigner *getAssigner();
   double x0,y0,z0;
   double x1,y1,z1;
-  
+
   int numPoints;
-  
+
   const char *density;
   const char *pressure;
   const char *temperature;
@@ -290,6 +290,7 @@ struct TransientData {
   const char *dSpatialres;
   const char *dSpatialresnorm;
   const char *dSolutions;
+  const char *populatedState;
   const char *dDensity;
   const char *dMach;
   const char *dPressure;
@@ -303,6 +304,9 @@ struct TransientData {
   const char *dDisplacement;
   const char *dForces;
   const char *dLiftDrag;
+  const char *dLiftx;
+  const char *dLifty;
+  const char *dLiftz;
 
   const char *tempnormalderivative;
   const char *surfaceheatflux;
@@ -319,7 +323,10 @@ struct TransientData {
   double x0, y0, z0;
   double length;
   double surface;
-  double frequency_dt; //set to -1.0 by default. Used iff it is activated (>0.0) by user. 
+  double frequency_dt; //set to -1.0 by default. Used iff it is activated (>0.0) by user.
+
+  //output forces with high precision
+  enum ExactForceOutput {OFF_EXACTFORCEOUTPUT = 0, ON_EXACTFORCEOUTPUT = 1} exactforceoutput;
 
   Probes probes;
 
@@ -350,13 +357,13 @@ struct RestartData {
   const char* filepackage;
 
   int frequency;
-  double frequency_dt; //set to -1.0 by default. Used iff it is activated (>0.0) by user. 
+  double frequency_dt; //set to -1.0 by default. Used iff it is activated (>0.0) by user.
 
   /// UH (06/2012)
   ///
   /// The following member is used for computing the Kirchhoff integral.
   /// When active, this variable contains the prefix for saving the data.
-  /// 
+  ///
   const char *strKPtraces;
 
   RestartData();
@@ -455,20 +462,50 @@ struct ProblemData {
              ROLL = 5, RBM = 6, LINEARIZED = 7, NLROMOFFLINE = 8, NLROMONLINE = 9, SIZE = 10};
   bool type[SIZE];
 
-  enum AllType {_STEADY_ = 0, _UNSTEADY_ = 1, _ACC_UNSTEADY_ = 2, _STEADY_AEROELASTIC_ = 3,
-                _UNSTEADY_AEROELASTIC_ = 4, _ACC_UNSTEADY_AEROELASTIC_ = 5,
-                _STEADY_THERMO_ = 6, _UNSTEADY_THERMO_ = 7, _STEADY_AEROTHERMOELASTIC_ = 8,
-                _UNSTEADY_AEROTHERMOELASTIC_ = 9, _FORCED_ = 10, _ACC_FORCED_ = 11,
-                _ROLL_ = 12, _RBM_ = 13, _UNSTEADY_LINEARIZED_AEROELASTIC_ = 14,
-                _UNSTEADY_LINEARIZED_ = 15, _NONLINEAR_ROM_OFFLINE_ = 16,
-                _ROM_AEROELASTIC_ = 17, _ROM_ = 18, _FORCED_LINEARIZED_ = 19,
-                _INTERPOLATION_ = 20, _NONLINEAR_EIGEN_ERROR_INDICATOR_ = 21,
-                _SPARSEGRIDGEN_ = 22, _ONE_DIMENSIONAL_ = 23, _UNSTEADY_NONLINEAR_ROM_ = 24, _NONLINEAR_ROM_PREPROCESSING_ = 25,
-                _SURFACE_MESH_CONSTRUCTION_ = 26, _SAMPLE_MESH_SHAPE_CHANGE_ = 27, _UNSTEADY_NONLINEAR_ROM_POST_ = 28, _POD_CONSTRUCTION_ = 29, 
-                _ROB_INNER_PRODUCT_ = 30, _AERO_ACOUSTIC_ = 31, _SHAPE_OPTIMIZATION_ = 32, _AEROELASTIC_SHAPE_OPTIMIZATION_ = 33,
-                _AEROELASTIC_ANALYSIS_ = 34, _GAM_CONSTRUCTION_ = 35, _ACC_UNSTEADY_NONLINEAR_ROM_ = 36,
-                _STEADY_NONLINEAR_ROM_ = 37, _FORCED_NONLINEAR_ROM_ = 38, _ROM_SHAPE_OPTIMIZATION_ = 39, _STEADY_NONLINEAR_ROM_POST_ = 40,
-                _EMBEDDED_ALS_ROM_ = 41 /* Lei Lei, 02/13/2016 */,_EMBEDDED_ALS_ROM_ONLINE_ = 42 /* Lei Lei, 05/15/2016 */ } alltype;
+  enum AllType {_STEADY_                   = 0,
+              _UNSTEADY_                   = 1,
+              _ACC_UNSTEADY_               = 2,
+              _STEADY_AEROELASTIC_         = 3,
+              _UNSTEADY_AEROELASTIC_       = 4,
+              _ACC_UNSTEADY_AEROELASTIC_   = 5,
+              _STEADY_THERMO_              = 6,
+              _UNSTEADY_THERMO_            = 7,
+              _STEADY_AEROTHERMOELASTIC_   = 8,
+              _UNSTEADY_AEROTHERMOELASTIC_ = 9,
+              _FORCED_                     =10,
+              _ACC_FORCED_                 =11,
+              _ROLL_                       =12,
+              _RBM_                        =13,
+              _UNSTEADY_LINEARIZED_AEROELASTIC_ = 14,
+              _UNSTEADY_LINEARIZED_        =15,
+              _NONLINEAR_ROM_OFFLINE_      =16,
+              _ROM_AEROELASTIC_            =17,
+              _ROM_                        =18,
+              _FORCED_LINEARIZED_          =19,
+              _INTERPOLATION_              =20,
+              _NONLINEAR_EIGEN_ERROR_INDICATOR_ = 21,
+              _SPARSEGRIDGEN_              =22,
+              _ONE_DIMENSIONAL_            =23,
+              _UNSTEADY_NONLINEAR_ROM_     =24,
+              _NONLINEAR_ROM_PREPROCESSING_ = 25,
+              _SURFACE_MESH_CONSTRUCTION_  =26,
+              _SAMPLE_MESH_SHAPE_CHANGE_   =27,
+              _UNSTEADY_NONLINEAR_ROM_POST_ = 28,
+              _POD_CONSTRUCTION_           =29,
+              _ROB_INNER_PRODUCT_          =30,
+              _AERO_ACOUSTIC_              =31,
+              _SHAPE_OPTIMIZATION_         =32,
+              _AEROELASTIC_SHAPE_OPTIMIZATION_ =  33,
+              _AEROELASTIC_ANALYSIS_       =34,
+              _GAM_CONSTRUCTION_           =35,
+              _ACC_UNSTEADY_NONLINEAR_ROM_ =36,
+              _STEADY_NONLINEAR_ROM_       =37,
+              _FORCED_NONLINEAR_ROM_       =38,
+              _ROM_SHAPE_OPTIMIZATION_     =39,
+              _STEADY_NONLINEAR_ROM_POST_  =40,
+              _EMBEDDED_ALS_ROM_           =41,
+              _EMBEDDED_ALS_ROM_ONLINE_    =42,
+              _SENSITIVITY_ANALYSIS_       =43} alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
@@ -602,7 +639,7 @@ struct BoundaryData  {
   enum Type {DIRECTSTATE = 1, MASSFLOW = 2, POROUSWALL = 3, SYMMETRYPLANE = 4,ACTUATORDISK = 5,MASSINFLOW = 6,WALL = 7} type;
 
    enum vars {DENSITY = 0, VX = 1, VY = 2, VZ = 3, PRESSURE = 4, TEMPERATURE = 5, TOTALPRESSURE = 6, TOTALTEMPERATURE = 7, MDOT = 8, NUTILDE = 9, KENERGY = 10, EPSILON = 11, SIZE = 12};
-  bool inVar[SIZE], outVar[SIZE]; 
+  bool inVar[SIZE], outVar[SIZE];
   double density;
   double velocityX, velocityY, velocityZ;
   double pressure;
@@ -822,7 +859,13 @@ struct SAModelData {
   double cv2;
   double sigma;
   double vkcst;
-  enum Form {ORIGINAL = 0, FV3 = 1} form;
+
+  double rlim;
+  double c2;
+  double c3;
+  double cn1;
+
+  enum Form {ORIGINAL = 0, FV3 = 1, NEGATIVE = 2} form;
 
   SAModelData();
   ~SAModelData() {}
@@ -841,10 +884,17 @@ struct DESModelData {
   double cw3;
   double cv1;
   double cv2;
-  double cdes;
   double sigma;
   double vkcst;
-  enum Form {ORIGINAL = 0, FV3 = 1} form;
+
+  double cdes;
+
+  double rlim;
+  double c2;
+  double c3;
+  double cn1;
+
+  enum Form {ORIGINAL = 0, FV3 = 1, NEGATIVE = 2} form;
 
   DESModelData();
   ~DESModelData() {}
@@ -879,6 +929,9 @@ struct WallDistanceMethodData {
   int maxIts;
   double eps;
   int iterativelvl;
+
+  enum ReinitializationFrequencyAdaptation {OFF = 0, ON = 1} frequencyadaptation;
+  double distanceeps;
 
   WallDistanceMethodData();
   ~WallDistanceMethodData() {}
@@ -1082,7 +1135,7 @@ struct ProgrammedBurnData {
   //double stopWhenShockReachesPercentDistance;
   int ignited;
   int limitPeak;
-  
+
   ProgrammedBurnData();
   ~ProgrammedBurnData();
 
@@ -1228,7 +1281,7 @@ struct SparseGridData {
 
 struct MultiFluidData {
   enum Method {NONE = 0, GHOSTFLUID_FOR_POOR = 1, GHOSTFLUID_WITH_RIEMANN} method;
-  enum InterfaceTracking {LINEAR = 0, GRADIENT = 1, HERMITE = 2}; 
+  enum InterfaceTracking {LINEAR = 0, GRADIENT = 1, HERMITE = 2};
   enum RiemannComputation {FE = 0, RK2 = 1, TABULATION2 = 2, TABULATION5 = 3} riemannComputation;
   int bandlevel;
   int frequency;
@@ -1238,7 +1291,7 @@ struct MultiFluidData {
   enum TypePhaseChange {ASIS = 0, RIEMANN_SOLUTION = 1, EXTRAPOLATION = 2} typePhaseChange;
   enum CopyCloseNodes {FALSE = 0, TRUE = 1} copyCloseNodes;
   enum InterfaceType {FSF = 0, FF = 1, FSFandFF = 2} interfaceType;
-  
+
   enum InterfaceTreatment {FIRSTORDER=0, SECONDORDER=1} interfaceTreatment;
   enum InterfaceExtrapolation {EXTRAPOLATIONFIRSTORDER=0, EXTRAPOLATIONSECONDORDER=1, AUTO=2} interfaceExtrapolation;
   enum InterfaceLimiter {LIMITERNONE = 0, LIMITERALEX1 = 1} interfaceLimiter;
@@ -1325,7 +1378,7 @@ struct SchemeData {
   double xiu;
   double xic;
   double eps;
-  
+
   double xirho;
   double xip;
   double vel_fac;
@@ -1337,7 +1390,7 @@ struct SchemeData {
     Assigner *getAssigner();
   };
 
-  // We now allow different flux functions to be used for different materials.  
+  // We now allow different flux functions to be used for different materials.
   // The behavior is that if the flux is specified for a fluid id in this map,
   // then it is used.  Otherwise, the default (schemedata.flux) is used for
   // that material.
@@ -1391,7 +1444,7 @@ struct SFixData {
 
   int failsafeN;
   enum {OFF=0, ON=1, ALWAYSON=2} failsafe;
-  
+
   SFixData();
   ~SFixData() {}
 
@@ -1409,7 +1462,7 @@ struct BFixData {
   double x1;
   double y1;
   double z1;
-  
+
   int failsafeN;
   enum {OFF=0, ON=1, ALWAYSON=2} failsafe;
 
@@ -1427,7 +1480,7 @@ struct DHFixData {
   double angle;
   int numLayers;
   double maxDist;
-  
+
   DHFixData();
   ~DHFixData() {}
 
@@ -1541,7 +1594,7 @@ struct PcData {
 
   enum Type {IDENTITY = 0, JACOBI = 1, AS = 2, RAS = 3, ASH = 4, AAS = 5, MG = 6} type;
   enum Renumbering {NATURAL = 0, RCM = 1} renumbering;
-  
+
   enum MGSmoother { MGJACOBI = 0, MGLINEJACOBI = 1, MGRAS = 2 } mg_smoother;
 
   enum MGType { MGALGEBRAIC = 0, MGGEOMETRIC = 1} mg_type;
@@ -1573,7 +1626,7 @@ struct MultiGridData {
   enum RestrictMethod { VOLUME_WEIGHTED = 0, AVERAGE = 1 } restrictMethod;
 
   enum CoarseningRatio { TWOTOONE = 0, FOURTOONE = 1} coarseningRatio;
- 
+
   int num_multigrid_smooth1,num_multigrid_smooth2;
   int num_multigrid_levels;
 
@@ -1600,7 +1653,7 @@ struct MultiGridData {
   double turbRelaxCutoff;
 
   double densityMin,densityMax;
- 
+
   MultiGridData();
   ~MultiGridData() {}
 
@@ -1624,7 +1677,7 @@ struct KspData {
   double absoluteEps;
 
   const char *output;
-  
+
   PcData pc;
 
   KspData();
@@ -1697,7 +1750,7 @@ struct ImplicitData {
   enum Startup {REGULAR = 0, MODIFIED = 1} startup;
   enum TurbulenceModelCoupling {WEAK = 0, STRONG = 1} tmcoupling;
   enum Mvp {FD = 0, H1 = 1, H2 = 2, H1FD = 3} mvp;
-  enum FiniteDifferenceOrder {FIRST_ORDER = 1, SECOND_ORDER = 2} fdOrder; 
+  enum FiniteDifferenceOrder {FIRST_ORDER = 1, SECOND_ORDER = 2} fdOrder;
   enum FVMERS3PBDFSchme { BDF_SCHEME1 = 1, BDF_SCHEME2 = 0 } fvmers_3pbdf;
   NewtonData<KspFluidData> newton;
   /// UH (09/10)
@@ -1832,7 +1885,8 @@ struct SensitivityAnalysis {
   enum Method {DIRECT = 0, ADJOINT = 1} method;
   enum SensitivityComputation {ANALYTICAL = 0, SEMIANALYTICAL = 1,  FINITEDIFFERENCE = 2} scFlag;
   enum LsSolver {QR=0, NORMAL_EQUATIONS=1} lsSolver;
-  enum Mvp {FD = 0, H1 = 1, H2 = 2, H1FD = 3} mvp;
+  enum Mvp {H2 = 0, FD = 1} mvp;
+  enum MvpViscous {H1 = 0, FDViscous = 1} mvpViscous;
   enum Compatible3D {OFF_COMPATIBLE3D = 0, ON_COMPATIBLE3D = 1} comp3d;
   enum AngleRadians {OFF_ANGLERAD = 0, ON_ANGLERAD = 1} angleRad;
 
@@ -1841,11 +1895,14 @@ struct SensitivityAnalysis {
   enum SensitivityMach {OFF_SENSITIVITYMACH = 0, ON_SENSITIVITYMACH = 1} sensMach;
   enum SensitivityAOA {OFF_SENSITIVITYALPHA = 0, ON_SENSITIVITYALPHA = 1} sensAlpha;
   enum SensitivityYAW {OFF_SENSITIVITYBETA = 0, ON_SENSITIVITYBETA = 1} sensBeta;
+  enum SensitivityLiftx {OFF_SENSITIVITYLIFTX = 0, ON_SENSITIVITYLIFTX = 1} sensLiftx;
+  enum SensitivityLifty {OFF_SENSITIVITYLIFTY = 0, ON_SENSITIVITYLIFTY = 1} sensLifty;
+  enum SensitivityLiftz {OFF_SENSITIVITYLIFTZ = 0, ON_SENSITIVITYLIFTZ = 1} sensLiftz;
 
   // This flag repeats the linear solves until the number of iterations
   // is smaller than the maximum allowed.
   // Default Value = OFF_EXACTSOLUTION
-  enum ExactSolution {OFF_EXACTSOLUTION = 0, ON_EXACTSOLUTION = 1} excsol;
+  //enum ExactSolution {OFF_EXACTSOLUTION = 0, ON_EXACTSOLUTION = 1} excsol;
 
   enum HomotopyComputation {OFF_HOMOTOPY = 0, ON_HOMOTOPY = 1} homotopy;
   enum FixSolution {NONEFIX = 0, PREVIOUSVALEUSFIX = 1} fixsol;
@@ -1858,13 +1915,21 @@ struct SensitivityAnalysis {
   const char* meshderiv;
   const char* sensoutput;
 
+  // temporary parameters for debugging
+  const char* linsolverhs;
+
+  const char* dFdS_inviscid;
+  const char* dFdS_viscous;
+
+  enum SensitivityDebugOutput {OFF_DEBUGOUTPUT = 0, ON_DEBUGOUTPUT = 1} debugOutput;
+
   bool densFlag;
   bool pressFlag;
   bool apressFlag;
   bool fsiFlag;
 
-  int si;
-  int sf;
+  int sparseFlag;
+  int numShapeVariables;
   int avgsIt;
 
   double eps;
@@ -2201,16 +2266,16 @@ struct NonlinearRomFilesData {
   // A nonlinear ROM database can consist of a very large number of files.
   // To make life easier for the user, this code introduces a "prefix" feature,
   // which tells aero-f to read and write database files using a built-in
-  // naming convention. 
+  // naming convention.
 
-  // If a prefix and a name are both given, the name overrides the prefix. 
+  // If a prefix and a name are both given, the name overrides the prefix.
 
   enum DuplicateSnapshots {DUPLICATE_SNAPSHOTS_FALSE = 0, DUPLICATE_SNAPSHOTS_TRUE = 1} duplicateSnapshots;
 
   // State snapshot clusters
   const char *statePrefix;
   const char *stateSnapsName;
-  const char *mapName;  
+  const char *mapName;
   const char *indexName;
   const char *connName;
   const char *centersName;
@@ -2244,7 +2309,7 @@ struct NonlinearRomFilesData {
   // Sensitivities
   const char *sensitivityPrefix;
   const char *sensitivitySnapsName;
-  
+
   // Sensitivity basis
   const char *sensitivityBasisPrefix;
   const char *sensitivityBasisName;
@@ -2282,12 +2347,12 @@ struct NonlinearRomFilesData {
   const char *sampledMeshName;          //mesh;
   const char *sampledSolutionName;      //solution;
   const char *sampledMatchStateName;      //comparison state;
-  const char *sampledShapeDerivativeName;      
+  const char *sampledShapeDerivativeName;
   const char *sampledMultiSolutionsName; // multiple solutions. Can start from one, or an arbitrary linear combination.
   const char *sampledRefStateName;
   const char *sampledWallDistName;      //wallDistanceRed;
   const char *sampledDisplacementName;  // sampled initial displacement vector
-  const char *gappyJacActionName;             //jacMatrix in sampled coords; 
+  const char *gappyJacActionName;             //jacMatrix in sampled coords;
   const char *gappyResidualName;             //resMatrix in sampled coords;
   const char *approxMetricStateLowRankName; // approximated metric in reduced mesh coordinates
   const char *approxMetricNonlinearLowRankName;
@@ -2325,7 +2390,7 @@ struct NonlinearRomFileSystemData {
 
   enum AvgIncrementalStates {AVG_INCREMENTAL_STATES_FALSE = 0, AVG_INCREMENTAL_STATES_TRUE = 1} avgIncrementalStates;
   enum DistanceMetric {DIST_EUCLIDEAN = 0, DIST_ANGLE = 1 } distanceMetric;
- 
+
   int nClusters;
 
   NonlinearRomDirectoriesData directories;
@@ -2694,7 +2759,7 @@ struct GappyConstructionData {
   double energyJacAction;
 
   enum SelectSampledNodes {SELECT_SAMPLED_NODES_FALSE = 0, SELECT_SAMPLED_NODES_TRUE = 1} selectSampledNodes;
-  
+
   enum greedyData {UNSPECIFIED_GREEDY = -1, STATE_ROB_GREEDY = 0, RESIDUAL_ROB_GREEDY = 1,
                    JACOBIAN_ROB_GREEDY = 2, RESIDUAL_AND_JACOBIAN_ROBS_GREEDY = 3, SPECIFIED_SNAPS_GREEDY = 4} greedyData;
   enum GreedyLeastSquaresSolver {GREEDY_LS_PROBABILISTIC = 0, GREEDY_LS_SCALAPACK = 1, GREEDY_LS_LINPACK = 2} greedyLeastSquaresSolver;
@@ -2709,7 +2774,7 @@ struct GappyConstructionData {
   int randMatDimension;
   int nPowerIts;
 
-  int maxDimGreedyAlgorithm;	
+  int maxDimGreedyAlgorithm;
   int minDimGreedyAlgorithm;
   double dimGreedyAlgorithmFactor;
 
@@ -2890,7 +2955,7 @@ struct EmbeddedConstraint{
 };
 //------------------------------------------------------------------------------
 
-struct EmbeddedFramework { 
+struct EmbeddedFramework {
 
   enum IntersectorName {PHYSBAM = 0, FRG = 1} intersectorName;
   enum StructureNormal {ELEMENT_BASED = 0, NODE_BASED = 1} structNormal;
@@ -2898,8 +2963,8 @@ struct EmbeddedFramework {
   enum ForceAlgorithm {RECONSTRUCTED_SURFACE = 0, CONTROL_VOLUME_BOUNDARY = 1, EMBEDDED_SURFACE = 2} forceAlg;
   enum RiemannNormal {STRUCTURE = 0, FLUID = 1} riemannNormal;
   enum PhaseChangeAlgorithm {AVERAGE = 0, LEAST_SQUARES = 1, AUTO = 2} phaseChangeAlg;
-  enum InterfaceAlgorithm {MID_EDGE = 0, INTERSECTION = 1} interfaceAlg;
-  enum SecondOrderEulerFlux {INTERSECTPOINT = 0, CLOSESTPOINT = 1} secondOrderEulerFlux;
+  enum TypeHalfRiemannProblem {SURROGATE = 0, REAL = 1} typehalfriemannproblem;
+  enum LocationHalfRiemannProblem {INTERSECTPOINT = 0, CLOSESTPOINT = 1} locationhalfriemannproblem;
 
   enum InterfaceLimiter {LIMITERNONE = 0, LIMITERALEX1 = 1} interfaceLimiter;
   // Low mach preconditioning of the exact Riemann problem.
@@ -2917,21 +2982,21 @@ struct EmbeddedFramework {
   double interfaceThickness;
 
   MultiInitialConditionsData embedIC;
-  
+
   int nLevelset; //number of level-sets. Currently only consider bubbles.
 
   int qOrder; // order of quadrature rule used for EMBEDDED_SURFACE forceAlg
-  
+
   enum CrackingWithLevelSet {OFF = 0, ON = 1} crackingWithLevelset;
   enum Reconstruction {CONSTANT = 0, LINEAR = 1} reconstruct;
   enum ViscousInterfaceOrder {FIRST = 0, SECOND = 1} viscousinterfaceorder;
   enum ViscousBoundaryCondition {WEAK = 0, STRONG = 1} viscousboundarycondition;
-  enum SurrogateInterface{HYBRID = 0, EXTERNAL = 1} surrogateinterface;
+  enum DefinitionActiveInactive{NODE = 0, CONTROLVOLUME = 1} definitionactiveinactive;
 
-  int testCase; 
+  int testCase;
 
   EmbeddedConstraint Embedded_Constraint;
- 
+
   EmbeddedFramework();
   ~EmbeddedFramework() {}
 
@@ -2944,7 +3009,7 @@ struct OneDimensionalInfo {
   enum CoordinateType {CARTESIAN = 0, CYLINDRICAL = 1, SPHERICAL = 2} coordType;
   enum VolumeType { CONSTANT_VOLUME = 0, REAL_VOLUME = 1} volumeType;
   double maxDistance; //mesh goes from 0 to maxDistance
-  
+
   int numPoints; //mesh has numPoints elements
   int fluidId2;
 
@@ -2956,7 +3021,7 @@ struct OneDimensionalInfo {
   double density2, velocity2, pressure2,temperature2;
 
   ProgrammedBurnData programmedBurn;
-  
+
   enum Mode { NORMAL=0, CONVTEST1 = 1, CONVTEST2=2 } mode;
 
   enum ProblemMode { MULTIFLUID=0, FSI=1} problemMode;
@@ -2982,21 +3047,21 @@ struct ImplosionSetup {
 //------------------------------------------------------------------------------
 
 struct KirchhoffData {
-  
+
   /// UH (08/2012)
   ///
   /// This structure stores information for computing the Kirchhoff integral.
   /// Information is used with the problem type "Aeroacoustic".
   ///
-  
+
   enum Type {CYLINDRICAL = 0, SPHERICAL = 1} d_surfaceType;
   double d_energyFraction;
   int d_angularIncrement;
   int d_nyquist;
-    
+
   KirchhoffData();
   ~KirchhoffData() {}
-  
+
   void setup(Communicator *communicator, const char *name, ClassAssigner * = 0);
 
 };

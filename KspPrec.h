@@ -26,15 +26,24 @@ public:
   virtual void exportMemory(MemoryPool *mp) {}
 
   virtual void setup() = 0;
-  void setupTR() { std::cout << "setupTR not implemented for this Preconditioner" << endl; }
+  virtual void setupTR() { std::cout << "setupTR not implemented for this Preconditioner" << endl; exit(-1);}
 
   // all KspPrec derived class must have the following functions
-  virtual void apply(DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &)  { std::cout << "  ERROR: Using default apply function in KspPrec" << endl; }
-  virtual void apply(DistVec<Scalar2> &, DistVec<Scalar2> &)  { std::cout << "  ERROR: Using default apply function in KspPrec" << endl; }
-  virtual void applyT(DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &)  { std::cout << "  ERROR: Using default applyT function in KspPrec" << endl; }
+  virtual void apply(DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &)  { std::cout << "  ERROR: Using default apply function in KspPrec" << endl;  exit(-1);}
+  virtual void apply(DistVec<Scalar2> &, DistVec<Scalar2> &)  { std::cout << "  ERROR: Using default apply function in KspPrec" << endl;  exit(-1);}
+  virtual void applyT(DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &)  { std::cout << "  ERROR: Using default applyT function in KspPrec" << endl;  exit(-1);}
+  //virtual void applyTranspose(DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &)  { std::cout << "  ERROR: Using default applyTranspose function in KspPrec" << endl;  exit(-1);}
+  //virtual void applyTranspose(DistEmbeddedVec<Scalar2,dim>& x, DistEmbeddedVec<Scalar2,dim>& Px) { std::cout<< " ERROR: Using default applyTranspose function in KspPrec" << endl;  exit(-1);}
 
   void apply(DistEmbeddedVec<Scalar2,dim>& x, DistEmbeddedVec<Scalar2,dim>& Px) { 
     apply(x.real(), Px.real());
+    Px.ghost() = x.ghost();
+    if (x.hasHHBoundaryTerm())
+      Px.hh() = x.hh();
+  }
+
+  void applyT(DistEmbeddedVec<Scalar2,dim>& x, DistEmbeddedVec<Scalar2,dim>& Px) { 
+    applyT(x.real(), Px.real());
     Px.ghost() = x.ghost();
     if (x.hasHHBoundaryTerm())
       Px.hh() = x.hh();
@@ -57,6 +66,7 @@ public:
 
   void apply(DistSVec<Scalar2,dim> &x, DistSVec<Scalar2,dim> &Ix); 
   void applyT(DistSVec<Scalar2,dim> &x, DistSVec<Scalar2,dim> &Ix) { Ix = x; }
+  void applyTranspose(DistSVec<Scalar2,dim> &x, DistSVec<Scalar2,dim> &Ix) { Ix = x; }
 
 };
 
@@ -81,8 +91,9 @@ public:
   GenMat<Scalar,dim> &operator() (int i) { return *A[i]; }
   
   void setup();
-
+  void setupTR() {};
   void apply(DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &);
+  void applyT(DistSVec<Scalar2,dim> &x, DistSVec<Scalar2,dim> &y){apply(x,y);};// transpose is the same for diagonal matrices
   template<class MatScal>
   void getData(DistMat<MatScal,dim> &);
 
@@ -124,6 +135,7 @@ public:
 
   void apply(DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &);
   void applyT(DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &);
+  void applyTranspose(DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &);
 
   template<class MatScal>
   void getData(DistMat<MatScal,dim> &);

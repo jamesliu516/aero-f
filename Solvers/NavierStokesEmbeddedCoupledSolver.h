@@ -19,16 +19,23 @@ void startNavierStokesEmbeddedCoupledSolver(IoData &ioData, GeoSource &geoSource
   domain.createVecPat(dim, &ioData);
   domain.createRhsPat(dim, ioData);
 
+  //Combined calculations of Steady state and sensitivities
   if (ioData.problem.alltype == ProblemData::_SHAPE_OPTIMIZATION_) {
     EmbeddedFluidShapeOptimizationHandler<dim> fsoh(ioData, geoSource, &domain);
     TsSolver<EmbeddedFluidShapeOptimizationHandler<dim> > tsSolver(&fsoh);
     tsSolver.fsoSolve(ioData);
   }
+  //Sensitivity analysis on a provided steady state solution
+  else if (ioData.problem.alltype == ProblemData::_SENSITIVITY_ANALYSIS_) {
+    EmbeddedFluidShapeOptimizationHandler<dim> fsoh(ioData, geoSource, &domain);
+    TsSolver<EmbeddedFluidShapeOptimizationHandler<dim> > tsSolver(&fsoh);
+    tsSolver.fsaSolve(ioData);
+  }
 
   else if (ioData.problem.solutionMethod == ProblemData::TIMESTEPPING) {
-    
+
     if (ioData.ts.type == TsData::IMPLICIT) {
-      
+
       ImplicitEmbeddedCoupledTsDesc<dim> tsDesc(ioData, geoSource, &domain);
       TsSolver<ImplicitEmbeddedCoupledTsDesc<dim> > tsSolver(&tsDesc);
       tsSolver.solve(ioData);

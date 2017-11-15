@@ -2,7 +2,7 @@
 module load intel/13sp1up1 openmpi/1.7.4/intel13sp1up1
 export CMAKE_INCLUDE_PATH=$CMAKE_INCLUDE_PATH:/home/pavery/Codes/eigen:/home/pavery/Codes/boost_1_55_0
 export CMAKE_LIBRARY_PATH=$CMAKE_LIBRARY_PATH:/home/pavery/intel/13sp1up1/openmpi-1.7.4-1/ARPACK
-cmake \
+/home/pavery/bin/cmake \
 -DCMAKE_C_COMPILER:FILEPATH=/opt/intel/composer_xe_2013_sp1.1.106/bin/intel64/icc \
 -DCMAKE_CXX_COMPILER:FILEPATH=/opt/intel/composer_xe_2013_sp1.1.106/bin/intel64/icpc \
 -DCMAKE_Fortran_COMPILER:FILEPATH=/opt/intel/composer_xe_2013_sp1.1.106/bin/intel64/ifort \

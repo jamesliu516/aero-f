@@ -50,8 +50,8 @@ public:
 protected:
   DistExactRiemannSolver<dim> *riemann1;
 
-  PosVecType *X;
-  VolVecType *A;
+  PosVecType *X; //vector of positions
+  VolVecType *A; //vector of cell volumes
   PosVecType *Xs;
 
   bool* problemType;
@@ -120,6 +120,8 @@ protected:
 
 public:
 
+  Communicator* gComm(){return this->com;};
+
   TsDesc(IoData &, GeoSource &, Domain *);
   virtual ~TsDesc();
 
@@ -132,8 +134,8 @@ public:
   HeatTransferHandler* createHeatTransferHandler(IoData&, GeoSource&);
 
   SpaceOperator<dim>* getSpaceOperator() { return spaceOp; }
-  Communicator* getCommunicator() { return com; } 
- 
+  Communicator* getCommunicator() { return com; }
+
   virtual bool monitorConvergence(int, DistSVec<double,dim> &);
 
   double recomputeResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
@@ -153,7 +155,7 @@ public:
 //  virtual double computePositionSensitivityVector(bool *, int, double);
   virtual void setMeshSensitivitySolverPositionVector();
   void negotiate();
-  void sendForceSensitivity(DistSVec<double,3> *);
+  void sendForceSensitivity(DistSVec<double,3> *, bool applyScale = true);
   void interpolatePositionVector(double, double);
   void computeMeshMetrics(int it = -1);
   virtual void updateStateVectors(DistSVec<double,dim> &, int = 0);
@@ -209,12 +211,12 @@ public:
 
   void printNodalDebug(int globNodeId, int identifier, DistSVec<double,dim> *U, DistVec<int> *Id=0, DistVec<int> *Id0=0);
 
-  void computeDistanceToWall(IoData &ioData);
- 
+  void computeDistanceToWall(IoData &ioData, double t);
+
   TsParameters* getTsParams() {return data;}
   ErrorHandler* getErrorHandler() {return errorHandler;}
   void computeConvergenceInformation(IoData &ioData, const char* file, DistSVec<double,dim>&);
-  void receiveBoundaryPositionSensitivityVector(DistSVec<double,3> &);
+  void receiveBoundaryPositionSensitivityVector(DistSVec<double,3> &, bool applyScale = false);
 
   virtual void checkLocalRomStatus(DistSVec<double, dim> &, const int) {}
   virtual void writeBinaryVectorsToDiskRom(bool, int, int, DistSVec<double,dim> *, DistSVec<double,dim> *) {}  // state, residual

@@ -40,6 +40,7 @@ protected:
 
 public:
   int maxits;
+  int typePrec;
 
   KspSolver() {}
   KspSolver(KspData &, MatVecProdOp *, PrecOp *, IoOp *);
@@ -52,12 +53,15 @@ public:
   void disableOutput() { output = NULL; } 
 
   virtual int solve(VecType &, VecType &) = 0;
-  virtual int solveLS(VecType &, VecType &) { return 0; };
+  virtual int solveNew(VecType &, VecType &) = 0;
+  virtual int solveT(VecType &, VecType &) = 0;
+  virtual int solveLS(VecType &, VecType &) { std::cout<<"*** ERROR solveLS bas routine called"<<std::endl; exit(-1); return 0; };
 
   void printParam() { ioOp->fprintf(stderr, " solver params: %d maxits, %e eps\n", maxits, eps);  }
 
   void setKspBinaryOutput(KspBinaryOutput<VecType>*);
   KspBinaryOutput<VecType> *kspBinaryOutput;
+  void setTypePrec(int tp) { typePrec = tp; }
 
 };
 
@@ -75,7 +79,9 @@ public:
   ~RichardsonSolver() {}
 
   int solve(VecType &, VecType &);
+  int solveNew(VecType &, VecType &){return 0;};
   int solveLS(VecType &, VecType &);
+  int solveT(VecType &, VecType &) { return 0; }
 
 };
 
@@ -93,12 +99,15 @@ public:
   ~CgSolver() {}
 
   int solve(VecType &, VecType &);
+  int solveNew(VecType &, VecType &){return 0;};
   int solveLS(VecType &, VecType &);
+  int solveT(VecType &, VecType &) { return 0;}
+  int solveMRhs(VecType &, VecType &);
 
 };
 
 //------------------------------------------------------------------------------
-
+//IoOp refers to the communicator here
 template<class VecType, class MatVecProdOp, class PrecOp, class IoOp, class
 		ScalarT = double>
 class GmresSolver : public KspSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT> {
@@ -122,6 +131,7 @@ public:
   void disableConvergenceInfo();
 
   int solve(VecType &, VecType &);
+  int solveNew(VecType &, VecType &);
   int solveLS(VecType &, VecType &);
   int solveT(VecType &, VecType &);
   int solve(VecSet<VecType> &, VecSet<VecType> &);
@@ -161,6 +171,8 @@ public:
   ~GcrSolver() {}
                       
   int solve(VecType &, VecType &);
+  int solveNew(VecType &, VecType &){return 0;};
+  int solveT(VecType &, VecType &) { return 0; }
   int solveMRhs(VecType &, VecType &);
                                                         
 };

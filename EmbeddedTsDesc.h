@@ -48,7 +48,7 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   bool increasingPressure;
   bool recomputeIntersections;
   double unifPressure[2];
- 
+
   // ----------- time steps -----------------------------------------------------------
   double dtf;     //<! fluid time-step
   double dtfLeft; //<! time until next structure time-step is reached.
@@ -61,7 +61,7 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   // ----------- components for Fluid-Structure interface. -----------------------------
   DistLevelSetStructure *distLSS; //<! tool for FS tracking (not necessarily a  "levelset solver".)
-  DistVec<int> *countWstarij, *countWstarji;   //<! only used if ioData.embed.interfaceAlg==INTERSECTION
+  DistVec<int> *countWstarij, *countWstarji;   //<! only used if ioData.embed.typehalfriemannproblem==REAL
   DistSVec<double,dim> *Wstarij,*Wstarij_nm1;  //<! stores the FS Riemann solution (i->j) along edges
   DistSVec<double,dim> *Wstarji,*Wstarji_nm1;  //<! stores the FS Riemann solution (j->i) along edges
   DistSVec<double,dim> Vtemp;     //<! the primitive variables.
@@ -70,10 +70,10 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   DistSVec<double,dim> *Wextij;
 
-  ReinitializeDistanceToWall<1> *wall_computer;
+  ReinitializeDistanceToWall<1,dim> *wall_computer;
   // ------------------------------------------------------------------------------------
 
-  // Copies for fail safe ----- -----------------------------
+  // Copies for fail safe ----- ---------------------------------------------------------
   DistSVec<double,dim> *WstarijCopy,*Wstarij_nm1Copy;  //<! stores the FS Riemann solution (i->j) along edges
   DistSVec<double,dim> *WstarjiCopy,*Wstarji_nm1Copy;  //<! stores the FS Riemann solution (j->i) along edges
   DistVec<int> *nodeTagCopy; // = 1 for fluid #1; = -1 for fluid #2.
@@ -85,11 +85,11 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   DynamicNodalTransfer *dynNodalTransfer;
   MeshMotionHandler* emmh;
 
-  //buckling cylinder parameters
+  // buckling cylinder parameters
   // pressure is increased in the fluid at rate Prate from
   // initial pressure Pinit until it reaches the pressure
   // given by boundary conditions which happens at tmax.
-  enum ImplosionSetupType {LINEAR = 0, SMOOTHSTEP = 1, NONE = 2} implosionSetupType;  
+  enum ImplosionSetupType {LINEAR = 0, SMOOTHSTEP = 1, NONE = 2} implosionSetupType;
   double tmax;
   double Prate;
   double Pinit;
@@ -117,9 +117,9 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
                          // = 1. use solutions of Riemann problems.
   int phaseChangeAlg;	 // = 0. use averaged value, given phaseChangeChocie==0
   						 // = 1. use least-squares, given phaseChangeChoice==0
-  int interfaceAlg;		 // = 0. do not use information of intersection at surrogate interface
+  int typehalfriemannproblem;		 // = 0. do not use information of intersection at surrogate interface
   						 // = 1. use information of intersection at surrogate interface
-  double intersectAlpha; //	relevant only if interfaceAlg==1
+  double intersectAlpha; //	relevant only if typehalfriemannproblem==1
   const int numFluid;   //numFluid = 1 (for fluid-fullbody)
                             //     = 2 (for fluid-shell-fluid)
 
@@ -150,12 +150,21 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   void monitorInitialState(int, DistSVec<double,dim>& );
 
   void computeForceLoad(DistSVec<double,dim> *Wij, DistSVec<double,dim> *Wji);
-  /** computes the force load. Wij and Wji must be edge-based primitive state vectors. */ 
+  /** computes the force load. Wij and Wji must be edge-based primitive state vectors. */
 
   void computederivativeOfForceLoad(DistSVec<double,dim> *Wij, 
 				    DistSVec<double,dim> *Wji, 
 				    double dS[3], 
-				    DistSVec<double,dim> &dV);
+				    DistSVec<double,dim> &dV,
+            DistSVec<double,dim> &dUghost);
+  void computederivativeOperatorsOfForceLoad(dRdXoperators<dim> &dRdXop,
+            DistSVec<double,dim> *Wij, 
+            DistSVec<double,dim> *Wji, 
+            double dS[3]);
+  void computederivativeOfForceLoadSurfMotion(Vec3D *dFidS,
+            DistSVec<double,dim> *Wij, 
+            DistSVec<double,dim> *Wji, 
+            double dS[3]);
 
   virtual int solveNonLinearSystem(DistSVec<double,dim> &, int)=0;
 
@@ -163,9 +172,15 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
                                            Vec3D* Fi, Vec3D* Mi);
 
   void getderivativeOfForcesAndMoments(map<int,int> & surfOutMap, 
-				       DistSVec<double,dim> &V, DistSVec<double,dim> &dV, 
+				       DistSVec<double,dim> &V, DistSVec<double,dim> &dV, DistSVec<double,dim> &dUghost, 
 				       DistSVec<double,3> &X, double dS[3],
 				       Vec3D *dFi, Vec3D *dMi);
+  void getderivativeOperatorsOfForcesAndMoments(dRdXoperators<dim> &dRdXop, map<int,int> & surfOutMap, 
+             DistSVec<double,dim> &V, 
+             DistSVec<double,3> &X, double dS[3]);
+  void getderivativeOfForcesAndMomentsSurfMotion(Vec3D *dFidS, map<int,int> & surfOutMap, 
+             DistSVec<double,dim> &V, 
+             DistSVec<double,3> &X, double dS[3]);
 
   bool IncreasePressure(int it, double dt, double t, DistSVec<double,dim> &U);
   virtual bool willNotSolve(double dts, double t) {return (t+dts*2)<tmax;}
@@ -174,7 +189,7 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   void fixSolution(DistSVec<double,dim>& U,DistSVec<double,dim>& dU);
   double currentPressure(double t);
 
-  void computeDistanceToWall(IoData &ioData);
+  void computeDistanceToWall(IoData &ioData, double t);
 
   MeshMotionHandler *createEmbeddedALEMeshMotionHandler(IoData &, GeoSource &, DistLevelSetStructure *);
 
