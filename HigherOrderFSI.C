@@ -25,7 +25,7 @@ HigherOrderFSI::~HigherOrderFSI() {
     if(SIData_m)  delete[] SIData_m;
     if(FEMData_p) delete[] FEMData_p;
     if(FEMData_m) delete[] FEMData_m;
-    if(lastPhaseChangeState) delete lastPhaseChangeState;
+    if(lastPhaseChangeState) delete[] lastPhaseChangeState;
 }
 
 inline 
@@ -760,85 +760,6 @@ void HigherOrderFSI::extrapolateToWall_1(int l, int n, int Fid, VarFcn *varFun,
 
 	if(V_ext[0] <= 0  || V_ext[4] <= 0 || face_r < geomTol || face_t < geomTol || (1 - face_r - face_t) < geomTol)
 	{   //Negative pressure, negative density or the stencil has ghost nodes
-        for(int k=0; k<dim; ++k)
-        {
-            V_ext[k]     = V_n[k];
-            V_ext[k+dim] = V_n[k];
-        }
-	}
-
-}
-
-//------------------------------------------------------------------------------
-
-template <int dim>
-void HigherOrderFSI::extrapolateToWall_2(int l, int n, int Fid, VarFcn *varFun, 
-													  SVec<double,dim>& V, NodalGrad<dim>& dV, double* V_n, 
-													  SVec<double,3>& X, Vec3D &xWall, Vec3D &Xij,
-													  double* V_ext)
-{	
-
-	//	Extrapolate the solution from Xf to xWall using Vf and Vsi_tilde
-
-	for(int k=0; k<dim; ++k) 
-	{
-		V_ext[k]     = V_n[k];
-		V_ext[k+dim] = V_n[k];
-	}
-
-	if(!HOtreatment) return;
-
-	Vec3D Xf;
-
-	double Vf[dim];
-
-	int    idxTet  = SIData[l].tet;
-	int    idxFace = SIData[l].face;
-	double face_r  = SIData[l].r;
-	double face_t  = SIData[l].t;
-
-	if(idxTet < 0) 
-	{
-		for(int k=0; k<3; ++k) Xf[k] = X[n][k];
-
-		for(int k=0; k<dim; ++k) Vf[k] = V[n][k];
-	}
-	else
-	{
-		int n0_loc = (*elems)[idxTet].faceDef(idxFace, 0);
-		int n1_loc = (*elems)[idxTet].faceDef(idxFace, 1);
-		int n2_loc = (*elems)[idxTet].faceDef(idxFace, 2);
-
-		int n0 = (*elems)[idxTet].nodeNum(n0_loc);
-		int n1 = (*elems)[idxTet].nodeNum(n1_loc);
-		int n2 = (*elems)[idxTet].nodeNum(n2_loc);
-
-		for(int k=0; k<3; ++k)
-			Xf[k] = X[n2][k] + face_r*(X[n0][k] - X[n2][k])
-				              + face_t*(X[n1][k] - X[n2][k]);
-		
-		for(int k=0; k<dim; ++k)
-			Vf[k] = V[n2][k] + face_r*(V[n0][k] - V[n2][k])
-				              + face_t*(V[n1][k] - V[n2][k]);
-	}	
- 
-	Vec3D Xijf = Xij   - Xf;
-	Vec3D Xwf  = xWall - Xf;
-
-	double mod_ijf = sqrt(Xijf*Xijf);
-	double mod_wf  = sqrt(Xwf*Xwf);
-
-	for(int k=0; k<dim; ++k)
-	{
-		V_ext[k]     = Vf[k] + (V_n[k] - Vf[k])*(mod_wf/mod_ijf);
-		V_ext[k+dim] = V_ext[k];
-	}	
-
-	if(V_ext[0] <= 0 || V_ext[4] <= 0) //failsafe
-	{
-//		fprintf(stderr, "E: negative density/pressure at Xn=[%f,%f,%f], Xf=[%f,%f,%f]\n", X[n][0],X[n][1],X[n][2], Xf[0],Xf[1],Xf[2]);
-//		fprintf(stderr, "rho/P_f = %f,%f, rho/P_n= %f,%f, rho/P_ext = %f,%f; xi_ijf = %f, xi_wf = %f, idxTet = %d\n", Vf[0],Vf[4], V_n[0],V_n[4], V_ext[0],V_ext[4],
-//				  mod_ijf, mod_wf, idxTet);
         for(int k=0; k<dim; ++k)
         {
             V_ext[k]     = V_n[k];
