@@ -101,12 +101,6 @@ class HigherOrderFSI {
 										 double* V_ext, bool externalSI);
 
 	template<int dim>
-		void extrapolateToWall_2(int l, int n, int Fid, VarFcn *varFun, 
-										 SVec<double,dim>& V, NodalGrad<dim>& dV, double* V_n, 
-										 SVec<double,3>& X, Vec3D &xWall, Vec3D &Xij,
-										 double* V_ext);
-
-	template<int dim>
 		void interpolateToSI(int l, int n, int Fid, VarFcn *varFun, 
 									SVec<double,dim>& V, double* Vstar, NodalGrad<dim>& dV,
 									SVec<double,3>& X, Vec3D &xWall, Vec3D &nWall, Vec3D &Xij,
