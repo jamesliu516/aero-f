@@ -25,7 +25,7 @@ HigherOrderFSI::~HigherOrderFSI() {
     if(SIData_m)  delete[] SIData_m;
     if(FEMData_p) delete[] FEMData_p;
     if(FEMData_m) delete[] FEMData_m;
-    if(lastPhaseChangeState) delete[] lastPhaseChangeState;
+    //if(lastPhaseChangeState) delete lastPhaseChangeState;
 }
 
 inline 
