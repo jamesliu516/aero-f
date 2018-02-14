@@ -76,23 +76,6 @@ GhostPoint<dim> & operator=(const GhostPoint<dim> &GP)
   }
 //=============================================================================
 
-GhostPoint<dim> & operator+=(const GhostPoint<dim> &GP) 
-{
-
-    if(ghostTag<0) ghostTag = GP.ghostTag;
-    else if(ghostTag != GP.ghostTag) 
-      {
-        fprintf(stderr,"The two ghost States refer to different Fluids\n");
-        fprintf(stderr,"ghostTag: %i, GP.ghostTag: %i",ghostTag,GP.ghostTag);
-        exit(-1);
-      }
-    Vg += GP.Vg;
-    Ws += GP.Ws;
-    ng += GP.ng;
-    return *this;
-  }
-//=============================================================================
-
 void addNeighbour(double *Vi, double *Wi, int tag) 
 {
 
