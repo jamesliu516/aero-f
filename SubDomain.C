@@ -7930,7 +7930,7 @@ void SubDomain::setupUVolumesInitialConditions_Step1(const int volid, double UU[
     double(*buffer)[dim] = reinterpret_cast<double(*)[dim]>(sInfo.data);
     for(int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode) {
       for(int j = 0; j < dim; ++j) {
-        buffer[iNode][j] = (flag[iNode]) ? U[(*sharedNodes)[iSub][iNode]][j] : -std::numeric_limits<double>::infinity();
+	buffer[iNode][j] = (flag[ sharedNodes[iSub][iNode] ]) ? U[ sharedNodes[iSub][iNode] ][j] : -std::numeric_limits<double>::infinity();
       }
     }
   }
