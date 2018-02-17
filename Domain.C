@@ -5500,7 +5500,7 @@ void Domain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orderOf
                                           DistSVec<double,dim> &V, DistVec<GhostPoint<dim>*> *ghostPoints,
                                           PostFcn *postFcn, DistNodalGrad<dim, double> *ngrad,
                                           VarFcn* vf, DistVec<int> *fid, bool externalSI) {//Compute force load: pressure load and shear force in the vector Fs
-
+  //externalSI = true;
   typedef double array3d[3];
   array3d **subFs = new array3d *[numLocSub];
   for (int i = 0; i < numLocSub; ++i) subFs[i] = new array3d[sizeFs];
@@ -5570,7 +5570,7 @@ void Domain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orderOf
                                                     (*distLSS)(iSub), pInfty, V(iSub),
                                                     gp, postFcn,
                                                     (*ngrad)(iSub), vf, fid ? &((*fid)(iSub)) : 0,
-                                                    interfaceFluidMeshSize);
+                                                    interfaceFluidMeshSize, externalSI);
 
     }
   delete [] interfaceFluidMeshSize;

@@ -2032,6 +2032,7 @@ void TsOutput<dim>::writeForcesToDisk(DistExactRiemannSolver<dim> &riemann,
                                       double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
                                       DistVec<int> *fluidId)
 {
+  std::cout << "WriteForcesToDisk with half riemann reconstruction pressure" <<std::endl;
 
   int nSurfs = postOp->getNumSurf();
 

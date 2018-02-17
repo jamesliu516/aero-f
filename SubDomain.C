@@ -10165,6 +10165,7 @@ void SubDomain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orde
 
 }
 
+
 //-----------------------------------------------------------------------------------------------
 /**********************************************************
  * compute SkinFriction and PressureCoefficient and save in Qnty
@@ -11174,7 +11175,9 @@ void SubDomain::computederivativeEmbSurfBasedForceLoadSurfMotion(IoData &iod, in
 
 
 
-
+/*
+ * computeForceLoad in the Original/Dante's FIVER framework, with postprocess, namely move the guassian point one layer out.
+ */
 
 
 template<int dim>
@@ -11185,7 +11188,10 @@ void SubDomain::computeEmbSurfBasedForceLoad_e(IoData &iod, int forceApp, int or
                                                SVec<double,dim> &V, Vec<GhostPoint<dim>*> *ghostPoints,
                                                PostFcn *postFcn, NodalGrad<dim, double> &ngrad,
                                                VarFcn* vf, Vec<int>* fid,
-                                               double* interfaceFluidMeshSize) {
+                                               double* interfaceFluidMeshSize, bool externalSI) {
+    // if  externalSI Dante's framework
+    // if !externalSI Original framework
+
 
     if (forceApp != 2) {
         fprintf(stderr, "ERROR: force method (%d) not recognized! Abort..\n", forceApp);
@@ -11243,7 +11249,7 @@ void SubDomain::computeEmbSurfBasedForceLoad_e(IoData &iod, int forceApp, int or
 
             flocal = 0.0; // force for this quadrature point
 
-            for (int side = -1; side < 2; side += 2) {
+            for (int side = -1; side < 2; side += 2) {//todo if there is only one side set  for(int size = 1; ....)
                 Xpp = Xp + side * dh * unit_nf; // target point
                 weightedNorm = side * normal; //weighted norm weighted by triangle area, compute information from weightedNorm side
                 forceDirection = -weightedNorm;
@@ -11278,10 +11284,12 @@ void SubDomain::computeEmbSurfBasedForceLoad_e(IoData &iod, int forceApp, int or
                 //compute pressure load
                 int activeNodes(0);
                 double pp = 0;
-                for (int i = 0; i < 4; i++) {
+                for (int i = 0; i < 4; i++) if (LSS.isActive(0, T[i]))  activeNodes++;
+                if (activeNodes == 0) continue;//do not compute force from this side at the trailing edge of airfoil, it  might have  issue
 
+                // Dante's and Original frame
+                for (int i = 0; i < 4; i++) {
                     if (LSS.isActive(0, T[i])) {
-                        activeNodes++;
                         for (int m = 0; m < 3; ++m) {
                             //vectorIJ[m] = Xp[m] - Xf[i][m];
                             vectorIJ[m] = Xpp[m] - Xf[i][m];
@@ -11302,10 +11310,19 @@ void SubDomain::computeEmbSurfBasedForceLoad_e(IoData &iod, int forceApp, int or
 
                     }
                 }
+                pp /= activeNodes;
 
 
-                if (activeNodes == 0) continue;//do not compute force from this side todo at the trailing edge of airfoil has issue
-                else pp /= activeNodes;
+//                {   //Original frame
+//
+//                    if(activeNodes == 4) pp = bary[0]*vf->getPressure(V[T[0]], fid?(*fid)[0]:0) +
+//                                              bary[1]*vf->getPressure(V[T[1]], fid?(*fid)[1]:0) +
+//                                              bary[2]*vf->getPressure(V[T[2]], fid?(*fid)[2]:0) +
+//                                              (1 - bary[0] - bary[1] - bary[2])*vf->getPressure(V[T[4]], fid?(*fid)[4]:0);
+//
+//                    std::cout  << "New's pp"  << pp << std::endl;
+//
+//                }
 
 
                 flocal += (pp - pInfty) * forceDirection; //force direction is  the other side
@@ -11314,22 +11331,29 @@ void SubDomain::computeEmbSurfBasedForceLoad_e(IoData &iod, int forceApp, int or
                 // ------------------- Viscous part  ------------------ //
                 if (ghostPoints) {
                     GhostPoint<dim> *gp;
-
+                    //compute the shear stress at Dante's first layer, namely the second layer in original framework
                     for (int i = 0; i < 4; ++i) {
                         Vtet_pp[i] = V[T[i]];
                         GhostPoint<dim> *gp = (*ghostPoints)[T[i]];
                         if (!LSS.isActive(0, T[i]) && gp) {
-                            //if Dante's method, compute the shear stress at its first layer, namely the second layer in original framework
-                            Vec3D xWall;
-                            LSS.xWallNode(T[i], xWall);
-                            Vec3D dir(X[T[i]][0] - xWall[0], X[T[i]][1] - xWall[1],
-                                      X[T[i]][2] - xWall[2]); //this is p direction
-                            int pOrNot;
-                            if (dir.norm() > geomTol)
-                                pOrNot = dir * weightedNorm > 0 ? 1 : -1;
-                            else // p direction is the normal direction
-                                pOrNot = side;
-                            Vtet_pp[i] = gp->getPrimitiveState(pOrNot);
+                            if(externalSI) {
+                                //if Dante's method, populate ghost node
+                                Vec3D xWall;
+                                LSS.xWallNode(T[i], xWall);
+                                Vec3D dir(X[T[i]][0] - xWall[0], X[T[i]][1] - xWall[1],
+                                          X[T[i]][2] - xWall[2]); //this is p direction
+                                int pOrNot;
+                                if (dir.norm() > geomTol)
+                                    pOrNot = dir * weightedNorm > 0 ? 1 : -1;
+                                else // p direction is the normal direction
+                                    pOrNot = side;
+                                Vtet_pp[i] = gp->getPrimitiveState(pOrNot);
+                            }
+                            else{
+                                //if Alex Main's method, populate ghost node, this should not happen generally, and all active node should be on the same side
+                                Vtet_pp[i] = gp->getPrimitiveState();
+
+                            }
 
 
                         }

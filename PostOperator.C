@@ -413,6 +413,7 @@ void PostOperator<dim>::computeForceAndMoment(
       mv[iSurf] = 0.0;
     }
     if (mX) {
+      //todo what is this
       SubVecSet<DistSVec<double,3>, SVec<double,3> > subMX(mX, iSub);
       subDomain[iSub]->computeForceAndMoment(surfOutMap, postFcn, (*bcData)(iSub), (*geoState)(iSub),
 					     X(iSub), (*V)(iSub), x0, fi, mi, fv, mv, hydro, &subMX, genCF);
