@@ -1827,7 +1827,7 @@ public:
 				    VarFcn *vf, Vec<int>* fid);
 
   template<int dim>
-  void computeEmbSurfBasedForceLoad_e(IoData &iod, int, int, SVec<double,3>&, double (*)[3], int, int, int (*)[3], Vec<Vec3D>&, 
+  void computeEmbSurfBasedForceLoad_e(IoData &iod, int, int, SVec<double,3>&, double (*)[3], int, int, int (*)[3], Vec<Vec3D>&, Vec3D*,
 												  LevelSetStructure&, double pInfty, SVec<double,dim> &V, 
 												  Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn, NodalGrad<dim,double> &ngrad, 
 												  VarFcn *vf, Vec<int>* fid, double* interfaceFluidMeshSize, bool externalSI = true);
@@ -1859,24 +1859,24 @@ public:
 													  Vec<GhostPoint<dim>*> *ghostPoints,
 													  NodalGrad<dim, double> &ngrad);
 
-  template<int dim>
-  void computeEMBNodeScalarQuantity_step1(SVec<double,3> &X, SVec<double,dim> &V,
-														int numStructElems, int (*stElem)[3],
-														Vec<Vec3D>& Xstruct, LevelSetStructure &LSS,
-														int** stNodeDir, double** stX1, double** stX2,
-														bool rebuildTree=true);
-
-
-  template<int dim>
-  void computeEMBNodeScalarQuantity_step2(SVec<double,3> &X, SVec<double,dim> &V,
-														PostFcn *postFcn, VarFcn *varFcn,
-														Vec<int> &fluidId,
-														double (*Qnty)[4], int sizeQnty, int numStructElems, int (*stElem)[3],
-														Vec<Vec3D>& Xstruct, LevelSetStructure &LSS,
-														double pInfty,
-														Vec<GhostPoint<dim>*> *ghostPoints,
-														NodalGrad<dim, double> &ngrad,
-														int** stNodeDir, double** stX1, double** stX2);
+//  template<int dim>
+//  void computeEMBNodeScalarQuantity_step1(SVec<double,3> &X, SVec<double,dim> &V,
+//														int numStructElems, int (*stElem)[3],
+//														Vec<Vec3D>& Xstruct, LevelSetStructure &LSS,
+//														int** stNodeDir, double** stX1, double** stX2,
+//														bool rebuildTree=true);
+//
+//
+//  template<int dim>
+//  void computeEMBNodeScalarQuantity_step2(SVec<double,3> &X, SVec<double,dim> &V,
+//														PostFcn *postFcn, VarFcn *varFcn,
+//														Vec<int> &fluidId,
+//														double (*Qnty)[4], int sizeQnty, int numStructElems, int (*stElem)[3],
+//														Vec<Vec3D>& Xstruct, LevelSetStructure &LSS,
+//														double pInfty,
+//														Vec<GhostPoint<dim>*> *ghostPoints,
+//														NodalGrad<dim, double> &ngrad,
+//														int** stNodeDir, double** stX1, double** stX2);
 
   template<int dim>
   void computederivativeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int order, SVec<double,3> &X,

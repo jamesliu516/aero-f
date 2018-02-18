@@ -88,6 +88,11 @@ public:
     fprintf(stderr,"Calling a PostFcn Function for Viscous Forces. Doesn't make sense!\n");
     exit(-1);
   }
+
+    virtual Vec3D computeViscousForceAtWall(double V[4], Vec3D& n, double d2w, double* Vwall, double dp1dxj[4][3], double* Vtet[4]){
+        fprintf(stderr,"Calling a PostFcn Function for Viscous Forces. Doesn't make sense!\n");
+        exit(-1);
+    }
     virtual double computeSkinFriction(Vec3D& n, double dist, double* Vwall,  double* Vtet[4], double* bary)
     {
         fprintf(stderr,"Calling a PostFcn Function for Viscous Forces. Doesn't make sense!\n");
@@ -193,6 +198,11 @@ public:
     fprintf(stderr,"Calling a PostFcnEuler Function for Viscous Forces. Doesn't make sense!\n");
     exit(-1);
   }
+    virtual Vec3D computeViscousForceAtWall(double V[4], Vec3D& n, double d2w, double* Vwall, double dp1dxj[4][3], double* Vtet[4]){
+        fprintf(stderr,"Calling a PostFcn Function for Viscous Forces. Doesn't make sense!\n");
+        exit(-1);
+    }
+
     virtual double computeSkinFriction(Vec3D& n, double dist, double* Vwall,  double* Vtet[4], double* bary)
 
     {
@@ -273,6 +283,7 @@ public:
 
   virtual Vec3D computeViscousForceCVBoundary(Vec3D& n,  double* Vi, double dudxj[3][3]);
   virtual Vec3D computeViscousForce(double [4][3], Vec3D&, double [3], double*, double* [3], double* [4]);
+    virtual Vec3D computeViscousForceAtWall(double V[4], Vec3D& n, double d2w, double* Vwall, double dp1dxj[4][3], double* Vtet[4]);
     virtual double computeSkinFriction(Vec3D& n, double dist, double* Vwall,  double* Vtet[4], double* bary);
 
 

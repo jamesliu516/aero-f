@@ -1612,6 +1612,7 @@ Vec3D PostFcnNS::computeViscousForce(double dp1dxj[4][3], Vec3D& n, double d2w[3
     double dudxj[3][3];
     computeVelocityGradient(dp1dxj, u, dudxj);
 
+
     double mu     = viscoFcn->compute_mu(Tcg);
     double lambda = viscoFcn->compute_lambda(Tcg, mu);
     mu     *= ooreynolds_mu;
@@ -1629,6 +1630,139 @@ Vec3D PostFcnNS::computeViscousForce(double dp1dxj[4][3], Vec3D& n, double d2w[3
 
 }
 
+//------------------------------------------------------------------------------
+/* Evaluate shear force at the embbeded boundary surface
+ * Gassuan point Xp, it is moved toward wall outward normal Xpp = Xp + d2w*n_wall
+ * @para[in] V : fluid primitive state at Xpp
+ * @para[in] n : is the wall normal vector toward the wall (inward wall normal), weighted by surface element area
+ * @para[in] d2w: distance to wall
+ * @para[in] Vwall: wall velocity at Xp
+ * @para[in] Vtet: fluid primite tive states of the tetrahedron containing Xpp
+ *
+ * todo this is for adiabatic wall, for isothermal wall it will be better to
+ * use T = Twall to compute mu
+ * todo there is a flag needTangentialGradient, compute the shear stress, if it is false
+ * only consider du/dn but not du/dt.
+ *
+ */
+Vec3D PostFcnNS::computeViscousForceAtWall(double* V, Vec3D& n,
+                                           double d2w, double* Vwall,  double dp1extdxj[4][3], double* Vtet[4])
+{// n is the normal toward the wall (inward wall normal)
+    Vec3D unit_n = -n/n.norm(); //outward unit normal
+    Vec3D Fv;
+    Vec3D u(V[1]/V[0] - Vwall[0], V[2]/V[0] - Vwall[1], V[3]/V[0] - Vwall[2]);
+
+    double T   = NavierStokesTerm::varFcn->computeTemperature(V);
+
+
+
+    double dudxj[3][3] = {{0.,0.,0.},{0.,0.,0.},{0.,0.,0.}};
+
+    //wall normal coordinate A = (en, et, et2) are wall normal velocity tangential and the third direction
+    //vel in wall normal coordinate are un, ut, 0
+
+    double un = u*unit_n;
+    Vec3D utet = u - un*unit_n, et, et2;
+    double ut = utet.norm();
+
+    if(ut > 1e-12)
+        et = utet / ut;
+    else { //ut = 0, find any vector perpendicular to unitNs
+        et = Vec3D(1., 0., 0.) ^ unit_n;
+        if (et.norm() < 1.0e-12) et = Vec3D(0., 1., 0.) ^ unit_n;
+
+    }
+    et2 = unit_n ^ et;
+
+
+    double temp[3][3] = {{0.,0.,0.},{0.,0.,0.},{0.,0.,0.}};
+
+    //A = [en,et,et2]
+    double A[3][3] = {{unit_n[0], et[0], et2[0]},   {unit_n[1], et[1], et2[1]},    {unit_n[2], et[2] ,et2[2]}};
+
+
+    double dunden[3][3] = {{un/d2w, 0., 0. },   {ut/d2w, 0.,0.},    {0.,0.,0.}};
+
+    bool needTangentialGradient = true;
+    if(needTangentialGradient) {
+        double duextdxj[3][3];
+        double uext[4][3], uextcg[3];
+        computeVelocity(Vtet, uext, uextcg);
+        computeVelocityGradient(dp1extdxj, uext, duextdxj);
+        double duextden[3][3];
+        //dudxj = du/dun * dun/den * den/dxj
+        //du/dun = A, den/dxj = A^T
+        //dun/den = A^T dudxj A
+        for (int i = 0; i < 3; i++)
+            for (int j = 0; j < 3; j++) {
+                temp[i][j] = 0.0;
+                for (int k = 0; k < 3; k++)
+                    temp[i][j] += A[k][i] * duextdxj[k][j];
+            }
+
+        for (int i = 0; i < 3; i++)
+            for (int j = 0; j < 3; j++) {
+                duextden[i][j] = 0.;
+                for (int k = 0; k < 3; k++)
+                    duextden[i][j] += temp[i][k] * A[k][j];
+            }
+        //update gradient in tangential direction
+        for (int i = 0; i < 3; i++)
+            for (int j = 1; j < 3; j++)
+                dunden[i][j] = duextden[i][j];
+
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    //dudxj = du/dun * dun/den * den/dxj
+    //du/dun = A, den/dxj = A^T
+    for(int i = 0; i < 3; i++)
+        for(int j = 0; j < 3; j++) {
+            temp[i][j] = 0.;
+            for (int k = 0; k < 3; k++)
+                temp[i][j] += A[i][k] * dunden[k][j];
+        }
+
+    for(int i = 0; i < 3; i++)
+        for(int j = 0; j < 3; j++) {
+            dudxj[i][j] = 0.;
+            for (int k = 0; k < 3; k++)
+                dudxj[i][j] += temp[i][k] * A[j][k];
+        }
+
+
+
+
+
+    double mu     = viscoFcn->compute_mu(T);
+    double lambda = viscoFcn->compute_lambda(T, mu);
+    mu     *= ooreynolds_mu;
+    lambda *= ooreynolds_mu;
+
+    double tij[3][3];
+    computeStressTensor(mu, lambda, dudxj, tij);
+
+    Fv[0] = tij[0][0] * n[0] + tij[0][1] * n[1] + tij[0][2] * n[2];
+    Fv[1] = tij[1][0] * n[0] + tij[1][1] * n[1] + tij[1][2] * n[2];
+    Fv[2] = tij[2][0] * n[0] + tij[2][1] * n[1] + tij[2][2] * n[2];
+
+
+    return -1.0 * Fv;
+
+}
 //------------------------------------------------------------------------------
 /***************
  * This is for EMB

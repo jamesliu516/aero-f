@@ -5508,6 +5508,7 @@ void Domain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orderOf
   int numStructElems = distLSS->getNumStructElems();
   int (*stElem)[3] = distLSS->getStructElems();
   Vec<Vec3D> &Xstruct = distLSS->getStructPosition();
+  Vec3D* Xdotstruct = distLSS->getStructVelocity();
 
   Vec<GhostPoint<dim> *> *gp = 0;
 
@@ -5566,7 +5567,7 @@ void Domain::computeEmbSurfBasedForceLoad(IoData &iod, int forceApp, int orderOf
       if (ghostPoints) gp = ghostPoints->operator[](iSub);
       subDomain[iSub]->computeEmbSurfBasedForceLoad_e(iod, forceApp, orderOfAccuracy,
                                                     X(iSub), subFs[iSub], sizeFs,
-                                                    numStructElems, stElem, Xstruct,
+                                                    numStructElems, stElem, Xstruct, Xdotstruct,
                                                     (*distLSS)(iSub), pInfty, V(iSub),
                                                     gp, postFcn,
                                                     (*ngrad)(iSub), vf, fid ? &((*fid)(iSub)) : 0,
