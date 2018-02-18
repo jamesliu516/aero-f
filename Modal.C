@@ -557,7 +557,8 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
       com->fprintf(stderr, "*** Warning: Cannot create generalized displacement FILE in %s\n", dispFile);
       //exit (-1);
     }*/
-      com->fprintf(dispFP,"%d %f ",0,0.0);
+      // original format (changed for compatibility with AERO-S): com->fprintf(dispFP,"%d %f ",0,0.0);
+      com->fprintf(dispFP,"%d\n%d\n   %.16e\n",1,nStrMode,0.0);
       for (i=0; i < nStrMode; ++i) {
         com->fprintf(dispFP,"%.16e ",delU[i]);
       }
@@ -732,7 +733,8 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
 
      if (ioData->output.transient.gendispFile[0] != 0)  {
        // output generalized displacements
-       com->fprintf(dispFP, "%d %f ",cntp1, (cnt+1)*sdt);
+       // original format (changed for compatibility with AERO-S): com->fprintf(dispFP, "%d %f ",cntp1, (cnt+1)*sdt);
+       com->fprintf(dispFP, "   %.16e\n", (cnt+1)*sdt);
        for (i = 0; i < nStrMode; ++i) {
          com->fprintf(dispFP, "%.16e ", delU[i]);
        }
@@ -970,7 +972,8 @@ ModalSolver<dim>::timeIntegrateROM(double *romOp, VecSet<Vec<double> > &romOp0, 
     sprintf(dispFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.gendispFile);
     dispFP = fopen(dispFile, "w");
     com->barrier();
-    com->fprintf(dispFP,"%d %f ",0,0.0);
+    // original format (changed for compatibility with AERO-S): com->fprintf(dispFP,"%d %f ",0,0.0);
+    com->fprintf(dispFP,"%d\n%d\n   %.16e\n",1,nStrMode,0.0);
     for (i=0; i < nStrMode; ++i) {
       com->fprintf(dispFP,"%.16e ", delU[i]);
     }
@@ -1045,7 +1048,8 @@ ModalSolver<dim>::timeIntegrateROM(double *romOp, VecSet<Vec<double> > &romOp0, 
 
    if (ioData->output.transient.gendispFile[0] != 0)  {
      // output generalized displacements
-     com->fprintf(dispFP, "%d %f ",cntp1, (cnt+1)*sdt);
+     // original format (changed for compatibility with AERO-S): com->fprintf(dispFP, "%d %f ",cntp1, (cnt+1)*sdt);
+     com->fprintf(dispFP, "   %.16e\n", (cnt+1)*sdt);
      for (i = 0; i < nStrMode; ++i) {
        com->fprintf(dispFP, "%.16e ", delU[i]);
      }
