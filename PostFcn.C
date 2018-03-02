@@ -1650,7 +1650,7 @@ Vec3D PostFcnNS::computeViscousForceAtWall(double* V, Vec3D& n,
 {// n is the normal toward the wall (inward wall normal)
     Vec3D unit_n = -n/n.norm(); //outward unit normal
     Vec3D Fv;
-    Vec3D u(V[1]/V[0] - Vwall[0], V[2]/V[0] - Vwall[1], V[3]/V[0] - Vwall[2]);
+    Vec3D u(V[1] - Vwall[0], V[2] - Vwall[1], V[3] - Vwall[2]);
 
     double T   = NavierStokesTerm::varFcn->computeTemperature(V);
 
