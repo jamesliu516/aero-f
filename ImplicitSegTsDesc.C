@@ -362,10 +362,10 @@ template<int dim, int neq1, int neq2>
 void ImplicitSegTsDesc<dim,neq1,neq2>::setOperators(DistSVec<double,dim> &Q)
 {
 
+  double t0 = this->timer->getTime();
+
   setOperator(mvp1, pc1, Q, this->spaceOp);
   setOperator(mvp2, pc2, Q, this->spaceOp);
-
-  double t0 = this->timer->getTime();
 
   pc1->setup();
   pc2->setup();

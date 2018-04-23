@@ -303,12 +303,12 @@ void ImplicitEmbeddedSegTsDesc<dim,neq1,neq2>::setOperator(MatVecProd<dim,neq> *
 template<int dim, int neq1, int neq2>
 void ImplicitEmbeddedSegTsDesc<dim,neq1,neq2>::setOperators(DistSVec<double,dim> &Q)
 {
+
+  double t0 = this->timer->getTime();
   
   setOperator<neq1>(mvp1, pc1, Q);
   setOperator<neq2>(mvp2, pc2, Q);
   
-  double t0 = this->timer->getTime();
-
   pc1->setup();
   pc2->setup();
   
