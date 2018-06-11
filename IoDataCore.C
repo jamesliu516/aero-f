@@ -1581,10 +1581,10 @@ void WallDistanceMethodData::setup(const char *name, ClassAssigner *father)
   new ClassInt<WallDistanceMethodData>(ca, "IterativeLevel", this, &WallDistanceMethodData::iterativelvl);
 
   new ClassToken<WallDistanceMethodData>
-    (ca, "ReinitializationFrequencyAdaptation", this, reinterpret_cast<int WallDistanceMethodData::*>
+    (ca, "FrequencyControl", this, reinterpret_cast<int WallDistanceMethodData::*>
     (&WallDistanceMethodData::frequencyadaptation), 2, "Off", 0, "On", 1);
 
-  new ClassDouble<WallDistanceMethodData>(ca, "DistanceEps", this, &WallDistanceMethodData::distanceeps);
+  new ClassDouble<WallDistanceMethodData>(ca, "FrequencyControlThreshold", this, &WallDistanceMethodData::distanceeps);
 
 }
 
