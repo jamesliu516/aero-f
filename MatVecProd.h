@@ -618,7 +618,7 @@ public:
   virtual ~MatVecProdMultiPhase() { timeState=0; spaceOp = 0; riemann = 0; fluidSelector = 0; }
 
   virtual void exportMemory(MemoryPool *mp)
-  {std::cout<<"*** Error: exportMemory not implemented"<<std::endl; exit(-1);}
+  {/*std::cout<<"*** Error: exportMemory not implemented"<<std::endl; exit(-1);*/}
 
   virtual void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
                         DistSVec<double,dim> &, DistSVec<double,dimLS> &,
