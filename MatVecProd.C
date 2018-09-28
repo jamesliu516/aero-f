@@ -2652,7 +2652,7 @@ void MatVecProdH1MultiPhase<dim,dimLS>::evaluate(int it, DistSVec<double,3> &X, 
       this->subDomain[iSub]->computeJacobianFiniteVolumeTermHH(this->spaceOp->getFluxFcn(),
 							       (*this->spaceOp->getDistBcData())(iSub) ,
 							       (*this->spaceOp->getGeoState())(iSub),
-							       ctrlVol, Q, *A[iSub],this->spaceOp->getVarFcn());
+							       ctrlVol(iSub), Q(iSub), *A[iSub],this->spaceOp->getVarFcn());
 
     }
 

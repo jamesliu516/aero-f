@@ -6525,12 +6525,11 @@ void EdgeSet::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS
 template<int dimLS>
 void EdgeSet::TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Phi, LevelSetStructure *LSS)
 {
-  bool intersect = false;
   int tag = 1;
   for (int l=0; l<numEdges; l++) {
     int i = ptr[l][0];
     int j = ptr[l][1];
-    if(LSS) intersect = LSS->edgeIntersectsWall(0,l);
+    bool intersect = (LSS) ? LSS->edgeIntersectsWall(0,l) : false;
     if(Phi[i][lsdim]*Phi[j][lsdim]<=0.0 || intersect){
       Tag[i] = tag;
       Tag[j] = tag;
